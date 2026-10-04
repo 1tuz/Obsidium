@@ -37,11 +37,11 @@ Explore every note and connection on one canvas. Adjust node size and spacing, h
 
 ![Knowledge graph](screenshots/graph.jpg)
 
-### Tasks across the vault
+### Interactive tasks and rollups
 
-Markdown checkboxes are interactive in the editor. A `TASK` query gathers matching items from many notes into one live view, and completing an item updates its source note.
+Markdown checkboxes are interactive directly in the editor, as shown below. For a combined rollup, a `TASK` query gathers matching items from many notes into one live view, and completing an item there updates its source note.
 
-![Task query](screenshots/tasks.jpg)
+![Interactive Markdown tasks](screenshots/tasks-aquilum.jpg)
 
 ### Books and reading notes
 
@@ -87,6 +87,8 @@ Use light or dark themes, scale the interface, and configure fonts, line height,
 - Search inside the current note with highlighted matches.
 - Typed metadata in the index for fast structured filtering.
 - Backlinks, outgoing links, graph navigation, and related-note suggestions.
+- Source analysis with Wikipedia discovery, candidate selection, and saving results into a note.
+- Keyboard shortcuts for creating notes, global search, result navigation, and opening content in a new pane.
 
 ### Local-first collaboration with agents
 
