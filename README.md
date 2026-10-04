@@ -25,68 +25,97 @@ The desktop interface is built with Tauri and React; disk access, indexing, sear
 
 ## A tour of Aquilum
 
-### Start from a workspace that remembers where you were
+### 1. Return to the same workspace
 
-Open a vault and continue from the same tabs and documents. A home note can combine ordinary Markdown with live `TABLE`, `LIST`, and `TASK` queries, while the history panel records changes, shows their source, compares versions, and lets you restore an earlier state.
+Aquilum restores the working context around your notes, not just the last open file. Reorderable tabs, back and forward navigation, and the document tree let you move between several lines of thought without losing your place. You can choose any note as the vault home page and turn it into a dashboard that mixes ordinary Markdown with live `TABLE`, `LIST`, and `TASK` queries.
+
+The history panel shown on the right records how a note changed and where each edit came from. You can inspect a visual diff, create named versions at meaningful milestones, restore a complete earlier version, or reverse one selected change. This history complements the files on disk: the current document is still an ordinary `.md` file that remains usable outside Aquilum.
 
 ![Aquilum home workspace with note history](screenshots/overview-history.jpg)
 
-### Find an idea from either direction
+### 2. Search the entire vault while you type
 
-Full-text search returns matching notes as you type, with context around every result. When you want the wider picture, the graph turns wiki links into a navigable map with adjustable layout, node sizing, neighborhood highlighting, and date coloring.
+Global search is backed by a local full-text index and returns matching notes as you type. Every result includes surrounding text, so you can judge a match before opening it; keyboard navigation makes it practical to move through a long result list quickly. Search indexes are maintained separately for each vault and updated when files change, including changes made by another editor.
 
-<table>
-  <tr>
-    <td width="50%"><img src="screenshots/global-search.jpg" alt="Full-text search across an Aquilum vault"></td>
-    <td width="50%"><img src="screenshots/graph-overview.jpg" alt="Interactive knowledge graph in Aquilum"></td>
-  </tr>
-</table>
+![Full-text search across an Aquilum vault](screenshots/global-search.jpg)
 
-### Write visually and keep portable Markdown
+For a narrower task, search inside the current note highlights matches without leaving the editor. Aquilum also indexes typed frontmatter fields, which lets live queries filter and organize notes by structured metadata rather than text alone.
 
-Live preview keeps formatting readable while preserving ordinary `.md` files on disk. The editor supports nested and numbered lists, callouts, tasks, code blocks, tables, links, frontmatter, page covers, and reusable templates. Markers reappear where you edit, so the underlying Markdown is never hidden from you.
+### 3. Explore links as a knowledge graph
+
+The graph turns wiki links between notes into a navigable map. Pan and zoom across the whole vault, select a node to highlight its neighborhood, and open a note directly from the visualization. Controls for link distance, node size, labels, colors, and date ranges help reduce visual noise when the vault becomes large.
+
+The graph is part of the same navigation system as backlinks, outgoing links, and related-note suggestions. It therefore works both as a broad overview and as a way to answer a focused question: what supports this note, where does it lead, and which nearby ideas have not yet been connected explicitly?
+
+![Interactive knowledge graph in Aquilum](screenshots/graph-overview.jpg)
+
+### 4. Write with live Markdown preview
+
+The CodeMirror editor renders headings, emphasis, links, lists, callouts, code, and embedded content close to their final appearance while you write. Markdown markers are hidden only where that improves readability and reappear when the caret enters the corresponding construct, so the source never becomes inaccessible. A document outline provides quick navigation through long notes, while link completion helps connect the current paragraph to existing material.
+
+The result remains portable Markdown on disk. Nested lists, both numbered-list styles, empty list items, tasks, fenced blocks, frontmatter, and wiki links are preserved as text rather than converted into a private document format. Page covers and book callouts add richer presentation without changing that ownership model.
 
 ![Rich Markdown editing with lists, callouts, and embedded content](screenshots/rich-editor.jpg)
 
-Tasks remain ordinary Markdown checkboxes, but behave like controls in the editor. A `TASK` query can collect matching items from across the vault into a live rollup; completing an item there updates the source note as well.
+### 5. Manage tasks without a separate task database
+
+Tasks remain ordinary Markdown checkboxes in the notes where they belong, but behave like interactive controls in the editor. You can complete an item in place, keep project context around it, and use metadata to distinguish areas, statuses, or dates without copying the task into another system.
+
+A live `TASK` query can collect matching items from many notes into one dashboard. Completing an item in the query result updates the original source note, so the rollup and the underlying project page cannot silently drift apart.
 
 ![Interactive tasks and project rollups in Aquilum](screenshots/tasks.jpg)
 
-Tables stay in Markdown too, while the visual editor adds practical controls for resizing columns, merging cells, and moving rows or columns.
+### 6. Edit structured tables visually
+
+Tables stay readable as Markdown but gain spreadsheet-like interaction where it matters. You can resize columns, select a rectangular range, merge cells, and move rows or columns from visual controls instead of manually repairing separators after every change. Keyboard navigation keeps editing efficient when a table contains many fields.
+
+The editor keeps the visual grid and Markdown source synchronized. That means the table can still be read and versioned as text, while Aquilum handles the error-prone structural edits for you.
 
 ![A structured Markdown table in Aquilum](screenshots/tables.jpg)
 
-### Keep media and context next to the text
+### 7. Keep media, references, and context together
 
-Paste or import images and video into local attachments, crop images without leaving the editor, and place PDF files alongside the notes that explain them. Incoming and outgoing links remain visible below the document, helping you follow references without losing your current page.
+Paste an image from the clipboard or import an image or video file and Aquilum stores it as a local attachment in the vault. Images can be cropped inside the editor, so preparing a diagram, scan, or illustration does not require a separate round trip through another application. PDFs and other source files can live beside the notes that interpret them.
+
+The link panels below the document show both directions of context: outgoing links reveal what the note cites, while backlinks reveal which other notes depend on it. Related-note suggestions help surface nearby material even before you add an explicit link. Together, media and links make a note a working research surface rather than an isolated page.
 
 ![Image editing and backlinks in an Aquilum note](screenshots/media-backlinks.jpg)
 
-### Turn books into part of the knowledge base
+### 8. Build a local book library
 
-Keep EPUB, MOBI, AZW3, and FB2 files next to your notes. The library tracks reading progress, and the built-in reader provides a focused two-column layout with typography, justification, and hyphenation controls. Save selected passages as quotes in the book note, then connect them to the rest of your vault.
+Add EPUB, MOBI, AZW3, and FB2 books without moving reading into a separate cloud service. The library presents covers, authors, formats, and reading progress in one place, while the original book files remain in the vault. Opening a title resumes the saved position, making the library useful for both reference works and long-form reading.
 
-<table>
-  <tr>
-    <td width="50%"><img src="screenshots/book-library.jpg" alt="Book library with reading progress"></td>
-    <td width="50%"><img src="screenshots/book-reader.jpg" alt="Two-column book reader in Aquilum"></td>
-  </tr>
-</table>
+![Book library with reading progress](screenshots/book-library.jpg)
 
-Book templates keep the cover, author, status, dates, rating, tags, and source file in structured frontmatter. Templates can also create other recurring note types and insert date or time placeholders.
+### 9. Read and collect passages without leaving the vault
+
+The built-in reader provides a focused two-column layout and controls for typeface, text size, line height, content width, alignment, and hyphenation. Reading position and progress stay synchronized with the library, so closing the book does not lose your place.
+
+Selected passages can be saved as quotes in the corresponding book note. From there they become ordinary knowledge-base material: you can annotate them, link them to ideas and projects, find them through search, and include them in queries.
+
+![Two-column book reader in Aquilum](screenshots/book-reader.jpg)
+
+### 10. Reuse structure with templates and metadata
+
+Templates turn recurring note structures into a repeatable workflow. Search for a template, apply it to the current note, or create a new document from it; date and time placeholders are resolved when the template is used. Starter templates cover ordinary notes and books, while your own templates can represent meetings, research sources, people, projects, or any other repeated format.
+
+The book example shows YAML frontmatter as editable fields rather than an opaque block: cover, author, status, dates, rating, tags, and source file remain structured and searchable. Because the metadata is still stored in the Markdown file, other tools can read it and Aquilum's queries can use it immediately.
 
 ![Book note template with structured metadata](screenshots/book-template.jpg)
 
-### Make the workspace yours—and recover mistakes
+### 11. Adapt the interface to your way of working
 
-Choose a light or dark theme, interface language, accent color, scale, fonts, line height, and content width for writing and reading. Deleted notes and folders go to a configurable trash instead of disappearing immediately, and can be restored to their previous location.
+Appearance settings cover the whole working environment rather than a single editor theme. Choose light or dark mode, the interface language, accent color, UI scale, editor and reader fonts, line height, and content width. You can also choose the home note and tune reading separately from writing, so a dense research workspace and a calm book layout do not have to share the same typography.
 
-<table>
-  <tr>
-    <td width="50%"><img src="screenshots/appearance-settings.jpg" alt="Aquilum interface and appearance settings"></td>
-    <td width="50%"><img src="screenshots/trash-restore.jpg" alt="Trash with restorable notes and folders"></td>
-  </tr>
-</table>
+![Aquilum interface and appearance settings](screenshots/appearance-settings.jpg)
+
+### 12. Recover deleted notes and folders
+
+Deleting content does not immediately erase it. Notes and whole folders move to Aquilum's trash, where you can see what was removed and restore it to its previous location. The retention period is configurable, so temporary cleanup and long-term safety can be balanced for the size of your vault.
+
+Trash is one layer of a broader recovery model. Note history handles edits inside a document, while external-change detection protects work made by another editor or an AI agent; if competing changes cannot be merged safely, Aquilum preserves the disputed material in a conflict copy instead of silently discarding it.
+
+![Trash with restorable notes and folders](screenshots/trash-restore.jpg)
 
 ## Feature overview
 
