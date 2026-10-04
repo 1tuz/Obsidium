@@ -23,51 +23,70 @@ Aquilum opens a folder you choose and works directly with the `.md` files inside
 
 The desktop interface is built with Tauri and React; disk access, indexing, search, and queries run in Rust. The result is a responsive workspace that keeps its source of truth on your computer.
 
-## A workspace, not just a text box
+## A tour of Aquilum
 
-### Home pages and live queries
+### Start from a workspace that remembers where you were
 
-Create dashboards directly in a note. A `dataview` block can collect recent files, projects, books, or unfinished tasks without plugins or JavaScript. `TABLE`, `LIST`, and `TASK` queries support sources, filters, sorting, limits, file fields, metadata, and functions. Familiar DQL-style syntax makes many existing queries easy to move.
+Open a vault and continue from the same tabs and documents. A home note can combine ordinary Markdown with live `TABLE`, `LIST`, and `TASK` queries, while the history panel records changes, shows their source, compares versions, and lets you restore an earlier state.
 
-![A dashboard built from the vault](screenshots/home.jpg)
+![Aquilum home workspace with note history](screenshots/overview-history.jpg)
 
-### Visual link graph
+### Find an idea from either direction
 
-Explore every note and connection on one canvas. Adjust node size and spacing, highlight nearby links, use date coloring, and move from an overview straight to the note you need.
+Full-text search returns matching notes as you type, with context around every result. When you want the wider picture, the graph turns wiki links into a navigable map with adjustable layout, node sizing, neighborhood highlighting, and date coloring.
 
-![Knowledge graph](screenshots/graph.jpg)
+<table>
+  <tr>
+    <td width="50%"><img src="screenshots/global-search.jpg" alt="Full-text search across an Aquilum vault"></td>
+    <td width="50%"><img src="screenshots/graph-overview.jpg" alt="Interactive knowledge graph in Aquilum"></td>
+  </tr>
+</table>
 
-### Interactive tasks and rollups
+### Write visually and keep portable Markdown
 
-Markdown checkboxes are interactive directly in the editor, as shown below. For a combined rollup, a `TASK` query gathers matching items from many notes into one live view, and completing an item there updates its source note.
+Live preview keeps formatting readable while preserving ordinary `.md` files on disk. The editor supports nested and numbered lists, callouts, tasks, code blocks, tables, links, frontmatter, page covers, and reusable templates. Markers reappear where you edit, so the underlying Markdown is never hidden from you.
 
-![Interactive Markdown tasks](screenshots/tasks-aquilum.jpg)
+![Rich Markdown editing with lists, callouts, and embedded content](screenshots/rich-editor.jpg)
 
-### Books and reading notes
+Tasks remain ordinary Markdown checkboxes, but behave like controls in the editor. A `TASK` query can collect matching items from across the vault into a live rollup; completing an item there updates the source note as well.
 
-Keep EPUB, MOBI, AZW3, and FB2 books next to your notes. The built-in reader remembers progress and offers a focused two-column layout, typography controls, justification, and hyphenation. Selected passages can be saved as quotes in the book note.
+![Interactive tasks and project rollups in Aquilum](screenshots/tasks.jpg)
 
-![Book library](screenshots/books.jpg)
+Tables stay in Markdown too, while the visual editor adds practical controls for resizing columns, merging cells, and moving rows or columns.
 
-![Built-in reader](screenshots/reader.jpg)
+![A structured Markdown table in Aquilum](screenshots/tables.jpg)
 
-### Links, backlinks, and related notes
+### Keep media and context next to the text
 
-Use wiki links such as `[[Note]]`, inspect incoming and outgoing links, and discover relevant material without manually organizing everything. Text relevance and graph relationships help surface useful neighboring notes.
+Paste or import images and video into local attachments, crop images without leaving the editor, and place PDF files alongside the notes that explain them. Incoming and outgoing links remain visible below the document, helping you follow references without losing your current page.
 
-![Links, backlinks, and recommendations](screenshots/links.jpg)
+![Image editing and backlinks in an Aquilum note](screenshots/media-backlinks.jpg)
 
-### Rich Markdown without leaving Markdown
+### Turn books into part of the knowledge base
 
-Live preview hides markup until you edit it. Tables support resizing, merged cells, and row or column reordering while remaining Markdown. The editor also handles nested and numbered lists, callouts, code blocks, links, images, video, PDF attachments, frontmatter fields, page covers, and reusable note templates.
+Keep EPUB, MOBI, AZW3, and FB2 files next to your notes. The library tracks reading progress, and the built-in reader provides a focused two-column layout with typography, justification, and hyphenation controls. Save selected passages as quotes in the book note, then connect them to the rest of your vault.
 
-![Tables and structured Markdown](screenshots/tables.jpg)
+<table>
+  <tr>
+    <td width="50%"><img src="screenshots/book-library.jpg" alt="Book library with reading progress"></td>
+    <td width="50%"><img src="screenshots/book-reader.jpg" alt="Two-column book reader in Aquilum"></td>
+  </tr>
+</table>
 
-### A workspace tuned to you
+Book templates keep the cover, author, status, dates, rating, tags, and source file in structured frontmatter. Templates can also create other recurring note types and insert date or time placeholders.
 
-Use light or dark themes, scale the interface, and configure fonts, line height, and content width separately for writing and reading. Aquilum includes Russian and English interfaces and restores the working context of your tabs and documents.
+![Book note template with structured metadata](screenshots/book-template.jpg)
 
-![Appearance and editor settings](screenshots/settings.jpg)
+### Make the workspace yours—and recover mistakes
+
+Choose a light or dark theme, interface language, accent color, scale, fonts, line height, and content width for writing and reading. Deleted notes and folders go to a configurable trash instead of disappearing immediately, and can be restored to their previous location.
+
+<table>
+  <tr>
+    <td width="50%"><img src="screenshots/appearance-settings.jpg" alt="Aquilum interface and appearance settings"></td>
+    <td width="50%"><img src="screenshots/trash-restore.jpg" alt="Trash with restorable notes and folders"></td>
+  </tr>
+</table>
 
 ## Feature overview
 
