@@ -74,12 +74,15 @@ Use light or dark themes, scale the interface, and configure fonts, line height,
 ### Writing and organization
 
 - CodeMirror-based editor with live Markdown preview and document outline.
-- Tabs plus back and forward navigation.
-- YAML frontmatter presented as editable fields.
-- Templates for consistently structured notes.
+- Reorderable tabs, restored workspace sessions, and back and forward navigation.
+- A file tree for creating folders, renaming, moving, duplicating, and safely deleting notes.
+- YAML frontmatter presented as editable fields, plus quick insertion of a metadata starter block.
+- Searchable templates that can be applied to the open note or used for a new one, with date and time placeholders and starter note and book templates.
+- Images and videos pasted or imported into local attachments, with image cropping inside the editor.
 - Multiple independent vaults, each with its own index.
-- Note history and trash support for recovering previous work.
-- External file changes are detected, so edits from another tool do not leave the open note stale.
+- Note history with edit sources, visual diffs, named versions, full-version restore, and reversal of an individual change.
+- Trash with configurable retention and restoration of notes and folders to their previous location.
+- External changes are detected and merged safely; when an unambiguous merge is impossible, Aquilum preserves the disputed content in a conflict copy.
 
 ### Search and discovery
 
@@ -92,7 +95,7 @@ Use light or dark themes, scale the interface, and configure fonts, line height,
 
 ### Local-first collaboration with agents
 
-Aquilum exposes an optional local MCP server. Compatible AI tools can search and read the vault, create or edit notes, and work with links and metadata. Documents use a Yjs CRDT model: changes are applied as small edits instead of replacing the entire note, allowing your typing and an agent's work to merge safely. The Markdown file on disk remains the durable source of truth.
+Aquilum exposes an optional local MCP server. Compatible AI tools can search and read content, create or precisely edit notes, and work with links, metadata, version history, and trash. An agent can access another connected vault in the background without switching the user's active window or tabs. Documents use a Yjs CRDT model: changes are applied as small edits instead of replacing the entire note, allowing your typing and an agent's work to merge safely. The Markdown file on disk remains the durable source of truth.
 
 ### Export and portability
 
