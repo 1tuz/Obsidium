@@ -1,190 +1,136 @@
 <p align="center">
-  <img src="Quantum-logo.png" alt="Quantum" width="120">
+  <img src="Aquilum-logo.png" alt="Aquilum" width="120">
 </p>
 
-<h1 align="center">Quantum</h1>
+<h1 align="center">Aquilum</h1>
 
 <p align="center">
-  A fast local notes editor and knowledge base for Windows.<br>
-  Your writing stays as plain markdown files in a folder on your disk.
-</p>
-
-<p align="center">
-  <a href="https://github.com/Freaction/Quantum-release/releases/latest">Download the latest version</a>
+  A fast, local-first knowledge base for Windows.<br>
+  Plain Markdown on your disk, with a focused editor, instant search, links, queries, and a built-in book reader.
 </p>
 
 <p align="center">
-  <b>English</b> · <a href="README.ru.md">Русский</a>
+  <a href="https://github.com/Freaction/Aquilum-release/releases/latest"><b>Download the latest version</b></a>
+  · <a href="#installation">Installation</a>
+  · <a href="README.ru.md">Русский</a>
 </p>
 
 ---
 
-## What it is
+## Your knowledge stays yours
 
-Quantum is a desktop app for a personal knowledge base: notes, links between them,
-search, book reading and structured metadata. There is no cloud and no account —
-the app opens a folder you choose and works with the `.md` files inside it directly.
-Those files stay readable in any other editor, so if Quantum ever stops suiting you,
-your notes are already where you need them and require no export.
+Aquilum opens a folder you choose and works directly with the `.md` files inside it. There is no required account, proprietary note format, or cloud database. Notes and attachments remain usable in other tools, and you can back them up or synchronize them with any service you trust.
 
-The app is built on Tauri: the interface is React, while everything touching the disk,
-the index and search runs in Rust. That is where its main property comes from — speed.
-Opening a note, searching and switching tabs are meant to feel instant on a vault of
-any size.
+The desktop interface is built with Tauri and React; disk access, indexing, search, and queries run in Rust. The result is a responsive workspace that keeps its source of truth on your computer.
 
-## How it looks
+## A workspace, not just a text box
 
-**The home page: your vault at a glance**
+### Home pages and live queries
 
-A ```` ```dataview ```` block builds live tables right inside a note — recent entries, how much
-of the day, month and year is gone, how many notes you wrote this week compared to the last one.
-Everything is computed inside the app, with no plugins and no JavaScript.
+Create dashboards directly in a note. A `dataview` block can collect recent files, projects, books, or unfinished tasks without plugins or JavaScript. `TABLE`, `LIST`, and `TASK` queries support sources, filters, sorting, limits, file fields, metadata, and functions. Familiar DQL-style syntax makes many existing queries easy to move.
 
-![Home page](screenshots/home.jpg)
+![A dashboard built from the vault](screenshots/home.jpg)
 
-**The graph of links**
+### Visual link graph
 
-Every note and every link on one canvas — 835 notes and 1487 links here. Node size, spacing,
-highlight depth and a heat map by date are adjustable while you look at it.
+Explore every note and connection on one canvas. Adjust node size and spacing, highlight nearby links, use date coloring, and move from an overview straight to the note you need.
 
-![Graph](screenshots/graph.jpg)
+![Knowledge graph](screenshots/graph.jpg)
 
-**Tasks**
+### Tasks across the vault
 
-Checkboxes are real: click one and the task closes in the text. A `TASK` query gathers open
-items from the entire vault into a single block, wherever they were written.
+Markdown checkboxes are interactive in the editor. A `TASK` query gathers matching items from many notes into one live view, and completing an item updates its source note.
 
-![Tasks](screenshots/tasks.jpg)
+![Task query](screenshots/tasks.jpg)
 
-**Books and the reader**
+### Books and reading notes
 
-A book page keeps the cover, the author and reading progress; "Read" opens the built-in reader
-with two columns, justified text and hyphenation. Your position and quotes are saved back into
-the note.
+Keep EPUB, MOBI, AZW3, and FB2 books next to your notes. The built-in reader remembers progress and offers a focused two-column layout, typography controls, justification, and hyphenation. Selected passages can be saved as quotes in the book note.
 
-![Books](screenshots/books.jpg)
+![Book library](screenshots/books.jpg)
 
-![Reader](screenshots/reader.jpg)
+![Built-in reader](screenshots/reader.jpg)
 
-**Links, backlinks and relevance**
+### Links, backlinks, and related notes
 
-Wiki links, a list of notes pointing here, and a sidebar that suggests what else is worth
-opening: BM25F ranks by wording, Adamic–Adar by the shape of the link graph.
+Use wiki links such as `[[Note]]`, inspect incoming and outgoing links, and discover relevant material without manually organizing everything. Text relevance and graph relationships help surface useful neighboring notes.
 
-![Backlinks](screenshots/links.jpg)
+![Links, backlinks, and recommendations](screenshots/links.jpg)
 
-**Tables and lists**
+### Rich Markdown without leaving Markdown
 
-A markdown table behaves like a spreadsheet — drag rows and columns, merge cells, keep links
-alive inside them. Lists support nesting, numbering and colored callouts.
+Live preview hides markup until you edit it. Tables support resizing, merged cells, and row or column reordering while remaining Markdown. The editor also handles nested and numbered lists, callouts, code blocks, links, images, video, PDF attachments, frontmatter fields, page covers, and reusable note templates.
 
-![Tables](screenshots/tables.jpg)
+![Tables and structured Markdown](screenshots/tables.jpg)
 
-**Settings**
+### A workspace tuned to you
 
-Fonts, sizes, line height and column width — separately for the editor and for the reader.
+Use light or dark themes, scale the interface, and configure fonts, line height, and content width separately for writing and reading. Aquilum includes Russian and English interfaces and restores the working context of your tabs and documents.
 
-![Settings](screenshots/settings.jpg)
+![Appearance and editor settings](screenshots/settings.jpg)
 
-## Features
+## Feature overview
 
-**Editor**
+### Writing and organization
 
-- Live markdown preview: syntax is only visible where the caret is, the rest of the text reads as a finished document.
-- Tables with merged cells, drag-to-reorder rows and columns, resizable widths.
-- Images and video inline, added by dropping files into the vault.
-- Code blocks with highlighting, quotes, callouts, and lists you can move with Alt+arrows.
-- Frontmatter collapses into a tidy block and is edited as a set of fields.
-- Note templates: your own starting points for new pages.
+- CodeMirror-based editor with live Markdown preview and document outline.
+- Tabs plus back and forward navigation.
+- YAML frontmatter presented as editable fields.
+- Templates for consistently structured notes.
+- Multiple independent vaults, each with its own index.
+- Note history and trash support for recovering previous work.
+- External file changes are detected, so edits from another tool do not leave the open note stale.
 
-**Links and navigation**
+### Search and discovery
 
-- Wiki links `[[Note]]`, backlinks and a list of outgoing links.
-- A link graph that updates as you edit.
-- Tabs, back/forward history, and a document outline.
-- Multiple vaults: each folder gets its own index, and switching never mixes their data.
+- Full-text vault search powered by Tantivy, with results while you type.
+- Search inside the current note with highlighted matches.
+- Typed metadata in the index for fast structured filtering.
+- Backlinks, outgoing links, graph navigation, and related-note suggestions.
 
-**Search**
+### Local-first collaboration with agents
 
-- Full-text search across the vault powered by Tantivy — results appear as you type.
-- In-page search with highlighted matches.
-- Metadata fields are stored in the index as typed values, which keeps queries over them fast.
+Aquilum exposes an optional local MCP server. Compatible AI tools can search and read the vault, create or edit notes, and work with links and metadata. Documents use a Yjs CRDT model: changes are applied as small edits instead of replacing the entire note, allowing your typing and an agent's work to merge safely. The Markdown file on disk remains the durable source of truth.
 
-**Querying the vault**
+### Export and portability
 
-A ```` ```dataview ```` block builds tables and lists of notes from conditions: `TABLE` and
-`LIST` with `FROM`, `WHERE`, `SORT` and `LIMIT` clauses, file fields and a set of functions.
-The syntax follows Obsidian's DQL from the outside so existing queries carry over without
-rewriting, while parsing and execution happen entirely in Rust.
-
-**Books**
-
-- A built-in reader for EPUB, MOBI, AZW3 and FB2 files kept in the same vault.
-- A book page with cover, author, status and reading progress.
-- Text selected in the reader goes into the note as a quote.
-
-**Appearance and output**
-
-- Light and dark themes, adjustable fonts and interface scale.
-- Page covers and book thumbnails.
-- Export a note to an A4 PDF that matches what you see on screen.
-- Russian and English interface.
-
-**For AI agents**
-
-A built-in MCP server gives agents access to the vault: reading, searching, creating and
-editing notes, following links and working with metadata. An agent's edits and your own
-typing merge instead of overwriting each other — the document lives in a CRDT model, so
-text under your caret survives while an agent writes to the same file.
+- Export a note to an A4 PDF using its rendered appearance.
+- Keep ordinary Markdown and attachments in ordinary folders.
+- Use your existing backup, version-control, or synchronization workflow.
 
 ## Installation
 
-1. Open the [latest release](https://github.com/Freaction/Quantum-release/releases/latest).
-2. Download `quantum-app_<version>_x64-setup.exe`.
-3. Run the installer.
+1. Open the [latest release](https://github.com/Freaction/Aquilum-release/releases/latest).
+2. Download `aquilum-app_<version>_x64-setup.exe`.
+3. Run the installer and choose a new or existing folder for your vault.
 
-The app installs into your user profile and does not ask for administrator rights.
-The installer is not signed with a Windows certificate, so SmartScreen may warn you —
-choose "More info" → "Run anyway".
-
-On first launch, pick a folder for your vault: an empty one for a fresh start, or an
-existing folder that already holds your markdown files.
+Aquilum installs for the current user and does not require administrator rights. The installer is not currently signed with a Windows code-signing certificate, so SmartScreen may show a warning. Choose **More info → Run anyway** if you downloaded it from this repository.
 
 ## Updates
 
-Quantum updates itself. On launch it checks this repository, and if a newer version is
-out, it downloads and installs it while showing the progress, then restarts. Every update
-is signed with the developer key and verified before installation. With no network
-connection the app simply starts as usual.
-
-There is no need to install a new version over the old one by hand.
+Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. Without a network connection, the app starts normally and your local vault remains available.
 
 ## Requirements
 
-- Windows 10 or 11, 64-bit.
-- WebView2 — present on the system by default, and the installer pulls it in if it is missing.
+- Windows 10 or Windows 11, 64-bit.
+- Microsoft Edge WebView2. It is normally present on Windows; the installer can obtain it when needed.
 
 macOS and Linux builds are not published yet.
 
-## Your data
+## Privacy and data locations
 
-Everything lives on your disk:
+Your content remains on your computer:
 
-- notes — `.md` files in the folder you chose, exactly where you see them;
-- attachments — inside the vault folder next to the notes;
-- the search index, scroll positions and reader bookmarks — service caches you can always
-  delete: they are rebuilt from your files.
+- notes are `.md` files in the vault folder you selected;
+- attachments and books live in that vault;
+- settings, window state, search indexes, and other rebuildable application data live in Aquilum's application-data directory.
 
-The app sends nothing to a server. It reaches the network only for updates and — if you
-turn source analysis on yourself — for Wikipedia articles.
+Aquilum does not require a cloud account. Network access is used for update checks and, only when you explicitly use source analysis, for retrieving Wikipedia material. The optional MCP server is local and starts only when enabled.
 
 ## Feedback
 
-Bugs and suggestions go to [Issues](https://github.com/Freaction/Quantum-release/issues).
-It helps to include the app version — Settings → System → About — and what you were doing
-before things went wrong.
+Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aquilum-release/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information.
 
 ## About this repository
 
-Only finished builds and the auto-update manifest are published here. The application
-source code lives in a separate private repository.
+This public repository contains Windows installers, update manifests, screenshots, and user-facing release information. Application development takes place in a separate private repository.
