@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Freaction/Aquilum-release/releases/latest"><b>Download the latest version</b></a>
+  <a href="https://github.com/Freaction/Aquilum/releases/latest"><b>Download the latest version</b></a>
   · <a href="#installation">Installation</a>
   · <a href="README.ru.md">Русский</a>
 </p>
@@ -100,7 +100,7 @@ Aquilum exposes an optional local MCP server. Compatible AI tools can search and
 
 ## Installation
 
-1. Open the [latest release](https://github.com/Freaction/Aquilum-release/releases/latest).
+1. Open the [latest release](https://github.com/Freaction/Aquilum/releases/latest).
 2. Download `aquilum-app_<version>_x64-setup.exe`.
 3. Run the installer and choose a new or existing folder for your vault.
 
@@ -129,7 +129,7 @@ Aquilum does not require a cloud account. Network access is used for update chec
 
 ## Feedback
 
-Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aquilum-release/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information.
+Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aquilum/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information.
 
 ## About this repository
 
