@@ -184,6 +184,12 @@ Aquilum does not require a cloud account. Network access is used for update chec
 
 Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aquilum/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information.
 
-## About this repository
+## Source code and license
 
-This public repository contains Windows installers, update manifests, screenshots, and user-facing release information. Application development takes place in a separate private repository.
+This repository contains the Aquilum source code, Windows installers, update manifests, and screenshots. Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [aquilum-app/README.md](aquilum-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
+
+Copyright © 2026 Dmitriy Chaplinskiy.
+
+Aquilum is free software licensed under the [GNU Affero General Public License v3.0 only](LICENSE). You may use, study, modify, and share it, but any distributed version — and any modified version offered to users over a network — must be released under the same license with its complete source code. For use under other terms, such as a commercial license, contact the author.
+
+The name “Aquilum” and its logo identify the original project and are not licensed for use by modified versions.
