@@ -13,7 +13,7 @@ interface SliderProps {
 
 export function Slider({ label, value, min, max, step, hint, onChange }: SliderProps) {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange(Number(event.target.value));
+    onChange(Number(event.currentTarget.value));
   };
 
   return (

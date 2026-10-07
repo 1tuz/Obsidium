@@ -6,10 +6,10 @@ import {
   Crop,
   MoveDiagonal2,
   ZoomIn,
-  type LucideIcon,
-} from 'lucide-react';
+  type IconNode,
+} from 'lucide';
 import type { EditorView } from '@codemirror/view';
-import { renderIconMarkup } from '../../../Common/iconMarkup';
+import { createIconElement } from '../../../Common/iconElement';
 import type { ImageAlign, ImageCrop, MediaKind } from '../../../../modules/docs/imageEmbeds';
 
 export type MediaElement = HTMLImageElement | HTMLVideoElement;
@@ -24,7 +24,7 @@ type ImageEmbedViewData = {
   kind: MediaKind;
 };
 
-const ALIGN_ICONS: Record<ImageAlign, LucideIcon> = {
+const ALIGN_ICONS: Record<ImageAlign, IconNode> = {
   left: AlignLeft,
   center: AlignCenter,
   right: AlignRight,
@@ -36,13 +36,13 @@ const ALIGN_TITLES: Record<ImageAlign, string> = {
   right: 'Выравнивание справа',
 };
 
-function actionButton(action: ImageEmbedAction, icon: LucideIcon, title: string): HTMLElement {
+function actionButton(action: ImageEmbedAction, icon: IconNode, title: string): HTMLElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'q-icon-button q-icon-button--small';
   button.dataset.imageAction = action;
   button.title = title;
-  button.innerHTML = renderIconMarkup(icon);
+  button.replaceChildren(createIconElement(icon));
   return button;
 }
 
@@ -230,7 +230,7 @@ export function renderImageEmbedDom(data: ImageEmbedViewData): HTMLElement {
 export function updateAlignAction(root: HTMLElement, align: ImageAlign): void {
   const button = root.querySelector<HTMLElement>('[data-image-action="align"]');
   if (!button) return;
-  button.innerHTML = renderIconMarkup(ALIGN_ICONS[align]);
+  button.replaceChildren(createIconElement(ALIGN_ICONS[align]));
   button.title = ALIGN_TITLES[align];
 }
 
@@ -252,7 +252,7 @@ export function createImageChrome(align: ImageAlign, kind: MediaKind): HTMLEleme
   grip.type = 'button';
   grip.className = 'q-icon-button q-icon-button--small q-icon-button--white q-md-image-grip';
   grip.title = 'Изменить размер';
-  grip.innerHTML = renderIconMarkup(MoveDiagonal2);
+  grip.replaceChildren(createIconElement(MoveDiagonal2));
 
   return [toolbar, grip];
 }

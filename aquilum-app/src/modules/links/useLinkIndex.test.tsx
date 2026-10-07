@@ -1,4 +1,6 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+// @vitest-environment happy-dom
+import { act } from 'preact/test-utils';
+import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useLinkIndex } from './useLinkIndex';
 import type { SearchIndexStatus } from '../search';
@@ -25,8 +27,6 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('../search', () => search);
 vi.mock('../idle', () => ({ whenIdle: (run: () => void) => { run(); return () => {}; } }));
 
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
 const WORKSPACE = 'C:\\notes';
 
 function status(generation: number, revision: number): SearchIndexStatus {
@@ -48,22 +48,22 @@ function Harness() {
   return null;
 }
 
-async function mount(): Promise<ReactTestRenderer> {
-  let renderer!: ReactTestRenderer;
-  await act(async () => {
-    renderer = create(<Harness />);
+async function mount(): Promise<MountedDom> {
+  let renderer!: MountedDom;
+  await actAndSettle(() => {
+    renderer = mountDom(<Harness />);
   });
   return renderer;
 }
 
 async function change(): Promise<void> {
-  await act(async () => {
+  await actAndSettle(() => {
     events.deliver?.({ payload: { workspacePath: WORKSPACE } });
   });
 }
 
 describe('useLinkIndex', () => {
-  let renderer: ReactTestRenderer | null = null;
+  let renderer: MountedDom | null = null;
 
   afterEach(() => {
     if (renderer) act(() => renderer?.unmount());
@@ -132,7 +132,7 @@ describe('useLinkIndex', () => {
     const settled = latest?.revision ?? 0;
 
     search.getSearchIndexStatus.mockResolvedValue(status(2, 10));
-    await act(async () => {
+    await actAndSettle(() => {
       events.deliver?.({ payload: { workspacePath: 'c:/notes/' } });
     });
 

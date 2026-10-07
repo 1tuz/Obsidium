@@ -9,8 +9,7 @@ import { t } from '../../i18n';
 interface GraphRendererInput {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   labels: NoteLabels;
-  activated: boolean;
-  inactive: boolean;
+  visible: boolean;
   attempt: number;
   onOpenNote: (path: string) => void;
   onCameraSettled: (camera: GraphCameraState) => void;
@@ -19,8 +18,7 @@ interface GraphRendererInput {
 export function useGraphRenderer({
   canvasRef,
   labels,
-  activated,
-  inactive,
+  visible,
   attempt,
   onOpenNote,
   onCameraSettled,
@@ -29,6 +27,7 @@ export function useGraphRenderer({
   const scaleReadoutRef = useRef<HTMLSpanElement | null>(null);
   const [rendererError, setRendererError] = useState<string | null>(null);
   const [visibleNodes, setVisibleNodes] = useState(0);
+  const [generation, setGeneration] = useState(0);
   const openNote = useStableCallback(onOpenNote);
   const cameraSettled = useStableCallback(onCameraSettled);
 
@@ -39,7 +38,7 @@ export function useGraphRenderer({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !activated) return;
+    if (!canvas || !visible) return;
     let renderer: GraphRenderer;
     try {
       renderer = new GraphRenderer(canvas, labels);
@@ -62,17 +61,14 @@ export function useGraphRenderer({
     const observer = new ResizeObserver(() => renderer.resize());
     observer.observe(canvas);
     renderer.resize();
+    setGeneration((current) => current + 1);
     return () => {
       observer.disconnect();
       labels.onLoaded = null;
       renderer.dispose();
       rendererRef.current = null;
     };
-  }, [activated, attempt, cameraSettled, canvasRef, labels, openNote]);
+  }, [visible, attempt, cameraSettled, canvasRef, labels, openNote]);
 
-  useEffect(() => {
-    rendererRef.current?.setActive(!inactive);
-  }, [inactive]);
-
-  return { rendererRef, rendererError, visibleNodes, attachScaleReadout };
+  return { rendererRef, generation, rendererError, visibleNodes, attachScaleReadout };
 }

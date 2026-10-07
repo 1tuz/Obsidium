@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
-import { ArrowUpDown, CornerDownLeft } from 'lucide-react';
+import { ArrowUpDown, CornerDownLeft } from 'lucide';
+import { Icon } from '../Common/Icon';
 import type { ReactNode } from 'react';
 import { shortcutModifiers, SHORTCUTS, type ShortcutToken } from '../../config/shortcuts';
 import { DialogFooter } from '../Common/Dialog';
@@ -8,16 +9,16 @@ export function SearchFooter() {
   return (
     <DialogFooter align="center">
       <KeyHint shortcut={SHORTCUTS.SEARCH_NEXT} label={t('search.navigate')}>
-        <ArrowUpDown aria-hidden="true" />
+        <Icon icon={ArrowUpDown} />
       </KeyHint>
       <KeyHint shortcut={SHORTCUTS.SEARCH_OPEN} label={t('search.open')}>
-        <CornerDownLeft aria-hidden="true" />
+        <Icon icon={CornerDownLeft} />
       </KeyHint>
       <KeyHint shortcut={SHORTCUTS.SEARCH_OPEN_NEW_PANE} label={t('search.newPane')}>
-        <CornerDownLeft aria-hidden="true" />
+        <Icon icon={CornerDownLeft} />
       </KeyHint>
       <KeyHint shortcut={SHORTCUTS.SEARCH_CREATE} label={t('search.create')}>
-        <CornerDownLeft aria-hidden="true" />
+        <Icon icon={CornerDownLeft} />
       </KeyHint>
     </DialogFooter>
   );

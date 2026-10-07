@@ -7,6 +7,7 @@ import { useLocalState } from '../../modules/workspace/uiPersist';
 
 export function useGraphControls(
   rendererRef: RefObject<GraphRenderer | null>,
+  generation: number,
   counts: GraphCounts | null,
   range: GraphDateRange,
 ) {
@@ -31,7 +32,7 @@ export function useGraphControls(
         ? Number.NEGATIVE_INFINITY
         : range.oldest + (range.newest - range.oldest) * createdShare,
     });
-  }, [counts, createdShare, preferences, range.newest, range.oldest, rendererRef]);
+  }, [counts, createdShare, generation, preferences, range.newest, range.oldest, rendererRef]);
 
   const patchControls = useCallback((patch: Partial<GraphControls>) => {
     const { createdShare: nextShare, ...rest } = patch;

@@ -11,6 +11,7 @@ export interface GraphCounts {
 
 interface GraphSnapshotInput {
   rendererRef: RefObject<GraphRenderer | null>;
+  generation: number;
   labels: NoteLabels;
   workspacePath: string | null;
   indexRevision: number;
@@ -23,6 +24,7 @@ interface GraphSnapshotInput {
 
 export function useGraphSnapshot({
   rendererRef,
+  generation,
   labels,
   workspacePath,
   indexRevision,
@@ -35,6 +37,7 @@ export function useGraphSnapshot({
   const [counts, setCounts] = useState<GraphCounts | null>(null);
   const [range, setRange] = useState<GraphDateRange>({ oldest: 0, newest: 1 });
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const snapshotRef = useRef<GraphSnapshot | null>(null);
   const loadedKeyRef = useRef<string | null>(null);
   const loadedWorkspaceRef = useRef<string | null>(null);
   const shownRef = useRef(false);
@@ -56,6 +59,7 @@ export function useGraphSnapshot({
       .then((snapshot: GraphSnapshot) => {
         if (cancelled) return;
         const renderer = rendererRef.current;
+        snapshotRef.current = snapshot;
         labels.adopt(snapshot.epoch);
         renderer?.setSnapshot(snapshot, keepCamera);
         setRange(renderer?.createdRange() ?? { oldest: 0, newest: 1 });
@@ -83,6 +87,13 @@ export function useGraphSnapshot({
     rendererRef,
     workspacePath,
   ]);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    const snapshot = snapshotRef.current;
+    if (!renderer || !snapshot || renderer.hasSnapshot()) return;
+    renderer.setSnapshot(snapshot);
+  }, [generation, rendererRef]);
 
   return { counts, range, snapshotError };
 }

@@ -1,6 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
-import type { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { EditorNotice } from './EditorNotice';
 import { t } from '../../i18n';
 import { useEditorDoc } from './hooks/useEditorDoc';
@@ -40,7 +39,7 @@ export function Editor({
   onBodyViewChange,
 }: EditorProps) {
   const titleRef = useRef<CodeMirrorFieldRef>(null);
-  const bodyRef = useRef<ReactCodeMirrorRef>(null);
+  const bodyRef = useRef<EditorView>(null);
   useEffect(() => () => onBodyViewChange?.(null), [onBodyViewChange]);
 
   const {
@@ -54,15 +53,15 @@ export function Editor({
     retrySave,
   } = useEditorDoc(filePath, {
     onExternalEdit: (edit) => {
-      const view = bodyRef.current?.view;
+      const view = bodyRef.current;
       if (view) revealExternalInsert(view, edit);
     },
     readCaret: () => {
-      const view = bodyRef.current?.view;
+      const view = bodyRef.current;
       return view?.hasFocus ? view.state.selection.main.head : null;
     },
     restoreCaret: (position) => {
-      const view = bodyRef.current?.view;
+      const view = bodyRef.current;
       if (view) view.dispatch({ selection: { anchor: position } });
     },
   }, workspacePath);
@@ -145,7 +144,7 @@ export function Editor({
   );
 
   useEffect(() => {
-    bodyRef.current?.view?.dispatch({ effects: invalidateWikiLinks.of() });
+    bodyRef.current?.dispatch({ effects: invalidateWikiLinks.of() });
   }, [linkRevision]);
 
   const quoteRefs = useMemo(
@@ -156,7 +155,7 @@ export function Editor({
   const handleQuoteRefClick = useCallback((cfi: string) => {
     reader.handleCloseReader();
     requestAnimationFrame(() => {
-      const view = bodyRef.current?.view;
+      const view = bodyRef.current;
       if (!view) return;
       const span = findReaderQuotes(view.state.doc)
         .find((quote) => parseReaderQuoteHref(quote.href)?.cfi === cfi);

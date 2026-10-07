@@ -1,8 +1,8 @@
 import { createElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import { Menu, type MenuItem } from './Menu';
 
-let shown: { root: Root; host: HTMLElement } | null = null;
+let shown: { root: ReturnType<typeof createRoot>; host: HTMLElement } | null = null;
 
 export function closeImperativeMenu(): void {
   if (!shown) return;

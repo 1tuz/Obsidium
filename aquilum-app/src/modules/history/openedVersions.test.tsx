@@ -1,4 +1,6 @@
-import { act, create } from 'react-test-renderer';
+// @vitest-environment happy-dom
+import { act } from 'preact/test-utils';
+import { mountDom } from '../../testing/mountDom';
 import { describe, expect, it } from 'vitest';
 import {
   closeVersion,
@@ -9,8 +11,6 @@ import {
   type OpenedVersion,
 } from './openedVersions';
 import type { NoteVersion } from './index';
-
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const version: NoteVersion = {
   id: '1790000000000_aaaaaaaa_me.md',
@@ -33,7 +33,7 @@ function watch(tabId: string) {
     return null;
   }
   act(() => {
-    create(<Probe />);
+    mountDom(<Probe />);
   });
   return seen;
 }

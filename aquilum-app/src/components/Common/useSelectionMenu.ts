@@ -39,7 +39,7 @@ export function useSelectionMenu(getView: ViewSource) {
   const { open, position, close, onContextMenu: openMenu } = useContextMenu();
   const [copyEnabled, setCopyEnabled] = useState(false);
 
-  const onContextMenu = useCallback((event: MouseEvent) => {
+  const onContextMenu = useCallback((event: MouseEvent<Element>) => {
     const view = getView();
     setCopyEnabled(Boolean(view && !view.state.selection.main.empty));
     openMenu(event);

@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { useCallback, useEffect, useState } from 'react';
-import { Check, FolderOpen, Library, X } from 'lucide-react';
+import { Check, FolderOpen, Library, X } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { Dialog, DialogFooter } from '../Common/Dialog';
@@ -120,7 +121,7 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
                   onClick={() => { void switchTo(workspace.path); }}
                 >
                   <span className="q-workspace-row__icon" aria-hidden="true">
-                    {isCurrent ? <Check /> : null}
+                    {isCurrent ? <Icon icon={Check} /> : null}
                   </span>
                   <span className="q-workspace-row__text">
                     <span className="q-workspace-row__name">{fileName(workspace.path)}</span>
@@ -135,7 +136,7 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
                     disabled={pending}
                     onClick={() => setForgetTarget(workspace)}
                   >
-                    <X />
+                    <Icon icon={X} />
                   </IconButton>
                 )}
               </div>
@@ -147,7 +148,7 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
 
         <DialogFooter>
           <Button disabled={pending} onClick={() => { void pickFolder(); }}>
-            <FolderOpen aria-hidden="true" />
+            <Icon icon={FolderOpen} />
             {t('common.openFolder')}
           </Button>
         </DialogFooter>

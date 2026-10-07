@@ -1,4 +1,6 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+// @vitest-environment happy-dom
+import { act } from 'preact/test-utils';
+import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import type { FileTreeActions } from './fileTreeModel';
@@ -10,8 +12,6 @@ vi.mock('./fileTreeModel', async (importOriginal) => {
 
 const { buildVisibleFileRows, parseGuideDepths } = await import('./fileTreeModel');
 const { FileTree } = await import('./FileTree');
-
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const notes: WorkspaceItem[] = Array.from({ length: 40 }, (_, index) => ({
   id: `C:\\vault\\note-${index}.md`,
@@ -46,18 +46,15 @@ function renderTree(activeFile: string | null, selectedFiles: ReadonlySet<string
   );
 }
 
-const selectedRows = (tree: ReactTestRenderer) => tree.root.findAll(
-  (node) => typeof node.props.className === 'string'
-    && node.props.className.split(' ').includes('selected'),
-);
+const selectedRows = (tree: MountedDom) => tree.container.querySelectorAll('.selected');
 
 const renderedRows = () => vi.mocked(parseGuideDepths).mock.calls.length;
 
 describe('file tree rendering', () => {
   it('re-renders only the two affected rows when the active file changes', () => {
-    let tree!: ReactTestRenderer;
+    let tree!: MountedDom;
     act(() => {
-      tree = create(renderTree(notes[0].id));
+      tree = mountDom(renderTree(notes[0].id));
     });
     expect(renderedRows()).toBe(notes.length);
 
@@ -73,9 +70,9 @@ describe('file tree rendering', () => {
   });
 
   it('highlights the very first picked row, not only from the second one', () => {
-    let tree!: ReactTestRenderer;
+    let tree!: MountedDom;
     act(() => {
-      tree = create(renderTree(notes[0].id, new Set([notes[5].id])));
+      tree = mountDom(renderTree(notes[0].id, new Set([notes[5].id])));
     });
     expect(selectedRows(tree)).toHaveLength(1);
 
@@ -89,18 +86,15 @@ describe('file tree rendering', () => {
   });
 
   it('marks the active row for the scroll-into-view lookup', () => {
-    let tree!: ReactTestRenderer;
+    let tree!: MountedDom;
     act(() => {
-      tree = create(renderTree('c:/vault/note-3.md'));
+      tree = mountDom(renderTree('c:/vault/note-3.md'));
     });
 
-    const active = tree.root.findAll(
-      (node) => node.props['data-file-active'] === true,
-    );
+    const active = tree.container.querySelectorAll('[data-file-active="true"]');
     expect(active).toHaveLength(1);
-    expect(active[0].props.className).toContain('active');
-    const name = active[0].findAll((node) => node.props.className === 'q-file-name');
-    expect(name[0].children).toEqual(['note-3']);
+    expect(active[0].classList).toContain('active');
+    expect(active[0].querySelector('.q-file-name')?.textContent).toBe('note-3');
     act(() => {
       tree.unmount();
     });

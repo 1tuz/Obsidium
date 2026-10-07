@@ -10,7 +10,7 @@ export function useContextMenu() {
     setPosition(null);
   }, []);
 
-  const onContextMenu = useCallback((event: MouseEvent) => {
+  const onContextMenu = useCallback((event: MouseEvent<Element>) => {
     event.preventDefault();
     event.stopPropagation();
     setPosition({ top: event.clientY, left: event.clientX });

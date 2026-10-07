@@ -1,9 +1,10 @@
-import type { LucideIcon } from 'lucide-react';
+import type { IconNode } from 'lucide';
+import { Icon } from './Icon';
 import type { ReactNode } from 'react';
 import './EmptyState.css';
 
 interface EmptyStateProps {
-  icon: LucideIcon;
+  icon: IconNode;
   title: string;
   description?: ReactNode;
   children?: ReactNode;
@@ -11,7 +12,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  icon: Icon,
+  icon,
   title,
   description,
   children,
@@ -20,7 +21,7 @@ export function EmptyState({
   return (
     <div className={`q-empty-state ${compact ? 'q-empty-state--compact' : ''}`.trim()}>
       <span className="q-empty-state__icon" aria-hidden="true">
-        <Icon />
+        <Icon icon={icon} />
       </span>
       <div className="q-empty-state__copy">
         <p className="q-empty-state__title">{title}</p>

@@ -11,7 +11,8 @@ import {
   Type,
   FileText,
   Paperclip,
-} from 'lucide-react';
+} from 'lucide';
+import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
 import { GraphAnalysisIcon } from '../Icons/LinkIcons';
 import type { SettingsSectionId } from './types';
@@ -34,16 +35,16 @@ export function settingsSections(): { id: SettingsSectionId; label: string }[] {
 }
 
 export const SETTINGS_SECTION_ICONS: Record<SettingsSectionId, ReactNode> = {
-  ui: <Monitor />,
-  editor: <Type />,
-  reader: <BookOpen />,
-  search: <Search />,
-  templates: <FileText />,
-  files: <Paperclip />,
+  ui: <Icon icon={Monitor} />,
+  editor: <Icon icon={Type} />,
+  reader: <Icon icon={BookOpen} />,
+  search: <Icon icon={Search} />,
+  templates: <Icon icon={FileText} />,
+  files: <Icon icon={Paperclip} />,
   analysis: <GraphAnalysisIcon />,
-  mcp: <Plug />,
-  history: <History />,
-  trash: <Trash2 />,
-  system: <Power />,
-  shortcuts: <Keyboard />,
+  mcp: <Icon icon={Plug} />,
+  history: <Icon icon={History} />,
+  trash: <Icon icon={Trash2} />,
+  system: <Icon icon={Power} />,
+  shortcuts: <Icon icon={Keyboard} />,
 };

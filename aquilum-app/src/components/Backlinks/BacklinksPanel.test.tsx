@@ -1,4 +1,6 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+// @vitest-environment happy-dom
+import { act } from 'preact/test-utils';
+import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BacklinksPanel } from './BacklinksPanel';
 
@@ -20,8 +22,6 @@ const linkMocks = vi.hoisted(() => ({
     reasons: ['related'],
   },
 }));
-
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock('../../i18n', () => ({ t: (key: string) => key }));
 vi.mock('../../modules/settings', () => ({
@@ -75,7 +75,7 @@ vi.mock('../../modules/openExternalUrl', () => ({
 }));
 
 describe('BacklinksPanel', () => {
-  let renderer: ReactTestRenderer | null = null;
+  let renderer: MountedDom | null = null;
 
   beforeEach(() => {
     try {
@@ -93,7 +93,7 @@ describe('BacklinksPanel', () => {
     const onOpenOutgoing = vi.fn();
     const onOpenAnalysis = vi.fn();
     act(() => {
-      renderer = create(
+      renderer = mountDom(
         <BacklinksPanel
           workspacePath="C:\\notes"
           documentPath="C:\\notes\\Current.md"
@@ -108,21 +108,23 @@ describe('BacklinksPanel', () => {
       );
     });
 
-    const modeButtons = renderer!.root.findAllByProps({
-      className: 'q-icon-button q-icon-button--medium q-backlinks__mode-button',
+    const panel = renderer!.container;
+    const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('.q-backlinks__mode-button')];
+    const pressed = () => modeButtons.map((button) => button.getAttribute('aria-pressed'));
+    expect(pressed()).toEqual(['true', 'false', 'false', 'false']);
+    expect(panel.querySelector('h2')?.textContent).toBe('backlinks.mentionsTitle');
+    expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Source');
+
+    act(() => modeButtons[1].click());
+
+    expect(pressed()).toEqual(['false', 'true', 'false', 'false']);
+    expect(panel.querySelector('h2')?.textContent).toBe('backlinks.outgoingTitle');
+    const outgoingButton = panel.querySelector<HTMLElement>('.q-sidebar-document-item')!;
+    expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Target');
+
+    act(() => {
+      outgoingButton.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
     });
-    expect(modeButtons.map((button) => button.props['aria-pressed'])).toEqual([true, false, false, false]);
-    expect(renderer!.root.findByType('h2').children).toEqual(['backlinks.mentionsTitle']);
-    expect(renderer!.root.findByProps({ className: 'q-sidebar-document-item__title' }).children).toEqual(['Source']);
-
-    act(() => modeButtons[1].props.onClick());
-
-    expect(modeButtons.map((button) => button.props['aria-pressed'])).toEqual([false, true, false, false]);
-    expect(renderer!.root.findByType('h2').children).toEqual(['backlinks.outgoingTitle']);
-    const outgoingButton = renderer!.root.findByProps({ className: 'q-sidebar-document-item' });
-    expect(renderer!.root.findByProps({ className: 'q-sidebar-document-item__title' }).children).toEqual(['Target']);
-
-    act(() => outgoingButton.props.onClick({ ctrlKey: true, metaKey: false }));
     expect(onOpenOutgoing).toHaveBeenCalledWith(linkMocks.outgoing, 'new-tab');
     expect(onOpenBacklink).not.toHaveBeenCalled();
   });

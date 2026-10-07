@@ -1,4 +1,6 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+// @vitest-environment happy-dom
+import { act } from 'preact/test-utils';
+import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useDocumentLinks, type DocumentLinks, type LinkMode } from './useDocumentLinks';
 
@@ -9,8 +11,6 @@ const gateway = vi.hoisted(() => ({
 
 vi.mock('./gateway', () => gateway);
 
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
 let latest: { result: DocumentLinks | null; loading: boolean } | null = null;
 
 function Harness({ mode }: { mode: LinkMode }) {
@@ -19,7 +19,7 @@ function Harness({ mode }: { mode: LinkMode }) {
 }
 
 describe('useDocumentLinks', () => {
-  let renderer: ReactTestRenderer | null = null;
+  let renderer: MountedDom | null = null;
 
   afterEach(() => {
     if (renderer) act(() => renderer?.unmount());
@@ -37,16 +37,16 @@ describe('useDocumentLinks', () => {
       { target: 'Target', title: 'Target', path: 'C:\\notes\\Target.md' },
     ]);
 
-    await act(async () => {
-      renderer = create(<Harness mode="backlinks" />);
+    await actAndSettle(() => {
+      renderer = mountDom(<Harness mode="backlinks" />);
     });
-    await act(async () => {
+    await actAndSettle(() => {
       renderer?.update(<Harness mode="outgoing" />);
     });
 
     expect(latest?.result?.mode).toBe('outgoing');
 
-    await act(async () => {
+    await actAndSettle(() => {
       resolveBacklinks([{ path: 'C:\\notes\\Source.md', title: 'Source', offset: 1 }]);
     });
 

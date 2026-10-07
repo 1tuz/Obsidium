@@ -41,7 +41,6 @@ export class GraphRenderer {
   private ratio = 1;
   private cssWidth = 1;
   private cssHeight = 1;
-  private active = true;
   private cameraSaveTimer = 0;
 
   onSelect: ((node: number) => void) | null = null;
@@ -156,17 +155,8 @@ export class GraphRenderer {
     this.invalidate();
   }
 
-  setActive(active: boolean): void {
-    if (this.active === active) return;
-    this.active = active;
-    if (!active) {
-      this.clock.stop();
-      this.interaction.forget();
-      return;
-    }
-    this.refreshPalette();
-    this.resize();
-    this.invalidate();
+  hasSnapshot(): boolean {
+    return this.store.snapshot !== null;
   }
 
   resize(): void {
@@ -178,10 +168,8 @@ export class GraphRenderer {
     this.scene.setViewport(metrics.deviceWidth, metrics.deviceHeight, metrics.ratio);
     this.labelLayer.resize(metrics.cssWidth, metrics.cssHeight);
     this.labelLayer.restyle(this.typography(), metrics.ratio);
-    if (this.active) {
-      this.draw(0);
-      if (this.labelsAnimating) this.invalidate();
-    }
+    this.draw(0);
+    if (this.labelsAnimating) this.invalidate();
   }
 
   refreshPalette(): void {
@@ -201,7 +189,7 @@ export class GraphRenderer {
   }
 
   dispose(): void {
-    this.flushCamera();
+    this.saveCameraNow();
     this.clock.stop();
     this.themeWatcher.disconnect();
     this.interaction.detach();
@@ -218,11 +206,10 @@ export class GraphRenderer {
     }, CAMERA_SETTLE_MS);
   }
 
-  private flushCamera(): void {
-    if (!this.cameraSaveTimer) return;
+  private saveCameraNow(): void {
     window.clearTimeout(this.cameraSaveTimer);
     this.cameraSaveTimer = 0;
-    this.onCameraSettled?.(this.cameraState());
+    if (this.store.snapshot) this.onCameraSettled?.(this.cameraState());
   }
 
   private jumpToFit(): void {
@@ -281,7 +268,6 @@ export class GraphRenderer {
   }
 
   private invalidate(): void {
-    if (!this.active) return;
     this.clock.request(this.step);
   }
 

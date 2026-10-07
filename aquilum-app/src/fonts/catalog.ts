@@ -7,9 +7,9 @@ import interCyrillicUrl from './inter-cyrillic-wght-normal.woff2?url';
 import interLatinItalicUrl from './inter-latin-wght-italic.woff2?url';
 import interLatinUrl from './inter-latin-wght-normal.woff2?url';
 
-export const IA_WRITER_MONO = 'iA Writer Mono';
+const IA_WRITER_MONO = 'iA Writer Mono';
 export const IA_WRITER_QUATTRO = 'iA Writer Quattro';
-export const INTER = 'Inter';
+const INTER = 'Inter';
 
 export type FontFamily = typeof IA_WRITER_MONO | typeof IA_WRITER_QUATTRO | typeof INTER;
 export type FontScope = 'ui' | 'editor' | 'reader';

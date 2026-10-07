@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUpDown, CornerDownLeft, FileText, Search } from 'lucide-react';
+import { ArrowUpDown, CornerDownLeft, FileText, Search } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { CodeMirrorField, type CodeMirrorFieldRef } from '../Common/CodeMirrorField';
 import { Dialog, DialogFooter } from '../Common/Dialog';
 import { EmptyState } from '../Common/EmptyState';
@@ -128,7 +129,7 @@ export function TemplateDialog({ open, workspacePath, folder, onClose, onSelect 
       onClose={onClose}
     >
       <div className="q-search-box">
-        <Search aria-hidden="true" />
+        <Icon icon={Search} />
         <CodeMirrorField
           ref={inputRef}
           className="q-search-input"
@@ -151,7 +152,7 @@ export function TemplateDialog({ open, workspacePath, folder, onClose, onSelect 
             onMouseEnter={() => setSelected(index)}
             onClick={() => choose(item)}
           >
-            <FileText />
+            <Icon icon={FileText} />
             <span className="q-template-result__name">
               <TemplateName relativePath={item.relativePath} query={trimmedQuery} />
             </span>
@@ -169,8 +170,8 @@ export function TemplateDialog({ open, workspacePath, folder, onClose, onSelect 
         )}
       </ScrollArea>
       <DialogFooter align="center">
-        <KeyHint shortcut={SHORTCUTS.SEARCH_NEXT} label={t('search.navigate')}><ArrowUpDown aria-hidden="true" /></KeyHint>
-        <KeyHint shortcut={SHORTCUTS.SEARCH_OPEN} label={t('search.open')}><CornerDownLeft aria-hidden="true" /></KeyHint>
+        <KeyHint shortcut={SHORTCUTS.SEARCH_NEXT} label={t('search.navigate')}><Icon icon={ArrowUpDown} /></KeyHint>
+        <KeyHint shortcut={SHORTCUTS.SEARCH_OPEN} label={t('search.open')}><Icon icon={CornerDownLeft} /></KeyHint>
         <KeyHint shortcut={SHORTCUTS.CLOSE_DIALOG} label={t('templateDialog.close')} />
       </DialogFooter>
     </Dialog>

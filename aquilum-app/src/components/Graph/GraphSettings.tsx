@@ -1,6 +1,7 @@
 import { getLocale, t } from '../../i18n';
 import { memo } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Slider } from '../Common/Slider';
 import { SegmentedControl } from '../Common/SegmentedControl';
@@ -46,7 +47,7 @@ export const GraphSettings = memo(function GraphSettings({
       <div className="q-graph-settings-head">
         <span className="q-graph-settings-title">{t('graph.title')}</span>
         <IconButton label={t('graph.refresh')} size="small" onClick={onRefresh}>
-          <RotateCcw />
+          <Icon icon={RotateCcw} />
         </IconButton>
       </div>
 

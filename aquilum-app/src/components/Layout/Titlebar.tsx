@@ -1,5 +1,6 @@
 import { useRef } from 'react';
-import { PanelRight, Plus } from 'lucide-react';
+import { PanelRight, Plus } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { useHorizontalWheelScroll } from '../Common/useHorizontalWheelScroll';
 import { t } from '../../i18n';
@@ -65,7 +66,7 @@ export function Titlebar({
         className="q-titlebar-new-tab"
         onClick={onNewTab}
       >
-        <Plus strokeWidth={1.5} />
+        <Icon icon={Plus} strokeWidth={1.5} />
       </IconButton>
 
       <div className="q-titlebar-menu-wrapper">
@@ -76,7 +77,7 @@ export function Titlebar({
             aria-expanded={rightSidebarOpen}
             onClick={onToggleRightSidebar}
           >
-            <PanelRight strokeWidth={1.5} />
+            <Icon icon={PanelRight} strokeWidth={1.5} />
           </IconButton>
         )}
       </div>

@@ -1,15 +1,14 @@
 import {
   forwardRef,
-  useCallback,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
   type FocusEventHandler,
 } from 'react';
-import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { EditorState, Prec, type Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, placeholder as placeholderText, type ViewUpdate } from '@codemirror/view';
+import { CodeMirrorView } from './CodeMirrorView';
 import {
   aquilumCodeMirrorTheme,
   aquilumFieldSetup,
@@ -65,43 +64,43 @@ export const CodeMirrorField = forwardRef<CodeMirrorFieldRef, CodeMirrorFieldPro
     onBlur,
     onCreate,
   }, forwardedRef) {
-    const editorRef = useRef<ReactCodeMirrorRef>(null);
+    const viewRef = useRef<EditorView>(null);
     const keyDownRef = useRef(onKeyDown);
     keyDownRef.current = onKeyDown;
 
     const text = mode === 'single-line' ? normalizeSingleLineText(value) : value;
     const textRef = useRef(text);
     textRef.current = text;
-    const initialTextRef = useRef(text);
 
     useImperativeHandle(forwardedRef, () => ({
       get view() {
-        return editorRef.current?.view ?? null;
+        return viewRef.current;
       },
       focus() {
-        editorRef.current?.view?.focus();
+        viewRef.current?.focus();
       },
       select() {
-        const view = editorRef.current?.view;
+        const view = viewRef.current;
         if (!view) return;
         view.focus();
         view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
       },
       blur() {
-        editorRef.current?.view?.contentDOM.blur();
+        viewRef.current?.contentDOM.blur();
       },
       setValue(next: string) {
-        const view = editorRef.current?.view;
+        const view = viewRef.current;
         if (view) syncDocument(view, mode === 'single-line' ? normalizeSingleLineText(next) : next);
       },
     }), [mode]);
 
     useLayoutEffect(() => {
-      const view = editorRef.current?.view;
+      const view = viewRef.current;
       if (view) syncDocument(view, text);
     }, [text]);
 
     const fieldExtensions = useMemo<Extension[]>(() => [
+      placeholder ? placeholderText(placeholder) : [],
       aquilumFieldSetup,
       aquilumCodeMirrorTheme,
       EditorView.contentAttributes.of({
@@ -128,13 +127,15 @@ export const CodeMirrorField = forwardRef<CodeMirrorFieldRef, CodeMirrorFieldPro
       mode === 'single-line' && !lineWrapping ? aquilumHorizontalFieldTheme : [],
       lineWrapping ? EditorView.lineWrapping : [],
       ...extensions,
-    ], [ariaLabel, disabled, extensions, lineWrapping, mode, spellCheck]);
+    ], [ariaLabel, disabled, extensions, lineWrapping, mode, placeholder, spellCheck]);
 
-    const handleChange = useCallback((nextValue: string) => {
+    const handleUpdate = (update: ViewUpdate) => {
+      if (!update.docChanged) return;
+      const nextValue = update.state.doc.toString();
       const normalized = mode === 'single-line' ? normalizeSingleLineText(nextValue) : nextValue;
       if (normalized === textRef.current) return;
       onChange?.(normalized);
-    }, [mode, onChange]);
+    };
 
     const classes = [
       'q-code-mirror-field',
@@ -143,21 +144,14 @@ export const CodeMirrorField = forwardRef<CodeMirrorFieldRef, CodeMirrorFieldPro
     ].filter(Boolean).join(' ');
 
     return (
-      <CodeMirror
-        ref={editorRef}
+      <CodeMirrorView
+        viewRef={viewRef}
         className={classes}
-        theme="none"
-        value={initialTextRef.current}
-        placeholder={placeholder}
+        doc={text}
         autoFocus={autoFocus}
-        basicSetup={false}
-        indentWithTab={false}
         extensions={fieldExtensions}
-        onCreateEditor={(view) => {
-          syncDocument(view, textRef.current);
-          onCreate?.(view);
-        }}
-        onChange={handleChange}
+        onCreate={onCreate}
+        onUpdate={handleUpdate}
         onFocus={onFocus}
         onBlur={onBlur}
       />

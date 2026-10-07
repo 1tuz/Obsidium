@@ -1,4 +1,5 @@
-import { File } from 'lucide-react';
+import { File } from 'lucide';
+import { Icon } from '../Common/Icon';
 import type { SearchResult } from '../../modules/search';
 import { highlightMatches } from './highlight';
 import './SearchResultCard.css';
@@ -31,7 +32,7 @@ export function SearchResultCard({
     >
       <span className="q-search-result__header">
         <span className="q-search-result__identity">
-          <File className="q-search-result__icon" aria-hidden="true" />
+          <Icon icon={File} className="q-search-result__icon" />
           <span className="q-search-result__filename">
             <span className="q-search-result__title">{highlightMatches(result.title, queryTerms)}</span>
             {result.extension && (

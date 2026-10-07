@@ -1,4 +1,5 @@
-import { House, Network, PanelLeft, Settings } from 'lucide-react';
+import { House, Network, PanelLeft, Settings } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
 import './SidebarRail.css';
@@ -28,7 +29,7 @@ export function SidebarRail({
             aria-expanded={isSidebarOpen}
             onClick={onToggleSidebar}
           >
-            <PanelLeft />
+            <Icon icon={PanelLeft} />
           </IconButton>
         )}
       </div>
@@ -39,7 +40,7 @@ export function SidebarRail({
             size="medium"
             onClick={onOpenHome}
           >
-            <House />
+            <Icon icon={House} />
           </IconButton>
         )}
         {onOpenGraph && (
@@ -48,7 +49,7 @@ export function SidebarRail({
             size="medium"
             onClick={onOpenGraph}
           >
-            <Network />
+            <Icon icon={Network} />
           </IconButton>
         )}
         {onOpenSettings && (
@@ -58,7 +59,7 @@ export function SidebarRail({
             size="medium"
             onClick={onOpenSettings}
           >
-            <Settings />
+            <Icon icon={Settings} />
           </IconButton>
         )}
       </div>

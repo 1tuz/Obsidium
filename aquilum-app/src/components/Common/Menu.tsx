@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, type LucideIcon } from 'lucide-react';
+import { Check, type IconNode } from 'lucide';
+import { Icon } from './Icon';
 import './Menu.css';
 
 export interface MenuItem {
@@ -8,7 +9,7 @@ export interface MenuItem {
   label: string;
   disabled?: boolean;
   checked?: boolean;
-  icon?: LucideIcon;
+  icon?: IconNode;
   onSelect: () => void;
 }
 
@@ -118,12 +119,12 @@ export function Menu({
         >
           {item.icon && (
             <span className="q-menu__item-icon" aria-hidden="true">
-              <item.icon strokeWidth={1.2} />
+              <Icon icon={item.icon} strokeWidth={1.2} />
             </span>
           )}
           <span className="q-menu__item-label">{item.label}</span>
           {showCheck && item.checked && (
-            <Check className="q-menu__item-check" aria-hidden="true" />
+            <Icon icon={Check} className="q-menu__item-check" />
           )}
         </button>
       ))}

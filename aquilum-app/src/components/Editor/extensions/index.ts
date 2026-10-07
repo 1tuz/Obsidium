@@ -28,6 +28,7 @@ import { wikiHoverHighlight } from './wikiHoverHighlight';
 import { smartDashExtension } from './smartDash';
 import { pageSearchExtension } from './pageSearch';
 import { noteSuggestExtension } from './suggest';
+import { bodySetup } from './bodySetup';
 import type { LinkDisposition, WikiLinkResolver } from '../../../modules/links';
 import { documentText } from '../../../modules/docSync/applyExternalText';
 
@@ -52,6 +53,7 @@ export function useEditorExtensions(
         const ytext = documentText(ydoc);
 
         return [
+            bodySetup,
             EditorState.tabSize.of(4),
             noteSuggestExtension({
                 enabled: linkSuggest,

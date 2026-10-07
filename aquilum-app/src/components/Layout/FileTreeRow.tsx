@@ -1,5 +1,6 @@
 import { memo, type CSSProperties } from 'react';
-import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { isMarkdownPath, type WorkspaceItem } from '../../modules/documents/fileGateway';
 import { fileActionItems } from './fileActionItems';
 import { parseGuideDepths, type FileTreeActions } from './fileTreeModel';
@@ -94,8 +95,8 @@ export const FileTreeRow = memo(function FileTreeRow({
         >
           <span className="q-file-icon" aria-hidden="true">
             {isFolder && (loading
-              ? <LoaderCircle className="q-file-icon__spinner" />
-              : expanded ? <ChevronDown /> : <ChevronRight />)}
+              ? <Icon icon={LoaderCircle} className="q-file-icon__spinner" />
+              : expanded ? <Icon icon={ChevronDown} /> : <Icon icon={ChevronRight} />)}
           </span>
           <span
             className="q-file-name"

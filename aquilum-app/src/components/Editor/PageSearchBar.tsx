@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n';
 import { matchesShortcut, SHORTCUTS } from '../../config/shortcuts';
 import type { EditorView } from '@codemirror/view';
-import { ArrowDown, ArrowUp, Search, TextSelect, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Search, TextSelect, X } from 'lucide';
+import { Icon } from '../Common/Icon';
 import type { CodeMirrorFieldRef } from '../Common/CodeMirrorField';
 import { IconButton } from '../Common/IconButton';
 import { Input } from '../Common/Input';
@@ -57,7 +58,7 @@ export function PageSearchBar({ focusRequest, open, view, onClose }: PageSearchB
         <Input
           fullWidth
           counter={`${search.current}/${search.total}`}
-          startAdornment={<Search aria-hidden="true" />}
+          startAdornment={<Icon icon={Search} />}
           ref={inputRef}
           value={query}
           placeholder={t('editor.find')}
@@ -72,10 +73,10 @@ export function PageSearchBar({ focusRequest, open, view, onClose }: PageSearchB
         />
       </div>
       <div className="q-page-search__actions">
-        <IconButton size="medium" label={t('editor.prevMatch')} onClick={() => navigate(-1)} disabled={!query}><ArrowUp /></IconButton>
-        <IconButton size="medium" label={t('editor.nextMatch')} onClick={() => navigate(1)} disabled={!query}><ArrowDown /></IconButton>
-        <IconButton size="medium" label={t('editor.selectAllMatches')} onClick={showAllMatches} disabled={!search.activeOnly}><TextSelect /></IconButton>
-        <IconButton size="medium" label={t('editor.closeSearch')} onClick={close}><X /></IconButton>
+        <IconButton size="medium" label={t('editor.prevMatch')} onClick={() => navigate(-1)} disabled={!query}><Icon icon={ArrowUp} /></IconButton>
+        <IconButton size="medium" label={t('editor.nextMatch')} onClick={() => navigate(1)} disabled={!query}><Icon icon={ArrowDown} /></IconButton>
+        <IconButton size="medium" label={t('editor.selectAllMatches')} onClick={showAllMatches} disabled={!search.activeOnly}><Icon icon={TextSelect} /></IconButton>
+        <IconButton size="medium" label={t('editor.closeSearch')} onClick={close}><Icon icon={X} /></IconButton>
       </div>
     </div>
   );

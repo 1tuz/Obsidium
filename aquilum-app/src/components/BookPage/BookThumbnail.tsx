@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { BookCoverOverlay } from '../Decorations/BookCoverOverlay';
 import { CoverImage } from './CoverImage';
@@ -75,7 +76,7 @@ export function BookThumbnail({
             disabled={uploading}
             onClick={onReplace}
           >
-            <Upload />
+            <Icon icon={Upload} />
           </IconButton>
         </div>
       )}

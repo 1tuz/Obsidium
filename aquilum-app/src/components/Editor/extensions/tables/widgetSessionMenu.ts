@@ -7,7 +7,7 @@ import {
     TableCellsMerge,
     TableCellsSplit,
     Trash2,
-} from 'lucide-react';
+} from 'lucide';
 import { t } from '../../../../i18n';
 import { cellIsMerged, type CellRef } from './model';
 import { showTableContextMenu } from './contextMenu';

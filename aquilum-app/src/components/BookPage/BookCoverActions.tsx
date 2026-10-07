@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
-import { Shuffle, Trash2, UnfoldVertical, Upload } from 'lucide-react';
+import { Shuffle, Trash2, UnfoldVertical, Upload } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 
 interface BookCoverActionsProps {
@@ -29,7 +30,7 @@ export function BookCoverActions({
         disabled={uploading}
         onClick={onReplacePageCover}
       >
-        <Upload />
+        <Icon icon={Upload} />
       </IconButton>
       <div className="q-floating-actions__divider" />
       <IconButton
@@ -38,7 +39,7 @@ export function BookCoverActions({
         disabled={uploading}
         onClick={onRandomPageCover}
       >
-        <Shuffle />
+        <Icon icon={Shuffle} />
       </IconButton>
       {canReposition && (
         <>
@@ -49,7 +50,7 @@ export function BookCoverActions({
             aria-pressed={repositioning}
             onClick={onToggleReposition}
           >
-            <UnfoldVertical />
+            <Icon icon={UnfoldVertical} />
           </IconButton>
         </>
       )}
@@ -60,7 +61,7 @@ export function BookCoverActions({
         disabled={uploading}
         onClick={onRemovePageCover}
       >
-        <Trash2 />
+        <Icon icon={Trash2} />
       </IconButton>
     </div>
   );
