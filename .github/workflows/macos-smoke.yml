@@ -1,0 +1,85 @@
+name: macOS smoke test
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to test (empty for the latest release)
+        required: false
+        default: ''
+      appearance:
+        description: System appearance during the run
+        type: choice
+        options: [light, dark]
+        default: dark
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download the release DMG
+        run: |
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"; fi
+          echo "Testing $tag"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*_aarch64.dmg' --output Aquilum.dmg
+
+      - name: Install the app
+        run: |
+          hdiutil attach -nobrowse -readonly -mountpoint /tmp/aquilum-dmg Aquilum.dmg
+          ditto /tmp/aquilum-dmg/Aquilum.app /Applications/Aquilum.app
+          hdiutil detach /tmp/aquilum-dmg -quiet
+          xattr -cr /Applications/Aquilum.app
+
+      - name: Set system appearance
+        run: |
+          if [ "${{ inputs.appearance }}" = dark ]; then value=true; else value=false; fi
+          osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $value" || \
+            defaults write -g AppleInterfaceStyle -string Dark
+
+      - name: Launch and wait for the window
+        run: |
+          cat > wait_window.swift <<'EOF'
+          import CoreGraphics
+          import Foundation
+
+          let start = Date()
+          let deadline = start.addingTimeInterval(20)
+          while Date() < deadline {
+              let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+              let visible = windows.contains {
+                  ($0[kCGWindowOwnerName as String] as? String) == "Aquilum" && ($0[kCGWindowLayer as String] as? Int) == 0
+              }
+              if visible {
+                  print(String(format: "Window visible after %.2f s", Date().timeIntervalSince(start)))
+                  exit(0)
+              }
+              usleep(50_000)
+          }
+          print("Window did not appear within 20 s")
+          exit(1)
+          EOF
+          swiftc -O wait_window.swift -o wait_window
+          mkdir -p shots
+          ( for i in $(seq -w 1 24); do screencapture -x "shots/launch-$i.png"; sleep 0.25; done ) &
+          open /Applications/Aquilum.app
+          status=0
+          ./wait_window || status=$?
+          wait
+          sleep 3
+          screencapture -x shots/after-3s.png
+          pgrep -lf Aquilum || echo "Aquilum process is not running"
+          exit $status
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-smoke-${{ inputs.tag || 'latest' }}-${{ inputs.appearance }}
+          path: shots/
+          retention-days: 7
