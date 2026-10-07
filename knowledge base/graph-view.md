@@ -20,7 +20,7 @@
 | Составляющая графа | Где лежит |
 | --- | --- |
 | Список узлов | таблица `wiki_documents` |
-| Рёбра по вики-ссылкам | таблица `wiki_links` |
+| Рёбра по Markdown- и вики-ссылкам | таблица `wiki_links` |
 | Разрешение неоднозначных целей | `wiki::select_candidate` |
 | Обход разрешённых ссылок | `wiki::for_each_link` |
 | Списки смежности для Adamic-Adar | `GraphSnapshot` в `search/analysis/graph.rs` |
@@ -30,11 +30,14 @@
 | Вывод даты создания и разрешение конфликтов | `search/created.rs` |
 | Ревизия для инвалидации кэша | `get_index_status` |
 | Силовая доводка раскладки | `search/graph/force.rs` |
+
 | Рендер | `components/Graph/`, страница `GraphView.tsx` |
 | Подписи узлов | `components/Graph/labelLayer.ts`, `labelCandidates.ts`, `labelAtlas.ts`, `labelSprites.ts` |
 | Минимальный промежуток между узлами | `search/graph/separate.rs` |
 | Названия заметок по индексу узла | `components/Graph/noteLabels.ts`, команда `get_graph_paths` |
 <!--q-table:{"merges":[],"cols":[249,240]}-->
+
+Индексатор сохраняет в `wiki_links` ссылки `[[Заметка]]` и обычные Markdown-ссылки `[текст](путь.md)`. Markdown-пути разрешаются относительно каталога исходной заметки; ссылка с ведущим `/` считается путём от корня хранилища. Якорь и query отбрасываются, внешние URL и ссылки на файлы кроме `.md` не становятся рёбрами. Изменение парсера поднимает `ANALYZER_VERSION`, поэтому открытый индекс пересобирает связи при следующем сканировании.
 
 Модули рендера разведены по ответственностям, и ориентир в 200 строк на файл здесь действует наравне с остальным кодом. `renderer.ts` — только оркестровка: камера, цикл кадров, публичный интерфейс. Остальное вынесено: `gpuScene.ts` — программы и вызовы отрисовки, `nodeTextures.ts` — три текстуры данных узлов и их загрузка, `snapshotStore.ts` — производные данные снимка и переезд координат, `highlightMap.ts` — карта подсветки и её изменённые строки, `dateFilter.ts` — непрозрачность узла по фильтру даты и число видимых заметок, `canvasSize.ts` — размер полотна и плотность экрана, `frameClock.ts` — планирование кадров и шаг времени, `pointerInteraction.ts` — состояние указателя, наведение и курсор, `scaleReadout.ts` — вывод масштаба в DOM, `labelLayer.ts` — решение, какие подписи показать, `labelCandidates.ts` — ограниченный отбор кандидатов, `labelAtlas.ts` — растеризация и место в атласе, `labelSprites.ts` — программа и инстансы подписей, `scaleReadout.ts`, `camera.ts`, `pointerControls.ts`, `wheelGestures.ts`, `pickGrid.ts`, `palette.ts`, `glResources.ts`, `shaders.ts`, `nodeMetrics.ts` — как раньше.
 

@@ -63,6 +63,11 @@ Dev и Release **изолированы**. Локальная разработк
 
 Результаты GitHub Actions → артефакты workflow или черновик релиза в `1tuz/Obsidium`.
 
+GitHub Actions кэширует Cargo напрямую в `.artifacts/cargo-release`, чтобы не создавать обычную
+папку `src-tauri/target` поверх junction. На Ubuntu зависимости ставятся с `archive.ubuntu.com`
+с ограничением времени на `apt-get update` и установку; матрица продолжает остальные платформы,
+если одна сборка падает.
+
 ```
 Исходники (aquilum-app/)
         │

@@ -62,6 +62,30 @@ pub fn extract(source: &str) -> Vec<WikiLink> {
         .collect()
 }
 
+pub fn extract_markdown(source: &str) -> Vec<WikiLink> {
+    let wiki_ranges = extract(source)
+        .into_iter()
+        .map(|link| link.target_range)
+        .collect::<Vec<_>>();
+    Parser::new_ext(source, Options::all())
+        .into_offset_iter()
+        .filter_map(|(event, range)| match event {
+            Event::Start(Tag::Link { dest_url, .. })
+                if wiki_ranges
+                    .get(wiki_ranges.partition_point(|wiki_range| wiki_range.end <= range.start))
+                    .is_none_or(|wiki_range| !overlaps(wiki_range, &range)) =>
+            {
+                Some(WikiLink {
+                    target: dest_url.to_string(),
+                    target_range: range.clone(),
+                    offset_utf16: source[..range.start].encode_utf16().count(),
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 fn excluded_ranges(source: &str) -> Vec<Range<usize>> {
     let mut ranges = Vec::new();
     let mut block_start = None;
@@ -110,7 +134,7 @@ fn overlaps(left: &Range<usize>, right: &Range<usize>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::extract;
+    use super::{extract, extract_markdown};
 
     #[test]
     fn extracts_targets_and_ignores_code() {
@@ -129,5 +153,20 @@ mod tests {
     fn continues_after_an_unclosed_link() {
         let links = extract("[[broken\n[[Note]]");
         assert_eq!(links[0].target, "Note");
+    }
+
+    #[test]
+    fn extracts_markdown_links_but_not_images_or_code() {
+        let links = extract_markdown(
+            "[note](Folder/Note.md#part) ![image](image.png) ` [code](Code.md) `\n\n    [block](Block.md)",
+        );
+        assert_eq!(
+            links
+                .iter()
+                .map(|link| link.target.as_str())
+                .collect::<Vec<_>>(),
+            ["Folder/Note.md#part"]
+        );
+        assert!(extract_markdown("[[Note]]").is_empty());
     }
 }

@@ -246,6 +246,43 @@ mod tests {
     }
 
     #[test]
+    fn markdown_links_resolve_relative_to_the_source_note() {
+        let (mut connection, root) = vault();
+        let source = root.join("Folder/Source.md");
+        let target = root.join("Folder/Target.md");
+        let transaction = connection.transaction().expect("transaction");
+        wiki::index_document(
+            &transaction,
+            root,
+            &source,
+            "[Target](Target.md#section) and [web](https://example.com)",
+        )
+        .expect("source row");
+        wiki::index_document(&transaction, root, &target, "target").expect("target row");
+        transaction.commit().expect("commit");
+
+        let snapshot = RenderSnapshot::build(&connection, root).expect("snapshot");
+
+        assert_eq!(snapshot.edge_count(), 3);
+        let linked = paths_at(
+            &snapshot.paths,
+            &(0..snapshot.node_count() as u32).collect::<Vec<_>>(),
+        );
+        let source_index = linked
+            .iter()
+            .position(|path| path.ends_with("Folder/Source.md"))
+            .unwrap() as u32;
+        let target_index = linked
+            .iter()
+            .position(|path| path.ends_with("Folder/Target.md"))
+            .unwrap() as u32;
+        assert!(snapshot
+            .edges
+            .chunks_exact(2)
+            .any(|pair| { pair.contains(&source_index) && pair.contains(&target_index) }));
+    }
+
+    #[test]
     fn the_most_linked_note_takes_the_first_slot() {
         let (connection, root) = vault();
 

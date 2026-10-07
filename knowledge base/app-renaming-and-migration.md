@@ -1,7 +1,7 @@
-# Переименование приложения в Aquilum и миграция данных
+# Переименование Aquilum в Obsidium и миграция данных
 
-Документ фиксирует переход с названия quantum-app (Quantum) на **Aquilum**: идентификаторы, каталоги
-данных и что из старого переносится автоматически.
+Документ фиксирует переход с quantum-app (Quantum) через Aquilum на **Obsidium**: идентификаторы,
+имя исполняемого файла, каталоги данных и что из старого переносится автоматически.
 
 Исходный текст этого документа пострадал от той же массовой замены `quantum` → `aquilum`, что и код:
 «было» и «стало» совпадали, а описанные миграции истории и переменных MCP в коде отсутствовали.
@@ -18,7 +18,8 @@
 
 | Сущность | Было | Стало | Где задаётся |
 |---|---|---|---|
-| Название приложения (окно, ярлык) | `quantum-app` | `Aquilum` | `tauri.conf.json` (`productName`, `title`) |
+| Название приложения (окно, ярлык) | `quantum-app` | `Obsidium` | `tauri.conf.json` (`productName`, `title`) |
+| Имя главного бинарника | `aquilum-app` | `Obsidium` | `tauri.conf.json` (`mainBinaryName`) |
 | Идентификатор приложения Tauri | `com.dmitriy.quantum-app` | `com.dmitriy.aquilum-app` | `tauri.conf.json` (`identifier`) |
 | Имя Rust-пакета и библиотеки | `quantum-app` / `quantum_app_lib` | `aquilum-app` / `aquilum_app_lib` | `Cargo.toml` |
 | Имя npm-пакета | `quantum-app` | `aquilum-app` | `package.json` |
@@ -30,10 +31,14 @@
 Установленный quantum-app — отдельная программа (своя запись удаления, свой автозапуск `quantum-app`,
 свой адрес обновлений). Aquilum его не обновляет и не удаляет; Aquilum ставится рядом.
 
-### Имя ярлыка на рабочем столе
+### Имя процесса и ярлыка
 
-В Tauri v2 при генерации установщика NSIS (Windows) имя ярлыка на рабочем столе и в меню «Пуск»
-определяется `productName` в `tauri.conf.json`. `"productName": "Aquilum"` даёт ярлык `Aquilum`.
+`productName` задаёт пользовательское имя приложения, а `mainBinaryName` переименовывает исполняемый
+файл, который видит диспетчер задач. Сейчас Tauri собирает `Obsidium.exe`. Имя Cargo-пакета и
+идентификатор `com.dmitriy.aquilum-app` остаются прежними: от них зависят сборка пакета и каталог
+данных пользователя. Команда MCP stdio запускается как `Obsidium.exe --mcp-stdio`.
+
+В установщике NSIS `productName` также задаёт имя ярлыков на рабочем столе и в меню «Пуск».
 
 ## 2. Данные профиля: `migrate_legacy_data`
 

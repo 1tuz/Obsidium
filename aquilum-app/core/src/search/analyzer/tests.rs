@@ -10,8 +10,8 @@ fn tokens(text: &str) -> Vec<String> {
 }
 
 #[test]
-fn analyzer_version_tracks_morphology_pipeline() {
-    assert_eq!(ANALYZER_VERSION, 10);
+fn index_version_tracks_text_and_link_parsing() {
+    assert_eq!(ANALYZER_VERSION, 11);
 }
 
 #[test]
