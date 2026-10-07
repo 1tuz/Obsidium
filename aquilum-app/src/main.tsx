@@ -11,6 +11,7 @@ import { initI18n, t } from "./i18n";
 import { SettingsProvider } from "./modules/settings";
 import { ErrorBoundary } from "./components/Common/ErrorBoundary";
 import { beginBootTrace, markBootStage } from "./modules/perf/bootTrace";
+import { revealAppWindow } from "./modules/windowReveal";
 
 beginBootTrace();
 markBootStage("scripts");
@@ -28,5 +29,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 );
 
 markBootStage("render");
+revealAppWindow();
 
 initScaling();
