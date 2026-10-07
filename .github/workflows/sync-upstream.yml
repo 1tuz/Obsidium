@@ -56,7 +56,15 @@ jobs:
             ':(exclude,top)aquilum-app/src-tauri/icons/**' > "$patch_file"
 
           if [[ ! -s "$patch_file" ]]; then
-            echo "No upstream source changes to apply; fork-owned files are unchanged."
+            if [[ "$upstream_sha" != "$last_synced" ]]; then
+              git commit --allow-empty \
+                -m "sync: record upstream checkpoint" \
+                -m "Upstream-Sync: $upstream_sha"
+              git push origin HEAD:main
+              echo "Recorded upstream checkpoint $upstream_sha; no source changes needed."
+            else
+              echo "No upstream source changes to apply; already current through $upstream_sha."
+            fi
             exit 0
           fi
 
