@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Aquilum-logo.png" alt="Obsidium logo" width="88">
+  <img src="Obsidium-logo.png" alt="Obsidium logo" width="216">
 </p>
 
 <h1 align="center">Obsidium</h1>
