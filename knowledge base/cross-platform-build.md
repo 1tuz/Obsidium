@@ -7,9 +7,10 @@ release script from an Actions job.
 
 `.github/workflows/ci.yml` runs on every branch push, pull requests, manual dispatch, and as a
 reusable workflow. The Ubuntu job checks the frontend build and unit tests. A Windows job checks
-the Rust entrypoint formatting, `cargo check`, and `cargo test`. After those checks, a cached build matrix
-packages Windows x64 NSIS and macOS arm64/Intel DMGs. The unsigned build config disables updater
-signing artifacts; each package is uploaded to the workflow run for seven days. The repository-wide
+the changed Rust entrypoint formatting. The package jobs compile the Rust app while producing the
+installers, without a separate full Rust test build. After those checks, a cached build matrix packages
+Windows x64 NSIS and macOS arm64/Intel DMGs. The unsigned build config disables updater signing
+artifacts; each package is uploaded to the workflow run for seven days. The repository-wide
 `cargo fmt --check` currently reports formatting differences in untouched files, so the CI formatting
 gate is limited to the changed entrypoint. Tag-triggered release runs skip this intermediate package
 job and let the release workflow build directly into the draft release.

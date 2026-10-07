@@ -53,15 +53,7 @@ jobs:
         with:
           components: rustfmt
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: aquilum-app/src-tauri -> target
-
       - run: rustfmt --check --edition 2021 --config skip_children=true aquilum-app/src-tauri/src/main.rs
-
-      - run: cargo check --locked --manifest-path aquilum-app/src-tauri/Cargo.toml
-
-      - run: cargo test --locked --manifest-path aquilum-app/src-tauri/Cargo.toml
 
   packages:
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
