@@ -159,6 +159,26 @@ Aquilum exposes an optional local MCP server. Compatible AI tools can search and
 
 Aquilum installs for the current user and does not require administrator rights. The installer is not currently signed with a Windows code-signing certificate, so SmartScreen may show a warning. Choose **More info → Run anyway** if you downloaded it from this repository.
 
+### macOS (Apple Silicon and Intel)
+
+Download the `.dmg` from the [latest release](https://github.com/Freaction/Aquilum/releases/latest), or install it from Terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/install.sh | bash
+```
+
+To remove the app:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/uninstall.sh | bash
+```
+
+The uninstall script removes `Aquilum.app` from `~/Applications`. Vault folders, Markdown files, and app settings remain untouched.
+
+### Linux (Ubuntu 24, x86_64)
+
+Download the `.deb` package or AppImage from the [latest release](https://github.com/Freaction/Aquilum/releases/latest).
+
 ## Updates
 
 Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. Without a network connection, the app starts normally and your local vault remains available.
@@ -167,8 +187,8 @@ Aquilum checks this public repository for updates at launch. When a newer versio
 
 - Windows 10 or Windows 11, 64-bit.
 - Microsoft Edge WebView2. It is normally present on Windows; the installer can obtain it when needed.
-
-macOS and Linux builds are not published yet.
+- macOS on Apple Silicon (arm64) or Intel (x86_64).
+- Ubuntu 22.04 or later, x86_64.
 
 ## Privacy and data locations
 
