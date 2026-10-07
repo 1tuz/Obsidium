@@ -208,8 +208,24 @@ pub fn run() {
                 _ => {}
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| match event {
+            tauri::RunEvent::Exit => {
+                if let Some(window) = app.get_webview_window("main") {
+                    app.state::<window_state::WindowStateManager>().capture_and_persist(&window.as_ref().window());
+                }
+                app.state::<Arc<app_core::Core>>().shutdown();
+            }
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { has_visible_windows: false, .. } => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            _ => {}
+        });
 }
 
 const DARK_CANVAS: Color = Color(0x09, 0x0b, 0x11, 0xff);

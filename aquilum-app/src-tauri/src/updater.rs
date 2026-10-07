@@ -40,6 +40,9 @@ mod release {
     use tauri::ipc::Channel;
     use tauri::AppHandle;
     use tauri_plugin_updater::{Update, UpdaterExt};
+    use crate::app_core::Core;
+    use std::sync::Arc;
+    use tauri::Manager;
 
     pub async fn find(app: &AppHandle) -> Result<Option<Update>, String> {
         app.updater()
@@ -51,12 +54,14 @@ mod release {
 
     pub async fn install(app: &AppHandle, update: Update, on_progress: Channel<UpdateProgress>) -> Result<(), String> {
         let installing = on_progress.clone();
+        let core = Arc::clone(app.state::<Arc<Core>>().inner());
         update
             .download_and_install(
                 move |chunk, total| {
                     let _ = on_progress.send(UpdateProgress::Downloading { chunk, total });
                 },
                 move || {
+                    core.shutdown();
                     let _ = installing.send(UpdateProgress::Installing);
                 },
             )

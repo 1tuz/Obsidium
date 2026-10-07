@@ -1,10 +1,11 @@
 use super::error::SearchError;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use unicode_normalization::UnicodeNormalization;
 use walkdir::{DirEntry, WalkDir};
 
 pub fn identity(path: &Path) -> String {
-    let normalized = slash_path(path);
+    let normalized: String = slash_path(path).nfc().collect();
     let normalized = normalized
         .strip_prefix("//?/UNC/")
         .map(|path| format!("//{path}"))
@@ -170,5 +171,13 @@ mod tests {
         let root = canonical_workspace(directory.path().to_str().unwrap()).unwrap();
         let extended = format!(r"\\?\{}", root.display());
         assert!(same_workspace(&root, &extended));
+    }
+
+    #[test]
+    fn decomposed_and_composed_names_share_one_identity() {
+        let composed = std::path::Path::new("Base/Мой план.md");
+        let decomposed = std::path::Path::new("Base/Мои\u{306} план.md");
+        assert_ne!(composed.to_str(), decomposed.to_str());
+        assert_eq!(super::identity(composed), super::identity(decomposed));
     }
 }

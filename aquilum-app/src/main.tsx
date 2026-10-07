@@ -31,3 +31,8 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 markBootStage("render");
 
 initScaling();
+
+const pdfExportCheck = import.meta.env.VITE_E2E_PDF;
+if (pdfExportCheck) {
+  void import("./modules/export/pdfExportCheck").then((check) => check.runPdfExportCheck(pdfExportCheck));
+}
