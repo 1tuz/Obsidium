@@ -114,7 +114,7 @@ export interface AppConfig {
 interface SettingsContextValue {
   config: AppConfig | null;
   isLoading: boolean;
-  loadConfig: () => Promise<void>;
+  loadConfig: () => Promise<AppConfig | null>;
   updateConfig: (newConfig: AppConfig) => Promise<void>;
 }
 
@@ -152,18 +152,28 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const saveQueue = useRef(Promise.resolve());
+  const loadPromise = useRef<Promise<AppConfig | null> | null>(null);
 
-  const loadConfig = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const newConfig = withKnownFonts(await invoke<AppConfig>('get_settings'));
-      applySettingsToDom(newConfig);
-      setConfig(newConfig);
-    } catch (err) {
-      console.error('Failed to load settings:', err);
-    } finally {
-      setIsLoading(false);
-    }
+  const loadConfig = useCallback(() => {
+    if (loadPromise.current) return loadPromise.current;
+    setIsLoading(true);
+    const pending = invoke<AppConfig>('get_settings')
+      .then((loadedConfig) => {
+        const newConfig = withKnownFonts(loadedConfig);
+        applySettingsToDom(newConfig);
+        setConfig(newConfig);
+        return newConfig;
+      })
+      .catch((err) => {
+        console.error('Failed to load settings:', err);
+        return null;
+      })
+      .finally(() => {
+        setIsLoading(false);
+        loadPromise.current = null;
+      });
+    loadPromise.current = pending;
+    return pending;
   }, []);
 
   const updateConfig = useCallback(async (newConfig: AppConfig) => {

@@ -1,6 +1,6 @@
 import { getLocale, t } from '../../i18n';
-import { memo } from 'react';
-import { RotateCcw } from 'lucide';
+import { memo, useState } from 'react';
+import { PanelRightClose, PanelRightOpen, RotateCcw } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Slider } from '../Common/Slider';
@@ -40,74 +40,92 @@ export const GraphSettings = memo(function GraphSettings({
   onChange,
   onRefresh,
 }: GraphSettingsProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const threshold = range.oldest + (range.newest - range.oldest) * controls.createdShare;
 
   return (
-    <aside className="q-graph-settings" aria-label={t('graph.settings')}>
+    <aside
+      className={`q-graph-settings${collapsed ? ' q-graph-settings--collapsed' : ''}`}
+      aria-label={t('graph.settings')}
+    >
       <div className="q-graph-settings-head">
-        <span className="q-graph-settings-title">{t('graph.title')}</span>
-        <IconButton label={t('graph.refresh')} size="small" onClick={onRefresh}>
-          <Icon icon={RotateCcw} />
+        {!collapsed && <span className="q-graph-settings-title">{t('graph.title')}</span>}
+        {!collapsed && (
+          <IconButton label={t('graph.refresh')} size="small" onClick={onRefresh}>
+            <Icon icon={RotateCcw} />
+          </IconButton>
+        )}
+        <IconButton
+          label={t(collapsed ? 'graph.expandSettings' : 'graph.collapseSettings')}
+          size="small"
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed((current) => !current)}
+        >
+          <Icon icon={collapsed ? PanelRightOpen : PanelRightClose} />
         </IconButton>
       </div>
 
-      <Slider
-        label={t('graph.nodeSize')}
-        min={0.4}
-        max={2.5}
-        step={0.05}
-        value={controls.nodeSize}
-        hint={`${controls.nodeSize.toFixed(2)}×`}
-        onChange={(nodeSize) => onChange({ nodeSize })}
-      />
+      {!collapsed && (
+        <>
+          <Slider
+            label={t('graph.nodeSize')}
+            min={0.4}
+            max={2.5}
+            step={0.05}
+            value={controls.nodeSize}
+            hint={`${controls.nodeSize.toFixed(2)}×`}
+            onChange={(nodeSize) => onChange({ nodeSize })}
+          />
 
-      <Slider
-        label={t('graph.spread')}
-        min={MIN_SPREAD}
-        max={2.5}
-        step={0.05}
-        value={controls.spread}
-        hint={`${controls.spread.toFixed(2)}×`}
-        onChange={(spread) => onChange({ spread })}
-      />
+          <Slider
+            label={t('graph.spread')}
+            min={MIN_SPREAD}
+            max={2.5}
+            step={0.05}
+            value={controls.spread}
+            hint={`${controls.spread.toFixed(2)}×`}
+            onChange={(spread) => onChange({ spread })}
+          />
 
-      <Slider
-        label={t('graph.depth')}
-        min={1}
-        max={3}
-        step={1}
-        value={controls.highlightDepth}
-        hint={depthHints()[controls.highlightDepth - 1]}
-        onChange={(highlightDepth) => onChange({ highlightDepth })}
-      />
+          <Slider
+            label={t('graph.depth')}
+            min={1}
+            max={3}
+            step={1}
+            value={controls.highlightDepth}
+            hint={depthHints()[controls.highlightDepth - 1]}
+            onChange={(highlightDepth) => onChange({ highlightDepth })}
+          />
 
-      <Slider
-        label={t('graph.createdAfter')}
-        min={0}
-        max={1}
-        step={0.005}
-        value={controls.createdShare}
-        hint={controls.createdShare === 0 ? t('graph.all') : formatDay(threshold)}
-        onChange={(createdShare) => onChange({ createdShare })}
-      />
+          <Slider
+            label={t('graph.createdAfter')}
+            min={0}
+            max={1}
+            step={0.005}
+            value={controls.createdShare}
+            hint={controls.createdShare === 0 ? t('graph.all') : formatDay(threshold)}
+            onChange={(createdShare) => onChange({ createdShare })}
+          />
 
-      <label className="q-graph-settings-toggle">
-        <span>{t('graph.labels')}</span>
-        <Switch
-          checked={controls.labels}
-          onChange={(labels) => onChange({ labels })}
-        />
-      </label>
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.labels')}</span>
+            <Switch
+              checked={controls.labels}
+              onChange={(labels) => onChange({ labels })}
+            />
+          </label>
 
-      <div className="q-graph-settings-choice">
-        <span>{t('graph.heatmap')}</span>
-        <SegmentedControl
-          stretch
-          options={heatmapAxes()}
-          value={controls.heatmapAxis}
-          onChange={(value) => onChange({ heatmapAxis: value as HeatmapAxis })}
-        />
-      </div>
+          <div className="q-graph-settings-choice">
+            <span>{t('graph.heatmap')}</span>
+            <SegmentedControl
+              stretch
+              options={heatmapAxes()}
+              value={controls.heatmapAxis}
+              onChange={(value) => onChange({ heatmapAxis: value as HeatmapAxis })}
+            />
+          </div>
+        </>
+      )}
     </aside>
   );
 });

@@ -14,10 +14,23 @@
   background-color: var(--q-graph-settings-bg);
 }
 
+.q-graph-settings--collapsed {
+  bottom: auto;
+  width: var(--q-size-32);
+  height: var(--q-size-32);
+  padding: 0;
+  overflow: hidden;
+}
+
 .q-graph-settings-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.q-graph-settings--collapsed .q-graph-settings-head {
+  height: 100%;
+  justify-content: center;
 }
 
 .q-graph-settings-title {

@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { actAndSettle, mountDom, type MountedDom } from './testing/mountDom';
+import { setTheme } from './modules/theme';
 
 const editorLifecycle: string[] = [];
 const graphLifecycle: string[] = [];
@@ -19,6 +20,7 @@ const uiStateMocks = vi.hoisted(() => ({
 }));
 const settingsState = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
+  loadConfig: vi.fn(async () => null as Record<string, unknown> | null),
   updateConfig: vi.fn(),
 }));
 
@@ -71,7 +73,7 @@ vi.mock('./components/Layout/Titlebar', () => ({
   }) => (
     <>
       <button id="toggle-right-sidebar" onClick={onToggleRightSidebar} />
-      <button id="toggle-theme" onClick={onToggleTheme} />
+      {onToggleTheme && <button id="toggle-theme" onClick={onToggleTheme} />}
     </>
   ),
 }));
@@ -142,7 +144,7 @@ vi.mock('./modules/settings', () => ({
     config: settingsState.config,
     isLoading: false,
     error: null,
-    loadConfig: () => Promise.resolve(),
+    loadConfig: settingsState.loadConfig,
     updateConfig: settingsState.updateConfig,
   }),
 }));
@@ -213,6 +215,8 @@ describe('App editor lifecycle', () => {
     workspaceState.files = [];
     workspaceState.workspaceReady = false;
     settingsState.config = null;
+    settingsState.loadConfig.mockReset();
+    settingsState.loadConfig.mockResolvedValue(null);
     settingsState.updateConfig.mockReset();
     vi.clearAllMocks();
   });
@@ -224,6 +228,36 @@ describe('App editor lifecycle', () => {
 
     expect(find('open-file-from-new-tab')).toHaveLength(0);
     expect(editorLifecycle).toHaveLength(0);
+  });
+
+  it('keeps the quick theme switch visible while settings are loading', () => {
+    act(() => {
+      renderer = mountDom(<App />);
+    });
+
+    expect(find('toggle-theme')).toHaveLength(1);
+  });
+
+  it('loads settings and switches theme when clicked before config is ready', async () => {
+    const config = {
+      editor: { liveTabs: 3 },
+      updates: { auto: false },
+      trash: { retentionDays: 30 },
+      history: { retentionDays: 30 },
+      templates: { folder: '' },
+      ui: { appearance: 'system', palette: 'obsidium', motion: 'system' },
+    };
+    settingsState.loadConfig.mockResolvedValue(config);
+    settingsState.updateConfig.mockResolvedValue(undefined);
+    setTheme('dark', 'obsidium');
+    await renderWithSession();
+
+    await actAndSettle(() => find('toggle-theme')[0].click());
+
+    expect(settingsState.loadConfig).toHaveBeenCalled();
+    expect(settingsState.updateConfig).toHaveBeenCalledWith(expect.objectContaining({
+      ui: { appearance: 'light', palette: 'obsidium', motion: 'system' },
+    }));
   });
 
   it('creates a fresh editor instance when a sidebar selection replaces the active file', async () => {
@@ -304,6 +338,7 @@ describe('App editor lifecycle', () => {
   });
 
   it('switches the stored appearance directly from the titlebar', async () => {
+    setTheme('light', 'obsidium');
     settingsState.config = {
       editor: { liveTabs: 3 },
       updates: { auto: false },

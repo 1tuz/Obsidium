@@ -131,13 +131,14 @@ export default function App() {
 
   const { config, loadConfig, updateConfig } = useSettingsStore();
   const themeMode = useThemeMode();
-  const toggleTheme = useCallback(() => {
-    if (!config) return;
-    void updateConfig({
-      ...config,
-      ui: { ...config.ui, appearance: themeMode === 'dark' ? 'light' : 'dark' },
+  const toggleTheme = useCallback(async () => {
+    const currentConfig = config ?? await loadConfig();
+    if (!currentConfig) return;
+    await updateConfig({
+      ...currentConfig,
+      ui: { ...currentConfig.ui, appearance: themeMode === 'dark' ? 'light' : 'dark' },
     }).catch((error) => console.error('Failed to switch theme', error));
-  }, [config, themeMode, updateConfig]);
+  }, [config, loadConfig, themeMode, updateConfig]);
 
   useEffect(() => {
     void applyVaultSnippets(workspacePath, config?.ui.enabledSnippets ?? {});
@@ -441,7 +442,7 @@ export default function App() {
             onNewTab={newTab}
             rightSidebarOpen={rightSidebarVisible}
             onToggleRightSidebar={focusMode ? undefined : toggleRightSidebar}
-            onToggleTheme={config ? toggleTheme : undefined}
+            onToggleTheme={toggleTheme}
           />
 
           <div className="q-app-content">

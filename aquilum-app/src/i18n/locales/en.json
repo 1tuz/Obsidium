@@ -483,6 +483,8 @@
     "settings": "Graph settings",
     "title": "Graph",
     "refresh": "Rebuild the graph",
+    "collapseSettings": "Collapse graph panel",
+    "expandSettings": "Expand graph panel",
     "nodeSize": "Node size",
     "spread": "Distance between nodes",
     "depth": "Highlight depth",
