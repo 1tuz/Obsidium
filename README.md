@@ -153,20 +153,6 @@ Aquilum exposes an optional local MCP server. Compatible AI tools can search and
 
 ## Installation
 
-After macOS release builds are published, install the latest version with:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/install.sh | bash
-```
-
-Remove the app with:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/uninstall.sh | bash
-```
-
-These scripts install or remove only `~/Applications/Aquilum.app`. Vault folders, Markdown files, attachments, and Aquilum settings remain on disk.
-
 1. Open the [latest release](https://github.com/Freaction/Aquilum/releases/latest).
 2. Download `aquilum-app_<version>_x64-setup.exe`.
 3. Run the installer and choose a new or existing folder for your vault.
