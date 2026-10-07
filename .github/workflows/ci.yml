@@ -75,6 +75,7 @@ jobs:
       matrix:
         include:
           - runner: windows-latest
+            name: Windows
             target: x86_64-pc-windows-msvc
             tauri_args: --bundles nsis
             bundle: nsis
@@ -82,6 +83,7 @@ jobs:
             artifact: windows-x64
             apple_signing_identity: ''
           - runner: macos-15
+            name: macOS
             target: aarch64-apple-darwin
             tauri_args: --bundles dmg --target aarch64-apple-darwin
             bundle: dmg
@@ -89,6 +91,7 @@ jobs:
             artifact: macos-arm64
             apple_signing_identity: '-'
           - runner: ubuntu-24.04
+            name: Linux
             target: x86_64-unknown-linux-gnu
             tauri_args: --bundles deb --target x86_64-unknown-linux-gnu
             bundle: deb
@@ -96,6 +99,7 @@ jobs:
             artifact: ubuntu-24-x64
             apple_signing_identity: '-'
     runs-on: ${{ matrix.runner }}
+    name: Build ${{ matrix.name }} Package
     steps:
       - uses: actions/checkout@v7
         with:

@@ -1,0 +1,14 @@
+name: Build macOS Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: ./.github/workflows/release-platform.yml
+    with:
+      platform: macOS
+    secrets: inherit

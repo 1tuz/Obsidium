@@ -1,10 +1,12 @@
-# Release builds for Windows, macOS and Linux.
-# Pushing a tag v* builds every platform into a draft release with latest.json for the updater.
-name: Release All Platforms
+name: Release One Platform
 
 on:
-  push:
-    tags: ['v*']
+  workflow_call:
+    inputs:
+      platform:
+        description: Platform to publish for the current application version
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -15,31 +17,15 @@ concurrency:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            name: Windows
-            args: '--bundles nsis --target x86_64-pc-windows-msvc'
-            rust-targets: x86_64-pc-windows-msvc
-          - platform: macos-15
-            name: macOS
-            args: '--bundles dmg --target aarch64-apple-darwin'
-            rust-targets: aarch64-apple-darwin
-          - platform: ubuntu-24.04
-            name: Linux
-            args: '--bundles deb --target x86_64-unknown-linux-gnu'
-            rust-targets: x86_64-unknown-linux-gnu
-    name: Build ${{ matrix.name }} Package
-    runs-on: ${{ matrix.platform }}
+    name: Build ${{ inputs.platform }} Package
+    runs-on: ${{ inputs.platform == 'macOS' && 'macos-15' || inputs.platform == 'Windows' && 'windows-latest' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Linux dependencies
-        if: startsWith(matrix.platform, 'ubuntu')
+      - name: Install Linux build dependencies
+        if: inputs.platform == 'Linux'
         run: |
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list.d/ubuntu.sources
           timeout -k 5s 60s sudo apt-get update -o Acquire::Retries=2 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15
@@ -55,14 +41,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.rust-targets }}
+          targets: ${{ inputs.platform == 'macOS' && 'aarch64-apple-darwin' || inputs.platform == 'Windows' && 'x86_64-pc-windows-msvc' || 'x86_64-unknown-linux-gnu' }}
 
       - uses: actions/cache@v6
         with:
           path: .artifacts/cargo-release
-          key: ${{ runner.os }}-cargo-v2-${{ matrix.rust-targets }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-v2-${{ inputs.platform }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-v2-${{ matrix.rust-targets }}-
+            ${{ runner.os }}-cargo-v2-${{ inputs.platform }}-
 
       - name: Install frontend dependencies
         working-directory: aquilum-app
@@ -76,27 +62,17 @@ jobs:
         with:
           projectPath: aquilum-app
           tauriScript: npm run tauri
-          args: --features updater ${{ matrix.args }}
+          args: --features updater ${{ inputs.platform == 'macOS' && '--bundles dmg --target aarch64-apple-darwin' || inputs.platform == 'Windows' && '--bundles nsis --target x86_64-pc-windows-msvc' || '--bundles deb --target x86_64-unknown-linux-gnu' }}
           tagName: v__VERSION__
           releaseName: __VERSION__
           releaseBody: See the release notes below.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           uploadUpdaterJson: true
 
-  publish:
-    needs: build
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Publish complete release
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
-          if [[ -z "$RELEASE_TAG" ]]; then
-            version="$(node -p 'require("./aquilum-app/package.json").version')"
-            RELEASE_TAG="v${version}"
-          fi
-          gh release edit "$RELEASE_TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+          version="$(node -p 'require("./aquilum-app/package.json").version')"
+          gh release edit "v${version}" --draft=false --latest --repo "$GITHUB_REPOSITORY"

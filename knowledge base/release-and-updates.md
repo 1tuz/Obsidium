@@ -25,7 +25,7 @@ Vault, Markdown-файлы, вложения и каталог данных пр
 установщик. Updater качает файлы только с **публичного** GitHub Release.
 
 GitHub Actions собирает Windows x64, macOS arm64 и Ubuntu 24 x64 на push; теги
-`v*` запускают сборки в черновик GitHub Release. Политика macOS ad-hoc подписи
+`v*` запускают все платформы в черновик GitHub Release. Политика macOS ad-hoc подписи
 описана в [[cross-platform-build]].
 
 Node.js нужен только GitHub Actions для сборки. Пользователю он не нужен: Tauri updater
@@ -46,11 +46,18 @@ https://github.com/1tuz/Obsidium/releases/latest/download/latest.json
 
 ## Публикация релиза
 
-Каждый push запускает CI с лёгкими проверками и пакетными сборками. Тег `v*` или ручной запуск
-release workflow собирает Windows x64 NSIS, Apple Silicon macOS DMG и Ubuntu 24 x64 `.deb` в
-черновик, после успешного завершения всех платформ автоматически публикует его в
-[1tuz/Obsidium Releases](https://github.com/1tuz/Obsidium/releases). Приватный updater key хранится в
-GitHub Secret `TAURI_SIGNING_PRIVATE_KEY`; публичный ключ хранится в `tauri.conf.json`.
+Тег `v*` запускает `Release All Platforms`, который собирает Windows x64 NSIS, Apple Silicon macOS
+DMG и Ubuntu 24 x64 `.deb`; после всех сборок release публикуется в
+[1tuz/Obsidium Releases](https://github.com/1tuz/Obsidium/releases). Для отдельной публикации выбери
+в GitHub Actions `Build macOS Package`, `Build Linux Package` или `Build Windows Package`. Такой
+workflow собирает только выбранную ОС, добавляет пакет и updater-подпись в release с тегом
+`v<version из aquilum-app/package.json>` и публикует его. Tauri Action объединяет платформенную
+запись в `latest.json`, поэтому последовательные запуски сохраняют уже опубликованные ОС. Запуски
+release workflows сериализованы, чтобы две сборки не перезаписали manifest одновременно.
+
+Чтобы updater предложил установку, увеличь версию приложения перед запуском: повторная публикация
+того же номера версии не считается обновлением. Приватный updater key хранится в GitHub Secret
+`TAURI_SIGNING_PRIVATE_KEY`; публичный ключ хранится в `tauri.conf.json`.
 
 ## Исходники и лицензия
 
