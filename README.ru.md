@@ -1,18 +1,23 @@
 <p align="center">
-  <img src="Aquilum-logo.png" alt="Aquilum" width="120">
+  <img src="Aquilum-logo.png" alt="Логотип Obsidium" width="88">
 </p>
 
-<h1 align="center">Aquilum</h1>
+<h1 align="center">Obsidium</h1>
 
 <p align="center">
-  Быстрая локальная база знаний для Windows, macOS и Linux.<br>
-  Обычный Markdown на вашем диске, удобный редактор, мгновенный поиск, связи, запросы и встроенная читалка.
+  <strong>Локальная база знаний в формате Markdown.</strong><br>
+  Форк Aquilum хранит заметки на вашем устройстве: их можно искать, связывать и собирать в запросы.
 </p>
 
 <p align="center">
   <a href="https://github.com/1tuz/Obsidium/releases/latest"><b>Скачать последнюю версию</b></a>
   · <a href="#установка">Установка</a>
   · <a href="README.md">English</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/1tuz/Obsidium/actions/workflows/ci.yml"><img src="https://github.com/1tuz/Obsidium/actions/workflows/ci.yml/badge.svg?branch=main" alt="Статус сборки"></a>
+  · Windows x64 · Apple Silicon · Ubuntu 24
 </p>
 
 ---

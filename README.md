@@ -1,18 +1,23 @@
 <p align="center">
-  <img src="Aquilum-logo.png" alt="Aquilum" width="120">
+  <img src="Aquilum-logo.png" alt="Obsidium logo" width="88">
 </p>
 
-<h1 align="center">Aquilum</h1>
+<h1 align="center">Obsidium</h1>
 
 <p align="center">
-  A fast, local-first knowledge base for Windows, macOS, and Linux.<br>
-  Plain Markdown on your disk, with a focused editor, instant search, links, queries, and a built-in book reader.
+  <strong>A local-first Markdown knowledge base.</strong><br>
+  An Aquilum fork that keeps notes on your device and makes them searchable, connected, and ready to query.
 </p>
 
 <p align="center">
   <a href="https://github.com/1tuz/Obsidium/releases/latest"><b>Download the latest version</b></a>
   · <a href="#installation">Installation</a>
   · <a href="README.ru.md">Русский</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/1tuz/Obsidium/actions/workflows/ci.yml"><img src="https://github.com/1tuz/Obsidium/actions/workflows/ci.yml/badge.svg?branch=main" alt="Build status"></a>
+  · Windows x64 · Apple Silicon · Ubuntu 24
 </p>
 
 ---
