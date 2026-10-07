@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="Freaction/Aquilum"
+REPO="1tuz/Obsidium"
 APP_DIR="$HOME/Applications"
 APP_PATH="$APP_DIR/Aquilum.app"
 
@@ -12,8 +12,7 @@ fi
 
 case "$(uname -m)" in
   arm64) target="aarch64" ;;
-  x86_64) target="x86_64" ;;
-  *) printf 'Unsupported Mac architecture: %s\n' "$(uname -m)" >&2; exit 1 ;;
+  *) printf 'Aquilum DMG installer supports Apple Silicon Macs only (arm64).\n' >&2; exit 1 ;;
 esac
 
 work_dir="$(mktemp -d)"

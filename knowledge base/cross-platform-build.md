@@ -10,6 +10,11 @@ workflow call. It checks the frontend build and tests, installer-script safety, 
 then packages Windows x64 NSIS, an Apple Silicon macOS DMG, and an Ubuntu 24 x64 `.deb`. npm and Cargo
 dependencies are cached; package artifacts remain available for seven days.
 
+The macOS bundle is ad-hoc signed with identity `-`. This produces a code signature but does not make
+downloads trusted by Gatekeeper or eligible for notarization. Normal first-launch approval for
+quarantined downloads requires an Apple Developer ID certificate and Apple notarization; those
+credentials are not configured in this repository's GitHub Actions secrets.
+
 `.github/workflows/release.yml` builds the same three targets into a draft GitHub Release on `v*`
 tags or manual dispatch. Review the generated assets before publishing the draft. The scheduled
 `Sync upstream fork` workflow syncs `main` from `Freaction/Aquilum` and dispatches CI when upstream

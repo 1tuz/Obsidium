@@ -5,12 +5,12 @@
 <h1 align="center">Aquilum</h1>
 
 <p align="center">
-  A fast, local-first knowledge base for Windows.<br>
+  A fast, local-first knowledge base for Windows, macOS, and Linux.<br>
   Plain Markdown on your disk, with a focused editor, instant search, links, queries, and a built-in book reader.
 </p>
 
 <p align="center">
-  <a href="https://github.com/Freaction/Aquilum/releases/latest"><b>Download the latest version</b></a>
+  <a href="https://github.com/1tuz/Obsidium/releases/latest"><b>Download the latest version</b></a>
   · <a href="#installation">Installation</a>
   · <a href="README.ru.md">Русский</a>
 </p>
@@ -153,9 +153,9 @@ Aquilum exposes an optional local MCP server. Compatible AI tools can search and
 
 ## Installation
 
-1. Open the [latest release](https://github.com/Freaction/Aquilum/releases/latest).
-2. Download `aquilum-app_<version>_x64-setup.exe`.
-3. Run the installer and choose a new or existing folder for your vault.
+1. Open the [latest release](https://github.com/1tuz/Obsidium/releases/latest).
+2. Download the package for your system: Windows x64 `.exe`, Apple Silicon macOS `.dmg`, or Ubuntu 24 x64 `.deb`.
+3. Install it and choose a new or existing folder for your vault.
 
 Aquilum installs for the current user and does not require administrator rights. The installer is not currently signed with a Windows code-signing certificate, so SmartScreen may show a warning. Choose **More info → Run anyway** if you downloaded it from this repository.
 
@@ -165,10 +165,10 @@ Aquilum checks this public repository for updates at launch. When a newer versio
 
 ## Requirements
 
-- Windows 10 or Windows 11, 64-bit.
-- Microsoft Edge WebView2. It is normally present on Windows; the installer can obtain it when needed.
+- Windows 10 or Windows 11, 64-bit; Apple Silicon macOS; or Ubuntu 24, x64.
+- Windows requires Microsoft Edge WebView2. It is normally present; the installer can obtain it when needed.
 
-macOS and Linux builds are not published yet.
+The macOS DMG is ad-hoc signed. Gatekeeper may require you to approve the first launch in System Settings; trusted distribution requires Apple Developer ID signing and notarization.
 
 ## Privacy and data locations
 
@@ -182,7 +182,7 @@ Aquilum does not require a cloud account. Network access is used for update chec
 
 ## Feedback
 
-Report bugs and suggest improvements in [Issues](https://github.com/Freaction/Aquilum/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information.
+Report bugs and suggest improvements in [Issues](https://github.com/1tuz/Obsidium/issues). Please include the Aquilum version from **Settings → System → About**, what you expected, what happened, and the steps that reproduce it. Screenshots and a small example vault are useful when they do not contain private information.
 
 ## Source code and license
 

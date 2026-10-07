@@ -5,14 +5,14 @@
 После публикации релиза macOS приложение можно установить без клонирования репозитория:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.sh | bash
 ```
 
 Скрипт выбирает DMG под `arm64` или `x86_64` через GitHub Releases API и копирует `Aquilum.app` в
 `~/Applications`. Удаление:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.sh | bash
 ```
 
 Удаление затрагивает только `~/Applications/Aquilum.app`. Vault, Markdown-файлы, вложения и каталог
@@ -23,75 +23,32 @@ curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/unin
 Исходный код и бинарники живут в **разных местах**. `git push` не публикует
 установщик. Updater качает файлы только с **публичного** GitHub Release.
 
-**Сейчас релиз Windows — только локально на ПК.** GitHub Actions для сборки
-отключён: private-репо упирается в лимит минут. macOS/Linux — позже, когда
-появится отдельный способ сборки.
+GitHub Actions собирает Windows x64, macOS arm64 и Ubuntu 24 x64 на push; теги
+`v*` запускают сборки в черновик GitHub Release. Политика macOS ad-hoc подписи
+описана в [[cross-platform-build]].
 
-**Node.js нужен только тебе при сборке** (`npm run release:local`). У пользователя
-Node.js нет: приложение обновляется через Tauri updater + NSIS `setup.exe`.
+Node.js нужен только GitHub Actions для сборки. Пользователю он не нужен: Tauri updater
+скачивает подходящий пакет для платформы из публичного Release.
 
 ## Два репозитория
 
 | Репозиторий | Доступ | Содержимое |
 |-------------|--------|------------|
-| [Freaction/Aquilum-source](https://github.com/Freaction/Aquilum-source) | **private** | рабочие исходники с полной историей |
-| [Freaction/Aquilum](https://github.com/Freaction/Aquilum) | **public** | страница приложения, снимок исходников под AGPL-3.0, установщики + `latest.json` |
+| [1tuz/Obsidium](https://github.com/1tuz/Obsidium) | **public fork** | исходники, Actions, установщики и `latest.json` |
+| [Freaction/Aquilum](https://github.com/Freaction/Aquilum) | **upstream** | исходный проект; ежедневная синхронизация в fork `main` |
 
 Updater смотрит сюда:
 
 ```
-https://github.com/Freaction/Aquilum/releases/latest/download/latest.json
+https://github.com/1tuz/Obsidium/releases/latest/download/latest.json
 ```
 
-Private-репо для Releases **не подходит** — файлы качаются без авторизации.
+## Публикация релиза
 
-## Пайплайн: Windows с ПК
-
-### Один раз
-
-1. Ключ подписи: `%USERPROFILE%\.tauri\aquilum.key`
-2. Пароль в env (постоянно):
-   ```bat
-   setx TAURI_SIGNING_PRIVATE_KEY_PASSWORD "пароль"
-   ```
-   После `setx` открой **новый** терминал.
-3. `gh auth login` — если заливаешь через CLI
-
-### Каждый релиз
-
-Сначала выполнить пункты [[tech-debt]] с пометкой «В следующем релизе» (сейчас таких нет): это правки,
-которые нельзя делать в dev раньше выпуска, потому что dev и релиз делят данные приложения.
-
-```bash
-cd aquilum-app
-# 1) Версия в package.json (например 0.1.8)
-# 2) Сборка
-npm run release:local
-```
-
-`npm run release` делает то же самое (локальная сборка, без push в Actions).
-
-Результат: `.artifacts/releases/<version>/`
-
-- `aquilum-app_<ver>_x64-setup.exe` — установщик (NSIS)
-- `latest.json` — манифест updater (`windows-x86_64` → этот setup.exe)
-- `UPLOAD.txt` — короткая шпаргалка
-
-### Залить руками в Aquilum
-
-**UI:** https://github.com/Freaction/Aquilum/releases/new  
-Tag `v<ver>`, прикрепить `setup.exe` + `latest.json` → Publish.
-
-**CLI** (из папки артефактов):
-
-```bash
-cd "../.artifacts/releases/<version>"
-gh release create v<version> "aquilum-app_<version>_x64-setup.exe" latest.json --repo Freaction/Aquilum --title "v<version>" --notes ""
-```
-
-Если tag/release уже есть — замени assets, особенно `latest.json`.
-
-После Publish старые установленные клиенты подтянут обновление при следующем запуске.
+Каждый push запускает CI с лёгкими проверками и пакетными сборками. Тег `v*` запускает release
+workflow: собираются Windows x64 NSIS, Apple Silicon macOS DMG и Ubuntu 24 x64 `.deb`; после успешных
+сборок создаётся черновик релиза с updater manifest. Проверьте артефакты, затем опубликуйте черновик
+в [1tuz/Obsidium Releases](https://github.com/1tuz/Obsidium/releases).
 
 ## Исходники и лицензия
 
@@ -103,26 +60,8 @@ gh release create v<version> "aquilum-app_<version>_x64-setup.exe" latest.json -
 выдавать отдельную коммерческую лицензию; если начнём принимать чужие pull request, без
 соглашения контрибьютора (CLA) это право на их код теряется.
 
-Публичный репозиторий получает **снимок без истории**, а не зеркало private-репо: в истории
-лежали личные заметки автора и сторонние файлы, которые в дереве давно удалены. Зеркалирование
-истории (`git push` private → public) опубликует их все, поэтому запрещено.
-
-Обновление снимка (обычно вместе с релизом), из корня private-репо после коммита:
-
-```bash
-git archive HEAD -- aquilum-app "knowledge base" AGENTS.md LICENSE .gitattributes .gitignore .gitmodules | tar -x -C release-repo-update
-git show HEAD:README.md > release-repo-update/DEVELOPMENT.md
-cd release-repo-update
-git update-index --add --cacheinfo 160000,<sha foliate-js>,aquilum-app/vendor/foliate-js
-git add -A && git commit -m "исходники <версия>" && git push
-```
-
-`git archive` берёт только закоммиченное и не берёт ignored-файлы. Удалённые в private-репо
-файлы снимок сам не удалит — перед распаковкой очистить в `release-repo-update` каталоги
-`aquilum-app` и `knowledge base`. Подмодуль `foliate-js` архив не содержит: в публичном репо он
-подключается тем же `.gitmodules` и gitlink на коммит из `git submodule status`. `README.md` у
-публичного репо свой (страница приложения), поэтому README разработчика едет как `DEVELOPMENT.md`.
-`.github/` не публикуется: оба workflow — отключённые заглушки.
+Workflow `Sync upstream fork` ежедневно синхронизирует `main` с `Freaction/Aquilum` и запускает CI,
+если появились новые коммиты. Fork сохраняет собственные workflows, release settings и выпуски.
 
 ## Подпись
 
@@ -226,7 +165,7 @@ dev-сборка (или ошибка, если её папки уже нет). 
 Updater обязан получать NSIS (`*-setup.exe`). MSI в quiet зависает на
 «Приложение откроется автоматически» (нужен UAC / другой путь установки).
 
-Локальный `release:local` кладёт в `latest.json` сразу правильный URL на setup.exe.
+Локальный `release:local` кладёт в `latest.json` правильный URL на setup.exe.
 В `bundle.targets` MSI нет (`nsis`, плюс пакеты других ОС на будущее).
 
 | Ключ | Смысл |
@@ -237,7 +176,7 @@ Updater обязан получать NSIS (`*-setup.exe`). MSI в quiet зав�
 ## Тест автообновления
 
 1. Поставить старую release-сборку (не dev)
-2. Выпустить новую через `release:local` + Publish в Aquilum
+2. Выпустить новую тегом `v*` и опубликовать черновик в Obsidium
 3. Запустить старую без переустановки
 4. Splash с процентами → окно NSIS с прогрессом → перезапуск на новой версии
 5. В `latest.json` у `windows-x86_64.url` — `*-setup.exe`, не `.msi`
@@ -246,9 +185,9 @@ Updater обязан получать NSIS (`*-setup.exe`). MSI в quiet зав�
 
 | Симптом | Причина | Решение |
 |---------|---------|---------|
-| Actions: payments / spending limit | Private + hosted runners, минуты кончились | Релиз только `release:local`, CI отключён |
-| `latest.json` → 404 | Release не опубликован | Publish в Aquilum |
-| Скачало 100%, зависло на «откроется автоматически» | В манифесте был MSI | Пересобрать `release:local`, залить новый `latest.json` |
+| GitHub Actions не собрал пакет | Ошибка в конкретном job/step | Откройте лог job и исправьте причину до выпуска |
+| `latest.json` → 404 | Release не опубликован | Publish в Obsidium |
+| Скачало 100%, зависло на «откроется автоматически» | В манифесте был MSI | Исправить пакет Windows и выпустить новую версию |
 | Updater молчит в dev | Норма | Нужна release-сборка |
 | «No private key» | Нет ключа/пароля | `aquilum.key` + `setx TAURI_SIGNING_PRIVATE_KEY_PASSWORD` |
 | `failed to decode base64 secret key` | Битый ключ в env | Перечитать файл ключа без лишних пробелов |

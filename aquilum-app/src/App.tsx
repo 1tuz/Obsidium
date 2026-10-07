@@ -20,7 +20,6 @@ import { useLiveTabs } from "./hooks/useLiveTabs";
 import { useLocalState } from "./modules/workspace/uiPersist";
 import { matchesShortcut, SHORTCUTS } from "./config/shortcuts";
 import { openExternalUrl } from "./modules/openExternalUrl";
-import { revealAppWindow } from "./modules/windowReveal";
 import { beginOpenTrace } from "./modules/perf/openTrace";
 import { markBootStage } from "./modules/perf/bootTrace";
 import type { SearchResult } from "./modules/search";
@@ -191,10 +190,7 @@ export default function App() {
   }, [sessionReady]);
 
   useEffect(() => {
-    void loadConfig().finally(() => {
-      markBootStage('config');
-      revealAppWindow();
-    });
+    void loadConfig().finally(() => markBootStage('config'));
   }, [loadConfig]);
 
   useWindowDocumentSync();

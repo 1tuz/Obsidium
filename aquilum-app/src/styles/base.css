@@ -39,12 +39,6 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  opacity: 0;
-}
-
-html.q-window-revealed #root {
-  opacity: 1;
-  transition: opacity var(--q-duration-normal) var(--q-ease-out);
 }
 
 h1,

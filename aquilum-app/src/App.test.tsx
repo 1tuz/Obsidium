@@ -57,10 +57,6 @@ vi.mock('./modules/ui-state', async (importOriginal) => {
   };
 });
 
-vi.mock('./modules/windowReveal', () => ({
-  revealAppWindow: vi.fn(() => Promise.resolve()),
-}));
-
 vi.mock('./components/Layout/Titlebar', () => ({
   Titlebar: ({
     onToggleRightSidebar,

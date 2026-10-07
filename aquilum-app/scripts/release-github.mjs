@@ -12,7 +12,7 @@ const version = packageJson.version;
 if (!version) throw new Error('package.json has no version field');
 
 console.log(`\x1b[36mWindows release v${version} — локальная сборка\x1b[0m`);
-console.log('\x1b[90mGitHub Actions для релиза отключён (лимит минут на private-репо).\x1b[0m\n');
+console.log('\x1b[90mМультиплатформенные релизы собирает GitHub Actions по тегу v*.\x1b[0m\n');
 
 execFileSync(process.execPath, ['scripts/build-release.mjs'], {
   cwd: projectRoot,

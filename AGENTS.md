@@ -1,7 +1,7 @@
 # Инструкции и правила проекта для AI-агента
 
-Aquilum — локальный (local-first) Tauri v2 редактор базы знаний. Rust-бэкенд (`quantum-app/src-tauri`),
-React + TypeScript фронтенд (`quantum-app/src`), редактор на CodeMirror 6, документ — Yjs `Y.Doc`,
+Aquilum — локальный (local-first) Tauri v2 редактор базы знаний. Rust-бэкенд (`aquilum-app/src-tauri`),
+React + TypeScript фронтенд (`aquilum-app/src`), редактор на CodeMirror 6, документ — Yjs `Y.Doc`,
 источник правды на диске — обычный `.md`. Данные приложения (настройки, `ui-state.sqlite3`, индекс
 поиска, состояние окна) лежат в `%APPDATA%\com.dmitriy.aquilum-app`.
 
@@ -9,15 +9,16 @@ React + TypeScript фронтенд (`quantum-app/src`), редактор на C
 
 Dev ≠ Release: `.artifacts/cargo-dev/` vs `.artifacts/cargo-release/`. Работа всегда в DEV.
 
-Разрешено: `npm run tauri dev`, `npm run dev`, `npm test`, `cargo test`. Финальный `.exe` — только
-`npm run release` (результат в `.artifacts/releases/<version>/`).
+Локально: `npm run tauri dev`, `npm run dev`, `npm test`, `cargo test`. Пакеты для Windows, Apple
+Silicon macOS и Ubuntu 24 собираются GitHub Actions на push; tag `v*` создаёт черновик релиза.
+`npm run release:local` оставлен только как необязательная локальная Windows-сборка.
 
 Механика: `scripts/tauri.ps1` делает junction `src-tauri/target` → `cargo-dev` (dev) или
 `cargo-release` (build). Не ставить отдельный `CARGO_TARGET_DIR` — Tauri ACL ломается. Не
 использовать: `npx tauri …`, голый `tauri`, `npm run tauri build` без wrapper. Служебные `build` /
 `tauri:build` пользователю не предлагать. Детали: `knowledge base/build-artifacts-separation.md`.
 Публикация релиза и автообновление: `knowledge base/release-and-updates.md`
-(public `Freaction/Aquilum`, не private `Freaction/Aquilum-source`).
+(fork `1tuz/Obsidium`; upstream для синхронизации — `Freaction/Aquilum`).
 
 ## Проверки перед тем, как сказать «готово»
 

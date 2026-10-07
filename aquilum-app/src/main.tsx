@@ -10,7 +10,6 @@ import { initI18n, t } from "./i18n";
 
 import { SettingsProvider } from "./modules/settings";
 import { ErrorBoundary } from "./components/Common/ErrorBoundary";
-import { revealAppWindow } from "./modules/windowReveal";
 import { beginBootTrace, markBootStage } from "./modules/perf/bootTrace";
 
 beginBootTrace();
@@ -21,7 +20,7 @@ initI18n();
 initTheme();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <ErrorBoundary title={t('error.appTitle')} onCatch={revealAppWindow}>
+  <ErrorBoundary title={t('error.appTitle')}>
     <SettingsProvider>
       <App />
     </SettingsProvider>

@@ -2,17 +2,17 @@
 
 ## Статус: обязательно соблюдать
 
-Dev и Release **изолированы**. Разработка всегда в DEV. Финальный Windows-релиз —
-локально на ПК (`npm run release:local`), не через GitHub Actions.
+Dev и Release **изолированы**. Локальная разработка всегда в DEV. Финальные пакеты всех платформ
+собираются GitHub Actions; `npm run release:local` оставлен как локальный Windows инструмент.
 
 ## Запомни две команды
 
 | Задача | Команда | Результат |
 |--------|---------|-----------|
 | Разработка / тест в окне | `npm run tauri dev` | debug-приложение, HMR |
-| Релиз Windows (локально) | `npm run release:local` | `.artifacts/releases/<version>/` |
+| Релизные пакеты | push / тег `v*` в GitHub | Actions artifacts / черновик Release |
 
-`npm run release` сейчас = то же, что `release:local` (без Actions).
+`npm run release` запускает только локальную Windows-сборку; общий источник пакетов — GitHub Actions.
 
 Рабочая папка: `aquilum-app/`.
 
@@ -25,7 +25,6 @@ Dev и Release **изолированы**. Разработка всегда в 
 | Команда | Зачем |
 |---------|--------|
 | `npm run tauri dev` | полное приложение, DEV |
-| `npm run release:local` / `npm run release` | локальная Windows release-сборка |
 | `npm run dev` | только UI в браузере |
 | `npm test` | тесты фронта |
 | `cargo test` (из `src-tauri`) | тесты Rust → `cargo-dev` |
@@ -37,7 +36,7 @@ Dev и Release **изолированы**. Разработка всегда в 
 | `npx tauri …` / голый `tauri` | обходит wrapper → риск смешать кэши |
 | `npm run tauri build` (без `--`) | npm криво передаёт аргументы |
 | `npm run tauri:build`, `npm run tauri -- build` | дубли, не для пользователя |
-| GitHub Actions Release на каждый tag | отключён: лимит минут на private-репо |
+| GitHub Actions | проверяет push и собирает Windows, macOS arm64 и Ubuntu 24; тег `v*` создаёт черновик релиза |
 | `cargo clean` из `src-tauri` | удаляет сам junction `target`, следующая сборка создаст настоящую папку в обход `.artifacts`; чистить кэш — удалить `.artifacts/cargo-dev` или `cargo-release` |
 
 ---
@@ -62,16 +61,15 @@ Dev и Release **изолированы**. Разработка всегда в 
 
 ### 3. `releases/<version>/` — витрина готового продукта
 
-Результат `npm run release:local` → руками в `Freaction/Aquilum`.
+Результаты GitHub Actions → артефакты workflow или черновик релиза в `1tuz/Obsidium`.
 
 ```
 Исходники (aquilum-app/)
         │
         ├─ npm run tauri dev ──► cargo-dev/     (debug)
         │
-        └─ npm run release:local ──► cargo-release/ → releases/<ver>/
-                                      → setup.exe + latest.json
-                                      → upload в Aquilum
+        └─ push / tag v* ───────────► GitHub Actions
+                                      → пакеты Windows, macOS ARM64, Ubuntu 24
 ```
 
 ---

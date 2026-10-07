@@ -118,28 +118,17 @@ cargo test
 
 ---
 
-## Сборка релиза
+## Сборки GitHub Actions
 
-Сборка готового оптимизированного установщика Windows (NSIS `.exe`):
-
-```powershell
-cd quantum-app
-npm run release
-```
-
-- Результат сборки: `.artifacts/releases/<версия>/`
-- Сгенерированный файл: `Aquilum_<версия>_x64-setup.exe` и манифест `latest.json` для автообновлений.
-- Подробности архитектуры и процесса релизов описаны в каталоге `knowledge base/`.
-
-Каждый push ветки и PR запускает лёгкие проверки и сборки Windows x64 NSIS, macOS arm64 DMG для
-Apple Silicon и Ubuntu 24 x64 `.deb`. Установщики доступны в Actions artifacts 7 дней, npm- и
-Cargo-зависимости кэшируются. `Sync upstream fork` ежедневно подтягивает `Freaction/Aquilum` в
-`main` и запускает CI при обновлении исходников. Actions используют Node.js 24, Ubuntu runner
-закреплён на `ubuntu-24.04`.
+Каждый push запускает лёгкие проверки и сборки Windows x64 NSIS, macOS arm64 DMG для Apple Silicon и
+Ubuntu 24 x64 `.deb`. Установщики доступны в Actions artifacts 7 дней, npm- и Cargo-зависимости
+кэшируются. Тег `v*` запускает сборку всех платформ в черновик релиза. `Sync upstream fork` ежедневно
+подтягивает `Freaction/Aquilum` в `main` и запускает CI при обновлении исходников. Actions используют
+Node.js 24 и runner `ubuntu-24.04`.
 
 ---
 
 ## Автор
 - **Разработчик**: Dmitriy Chaplinskiy
 - **Telegram**: [@dmitriy_yiu](https://t.me/dmitriy_yiu)
-- **Лицензия**: [GNU AGPL-3.0-only](LICENSE). © 2026 Dmitriy Chaplinskiy. Публичная страница, исходники и релизы: [Freaction/Aquilum](https://github.com/Freaction/Aquilum).
+- **Лицензия**: [GNU AGPL-3.0-only](LICENSE). © 2026 Dmitriy Chaplinskiy. Исходники и релизы форка: [1tuz/Obsidium](https://github.com/1tuz/Obsidium). Исходный проект: [Freaction/Aquilum](https://github.com/Freaction/Aquilum).
