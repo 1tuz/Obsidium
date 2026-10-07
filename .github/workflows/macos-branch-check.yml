@@ -7,6 +7,10 @@ on:
         description: Branch to build and check
         required: true
         default: mac-check
+      printer:
+        description: Add a dummy printer before the run
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -50,6 +54,17 @@ jobs:
           mkdir -p "$data"
           echo '{"updates":{"auto":false}}' > "$data/settings.json"
           osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true' || true
+
+      - name: Printers before the run
+        run: |
+          lpstat -p -d 2>&1 || true
+          if [ "${{ inputs.printer }}" = true ]; then
+            ppd=$(find /System/Library/Frameworks/ApplicationServices.framework -name 'Generic.ppd' 2>/dev/null | head -1)
+            echo "Generic PPD: $ppd"
+            sudo lpadmin -p CIPrinter -E -v file:///dev/null ${ppd:+-P "$ppd"} || true
+            sudo lpadmin -d CIPrinter || true
+            lpstat -p -d 2>&1 || true
+          fi
 
       - name: Launch, wait for the window and the PDF
         run: |
