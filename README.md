@@ -157,6 +157,22 @@ Aquilum exposes an optional local MCP server. Compatible AI tools can search and
 
 Aquilum installs for the current user and does not require administrator rights. The installer is not currently signed with a Windows code-signing certificate, so SmartScreen may show a warning. Choose **More info → Run anyway** if you downloaded it from this repository.
 
+### macOS Apple Silicon: one-line install and uninstall
+
+Install the latest release with [`scripts/install.sh`](scripts/install.sh):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.sh | bash
+```
+
+Remove the application with [`scripts/uninstall.sh`](scripts/uninstall.sh):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.sh | bash
+```
+
+Uninstall removes the app only. Vault folders, Markdown files, and Aquilum settings remain on disk.
+
 ## Updates
 
 Aquilum checks this public repository for updates at launch. When a newer version is available, it can download it, show progress, verify the signed update package, install it, and restart. Without a network connection, the app starts normally and your local vault remains available.
