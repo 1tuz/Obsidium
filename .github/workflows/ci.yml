@@ -76,18 +76,26 @@ jobs:
             extension: dmg
             artifact: macos-arm64
             apple_signing_identity: '-'
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            tauri_args: --bundles dmg --target x86_64-apple-darwin
-            bundle: dmg
-            extension: dmg
-            artifact: macos-x64
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            tauri_args: --bundles deb --target x86_64-unknown-linux-gnu
+            bundle: deb
+            extension: deb
+            artifact: ubuntu-24-x64
             apple_signing_identity: '-'
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
+
+      - name: Install Linux build dependencies
+        if: startsWith(matrix.runner, 'ubuntu-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
 
       - uses: actions/setup-node@v7
         with:

@@ -25,6 +25,15 @@ jobs:
           merge_type="$(jq -r '.merge_type // "unknown"' <<< "$result")"
           echo "Upstream sync result: $merge_type"
 
-          if [[ "$merge_type" != "identical" ]]; then
-            gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" -f ref=main
-          fi
+          case "$merge_type" in
+            fast-forward|merge)
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" -f ref=main
+              ;;
+            none)
+              echo "Fork main is already current."
+              ;;
+            *)
+              echo "Unexpected upstream sync result: $merge_type" >&2
+              exit 1
+              ;;
+          esac
