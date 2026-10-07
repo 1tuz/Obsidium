@@ -5,6 +5,25 @@ REPO="1tuz/Obsidium"
 APP_DIR="$HOME/Applications"
 APP_PATH="$APP_DIR/Obsidium.app"
 
+print_banner() {
+  cat >&2 <<'EOF'
+
+        /\
+       /  \
+      / /\ \
+     /_/  \_\
+     \ \  / /
+      \ \/ /
+       \  /
+        \/
+     OBSIDIUM
+  local-first Markdown vault
+
+EOF
+}
+
+print_banner
+
 if [[ "$(uname -s)" != "Darwin" ]]; then
   printf 'Obsidium curl installer currently supports macOS only.\n' >&2
   exit 1
@@ -34,7 +53,7 @@ if [[ -z "$download_url" ]]; then
   exit 1
 fi
 
-curl -fL --proto '=https' --tlsv1.2 "$download_url" -o "$work_dir/Obsidium.dmg"
+curl -fL --proto '=https' --tlsv1.2 --progress-bar --show-error "$download_url" -o "$work_dir/Obsidium.dmg"
 hdiutil attach -nobrowse -readonly -mountpoint "$mount_dir" "$work_dir/Obsidium.dmg" >/dev/null
 mounted=true
 source_app="$(find "$mount_dir" -maxdepth 3 -type d -name 'Obsidium.app' -print -quit)"
