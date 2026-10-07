@@ -1,10 +1,5 @@
-import {
-  isFileCommandError,
-  readFileSnapshot,
-  writeFileAtomic,
-  type WriteSource,
-} from '../documents/fileGateway';
-import { applyDocumentText, DIRECT_WRITE_ORIGIN, documentText } from '../docSync';
+import { rewriteDocument } from '../documents/documentGateway';
+import type { WriteSource } from '../documents/fileGateway';
 import { PathQueue } from '../pathQueue';
 import { comparablePath } from '../paths';
 import {
@@ -15,7 +10,6 @@ import {
 } from './frontmatter';
 import { parsePages } from './bookProgress';
 import { publishBookPageProgress } from './bookPageRuntime';
-import { getManagedWriterForPath, getOpenDoc } from './index';
 
 type BookReaderMeta = {
   pages?: string;
@@ -51,31 +45,7 @@ async function writeMeta(pagePath: string, meta: BookReaderMeta): Promise<void> 
     publishBookPageProgress(pagePath, parsePages(meta.pages));
   }
 
-  const openDoc = getOpenDoc(pagePath);
-  const writer = getManagedWriterForPath(pagePath);
-  if (openDoc && writer) {
-    const text = documentText(openDoc);
-    const current = text.toString();
-    const next = applyMetaFields(current, meta);
-    if (next === null || next === current) return;
-    applyDocumentText(openDoc, next, DIRECT_WRITE_ORIGIN);
-    await tolerateConflict(writer.writeCurrent(() => text.toString(), READING_WRITE));
-    return;
-  }
-
-  const snapshot = await readFileSnapshot(pagePath);
-  const next = applyMetaFields(snapshot.content, meta);
-  if (!next || next === snapshot.content) return;
-  await tolerateConflict(writeFileAtomic(pagePath, next, snapshot.hash, READING_WRITE));
-}
-
-async function tolerateConflict(write: Promise<unknown>): Promise<void> {
-  try {
-    await write;
-  } catch (error) {
-    if (!isFileCommandError(error, 'conflict')) throw error;
-    console.warn('Reader position skipped: the note changed on disk while it was being saved');
-  }
+  await rewriteDocument(pagePath, (current) => applyMetaFields(current, meta), READING_WRITE);
 }
 
 async function writePendingMeta(pagePath: string): Promise<void> {

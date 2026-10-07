@@ -100,6 +100,8 @@ pub struct GraphCameraState {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ViewStateInput {
+    #[serde(default, skip_serializing)]
+    pub path: Option<String>,
     pub document_id: Uuid,
     pub pane_id: String,
     pub cursor_anchor: Vec<u8>,

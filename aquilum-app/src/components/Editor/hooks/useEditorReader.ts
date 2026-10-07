@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text } from '@codemirror/state';
-import type * as Y from 'yjs';
 
 import { hasBookFile } from '../../../modules/docs/books';
 import { formatBookQuote, parseReaderQuoteHref } from '../../../modules/docs/bookQuotes';
@@ -9,17 +8,16 @@ import {
   persistBookReaderMeta,
 } from '../../../modules/docs/persistBookReaderMeta';
 import { findReaderQuotes } from '../extensions/readerQuote/constructs';
-import { appendQuoteToDoc } from '../docMutations';
+import { appendQuoteToDocument } from '../docMutations';
 import type { BookCalloutReadRequest } from '../extensions/bookCallout';
 import type { ReaderSession } from '../types';
-import { documentText } from '../../../modules/docSync/applyExternalText';
 
 function warmReaderEngine(): void {
   void import('../../Reader/ReaderEngine').then((module) => module.prefetchFoliate());
 }
 
 export function useEditorReader(options: {
-  ydoc: Y.Doc;
+  readText: () => string;
   filePath: string;
   title: string;
   bookFile?: string;
@@ -29,7 +27,7 @@ export function useEditorReader(options: {
   onOpenExternalUrl: (url: string) => void;
 }) {
   const {
-    ydoc,
+    readText,
     filePath,
     title,
     bookFile,
@@ -111,10 +109,10 @@ export function useEditorReader(options: {
 
   const handleReaderQuote = useCallback((text: string, cfi: string) => {
     const quoteBookFile = readerSessionRef.current?.bookFile ?? bookFile;
-    const docText = documentText(ydoc).toString();
-    const refNumber = findReaderQuotes(Text.of(docText.split('\n'))).length + 1;
-    appendQuoteToDoc(ydoc, formatBookQuote(text, cfi, quoteBookFile, refNumber));
-  }, [bookFile, ydoc]);
+    const refNumber = findReaderQuotes(Text.of(readText().split('\n'))).length + 1;
+    void appendQuoteToDocument(filePath, formatBookQuote(text, cfi, quoteBookFile, refNumber))
+      .catch((error) => console.error('Failed to append the book quote', error));
+  }, [bookFile, filePath, readText]);
 
   useEffect(() => {
     if (bookAttached) warmReaderEngine();

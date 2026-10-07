@@ -1,17 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyDocumentText, applyTextEdits, documentText, writeConflictCopy } from '../docSync';
-import { getManagedWriterForPath, getOpenDoc } from '../docs';
+import { revertDocument, rewriteDocument } from '../documents/documentGateway';
 import { readNoteVersion, type NoteVersion } from './index';
 import { restoreVersion, revertVersion } from './rewrite';
 
-vi.mock('../docSync', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../docSync')>()),
-  applyDocumentText: vi.fn(),
-  applyTextEdits: vi.fn(),
-  documentText: vi.fn(),
-  writeConflictCopy: vi.fn(async () => null),
+vi.mock('../documents/documentGateway', () => ({
+  rewriteDocument: vi.fn(async () => true),
+  revertDocument: vi.fn(async () => true),
 }));
-vi.mock('../docs', () => ({ getOpenDoc: vi.fn(), getManagedWriterForPath: vi.fn() }));
 vi.mock('./index', () => ({ readNoteVersion: vi.fn() }));
 
 const version: NoteVersion = {
@@ -23,89 +18,39 @@ const version: NoteVersion = {
 };
 
 describe('rewriting a note from its history', () => {
-  const order: string[] = [];
-  const doc = {};
-  const writer = {
-    idle: vi.fn(async () => { order.push('idle'); }),
-    write: vi.fn(async (_text: string) => { order.push('write'); return { hash: 'h' }; }),
-  };
-  let current = '';
-
-  function versions(text: string, previous: string | null) {
-    vi.mocked(readNoteVersion).mockImplementation(async () => {
-      order.push('read');
-      return { text, previous };
-    });
-  }
-
   beforeEach(() => {
-    order.length = 0;
-    current = '';
-    vi.mocked(getOpenDoc).mockReturnValue(doc as never);
-    vi.mocked(getManagedWriterForPath).mockReturnValue(writer as never);
-    vi.mocked(documentText).mockImplementation(() => ({ toString: () => current }) as never);
-    vi.mocked(applyDocumentText).mockImplementation(() => {
-      order.push('apply');
-      return null;
-    });
-    vi.mocked(applyTextEdits).mockImplementation(() => { order.push('apply'); });
-    vi.mocked(writeConflictCopy).mockClear();
-    writer.write.mockClear();
+    vi.clearAllMocks();
+    vi.mocked(readNoteVersion).mockResolvedValue({ text: 'версия\n', previous: 'до версии\n' });
   });
 
-  it('restores: saves pending input, writes the version as a restore and only then changes the document', async () => {
-    versions('старое', null);
-    await expect(restoreVersion('C:/База/Идея.md', version)).resolves.toBe(true);
+  it('restores the version text as a restore write', async () => {
+    expect(await restoreVersion('C:/База/Идея.md', version)).toBe(true);
 
-    expect(order).toEqual(['idle', 'read', 'write', 'apply']);
-    expect(writer.write).toHaveBeenCalledWith('старое', { kind: 'restore', fromMs: version.atMs });
-    expect(applyDocumentText).toHaveBeenCalledWith(doc, 'старое', 'direct-write');
+    const [path, rewrite, source] = vi.mocked(rewriteDocument).mock.calls[0];
+    expect(path).toBe('C:/База/Идея.md');
+    expect(rewrite('что угодно')).toBe('версия\n');
+    expect(source).toEqual({ kind: 'restore', fromMs: version.atMs });
   });
 
   it('runs once when asked twice for the same note', async () => {
-    versions('старое', null);
-    await Promise.all([
-      restoreVersion('C:/База/Идея.md', version),
-      revertVersion('c:/База/Идея.md', version),
-    ]);
-    expect(writer.write).toHaveBeenCalledTimes(1);
+    await Promise.all([restoreVersion('C:/База/Идея.md', version), restoreVersion('C:/База/Идея.md', version)]);
+    expect(rewriteDocument).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the document alone when the version is gone', async () => {
     vi.mocked(readNoteVersion).mockResolvedValueOnce(null);
-    await expect(restoreVersion('C:/База/Идея.md', version)).resolves.toBe(false);
-    expect(writer.write).not.toHaveBeenCalled();
-    expect(order).not.toContain('apply');
+    expect(await restoreVersion('C:/База/Идея.md', version)).toBe(false);
+    expect(rewriteDocument).not.toHaveBeenCalled();
   });
 
-  it('reverts only the changes of that version and keeps what was written later', async () => {
-    versions('итоги\nмнение агента\nконец', 'итоги\nконец');
-    current = 'итоги\nмнение агента\nконец\nмой абзац';
-
-    await expect(revertVersion('C:/База/Идея.md', version)).resolves.toBe(true);
-
-    expect(writer.write).toHaveBeenCalledWith('итоги\nконец\nмой абзац', { kind: 'revert', fromMs: version.atMs });
-    expect(order).toEqual(['idle', 'read', 'write', 'apply']);
-    expect(writeConflictCopy).not.toHaveBeenCalled();
-  });
-
-  it('keeps later edits of the same lines in a conflict copy', async () => {
-    versions('итоги\nмнение агента', 'итоги');
-    current = 'итоги\nмнение агента, поправленное мной';
-
-    await revertVersion('C:/База/Идея.md', version);
-
-    expect(writer.write).toHaveBeenCalledWith('итоги', { kind: 'revert', fromMs: version.atMs });
-    expect(writeConflictCopy).toHaveBeenCalledWith(
-      'C:/База/Идея.md',
-      'мнение агента, поправленное мной',
-      { cause: 'reverted' },
-    );
+  it('asks the document core to revert exactly that version', async () => {
+    expect(await revertVersion('C:/База/Идея.md', version)).toBe(true);
+    expect(revertDocument).toHaveBeenCalledWith('C:/База/Идея.md', 'версия\n', 'до версии\n', version.atMs);
   });
 
   it('does not revert the first version: there is nothing before it', async () => {
-    versions('первая', null);
-    await expect(revertVersion('C:/База/Идея.md', version)).resolves.toBe(false);
-    expect(writer.write).not.toHaveBeenCalled();
+    vi.mocked(readNoteVersion).mockResolvedValueOnce({ text: 'первая\n', previous: null });
+    expect(await revertVersion('C:/База/Идея.md', version)).toBe(false);
+    expect(revertDocument).not.toHaveBeenCalled();
   });
 });

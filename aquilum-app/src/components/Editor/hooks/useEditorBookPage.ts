@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type * as Y from 'yjs';
 import { importCoverBytes, pickAndImportCover } from '../../../modules/docs/covers';
 import { nextRandomCoverPattern } from '../../../modules/docs/coverPatterns';
 import { hasBookFile, pickAndImportBook } from '../../../modules/docs/books';
 import { formatSyntheticPages } from '../../../modules/docs/bookProgress';
 import { persistBookReaderMeta } from '../../../modules/docs/persistBookReaderMeta';
-import { onDocChange } from '../../../modules/docs';
 import {
   FM_BOOK_COVER,
   FM_BOOK_FILE,
@@ -18,10 +16,9 @@ import {
   type BookMetadata,
   type ResolvedBookFields,
 } from '../../../modules/docs/frontmatter';
-import { applyYdocText } from '../../../modules/docs/ydocContent';
+import { rewriteDocument } from '../../../modules/documents/documentGateway';
 import { hydrateFromFm } from '../../../modules/docs/bookPageRuntime';
 import type { CoverFieldKey } from '../types';
-import { documentText } from '../../../modules/docSync/applyExternalText';
 
 type LayoutSnapshot = {
   metadata: BookMetadata | null;
@@ -42,21 +39,20 @@ function snapshotFromDoc(doc: string): LayoutSnapshot | null {
 }
 
 export function useEditorBookPage(options: {
-  ydoc: Y.Doc;
+  readText: () => string;
   filePath: string;
   workspacePath: string | null;
-  isReady: boolean;
   docContent: string;
   setDocContent: (content: string) => void;
 }) {
-  const { ydoc, filePath, workspacePath, isReady, docContent, setDocContent } = options;
+  const { readText, filePath, workspacePath, docContent, setDocContent } = options;
   const coverUploadLock = useRef(false);
   const bookUploadLock = useRef(false);
   const stickyLayout = useRef<LayoutSnapshot | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
   const [bookBusy, setBookBusy] = useState(false);
 
-  const sourceDoc = docContent || (isReady ? documentText(ydoc).toString() : '');
+  const sourceDoc = docContent;
 
   useEffect(() => {
     stickyLayout.current = null;
@@ -82,28 +78,20 @@ export function useEditorBookPage(options: {
     if (isBook) hydrateFromFm(filePath, metadata);
   }, [filePath, isBook, metadata]);
 
-  useEffect(() => {
-    if (!isBook) return;
-    return onDocChange(filePath, () => {
-      setDocContent(documentText(ydoc).toString());
-    });
-  }, [filePath, isBook, setDocContent, ydoc]);
-
   const applyCoverField = useCallback((key: CoverFieldKey, value: string) => {
     if (key === 'pages') {
-      const pending = persistBookReaderMeta(filePath, { pages: value });
-      setDocContent(documentText(ydoc).toString());
-      void pending.catch((error) => {
+      void persistBookReaderMeta(filePath, { pages: value }).catch((error) => {
         console.error('Failed to persist book progress', error);
       });
       return;
     }
-    const current = documentText(ydoc).toString();
+    const current = readText();
     const next = setFrontmatterField(current, key, value);
     if (!next || next === current) return;
-    applyYdocText(ydoc, next);
     setDocContent(next);
-  }, [filePath, setDocContent, ydoc]);
+    void rewriteDocument(filePath, (latest) => setFrontmatterField(latest, key, value))
+      .catch((error) => console.error('Failed to update the note frontmatter', error));
+  }, [filePath, readText, setDocContent]);
 
   const runCoverImport = useCallback(async (
     task: (workspaceRoot: string) => Promise<void>,
@@ -140,7 +128,7 @@ export function useEditorBookPage(options: {
     try {
       const imported = await pickAndImportBook(workspacePath);
       if (!imported) return;
-      const currentDoc = documentText(ydoc).toString();
+      const currentDoc = readText();
       const existingPages = parseFrontmatter(currentDoc)?.data.pages;
       const { formatted } = formatSyntheticPages(
         typeof existingPages === 'string' ? existingPages : undefined,
@@ -154,7 +142,7 @@ export function useEditorBookPage(options: {
       bookUploadLock.current = false;
       setBookBusy(false);
     }
-  }, [applyCoverField, workspacePath, ydoc]);
+  }, [applyCoverField, readText, workspacePath]);
 
   const handleReplacePageCover = useCallback(() => {
     void uploadCover('page');

@@ -1,6 +1,7 @@
 #[cfg(all(desktop, not(debug_assertions)))]
 mod autostart;
 mod blocking;
+mod documents;
 mod export;
 mod files;
 mod history;
@@ -61,12 +62,10 @@ pub fn run() {
                     .iter()
                     .map(|path| path.to_string_lossy().into_owned())
                     .collect::<Vec<_>>();
-                if !names.is_empty() {
-                    let _ = handle.emit(search::DOCUMENTS_CHANGED_EVENT, &names);
-                }
                 if batch.scope >= WatchScope::Structure {
                     let _ = handle.emit(search::WORKSPACE_CHANGED_EVENT, &names);
                 }
+                handle.state::<documents::DocumentHub>().reconcile_paths(&handle, &batch.paths);
                 handle
                     .state::<search::SearchService>()
                     .ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
@@ -102,6 +101,9 @@ pub fn run() {
             );
             app.manage(ui_state_service);
             app.manage(history::HistoryService::new(&app_data_dir));
+            let document_hub = documents::DocumentHub::new(&app_data_dir.join("documents.sqlite3"));
+            document_hub.start(app.handle().clone());
+            app.manage(document_hub);
             app.manage(search_service);
 
             app.manage(mcp::active::ActiveNote::default());
@@ -123,9 +125,7 @@ pub fn run() {
             files::commands::existing_files,
             files::commands::resolve_attachments,
             files::commands::read_file_snapshot,
-            files::commands::read_file_hash,
             files::commands::read_file_stat,
-            files::commands::hash_text,
             files::commands::write_file_atomic,
             files::commands::create_file,
             files::commands::create_binary_file,
@@ -142,6 +142,17 @@ pub fn run() {
             history::commands::cleanup_history,
             files::commands::copy_file,
             files::commands::rename_file,
+            documents::commands::document_open,
+            documents::commands::document_push,
+            documents::commands::document_pull,
+            documents::commands::document_replace_text,
+            documents::commands::document_read,
+            documents::commands::document_import_legacy,
+            documents::commands::document_revert,
+            documents::commands::document_resolve_positions,
+            documents::commands::document_release,
+            documents::commands::document_flush_all,
+            documents::commands::document_reconcile_all,
             search::commands::prepare_search_index,
             search::commands::search_knowledge_base,
             search::commands::get_search_index_status,
@@ -185,6 +196,7 @@ pub fn run() {
                 WindowEvent::Resized(_) => state.observe(window),
                 WindowEvent::CloseRequested { .. } => {
                     state.capture_and_persist(window);
+                    window.state::<documents::DocumentHub>().flush_all(window.app_handle());
                     window.state::<mcp::McpServer>().shutdown();
                     window.state::<files::watcher::WorkspaceWatcher>().stop();
                 }

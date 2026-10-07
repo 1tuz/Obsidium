@@ -10,11 +10,8 @@ import {
 export function useNoteRelocation(targets: RelocationTargets): void {
   const targetsRef = useRef(targets);
   targetsRef.current = targets;
-  const queue = useRef(Promise.resolve());
 
   useTauriEvent<NotesRelocated>(NOTES_RELOCATED_EVENT, (relocation) => {
-    queue.current = queue.current
-      .then(() => applyRelocation(relocation, targetsRef.current))
-      .catch((error) => console.error('Failed to follow relocated notes', error));
+    applyRelocation(relocation, targetsRef.current);
   });
 }

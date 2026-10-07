@@ -3,8 +3,6 @@ import { createTracer } from './trace';
 
 type OpenStage =
   | 'request'
-  | 'file'
-  | 'replica'
   | 'doc'
   | 'mount'
   | 'scroll'
@@ -16,12 +14,10 @@ type OpenStage =
 const tracer = createTracer<OpenStage>({
   name: 'open',
   origin: 'now',
-  order: ['request', 'file', 'replica', 'doc', 'mount', 'scroll', 'links', 'images', 'callouts', 'dataview'],
+  order: ['request', 'doc', 'mount', 'scroll', 'links', 'images', 'callouts', 'dataview'],
   labels: {
-    request: 'React дошёл до запроса файла',
-    file: 'файл прочитан с диска',
-    replica: 'реплика IndexedDB подключена',
-    doc: 'текст документа готов',
+    request: 'интерфейс запросил документ у ядра',
+    doc: 'ядро открыло документ и сверило его с файлом',
     mount: 'редактор смонтирован',
     scroll: 'прокрутка восстановлена',
     links: 'вики-ссылки разрешены',

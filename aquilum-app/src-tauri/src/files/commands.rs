@@ -1,5 +1,5 @@
 use super::document::{
-    ensure_directory_impl, hash_bytes, read_file_hash_impl, read_file_snapshot_impl,
+    ensure_directory_impl, read_file_snapshot_impl,
     read_file_stat_impl,
 };
 use super::error::FileCommandError;
@@ -72,18 +72,8 @@ pub async fn read_file_snapshot(path: String) -> Result<FileSnapshot, FileComman
 }
 
 #[tauri::command]
-pub async fn read_file_hash(path: String) -> Result<String, FileCommandError> {
-    run_blocking(move || read_file_hash_impl(Path::new(&path))).await
-}
-
-#[tauri::command]
 pub async fn read_file_stat(path: String) -> Result<FileStat, FileCommandError> {
     run_blocking(move || read_file_stat_impl(Path::new(&path))).await
-}
-
-#[tauri::command]
-pub fn hash_text(text: String) -> String {
-    hash_bytes(text.as_bytes())
 }
 
 #[tauri::command]

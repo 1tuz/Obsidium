@@ -1,7 +1,7 @@
 {
   "name": "aquilum-app",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/collab": "^6.1.1",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language": "^6.12.4",
@@ -44,10 +45,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
     "lucide": "^1.24.0",
-    "preact": "^11.0.0",
-    "y-codemirror.next": "^0.3.5",
-    "y-indexeddb": "^9.0.12",
-    "yjs": "^13.6.31"
+    "preact": "^11.0.0"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",

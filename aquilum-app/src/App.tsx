@@ -42,8 +42,9 @@ import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
 import { keepVersionsOf } from "./modules/history";
 import { useRetentionCleanup } from "./hooks/useRetentionCleanup";
-import { flushOpenDocuments, getOpenDoc, isDocSynced } from "./modules/docs";
-import { applyTemplateToDoc } from "./components/Editor/docMutations";
+import { flushDocuments } from "./modules/documents/documentGateway";
+import { useWindowDocumentSync } from "./modules/documents/useWindowDocumentSync";
+import { applyTemplateToDocument } from "./components/Editor/docMutations";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
@@ -196,8 +197,10 @@ export default function App() {
     });
   }, [loadConfig]);
 
+  useWindowDocumentSync();
+
   useTauriSubscription(
-    () => getCurrentWindow().onCloseRequested(() => flushOpenDocuments()),
+    () => getCurrentWindow().onCloseRequested(() => flushDocuments()),
     "window close",
   );
 
@@ -234,8 +237,7 @@ export default function App() {
 
   const handleTemplateSelect = useCallback(async (template: NoteTemplate) => {
     const content = await readTemplate(template);
-    const openDoc = activeTab?.kind === 'document' ? getOpenDoc(activeTab.path) : null;
-    if (openDoc && isDocSynced(openDoc)) applyTemplateToDoc(openDoc, content);
+    if (activeTab?.kind === 'document') await applyTemplateToDocument(activeTab.path, content);
     else await createFromTemplate(content);
     templates.hide();
   }, [activeTab, createFromTemplate, templates.hide]);

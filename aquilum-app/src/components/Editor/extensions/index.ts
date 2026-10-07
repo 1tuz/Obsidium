@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
-import { yCollab } from 'y-codemirror.next';
 import { EditorView, placeholder } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { syntaxHighlighting, indentUnit } from '@codemirror/language';
-import * as Y from 'yjs';
 
 import { livePreviewExtension } from './livePreviewPlugin';
 import { listCalloutsExtension, outlineExtension } from './outline';
@@ -30,11 +28,8 @@ import { pageSearchExtension } from './pageSearch';
 import { noteSuggestExtension } from './suggest';
 import { bodySetup } from './bodySetup';
 import type { LinkDisposition, WikiLinkResolver } from '../../../modules/links';
-import { documentText } from '../../../modules/docSync/applyExternalText';
 
 export function useEditorExtensions(
-    ydoc: Y.Doc,
-    isReady: boolean,
     resolveWikiLinks: WikiLinkResolver,
     onOpenWikiLink: (target: string, disposition: LinkDisposition) => void,
     onOpenExternalUrl: (url: string) => void,
@@ -48,10 +43,6 @@ export function useEditorExtensions(
     linkSuggestMinChars = 2,
 ) {
     return useMemo(() => {
-        if (!isReady) return [];
-
-        const ytext = documentText(ydoc);
-
         return [
             bodySetup,
             EditorState.tabSize.of(4),
@@ -94,7 +85,6 @@ export function useEditorExtensions(
             pageSearchExtension,
             EditorView.lineWrapping,
             placeholder("Начните писать текст..."),
-            yCollab(ytext, null)
         ];
-    }, [autoLinkTitle, isReady, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, ydoc]);
+    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath]);
 }

@@ -8,6 +8,7 @@ use super::error::FileCommandError;
 use super::models::{FileRenameResult, FileWriteResult};
 use super::rename::rename_with_links;
 use super::trash::{move_to_trash_impl, restore_from_trash_impl};
+use crate::documents::DocumentHub;
 use crate::history::{HistoryService, NoteWrite, Source};
 use crate::search::paths::is_markdown;
 use crate::search::SearchService;
@@ -103,6 +104,10 @@ pub(crate) fn rename(
     from: &Path,
     to: &Path,
 ) -> Result<FileRenameResult, FileCommandError> {
+    app.state::<DocumentHub>().moving(app, from, || rename_now(app, from, to))
+}
+
+fn rename_now(app: &AppHandle, from: &Path, to: &Path) -> Result<FileRenameResult, FileCommandError> {
     let notes = notes_under(from);
     let renamed = rename_with_links(&search(app), from, to)?;
     let relocation = relocated(&notes, from, to);
@@ -122,12 +127,18 @@ pub(crate) fn rename(
     }
     let mut changed = vec![from.to_path_buf(), to.to_path_buf()];
     changed.extend(renamed.result.updated_paths.iter().map(PathBuf::from));
+    let rewritten: Vec<PathBuf> = renamed.result.updated_paths.iter().map(PathBuf::from).collect();
     paths_changed(app, changed);
     announce(app, relocation);
+    app.state::<DocumentHub>().reconcile_paths(app, &rewritten);
     Ok(renamed.result)
 }
 
 pub(crate) fn move_across(app: &AppHandle, from: &Path, to: &Path) -> Result<(), FileCommandError> {
+    app.state::<DocumentHub>().moving(app, from, || move_across_now(app, from, to))
+}
+
+fn move_across_now(app: &AppHandle, from: &Path, to: &Path) -> Result<(), FileCommandError> {
     let notes = notes_under(from);
     rename_file_impl(from, to)?;
     let relocation = relocated(&notes, from, to);
@@ -142,6 +153,10 @@ pub(crate) fn trash(
     workspace: &Path,
     path: &Path,
 ) -> Result<PathBuf, FileCommandError> {
+    app.state::<DocumentHub>().moving(app, path, || trash_now(app, workspace, path))
+}
+
+fn trash_now(app: &AppHandle, workspace: &Path, path: &Path) -> Result<PathBuf, FileCommandError> {
     let moved = move_to_trash_impl(workspace, path)?;
     let notes = markdown_moves(&moved.files);
     let history = history(app);
@@ -247,6 +262,9 @@ fn announce(app: &AppHandle, relocation: Relocation) {
     if relocation.moves.is_empty() && relocation.removed.is_empty() {
         return;
     }
+    let moves: Vec<(String, String)> =
+        relocation.moves.iter().map(|step| (step.from.clone(), step.to.clone())).collect();
+    app.state::<DocumentHub>().relocated(&moves, &relocation.removed);
     if let Err(error) = app.emit(NOTES_RELOCATED_EVENT, relocation) {
         eprintln!("[aquilum:gate] событие о переносе заметок не отправлено: {error}");
     }

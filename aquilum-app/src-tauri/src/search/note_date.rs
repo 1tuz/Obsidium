@@ -85,7 +85,7 @@ pub fn to_civil(nanos: i64) -> (i64, i64, i64, i64) {
     to_civil_at(nanos, local_offset())
 }
 
-fn to_civil_at(nanos: i64, offset: i64) -> (i64, i64, i64, i64) {
+pub fn to_civil_at(nanos: i64, offset: i64) -> (i64, i64, i64, i64) {
     let seconds = nanos.div_euclid(NANOS_PER_SECOND) + offset;
     let day = seconds.div_euclid(SECONDS_PER_DAY);
     let inside = seconds.rem_euclid(SECONDS_PER_DAY);
