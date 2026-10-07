@@ -191,10 +191,14 @@ Report bugs and suggest improvements in [Issues](https://github.com/1tuz/Obsidiu
 
 ## Source code and license
 
-This repository contains the Aquilum source code, Windows installers, update manifests, and screenshots. Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [aquilum-app/README.md](aquilum-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
+Obsidium is based on the original [Freaction/Aquilum](https://github.com/Freaction/Aquilum) project by Dmitriy Chaplinskiy (© 2026). This fork adds:
 
-Copyright © 2026 Dmitriy Chaplinskiy.
+- GitHub Actions checks and installer builds for Windows, Apple Silicon macOS, and Ubuntu 24.
+- macOS `curl` install and uninstall scripts that leave vault files untouched.
+- Scheduled upstream sync and a fix for the blank startup window.
+
+Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [aquilum-app/README.md](aquilum-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
 
 Aquilum is free software licensed under the [GNU Affero General Public License v3.0 only](LICENSE). You may use, study, modify, and share it, but any distributed version — and any modified version offered to users over a network — must be released under the same license with its complete source code. For use under other terms, such as a commercial license, contact the author.
 
-The name “Aquilum” and its logo identify the original project and are not licensed for use by modified versions.
+The name “Aquilum” and its logo identify the original project; this fork is maintained in the Obsidium repository.
