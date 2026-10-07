@@ -45,10 +45,11 @@ https://github.com/1tuz/Obsidium/releases/latest/download/latest.json
 
 ## Публикация релиза
 
-Каждый push запускает CI с лёгкими проверками и пакетными сборками. Тег `v*` запускает release
-workflow: собираются Windows x64 NSIS, Apple Silicon macOS DMG и Ubuntu 24 x64 `.deb`; после успешных
-сборок создаётся черновик релиза с updater manifest. Проверьте артефакты, затем опубликуйте черновик
-в [1tuz/Obsidium Releases](https://github.com/1tuz/Obsidium/releases).
+Каждый push запускает CI с лёгкими проверками и пакетными сборками. Тег `v*` или ручной запуск
+release workflow собирает Windows x64 NSIS, Apple Silicon macOS DMG и Ubuntu 24 x64 `.deb` в
+черновик, после успешного завершения всех платформ автоматически публикует его в
+[1tuz/Obsidium Releases](https://github.com/1tuz/Obsidium/releases). Приватный updater key хранится в
+GitHub Secret `TAURI_SIGNING_PRIVATE_KEY`; публичный ключ хранится в `tauri.conf.json`.
 
 ## Исходники и лицензия
 
@@ -66,8 +67,8 @@ Workflow `Sync upstream fork` ежедневно синхронизирует `m
 ## Подпись
 
 - **Публичный ключ** — `tauri.conf.json` → `plugins.updater.pubkey` (в git)
-- **Приватный** — `%USERPROFILE%\.tauri\aquilum.key` (только локально)
-- **Пароль** — `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+- **Приватный** — `~/.tauri/obsidium.key` локально и GitHub Secret `TAURI_SIGNING_PRIVATE_KEY`
+- **Пароль** — `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` только если ключ защищён паролем
 
 Updater проверяет minisign до установки. Без ключа или с чужой подписью
 апдейт отклонится. Это не Authenticode/SmartScreen — сертификат Windows на

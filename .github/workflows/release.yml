@@ -1,6 +1,5 @@
 # Release builds for Windows, macOS and Linux.
 # Pushing a tag v* builds every platform into a draft release with latest.json for the updater.
-# The draft is published by hand once all jobs are green, so the updater never sees a partial release.
 name: Release
 
 on:
@@ -59,18 +58,35 @@ jobs:
         working-directory: aquilum-app
         run: npm ci
 
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: aquilum-app
-          tauriScript: npx tauri
+          tauriScript: npm run tauri --
           args: --features updater ${{ matrix.args }}
           tagName: v__VERSION__
           releaseName: __VERSION__
           releaseBody: See the release notes below.
           releaseDraft: true
           prerelease: false
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Publish complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then
+            version="$(node -p 'require("./aquilum-app/package.json").version')"
+            RELEASE_TAG="v${version}"
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"

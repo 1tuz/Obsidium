@@ -61,7 +61,7 @@
       "endpoints": [
         "https://github.com/1tuz/Obsidium/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI4QTY0MzM1MDczQUNDMTQKUldRVXpEb0hOVU9tdUFCWnVMRWlBVTRGWmlFOW0wd2VteVlXd3luMFAyMmczWktQbkRvVmhTQSsK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlCMTgwNkE4QjhEQzY2QjkKUldTNVp0eTRxQVlZbTBYa2F2UXhDcGFJa2VKdHJCVzUwMG1KOTF6dWJPdkJHNGtmSzVkVk83VWcK",
       "windows": {
         "installMode": "quiet"
       }
