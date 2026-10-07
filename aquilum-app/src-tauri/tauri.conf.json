@@ -1,18 +1,18 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Aquilum",
+  "productName": "Obsidium",
   "version": "0.2.5",
   "identifier": "com.dmitriy.aquilum-app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run icons:sync && npm run build",
     "frontendDist": "../../.artifacts/dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Aquilum",
+        "title": "Obsidium",
         "width": 1000,
         "height": 600,
         "decorations": false

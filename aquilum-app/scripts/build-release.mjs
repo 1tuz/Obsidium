@@ -41,7 +41,7 @@ if (existsSync(releaseRoot)) {
 await mkdir(releaseRoot, { recursive: true });
 
 const tauriConfig = JSON.parse(await readFile(join(projectRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'));
-const productName = tauriConfig.productName || 'Aquilum';
+const productName = tauriConfig.productName || 'Obsidium';
 const setupCandidates = [
   `${productName}_${version}_x64-setup.exe`,
   `aquilum-app_${version}_x64-setup.exe`,

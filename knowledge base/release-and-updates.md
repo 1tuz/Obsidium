@@ -8,15 +8,16 @@
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.sh | bash
 ```
 
-Скрипт выбирает DMG под `arm64` или `x86_64` через GitHub Releases API и копирует `Aquilum.app` в
-`~/Applications`. Удаление:
+Скрипт выбирает DMG Apple Silicon (`arm64`) через GitHub Releases API и устанавливает `Obsidium.app`
+в `~/Applications`. При обновлении удаляет старый `Aquilum.app`. Удаление:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.sh | bash
 ```
 
-Удаление затрагивает только `~/Applications/Aquilum.app`. Vault, Markdown-файлы, вложения и каталог
-настроек Aquilum не удаляются. Скрипты работают с опубликованным GitHub Release, не с черновиком.
+Удаление затрагивает только `~/Applications/Obsidium.app` и старый `~/Applications/Aquilum.app`.
+Vault, Markdown-файлы, вложения и каталог данных приложения не удаляются. Скрипты работают с
+опубликованным GitHub Release, не с черновиком.
 
 ## Статус: обязательно соблюдать
 
@@ -61,8 +62,9 @@ GitHub Secret `TAURI_SIGNING_PRIVATE_KEY`; публичный ключ хран�
 выдавать отдельную коммерческую лицензию; если начнём принимать чужие pull request, без
 соглашения контрибьютора (CLA) это право на их код теряется.
 
-Workflow `Sync upstream fork` ежедневно синхронизирует `main` с `Freaction/Aquilum` и запускает CI,
-если появились новые коммиты. Fork сохраняет собственные workflows, release settings и выпуски.
+Workflow `Sync upstream fork` ежедневно сливает `main` из `Freaction/Aquilum` в fork и запускает CI
+при новых коммитах. Конфликты в workflow оставляют fork-версию; конфликты исходников останавливают
+синхронизацию для ручного разбора. Fork сохраняет собственные workflows, release settings и выпуски.
 
 ## Подпись
 
@@ -153,7 +155,7 @@ Rust, а им ACL не нужен. Что сломается, если верн�
 ## Автозапуск
 
 `tauri-plugin-autostart` пишет в `HKCU\...\CurrentVersion\Run` значение с именем продукта
-(`Aquilum`) и путём к текущему exe. Имя одинаковое у dev и release, поэтому включение автозапуска в
+(`Obsidium`) и путём к текущему exe. Имя одинаковое у dev и release, поэтому включение автозапуска в
 dev перезаписывало запись путём к `target\debugquilum-app.exe`, и при входе в Windows стартовала
 dev-сборка (или ошибка, если её папки уже нет). Поэтому:
 

@@ -3,16 +3,16 @@ set -euo pipefail
 
 REPO="1tuz/Obsidium"
 APP_DIR="$HOME/Applications"
-APP_PATH="$APP_DIR/Aquilum.app"
+APP_PATH="$APP_DIR/Obsidium.app"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  printf 'Aquilum curl installer currently supports macOS only.\n' >&2
+  printf 'Obsidium curl installer currently supports macOS only.\n' >&2
   exit 1
 fi
 
 case "$(uname -m)" in
   arm64) target="aarch64" ;;
-  *) printf 'Aquilum DMG installer supports Apple Silicon Macs only (arm64).\n' >&2; exit 1 ;;
+  *) printf 'Obsidium DMG installer supports Apple Silicon Macs only (arm64).\n' >&2; exit 1 ;;
 esac
 
 work_dir="$(mktemp -d)"
@@ -34,16 +34,19 @@ if [[ -z "$download_url" ]]; then
   exit 1
 fi
 
-curl -fL --proto '=https' --tlsv1.2 "$download_url" -o "$work_dir/Aquilum.dmg"
-hdiutil attach -nobrowse -readonly -mountpoint "$mount_dir" "$work_dir/Aquilum.dmg" >/dev/null
+curl -fL --proto '=https' --tlsv1.2 "$download_url" -o "$work_dir/Obsidium.dmg"
+hdiutil attach -nobrowse -readonly -mountpoint "$mount_dir" "$work_dir/Obsidium.dmg" >/dev/null
 mounted=true
-source_app="$(find "$mount_dir" -maxdepth 3 -type d -name 'Aquilum.app' -print -quit)"
+source_app="$(find "$mount_dir" -maxdepth 3 -type d -name 'Obsidium.app' -print -quit)"
 if [[ -z "$source_app" ]]; then
-  printf 'Aquilum.app was not found in the downloaded DMG.\n' >&2
+  source_app="$(find "$mount_dir" -maxdepth 3 -type d -name 'Aquilum.app' -print -quit)"
+fi
+if [[ -z "$source_app" ]]; then
+  printf 'No Obsidium app bundle was found in the downloaded DMG.\n' >&2
   exit 1
 fi
 
 mkdir -p "$APP_DIR"
-rm -rf "$APP_PATH"
+rm -rf "$APP_PATH" "$APP_DIR/Aquilum.app"
 ditto "$source_app" "$APP_PATH"
-printf 'Installed Aquilum to %s\n' "$APP_PATH"
+printf 'Installed Obsidium to %s\n' "$APP_PATH"
