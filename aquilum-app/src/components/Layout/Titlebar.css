@@ -17,10 +17,6 @@
   padding-inline-end: var(--q-titlebar-controls-inset);
 }
 
-.q-titlebar--leading-inset {
-  padding-inline-start: var(--q-titlebar-controls-inset);
-}
-
 .q-titlebar-tabs {
   display: flex;
   align-items: flex-start;

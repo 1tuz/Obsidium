@@ -54,7 +54,6 @@ mod wikixiv {
 }
 
 use std::sync::Arc;
-use tauri::webview::PageLoadEvent;
 use tauri::window::Color;
 use tauri::{Emitter, Manager, Theme, WindowEvent};
 
@@ -83,14 +82,16 @@ pub fn run() {
     #[cfg(feature = "updater")]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
-    builder
-        .on_page_load(|webview, payload| {
-            if payload.event() == PageLoadEvent::Finished && webview.label() == "main" {
-                if let Err(error) = webview.window().show() {
-                    eprintln!("[aquilum] окно не показано: {error}");
-                }
+    #[cfg(debug_assertions)]
+    let builder = builder.on_page_load(|webview, payload| {
+        if payload.event() == tauri::webview::PageLoadEvent::Finished && webview.label() == "main" {
+            if let Err(error) = webview.window().show() {
+                eprintln!("[aquilum] окно не показано: {error}");
             }
-        })
+        }
+    });
+
+    builder
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;

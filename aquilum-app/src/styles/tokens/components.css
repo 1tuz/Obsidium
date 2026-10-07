@@ -41,9 +41,6 @@
   --q-tab-max-width: 23rem;
   --q-window-close-bg-hover: #ff3c29;
   --q-window-close-bg-active: #e63524;
-  --q-window-mac-close-bg: #ff5f57;
-  --q-window-mac-minimize-bg: #ffbd2e;
-  --q-window-mac-maximize-bg: #28c840;
   --q-window-control-width: 2.875rem;
   --q-titlebar-controls-inset: calc(var(--q-window-control-width) * 3);
   --q-icon-button-bg-hover: var(--q-bg-surface-overlay);

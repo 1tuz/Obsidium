@@ -8,6 +8,11 @@ const appWindow = getCurrentWindow();
 const isMac = isMacOs();
 
 export function WindowControls() {
+  if (isMac) return null;
+  return <TrailingWindowControls />;
+}
+
+function TrailingWindowControls() {
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -23,16 +28,6 @@ export function WindowControls() {
     if (await appWindow.isMaximized()) appWindow.unmaximize();
     else appWindow.maximize();
   };
-
-  if (isMac) {
-    return (
-      <div className="q-window-controls q-window-controls--leading q-window-controls--mac">
-        <button type="button" onClick={() => appWindow.close()} title={t('window.close')} aria-label={t('window.close')} className="q-window-btn q-window-btn--close q-window-btn--mac" />
-        <button type="button" onClick={() => appWindow.minimize()} title={t('window.minimize')} aria-label={t('window.minimize')} className="q-window-btn q-window-btn--min q-window-btn--mac" />
-        <button type="button" onClick={handleToggleMaximize} title={t('window.maximize')} aria-label={t('window.maximize')} className="q-window-btn q-window-btn--max q-window-btn--mac" />
-      </div>
-    );
-  }
 
   return (
     <div className="q-window-controls">
