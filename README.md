@@ -1,12 +1,5 @@
 <p align="center">
-  <img src="Obsidium-logo.png" alt="Obsidium logo" width="216">
-</p>
-
-<h1 align="center">Obsidium</h1>
-
-<p align="center">
-  <strong>A local-first Markdown knowledge base.</strong><br>
-  An Aquilum fork that keeps notes on your device and makes them searchable, connected, and ready to query.
+  <img src="assets/readme/hero.png" alt="Obsidium — a local-first Markdown knowledge base" width="100%">
 </p>
 
 <p align="center">

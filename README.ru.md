@@ -1,12 +1,5 @@
 <p align="center">
-  <img src="Obsidium-logo.png" alt="Логотип Obsidium" width="216">
-</p>
-
-<h1 align="center">Obsidium</h1>
-
-<p align="center">
-  <strong>Локальная база знаний в формате Markdown.</strong><br>
-  Форк Aquilum хранит заметки на вашем устройстве: их можно искать, связывать и собирать в запросы.
+  <img src="assets/readme/hero.png" alt="Obsidium — локальная база знаний в формате Markdown" width="100%">
 </p>
 
 <p align="center">

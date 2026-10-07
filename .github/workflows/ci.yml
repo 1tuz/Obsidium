@@ -7,11 +7,15 @@ on:
       - "*.md"
       - "**/*.md"
       - "screenshots/**"
+      - "assets/readme/**"
+      - ".github/workflows/**"
   pull_request:
     paths-ignore:
       - "*.md"
       - "**/*.md"
       - "screenshots/**"
+      - "assets/readme/**"
+      - ".github/workflows/**"
   workflow_dispatch:
   workflow_call:
 

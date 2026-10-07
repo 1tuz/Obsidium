@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(scriptsDir, '..');
-const source = join(projectRoot, 'Obsidium-logo.png');
+const source = join(resolve(projectRoot, '..'), 'obsidian-crystal-belt-icon.png');
 const output = join(projectRoot, 'src-tauri', 'icons');
 const tauriBin = join(
   projectRoot,

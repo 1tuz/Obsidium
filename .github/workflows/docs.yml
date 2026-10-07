@@ -6,11 +6,13 @@ on:
       - "*.md"
       - "**/*.md"
       - "screenshots/**"
+      - "assets/readme/**"
   pull_request:
     paths:
       - "*.md"
       - "**/*.md"
       - "screenshots/**"
+      - "assets/readme/**"
 
 permissions:
   contents: read
