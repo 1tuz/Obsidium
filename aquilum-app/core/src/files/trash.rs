@@ -471,16 +471,17 @@ mod tests {
     #[test]
     fn the_move_reports_where_every_file_landed() {
         let directory = workspace();
-        let folder = directory.path().join("Проекты");
+        let root = fs::canonicalize(directory.path()).unwrap();
+        let folder = root.join("Проекты");
         fs::create_dir_all(&folder).unwrap();
         fs::write(folder.join("А.md"), "раньше").unwrap();
-        move_to_trash_impl(directory.path(), &folder.join("А.md")).unwrap();
+        move_to_trash_impl(&root, &folder.join("А.md")).unwrap();
         fs::write(folder.join("А.md"), "позже").unwrap();
         fs::write(folder.join("Б.md"), "ещё").unwrap();
 
-        let moved = move_to_trash_impl(directory.path(), &folder).unwrap();
+        let moved = move_to_trash_impl(&root, &folder).unwrap();
 
-        let trash = trash_path(directory.path()).join("Проекты");
+        let trash = trash_path(&root).join("Проекты");
         let mut files = moved.files.clone();
         files.sort();
         assert_eq!(
@@ -492,7 +493,7 @@ mod tests {
             "совпавший путь уходит в различитель, и операция сама называет это место"
         );
 
-        let restored = restore_from_trash_impl(directory.path(), &trash.join(".1").join("А.md")).unwrap();
+        let restored = restore_from_trash_impl(&root, &trash.join(".1").join("А.md")).unwrap();
         assert_eq!(
             restored.files,
             vec![(trash.join(".1").join("А.md"), restored.root.clone())]

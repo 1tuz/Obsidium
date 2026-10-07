@@ -1,7 +1,7 @@
 use super::store;
 use serde::{Serialize, Serializer};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const IDLE: Duration = Duration::from_secs(60);
 const CAP: Duration = Duration::from_secs(5 * 60);
@@ -164,7 +164,11 @@ pub fn plan(
             (!disk.text.is_empty() && disk.text != write_text).then(|| Snapshot {
                 text: disk.text.to_owned(),
                 source: Source::Start,
-                at: disk.at,
+                at: if millis(disk.at) >= millis(now) {
+                    disk.at.min(now - Duration::from_millis(1))
+                } else {
+                    disk.at
+                },
             })
         })
     } else {
@@ -196,6 +200,12 @@ pub fn plan(
             },
         }
     }
+}
+
+fn millis(time: SystemTime) -> u128 {
+    time.duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
 }
 
 fn changed_chars(before: &str, after: &str) -> usize {
@@ -298,6 +308,38 @@ mod tests {
                 }
             }
         );
+    }
+
+    #[test]
+    fn first_edit_orders_baseline_before_snapshot_when_mtime_matches() {
+        let before = Before {
+            text: "исходный",
+            at: at(20),
+        };
+        let MilestonePlan::CreateNew {
+            baseline: Some(baseline),
+            snapshot,
+        } = plan(
+            "dev1",
+            &Incoming {
+                source: Source::Me,
+                text: "исходный + правка",
+                disk_before: Some(&before),
+            },
+            &Recorded {
+                versions: &[],
+                names: &HashMap::new(),
+                latest_text: None,
+                previous_text: None,
+                last_edit: None,
+            },
+            at(20),
+        )
+        else {
+            panic!("expected a baseline and snapshot");
+        };
+
+        assert!(baseline.at < snapshot.at);
     }
 
     #[test]

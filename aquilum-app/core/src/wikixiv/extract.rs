@@ -98,7 +98,8 @@ pub fn has_enough_text(word_count: usize) -> bool {
 }
 
 fn title_from_path(path: &str) -> Option<String> {
-    let stem = Path::new(path)
+    let normalized_path = path.replace('\\', "/");
+    let stem = Path::new(&normalized_path)
         .file_stem()
         .and_then(|value| value.to_str())
         .map(str::trim)

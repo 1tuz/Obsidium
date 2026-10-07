@@ -16,6 +16,8 @@ function transitionMs(element: HTMLElement): number {
 }
 
 function prefersReducedMotion(): boolean {
+  if (document.documentElement.dataset.motion === 'on') return false;
+  if (document.documentElement.dataset.motion === 'off') return true;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 

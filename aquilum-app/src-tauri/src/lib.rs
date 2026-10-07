@@ -111,7 +111,7 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "windows")]
                 allow_pinch_gestures(&window);
-                paint_canvas(&window, &app.state::<Arc<app_core::Core>>().settings.get_config().ui.theme);
+                paint_canvas(&window, &app.state::<Arc<app_core::Core>>().settings.get_config().ui.appearance);
                 window_state_manager.restore(&window);
                 window_state_manager.initialize(&window);
             }
@@ -129,6 +129,7 @@ pub fn run() {
             updater::check_for_update,
             updater::install_update,
             files::commands::read_directory,
+            files::commands::list_vault_snippets,
             files::commands::existing_files,
             files::commands::resolve_attachments,
             files::commands::read_file_snapshot,

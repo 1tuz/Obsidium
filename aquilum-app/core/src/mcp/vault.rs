@@ -111,7 +111,10 @@ impl Vault {
         if trimmed.is_empty() {
             return Err("Пустой путь".to_owned());
         }
-        if Path::new(trimmed).is_absolute() {
+        let bytes = trimmed.as_bytes();
+        let windows_drive_path = bytes.get(1) == Some(&b':')
+            && bytes.first().is_some_and(u8::is_ascii_alphabetic);
+        if Path::new(trimmed).is_absolute() || windows_drive_path || trimmed.starts_with(r"\\") {
             let path = crate::search::paths::canonical_path(Path::new(trimmed));
             return self.ensure_inside(path);
         }

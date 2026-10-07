@@ -17,6 +17,11 @@
     "back": "Назад",
     "forward": "Вперёд",
     "searchInNote": "Поиск в заметке",
+    "loadingEmbeddedNote": "Загружаем встроенную заметку…",
+    "embeddedNoteUnavailable": "Не удалось загрузить заметку {{target}}",
+    "embeddedHeadingUnavailable": "Заголовок «{{heading}}» не найден",
+    "embeddedNoteEmpty": "Заметка пуста",
+    "embeddedNoteCycle": "Заметка не может включать саму себя",
     "focusMode": "Режим фокуса",
     "noteActions": "Действия с заметкой",
     "metadata": "Метаданные",
@@ -143,7 +148,9 @@
   "theme": {
     "light": "Светлая",
     "dark": "Тёмная",
-    "system": "Системная"
+    "system": "Системная",
+    "on": "Вкл.",
+    "off": "Выкл."
   },
   "common": {
     "decrease": "Уменьшить",
@@ -192,7 +199,9 @@
       "display": "Отображение",
       "scale": "Масштаб интерфейса, %",
       "scaleHint": "Также Ctrl + колесо мыши; {{reset}} — вернуть 100%",
-      "theme": "Тема",
+      "theme": "Режим оформления",
+      "palette": "Палитра",
+      "animations": "Анимации",
       "language": "Язык",
       "languageAria": "Язык интерфейса",
       "homePage": "Домашняя страница",
@@ -321,7 +330,11 @@
     "files": {
       "section": "Файлы и вложения",
       "folder": "Папка для вложений",
-      "folderHint": "Сюда попадают вставленные картинки и видео, обложки и файлы книг. Путь относительно базы знаний, например assets."
+      "folderHint": "Сюда попадают вставленные картинки и видео, обложки и файлы книг. Путь относительно базы знаний, например assets.",
+      "snippets": "CSS snippets Obsidian",
+      "noWorkspace": "Сначала откройте базу знаний",
+      "noSnippets": "CSS-файлы в .obsidian/snippets не найдены",
+      "toggleSnippet": "Включить CSS snippet {{name}}"
     },
     "trash": {
       "section": "Корзина",
@@ -403,7 +416,9 @@
   },
   "titlebar": {
     "hideRightSidebar": "Скрыть правую боковую панель",
-    "showRightSidebar": "Показать правую боковую панель"
+    "showRightSidebar": "Показать правую боковую панель",
+    "switchToLightTheme": "Переключить на светлую тему",
+    "switchToDarkTheme": "Переключить на тёмную тему"
   },
   "fileTree": {
     "renameAria": "Новое имя файла",

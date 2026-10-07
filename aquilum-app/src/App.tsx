@@ -41,12 +41,14 @@ import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
 import { keepVersionsOf } from "./modules/history";
 import { useRetentionCleanup } from "./hooks/useRetentionCleanup";
+import { applyVaultSnippets } from "./modules/docs/vaultSnippets";
 import { flushDocuments } from "./modules/documents/documentGateway";
 import { useWindowDocumentSync } from "./modules/documents/useWindowDocumentSync";
 import { applyTemplateToDocument } from "./components/Editor/docMutations";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
+import { useThemeMode } from "./hooks/useThemeMode";
 import "./App.css";
 
 const GraphView = lazy(() => import("./components/Graph/GraphView")
@@ -127,7 +129,19 @@ export default function App() {
     canGoForward,
   } = useNavigationHistory(workspacePath);
 
-  const { config, loadConfig } = useSettingsStore();
+  const { config, loadConfig, updateConfig } = useSettingsStore();
+  const themeMode = useThemeMode();
+  const toggleTheme = useCallback(() => {
+    if (!config) return;
+    void updateConfig({
+      ...config,
+      ui: { ...config.ui, appearance: themeMode === 'dark' ? 'light' : 'dark' },
+    }).catch((error) => console.error('Failed to switch theme', error));
+  }, [config, themeMode, updateConfig]);
+
+  useEffect(() => {
+    void applyVaultSnippets(workspacePath, config?.ui.enabledSnippets ?? []);
+  }, [config?.ui.enabledSnippets, workspacePath]);
 
   const liveTabIds = useLiveTabs(tabs, activeTabId, config?.editor.liveTabs ?? DEFAULT_LIVE_TABS);
   const livePanes = liveTabIds.flatMap((tabId) => {
@@ -410,6 +424,7 @@ export default function App() {
             onNewTab={newTab}
             rightSidebarOpen={rightSidebarVisible}
             onToggleRightSidebar={focusMode ? undefined : toggleRightSidebar}
+            onToggleTheme={config ? toggleTheme : undefined}
           />
 
           <div className="q-app-content">

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   FM_BOOK_COVER,
   FM_BOOK_FILE,
@@ -52,5 +54,23 @@ describe('frontmatter book fields', () => {
   it('formats read percent from fraction', () => {
     expect(formatReadPercent(0.426)).toBe('43');
     expect(parseReadPercent('43%')).toBe(43);
+  });
+
+  it('preserves nested YAML and CRLF while changing one top-level property', () => {
+    const doc = '---\r\ntitle: Before\r\nplugin:\r\n  options:\r\n    enabled: true\r\nitems:\r\n  - one\r\n  - two\r\n---\r\nBody';
+    const next = setFrontmatterField(doc, 'title', 'After');
+    expect(next).toBe(doc.replace('title: Before', 'title: After'));
+  });
+
+  it('round-trips an Obsidian fixture after one metadata edit', () => {
+    const fixture = readFileSync(fileURLToPath(new URL(
+      '../../../tests/fixtures/obsidian-vault/frontmatter.md',
+      import.meta.url,
+    )), 'utf8');
+    const next = setFrontmatterField(fixture, 'title', 'Changed');
+    expect(next).toBe(fixture.replace('title: Round trip', 'title: Changed'));
+    expect(next).toContain('```dataview\nTABLE status\nFROM "Projects"\n```');
+    expect(next).toContain('![[Folder/Note#Заголовок]]');
+    expect(next).toContain('<custom-block data-plugin="unknown">Сохранить</custom-block>');
   });
 });

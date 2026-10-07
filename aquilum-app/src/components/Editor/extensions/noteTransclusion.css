@@ -1,0 +1,36 @@
+.q-note-transclusion {
+  overflow: hidden;
+  border: var(--q-border-1) solid var(--q-border-subtle);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+}
+
+.q-note-transclusion__source {
+  width: 100%;
+  padding: var(--q-space-8) var(--q-space-12);
+  border: 0;
+  border-bottom: var(--q-border-1) solid var(--q-border-subtle);
+  background: transparent;
+  color: var(--q-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.q-note-transclusion__source:hover {
+  color: var(--q-text-primary);
+}
+
+.q-note-transclusion__body {
+  padding: var(--q-space-4) var(--q-space-12);
+  color: var(--q-editor-text);
+}
+
+.q-note-transclusion__body .cm-editor {
+  background: transparent;
+  color: inherit;
+}
+
+.q-note-transclusion__body .cm-content {
+  padding: var(--q-space-4) 0;
+}

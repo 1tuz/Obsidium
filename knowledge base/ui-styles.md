@@ -15,6 +15,9 @@ Figma.
 ## Связанные документы
 
 - [[design-tokens]] — откуда берутся токены и как проверяются цвета.
+- [[theme-engine]] — режим оформления, палитры, быстрый переключатель и Motion.
+- [[vault-css-snippets]] — подключение CSS-фрагментов из `.obsidian/snippets`.
+- [[note-transclusion]] — read-only отображение вложенных заметок.
 - [[interface-scale]] — почему все размеры в `rem`.
 - [[dialogs]] — общий фундамент модалок.
 

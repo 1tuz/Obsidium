@@ -1,6 +1,6 @@
 import { clamp } from '../math';
 
-const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 
 export const FM_BOOK_COVER = 'Book_cover';
 export const FM_PAGE_COVER = 'Page_cover';
@@ -89,7 +89,7 @@ export function parseFrontmatter(doc: string): { raw: string; body: string; data
   const match = doc.match(FRONTMATTER_RE);
   if (!match) return null;
   const raw = match[0];
-  const body = match[1];
+  const body = match[1].replace(/\r\n/g, '\n');
   const data: BookMetadata = {};
   for (const line of body.split('\n')) {
     const { key, value: val } = splitFieldLine(line);
@@ -126,17 +126,21 @@ export function setFrontmatterField(doc: string, key: string, value: string): st
   if (!parsed) return null;
 
   const dropKeys = new Set(fieldKeys(key));
+  const separator = doc.startsWith('---\r\n') ? '\r\n' : '\n';
   const lines = parsed.body.length > 0 ? parsed.body.split('\n') : [];
   let found = false;
   const nextLines = lines.flatMap((line) => {
-    if (!dropKeys.has(splitFieldLine(line).key)) return [line];
+    if (/^\s/.test(line) || !dropKeys.has(splitFieldLine(line).key)) return [line];
     found = true;
     if (value === '') return [];
     return [`${key}: ${value}`];
   });
   if (!found && value !== '') nextLines.push(`${key}: ${value}`);
 
-  return `---\n${nextLines.join('\n')}\n---${doc.slice(parsed.raw.length)}`;
+  const bodyStart = doc.indexOf(separator) + separator.length;
+  const closingStart = doc.lastIndexOf(`${separator}---`, parsed.raw.length);
+  const body = nextLines.join(separator);
+  return `${doc.slice(0, bodyStart)}${body}${doc.slice(closingStart)}`;
 }
 
 export function frontmatterRange(doc: string): { from: number; to: number } | null {

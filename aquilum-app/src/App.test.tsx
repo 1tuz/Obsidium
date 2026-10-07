@@ -17,6 +17,10 @@ const uiStateMocks = vi.hoisted(() => ({
   queueActiveTab: vi.fn(),
   queueTabsSnapshot: vi.fn(),
 }));
+const settingsState = vi.hoisted(() => ({
+  config: null as Record<string, unknown> | null,
+  updateConfig: vi.fn(),
+}));
 
 vi.mock('./hooks/useWorkspace', () => ({
   useWorkspace: () => ({
@@ -60,11 +64,14 @@ vi.mock('./modules/ui-state', async (importOriginal) => {
 vi.mock('./components/Layout/Titlebar', () => ({
   Titlebar: ({
     onToggleRightSidebar,
+    onToggleTheme,
   }: {
     onToggleRightSidebar: () => void;
+    onToggleTheme?: () => void;
   }) => (
     <>
       <button id="toggle-right-sidebar" onClick={onToggleRightSidebar} />
+      <button id="toggle-theme" onClick={onToggleTheme} />
     </>
   ),
 }));
@@ -132,11 +139,11 @@ vi.mock('./components/Settings/SettingsDialog', () => ({
 vi.mock('./modules/settings', () => ({
   DEFAULT_LIVE_TABS: 3,
   useSettingsStore: () => ({
-    config: null,
+    config: settingsState.config,
     isLoading: false,
     error: null,
     loadConfig: () => Promise.resolve(),
-    updateConfig: vi.fn(),
+    updateConfig: settingsState.updateConfig,
   }),
 }));
 
@@ -205,6 +212,8 @@ describe('App editor lifecycle', () => {
     graphLifecycle.length = 0;
     workspaceState.files = [];
     workspaceState.workspaceReady = false;
+    settingsState.config = null;
+    settingsState.updateConfig.mockReset();
     vi.clearAllMocks();
   });
 
@@ -292,6 +301,25 @@ describe('App editor lifecycle', () => {
 
     click('toggle-right-sidebar');
     expect(find('right-sidebar')).toHaveLength(1);
+  });
+
+  it('switches the stored appearance directly from the titlebar', async () => {
+    settingsState.config = {
+      editor: { liveTabs: 3 },
+      updates: { auto: false },
+      trash: { retentionDays: 30 },
+      history: { retentionDays: 30 },
+      templates: { folder: '' },
+      ui: { appearance: 'system', palette: 'dracula', motion: 'system' },
+    };
+    settingsState.updateConfig.mockResolvedValue(undefined);
+    await renderWithSession();
+
+    click('toggle-theme');
+
+    expect(settingsState.updateConfig).toHaveBeenCalledWith(expect.objectContaining({
+      ui: { appearance: 'dark', palette: 'dracula', motion: 'system' },
+    }));
   });
 
   it('restores an existing tab and rejects a missing active tab', async () => {

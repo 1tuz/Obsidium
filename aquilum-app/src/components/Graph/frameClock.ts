@@ -1,4 +1,5 @@
 import { LONGEST_FRAME_SECONDS } from './easing';
+import { motionEnabled } from '../../modules/theme';
 
 export type FrameStep = (seconds: number, time: number) => boolean;
 
@@ -18,7 +19,7 @@ export class FrameClock {
         ? Math.min((time - this.last) / 1000, LONGEST_FRAME_SECONDS)
         : 0;
       this.last = time;
-      if (step(seconds, time)) this.request(step);
+      if (step(seconds, time) && motionEnabled()) this.request(step);
       if (!this.handle) this.last = 0;
     });
   }

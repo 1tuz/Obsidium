@@ -1,0 +1,98 @@
+:root {
+  --q-palette-obsidium-light-background: #ffffff;
+  --q-palette-obsidium-dark-background: #090b11;
+  --q-palette-obsidium-light-text: #181a20;
+  --q-palette-obsidium-dark-text: #f5f7fa;
+  --q-palette-obsidium-light-accent: #1471eb;
+  --q-palette-obsidium-dark-accent: #5690dc;
+}
+
+:root[data-palette="obsidian"] {
+  --q-palette-obsidian-light-background: #ffffff;
+  --q-palette-obsidian-dark-background: #202020;
+  --q-palette-obsidian-light-text: #202020;
+  --q-palette-obsidian-dark-text: #dcddde;
+  --q-palette-obsidian-light-accent: #7c3aed;
+  --q-palette-obsidian-dark-accent: #a78bfa;
+}
+
+:root[data-palette="dracula"] {
+  --q-palette-dracula-light-background: #f8f8f2;
+  --q-palette-dracula-dark-background: #282a36;
+  --q-palette-dracula-light-text: #282a36;
+  --q-palette-dracula-dark-text: #f8f8f2;
+  --q-palette-dracula-light-accent: #6441a5;
+  --q-palette-dracula-dark-accent: #bd93f9;
+}
+
+:root[data-palette="vscode"] {
+  --q-palette-vscode-light-background: #ffffff;
+  --q-palette-vscode-dark-background: #1e1e1e;
+  --q-palette-vscode-light-text: #1f1f1f;
+  --q-palette-vscode-dark-text: #cccccc;
+  --q-palette-vscode-light-accent: #005fb8;
+  --q-palette-vscode-dark-accent: #3794ff;
+}
+
+:root[data-palette="cursor"] {
+  --q-palette-cursor-light-background: #ffffff;
+  --q-palette-cursor-dark-background: #181818;
+  --q-palette-cursor-light-text: #1a1a1a;
+  --q-palette-cursor-dark-text: #e6e6e6;
+  --q-palette-cursor-light-accent: #6750a4;
+  --q-palette-cursor-dark-accent: #c4a7e7;
+}
+
+:root[data-palette="catppuccin"] {
+  --q-palette-catppuccin-light-background: #eff1f5;
+  --q-palette-catppuccin-dark-background: #1e1e2e;
+  --q-palette-catppuccin-light-text: #4c4f69;
+  --q-palette-catppuccin-dark-text: #cdd6f4;
+  --q-palette-catppuccin-light-accent: #8839ef;
+  --q-palette-catppuccin-dark-accent: #cba6f7;
+}
+
+:root[data-palette="nord"] {
+  --q-palette-nord-light-background: #eceff4;
+  --q-palette-nord-dark-background: #2e3440;
+  --q-palette-nord-light-text: #2e3440;
+  --q-palette-nord-dark-text: #eceff4;
+  --q-palette-nord-light-accent: #5e81ac;
+  --q-palette-nord-dark-accent: #88c0d0;
+}
+
+:root[data-palette="tokyo-night"] {
+  --q-palette-tokyo-night-light-background: #d5d6db;
+  --q-palette-tokyo-night-dark-background: #1a1b26;
+  --q-palette-tokyo-night-light-text: #343b58;
+  --q-palette-tokyo-night-dark-text: #c0caf5;
+  --q-palette-tokyo-night-light-accent: #34548a;
+  --q-palette-tokyo-night-dark-accent: #7aa2f7;
+}
+
+:root[data-palette="gruvbox"] {
+  --q-palette-gruvbox-light-background: #fbf1c7;
+  --q-palette-gruvbox-dark-background: #282828;
+  --q-palette-gruvbox-light-text: #3c3836;
+  --q-palette-gruvbox-dark-text: #ebdbb2;
+  --q-palette-gruvbox-light-accent: #b57614;
+  --q-palette-gruvbox-dark-accent: #fabd2f;
+}
+
+:root[data-palette="rose-pine"] {
+  --q-palette-rose-pine-light-background: #faf4ed;
+  --q-palette-rose-pine-dark-background: #191724;
+  --q-palette-rose-pine-light-text: #575279;
+  --q-palette-rose-pine-dark-text: #e0def4;
+  --q-palette-rose-pine-light-accent: #907aa9;
+  --q-palette-rose-pine-dark-accent: #c4a7e7;
+}
+
+:root[data-palette="one-dark"] {
+  --q-palette-one-dark-light-background: #fafafa;
+  --q-palette-one-dark-dark-background: #282c34;
+  --q-palette-one-dark-light-text: #383a42;
+  --q-palette-one-dark-dark-text: #abb2bf;
+  --q-palette-one-dark-light-accent: #4078f2;
+  --q-palette-one-dark-dark-accent: #61afef;
+}

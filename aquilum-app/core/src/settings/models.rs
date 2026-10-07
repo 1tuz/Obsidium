@@ -143,7 +143,11 @@ impl Default for ReaderSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct UiSettings {
-    pub theme: String,
+    #[serde(alias = "theme")]
+    pub appearance: String,
+    pub palette: String,
+    pub motion: String,
+    pub enabled_snippets: Vec<String>,
     pub language: String,
     pub primary_color: String,
     #[serde(flatten)]
@@ -153,7 +157,10 @@ pub struct UiSettings {
 impl Default for UiSettings {
     fn default() -> Self {
         Self {
-            theme: "system".to_string(),
+            appearance: "system".to_string(),
+            palette: "obsidium".to_string(),
+            motion: "system".to_string(),
+            enabled_snippets: Vec::new(),
             language: String::new(),
             primary_color: "#1471eb".to_string(),
             font: FontSettings {

@@ -100,4 +100,26 @@ mod tests {
         assert_eq!(backup, "{ broken");
         assert!(std::fs::read_to_string(&path).unwrap().contains("\"mcp\""));
     }
+
+    #[test]
+    fn legacy_theme_setting_migrates_to_appearance() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{"ui":{"theme":"dark"}}"#,
+        )
+        .unwrap();
+
+        let manager = SettingsManager::new(dir.path());
+        let config = manager.get_config();
+
+        assert_eq!(config.ui.appearance, "dark");
+        assert_eq!(config.ui.palette, "obsidium");
+        assert_eq!(config.ui.motion, "system");
+        assert!(config.ui.enabled_snippets.is_empty());
+        manager.update_config(config).unwrap();
+        let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
+        assert!(stored.contains("\"appearance\": \"dark\""));
+        assert!(!stored.contains("\"theme\""));
+    }
 }

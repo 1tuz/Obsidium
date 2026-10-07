@@ -1,5 +1,6 @@
 import { StateEffect, StateField } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet } from '@codemirror/view';
+import { motionEnabled } from '../../../modules/theme';
 
 const TICK_MS = 30;
 const DURATION_MS = 900;
@@ -14,6 +15,7 @@ interface Reveal {
 
 const startReveal = StateEffect.define<{ from: number; to: number }>();
 const advanceReveal = StateEffect.define<null>();
+const clearReveals = StateEffect.define<null>();
 
 function advance(reveal: Reveal): Reveal {
   return { ...reveal, shown: Math.min(reveal.shown + reveal.step, reveal.to - reveal.from) };
@@ -35,6 +37,7 @@ const revealField = StateField.define<Reveal[]>({
       }));
     }
     for (const effect of transaction.effects) {
+      if (effect.is(clearReveals)) next = [];
       if (effect.is(startReveal)) {
         const length = effect.value.to - effect.value.from;
         next = [
@@ -60,8 +63,12 @@ const revealField = StateField.define<Reveal[]>({
 
 const revealTicker = ViewPlugin.fromClass(class {
   private timer: ReturnType<typeof setInterval> | null = null;
+  private readonly motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  private readonly handleMotionChange = () => this.sync();
 
   constructor(private readonly view: EditorView) {
+    document.documentElement.addEventListener('aquilum-motion-change', this.handleMotionChange);
+    this.motionQuery.addEventListener('change', this.handleMotionChange);
     this.sync();
   }
 
@@ -71,12 +78,17 @@ const revealTicker = ViewPlugin.fromClass(class {
 
   destroy() {
     this.stop();
+    document.documentElement.removeEventListener('aquilum-motion-change', this.handleMotionChange);
+    this.motionQuery.removeEventListener('change', this.handleMotionChange);
   }
 
   private sync() {
-    const active = this.view.state.field(revealField).length > 0;
+    const hasReveals = this.view.state.field(revealField).length > 0;
+    const active = hasReveals && motionEnabled();
     if (active && this.timer === null) {
       this.timer = setInterval(() => tickExternalReveal(this.view), TICK_MS);
+    } else if (hasReveals && !motionEnabled()) {
+      this.view.dispatch({ effects: clearReveals.of(null) });
     } else if (!active) {
       this.stop();
     }
@@ -100,6 +112,7 @@ export function revealExternalInsert(
   edit: { from: number; to: number; insert: string },
 ): void {
   if (edit.to !== edit.from || !edit.insert) return;
+  if (!motionEnabled()) return;
   if (edit.insert.length > MAX_ANIMATED_CHARS) return;
   const to = edit.from + edit.insert.length;
   if (to > view.state.doc.length) return;

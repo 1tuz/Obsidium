@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { setTheme, type Theme } from '../theme';
+import { setTheme } from '../theme';
 import { setLanguage } from '../../i18n';
 import { setFilesFolder } from '../docs/vaultFiles';
 import { pxToRem } from '../scaling';
@@ -73,7 +73,10 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
 };
 
 interface UiSettings extends FontSettings {
-  theme: Theme;
+  appearance: 'system' | 'light' | 'dark';
+  palette: string;
+  motion: 'system' | 'on' | 'off';
+  enabledSnippets: string[];
   language: string;
   primaryColor: string;
 }
@@ -145,6 +148,7 @@ function withKnownFonts(config: AppConfig): AppConfig {
 }
 
 function applyPrimaryColor(root: HTMLElement, hex: string) {
+  if (hex.toLowerCase() === '#1471eb') return;
   root.style.setProperty('--q-blue-alpha-main', hex);
   root.style.setProperty('--q-blue-500', hex);
   root.style.setProperty('--q-blue-600', `color-mix(in srgb, ${hex} 78%, black)`);
@@ -202,7 +206,7 @@ function applySettingsToDom(config: AppConfig) {
   const root = document.documentElement;
   setLanguage(config.ui.language);
   setFilesFolder(config.files.folder);
-  setTheme(config.ui.theme);
+  setTheme(config.ui.appearance, config.ui.palette, config.ui.motion);
   applyFont(root, config.ui, 'ui');
   applyFont(root, config.editor, 'editor');
   root.style.setProperty('--q-editor-line-height', String(config.editor.lineHeight));

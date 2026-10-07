@@ -17,6 +17,11 @@
     "back": "Back",
     "forward": "Forward",
     "searchInNote": "Search in the note",
+    "loadingEmbeddedNote": "Loading embedded note…",
+    "embeddedNoteUnavailable": "Could not load note {{target}}",
+    "embeddedHeadingUnavailable": "Heading “{{heading}}” was not found",
+    "embeddedNoteEmpty": "The note is empty",
+    "embeddedNoteCycle": "A note cannot embed itself",
     "focusMode": "Focus mode",
     "noteActions": "Note actions",
     "metadata": "Metadata",
@@ -141,7 +146,9 @@
   "theme": {
     "light": "Light",
     "dark": "Dark",
-    "system": "System"
+    "system": "System",
+    "on": "On",
+    "off": "Off"
   },
   "common": {
     "decrease": "Decrease",
@@ -190,7 +197,9 @@
       "display": "Appearance",
       "scale": "Interface scale, %",
       "scaleHint": "Also Ctrl + mouse wheel; {{reset}} resets to 100%",
-      "theme": "Theme",
+      "theme": "Appearance",
+      "palette": "Palette",
+      "animations": "Animations",
       "language": "Language",
       "languageAria": "Interface language",
       "homePage": "Home page",
@@ -319,7 +328,11 @@
     "files": {
       "section": "Files and attachments",
       "folder": "Attachments folder",
-      "folderHint": "Pasted images and videos, covers and book files go here. Path relative to the vault, e.g. assets."
+      "folderHint": "Pasted images and videos, covers and book files go here. Path relative to the vault, e.g. assets.",
+      "snippets": "Obsidian CSS snippets",
+      "noWorkspace": "Open a knowledge base first",
+      "noSnippets": "No CSS files found in .obsidian/snippets",
+      "toggleSnippet": "Enable CSS snippet {{name}}"
     },
     "trash": {
       "section": "Trash",
@@ -399,7 +412,9 @@
   },
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",
-    "showRightSidebar": "Show the right sidebar"
+    "showRightSidebar": "Show the right sidebar",
+    "switchToLightTheme": "Switch to light theme",
+    "switchToDarkTheme": "Switch to dark theme"
   },
   "fileTree": {
     "renameAria": "New file name",

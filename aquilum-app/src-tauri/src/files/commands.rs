@@ -12,7 +12,7 @@ use super::trash::{
     cleanup_trash_impl, ensure_trash_impl, trash_state_impl,
     TrashState,
 };
-use super::workspace::{existing_files_impl, read_directory_impl};
+use super::workspace::{existing_files_impl, list_vault_snippets_impl, read_directory_impl};
 use std::path::Path;
 use crate::app_core::Core;
 use std::sync::Arc;
@@ -47,6 +47,11 @@ impl From<WriteSource> for Source {
 #[tauri::command]
 pub async fn read_directory(path: String) -> Result<Vec<FileItem>, FileCommandError> {
     run_blocking(move || read_directory_impl(Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn list_vault_snippets(workspace_path: String) -> Result<Vec<FileItem>, FileCommandError> {
+    run_blocking(move || list_vault_snippets_impl(Path::new(&workspace_path))).await
 }
 
 #[tauri::command]

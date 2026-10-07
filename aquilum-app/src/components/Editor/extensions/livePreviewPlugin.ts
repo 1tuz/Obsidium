@@ -321,6 +321,6 @@ export function livePreviewExtension(config: LivePreviewConfig): Extension {
   return [
     livePreviewConfigFacet.of(config),
     livePreviewPlugin(config),
-    livePreviewWidgetExtension(),
+    livePreviewWidgetExtension(config),
   ];
 }

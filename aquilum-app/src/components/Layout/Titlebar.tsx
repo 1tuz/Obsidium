@@ -1,10 +1,11 @@
 import { useRef } from 'react';
-import { PanelRight, Plus } from 'lucide';
+import { Moon, PanelRight, Plus, Sun } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { useHorizontalWheelScroll } from '../Common/useHorizontalWheelScroll';
 import { t } from '../../i18n';
 import { isMacOs } from '../../modules/platform';
+import { useThemeMode } from '../../hooks/useThemeMode';
 import { TitlebarTab, type TabFileActions } from './TitlebarTab';
 import { useTabStrip } from './useTabStrip';
 import './Titlebar.css';
@@ -20,6 +21,7 @@ interface TitlebarProps {
   onReorder?: (from: number, to: number) => void;
   rightSidebarOpen?: boolean;
   onToggleRightSidebar?: () => void;
+  onToggleTheme?: () => void;
 }
 
 export function Titlebar({
@@ -33,7 +35,9 @@ export function Titlebar({
   onReorder,
   rightSidebarOpen = true,
   onToggleRightSidebar,
+  onToggleTheme,
 }: TitlebarProps) {
+  const themeMode = useThemeMode();
   const tabsRef = useRef<HTMLDivElement | null>(null);
   useTabStrip(tabsRef, (from, to) => onReorder?.(from, to));
   useHorizontalWheelScroll(tabsRef, true, null);
@@ -66,6 +70,14 @@ export function Titlebar({
       </IconButton>
 
       <div className="q-titlebar-menu-wrapper">
+        {onToggleTheme && (
+          <IconButton
+            label={t(themeMode === 'dark' ? 'titlebar.switchToLightTheme' : 'titlebar.switchToDarkTheme')}
+            onClick={onToggleTheme}
+          >
+            <Icon icon={themeMode === 'dark' ? Sun : Moon} strokeWidth={1.5} />
+          </IconButton>
+        )}
         {onToggleRightSidebar && (
           <IconButton
             label={rightSidebarOpen ? t('titlebar.hideRightSidebar') : t('titlebar.showRightSidebar')}
@@ -80,4 +92,3 @@ export function Titlebar({
     </div>
   );
 }
-

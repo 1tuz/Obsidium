@@ -11,6 +11,8 @@
 @import './tokens/components.css';
 
 @import './themes/dark.css';
+@import './themes/palettes.css';
+@import './themes/motion.css';
 
 @import './base.css';
 @import './components/buttons.css';

@@ -50,6 +50,10 @@ export function readDirectory(path: string): Promise<WorkspaceItem[]> {
   return invoke<WorkspaceItem[]>('read_directory', { path });
 }
 
+export function listVaultSnippetFiles(workspacePath: string): Promise<WorkspaceItem[]> {
+  return invoke<WorkspaceItem[]>('list_vault_snippets', { workspacePath });
+}
+
 export function existingFiles(paths: string[]): Promise<string[]> {
   return invoke<string[]>('existing_files', { paths });
 }

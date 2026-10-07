@@ -1,4 +1,4 @@
-use crate::search::paths::is_markdown;
+use crate::search::paths::{is_markdown, strip_root};
 use super::attachments::MEDIA_EXTENSIONS;
 use super::error::FileCommandError;
 use super::models::{FileItem, FileItemType};
@@ -79,6 +79,47 @@ pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandErro
     });
 
     Ok(items)
+}
+
+pub fn list_vault_snippets_impl(workspace: &Path) -> Result<Vec<FileItem>, FileCommandError> {
+    let root = fs::canonicalize(workspace)?;
+    let folder = root.join(".obsidian").join("snippets");
+    let folder = match fs::canonicalize(folder) {
+        Ok(folder) if strip_root(&root, &folder).is_some() => folder,
+        Ok(_) => return Ok(Vec::new()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut snippets = Vec::new();
+    for entry in fs::read_dir(folder)? {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        if !entry.file_type().is_ok_and(|kind| kind.is_file())
+            || !entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("css"))
+        {
+            continue;
+        }
+        let path = fs::canonicalize(entry.path())?;
+        let Some(relative) = strip_root(&root, &path) else {
+            continue;
+        };
+        snippets.push(FileItem {
+            id: path.to_string_lossy().into_owned(),
+            name: relative
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
+            item_type: FileItemType::File,
+        });
+    }
+    snippets.sort_by_cached_key(|item| item.name.to_lowercase());
+    Ok(snippets)
 }
 
 pub fn existing_files_impl(paths: Vec<String>) -> Vec<String> {

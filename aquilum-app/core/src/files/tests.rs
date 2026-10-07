@@ -4,7 +4,7 @@ use super::document::{
 };
 use super::error::FileCommandError;
 use super::models::FileItemType;
-use super::workspace::read_directory_impl;
+use super::workspace::{list_vault_snippets_impl, read_directory_impl};
 use std::fs;
 
 #[test]
@@ -40,6 +40,36 @@ fn atomic_write_replaces_the_complete_file() {
 
     assert_eq!(fs::read_to_string(&path).expect("result"), "after");
     assert_eq!(result.hash, hash_bytes(b"after"));
+}
+
+#[test]
+fn obsidian_fixture_round_trips_unknown_data_and_unicode_paths() {
+    let directory = tempfile::tempdir().expect("temp directory");
+    let vault = directory.path().join("Vault with spaces");
+    fs::create_dir_all(&vault).expect("vault");
+    let path = vault.join("Заметка.md");
+    let fixture = include_str!("../../../tests/fixtures/obsidian-vault/frontmatter.md");
+    fs::write(&path, fixture).expect("fixture");
+
+    let original = read_file_snapshot_impl(&path).expect("open fixture");
+    let changed = original
+        .content
+        .replacen("# Заметка", "# Заметка изменена", 1);
+    write_file_atomic_impl(&path, &changed, Some(&original.hash)).expect("save edit");
+    let saved = read_file_snapshot_impl(&path).expect("read saved fixture");
+
+    assert!(saved
+        .content
+        .starts_with("---\ntitle: Round trip\naliases:"));
+    assert!(saved.content.contains("unknown_plugin:\n  settings:"));
+    assert!(saved.content.contains("![[Folder/Note#Заголовок]]"));
+    assert!(saved.content.contains("```dataview\nTABLE status"));
+    assert!(saved
+        .content
+        .contains("<custom-block data-plugin=\"unknown\">"));
+    assert!(saved.content.contains("> [!warning] Callout"));
+    assert!(saved.content.contains("- [ ] Задача"));
+    assert!(saved.content.contains("# Заметка изменена"));
 }
 
 #[test]
@@ -157,6 +187,32 @@ fn workspace_filters_and_sorts_entries() {
     );
     assert_eq!(items[0].item_type, FileItemType::Folder);
     assert_eq!(items[1].item_type, FileItemType::File);
+}
+
+#[test]
+fn vault_snippets_list_only_css_files_inside_the_vault() {
+    let directory = tempfile::tempdir().expect("workspace");
+    let snippets = directory.path().join(".obsidian/snippets");
+    fs::create_dir_all(&snippets).expect("snippets folder");
+    fs::write(snippets.join("zebra.css"), "body {}").expect("css fixture");
+    fs::write(snippets.join("Alpha.CSS"), "body {}").expect("css fixture");
+    fs::write(snippets.join("ignored.js"), "").expect("non-css fixture");
+
+    let found = list_vault_snippets_impl(directory.path()).expect("list snippets");
+
+    assert_eq!(
+        found.iter().map(|item| item.name.as_str()).collect::<Vec<_>>(),
+        vec!["Alpha.CSS", "zebra.css"]
+    );
+}
+
+#[test]
+fn vault_snippet_list_is_empty_when_the_vault_has_no_snippets_folder() {
+    let directory = tempfile::tempdir().expect("workspace");
+
+    assert!(list_vault_snippets_impl(directory.path())
+        .expect("list snippets")
+        .is_empty());
 }
 
 #[test]

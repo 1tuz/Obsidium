@@ -1,7 +1,7 @@
 import { SegmentedControl } from '../../Common/SegmentedControl';
 import { resolveLocale, t } from '../../../i18n';
 import type { AppConfig } from '../../../modules/settings';
-import type { Theme } from '../../../modules/theme';
+import { themePalettes } from '../../../modules/theme';
 import { FontSettingsRows } from '../FontSettingsRows';
 import { Row } from '../Row';
 import { NumberControl } from '../controls/NumberControl';
@@ -45,12 +45,31 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
         </Row>
         <Row label={t('settings.ui.theme')}>
           <SegmentedControl
-            value={config.ui.theme}
-            onChange={(theme) => patchUi({ theme: theme as Theme })}
+            value={config.ui.appearance}
+            onChange={(appearance) => patchUi({ appearance: appearance as AppConfig['ui']['appearance'] })}
             options={[
               { value: 'system', label: t('theme.system') },
               { value: 'light', label: t('theme.light') },
               { value: 'dark', label: t('theme.dark') },
+            ]}
+          />
+        </Row>
+        <Row label={t('settings.ui.palette')}>
+          <Dropdown
+            ariaLabel={t('settings.ui.palette')}
+            value={config.ui.palette}
+            options={themePalettes.map(({ id, name }) => ({ value: id, label: name }))}
+            onChange={(palette) => patchUi({ palette })}
+          />
+        </Row>
+        <Row label={t('settings.ui.animations')}>
+          <SegmentedControl
+            value={config.ui.motion}
+            onChange={(motion) => patchUi({ motion: motion as AppConfig['ui']['motion'] })}
+            options={[
+              { value: 'system', label: t('theme.system') },
+              { value: 'on', label: t('theme.on') },
+              { value: 'off', label: t('theme.off') },
             ]}
           />
         </Row>

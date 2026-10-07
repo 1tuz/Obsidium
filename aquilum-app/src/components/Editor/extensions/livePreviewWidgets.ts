@@ -11,6 +11,9 @@ import { setImageSource } from './image/focus';
 import { setFrontmatterExpanded } from './frontmatterUi';
 import { livePreviewConfigFacet } from './livePreviewConfig';
 import { collectReaderQuoteDecorations } from './readerQuote/decorations';
+import { noteTransclusionExtension } from './noteTransclusion';
+import type { LivePreviewConfig } from './livePreviewConfig';
+import './noteTransclusion.css';
 
 function collectLivePreviewWidgetDecorations(
   state: EditorState,
@@ -50,12 +53,13 @@ const livePreviewWidgetField = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
-export function livePreviewWidgetExtension(): Extension {
+export function livePreviewWidgetExtension(config: LivePreviewConfig): Extension {
   return [
     editorFocusExtension(),
     livePreviewWidgetField,
     EditorView.atomicRanges.of((view) => view.state.field(livePreviewWidgetField)),
     bookCalloutPrefetchExtension(),
     dataviewPrefetchExtension(),
+    noteTransclusionExtension(config),
   ];
 }
