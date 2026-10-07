@@ -53,7 +53,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: aquilum-app/src-tauri -> target
-          key: ${{ matrix.args }}
+          key: obsidium-v2-${{ matrix.args }}
 
       - name: Install frontend dependencies
         working-directory: aquilum-app

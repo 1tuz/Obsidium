@@ -113,9 +113,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             .artifacts/cargo-release
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-v2-${{ matrix.target }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-v2-${{ matrix.target }}-
 
       - run: npm ci
         working-directory: aquilum-app
