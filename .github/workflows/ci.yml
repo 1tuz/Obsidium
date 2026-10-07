@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "*.md"
+      - "**/*.md"
+      - "screenshots/**"
+      - "scripts/install.sh"
+      - "scripts/uninstall.sh"
+      - "scripts/test-install-scripts.sh"
+      - ".github/workflows/**"
+      - ".github/workflows/**"
+  pull_request:
+    paths-ignore:
+      - "*.md"
+      - "**/*.md"
+      - "screenshots/**"
+      - "scripts/install.sh"
+      - "scripts/uninstall.sh"
+      - "scripts/test-install-scripts.sh"
+      - ".github/workflows/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aquilum-app/package-lock.json
+
+      - run: npm ci
+        working-directory: aquilum-app
+
+      - run: npm run build
+        working-directory: aquilum-app
+
+      - run: npm test
+        working-directory: aquilum-app
+
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - run: cargo fmt --manifest-path aquilum-app/src-tauri/Cargo.toml --all -- --check
+
+  packages:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    needs: [frontend, rust]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            tauri_args: --bundles nsis
+            bundle: nsis
+            extension: exe
+            artifact: windows-x64
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            tauri_args: --bundles dmg --target aarch64-apple-darwin
+            bundle: dmg
+            extension: dmg
+            artifact: macos-arm64
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            tauri_args: --bundles deb --target x86_64-unknown-linux-gnu
+            bundle: deb
+            extension: deb
+            artifact: ubuntu-24-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Linux build dependencies
+        if: startsWith(matrix.runner, 'ubuntu-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aquilum-app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .artifacts/cargo-release
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - run: npm ci
+        working-directory: aquilum-app
+
+      - name: Build installer
+        run: npm run tauri -- build ${{ matrix.tauri_args }} --config src-tauri/tauri.unsigned.conf.json
+        working-directory: aquilum-app
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: aquilum-${{ matrix.artifact }}-${{ github.sha }}
+          path: .artifacts/cargo-release/**/bundle/${{ matrix.bundle }}/*.${{ matrix.extension }}
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
