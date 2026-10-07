@@ -120,16 +120,19 @@ cargo test
 
 ## Сборка релиза
 
-Сборка готового оптимизированного установщика Windows (NSIS `.exe`):
+Релизные сборки выполняются в GitHub Actions, локальные установщики не создаются. После отправки
+тега `vX.Y.Z` workflow `Release` запускает проверки, затем собирает Windows x64 NSIS и два macOS DMG
+(Apple Silicon и Intel) и создаёт черновик GitHub Release.
 
-```powershell
-cd quantum-app
-npm run release
-```
+Перед публикацией проверьте все assets в черновике и опубликуйте его вручную. Для updater-подписи
+задайте GitHub Actions secrets `TAURI_SIGNING_PRIVATE_KEY` и
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Без них установщики собираются без updater artifacts.
+Для подписи и нотариального заверения macOS задайте полный комплект `APPLE_CERTIFICATE`,
+`APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD` и `APPLE_TEAM_ID`.
+Если Apple secrets не заданы, workflow создаёт ad-hoc подписанный, но не нотариально заверенный DMG.
 
-- Результат сборки: `.artifacts/releases/<версия>/`
-- Сгенерированный файл: `Aquilum_<версия>_x64-setup.exe` и манифест `latest.json` для автообновлений.
-- Подробности архитектуры и процесса релизов описаны в каталоге `knowledge base/`.
+Проверки PR и push в `main` выполняет workflow `CI`; он собирает фронтенд и запускает тесты без
+упаковки установщиков. Подробности — в [cross-platform-build.md](knowledge%20base/cross-platform-build.md).
 
 ---
 

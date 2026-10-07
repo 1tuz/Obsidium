@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: checks
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            args: --bundles nsis
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            args: --bundles dmg --target aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            args: --bundles dmg --target x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check release tag version
+        run: node -e 'const version = require("./aquilum-app/package.json").version; if ("v" + version !== process.env.GITHUB_REF_NAME) throw new Error("Release tag must match package.json version")'
+
+      - name: Validate Apple signing secrets
+        env:
+          APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' || secrets.APPLE_CERTIFICATE_PASSWORD != '' || secrets.APPLE_SIGNING_IDENTITY != '' || secrets.APPLE_ID != '' || secrets.APPLE_PASSWORD != '' || secrets.APPLE_TEAM_ID != '' }}
+          APPLE_SIGNING_COMPLETE: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+        run: node -e 'if (process.env.APPLE_SIGNING_CONFIGURED === "true" && process.env.APPLE_SIGNING_COMPLETE !== "true") throw new Error("Configure all Apple signing secrets or leave them all unset")'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aquilum-app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .artifacts/cargo-release
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - run: npm ci
+        working-directory: aquilum-app
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_SIGNING_IDENTITY || '-' }}
+          APPLE_ID: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_TEAM_ID || '' }}
+        with:
+          projectPath: aquilum-app
+          tauriScript: npm run tauri --
+          args: >-
+            ${{ matrix.args }}
+            ${{ secrets.TAURI_SIGNING_PRIVATE_KEY == '' && '--config src-tauri/tauri.unsigned.conf.json' || '' }}
+          tagName: ${{ github.ref_name }}
+          releaseName: Aquilum ${{ github.ref_name }}
+          releaseBody: Aquilum ${{ github.ref_name }} release.
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          uploadUpdaterSignatures: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}

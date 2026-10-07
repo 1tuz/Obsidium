@@ -153,6 +153,20 @@ Aquilum предоставляет опциональный локальный M
 
 ## Установка
 
+После публикации сборок macOS последнюю версию можно установить командой:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/install.sh | bash
+```
+
+Удалить приложение:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/uninstall.sh | bash
+```
+
+Скрипты устанавливают или удаляют только `~/Applications/Aquilum.app`. Папки баз знаний, Markdown-файлы, вложения и настройки Aquilum остаются на диске.
+
 1. Откройте [последний релиз](https://github.com/Freaction/Aquilum/releases/latest).
 2. Скачайте `aquilum-app_<версия>_x64-setup.exe`.
 3. Запустите установщик и выберите новую или уже существующую папку для базы.

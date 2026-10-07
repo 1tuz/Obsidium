@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aquilum-app/package-lock.json
+
+      - run: npm ci
+        working-directory: aquilum-app
+
+      - run: npm run build
+        working-directory: aquilum-app
+
+      - run: npm test
+        working-directory: aquilum-app
+
+      - name: Check macOS installer scripts
+        run: |
+          bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
+          bash scripts/test-install-scripts.sh
+
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: aquilum-app/src-tauri -> target
+
+      - run: rustfmt --check --edition 2021 --config skip_children=true aquilum-app/src-tauri/src/main.rs
+
+      - run: cargo check --locked --manifest-path aquilum-app/src-tauri/Cargo.toml
+
+      - run: cargo test --locked --manifest-path aquilum-app/src-tauri/Cargo.toml

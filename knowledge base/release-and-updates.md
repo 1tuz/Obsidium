@@ -1,5 +1,23 @@
 # Релиз и автообновление
 
+## Установка и удаление на macOS через curl
+
+После публикации релиза macOS приложение можно установить без клонирования репозитория:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/install.sh | bash
+```
+
+Скрипт выбирает DMG под `arm64` или `x86_64` через GitHub Releases API и копирует `Aquilum.app` в
+`~/Applications`. Удаление:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/uninstall.sh | bash
+```
+
+Удаление затрагивает только `~/Applications/Aquilum.app`. Vault, Markdown-файлы, вложения и каталог
+настроек Aquilum не удаляются. Скрипты работают с опубликованным GitHub Release, не с черновиком.
+
 ## Статус: обязательно соблюдать
 
 Исходный код и бинарники живут в **разных местах**. `git push` не публикует
