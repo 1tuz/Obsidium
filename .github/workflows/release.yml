@@ -57,18 +57,18 @@ jobs:
         working-directory: aquilum-app
         run: npm ci
 
-      - uses: tauri-apps/tauri-action@action-v0.6.2
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: aquilum-app
-          tauriScript: npm run tauri --
+          tauriScript: npm run tauri
           args: --features updater ${{ matrix.args }}
           tagName: v__VERSION__
           releaseName: __VERSION__
           releaseBody: See the release notes below.
           releaseDraft: true
           prerelease: false
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
