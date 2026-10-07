@@ -22,6 +22,7 @@
     "preview": "vite preview",
     "release": "node scripts/release-github.mjs",
     "release:local": "node scripts/build-release.mjs",
+    "publish:source": "node scripts/publish-source.mjs",
     "tauri": "node scripts/tauri.mjs",
     "tauri:build": "node scripts/tauri.mjs build"
   },
