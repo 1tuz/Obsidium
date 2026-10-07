@@ -39,14 +39,30 @@ describe('vault CSS snippets', () => {
     ]);
     readSnapshot.mockResolvedValue({ content: '.markdown-preview-view { color: red; }', hash: '', textHash: '' });
 
-    await applyVaultSnippets('/vault', ['compat.css']);
+    await applyVaultSnippets('/vault', { '/vault': ['compat.css'] });
 
     expect(readSnapshot).toHaveBeenCalledTimes(1);
     expect(readSnapshot).toHaveBeenCalledWith('/vault/.obsidian/snippets/compat.css');
     expect(document.querySelector('style[data-obsidium-vault-snippet="compat.css"]')?.textContent)
       .toBe('.markdown-preview-view { color: red; }');
 
-    await applyVaultSnippets('/vault', []);
+    await applyVaultSnippets('/vault', {});
     expect(document.querySelectorAll('style[data-obsidium-vault-snippet]')).toHaveLength(0);
+  });
+
+  it('matches enabled snippets by vault path and filename', async () => {
+    listFiles.mockImplementation(async (vault) => [
+      { id: `${vault}/.obsidian/snippets/foo.css`, name: 'foo.css', type: 'file' },
+    ]);
+    readSnapshot.mockImplementation(async (path) => ({
+      content: path.includes('/vault-a/') ? '.a {}' : '.b {}', hash: '', textHash: '',
+    }));
+
+    await applyVaultSnippets('/vault-a', { '/vault-a': ['foo.css'] });
+    await applyVaultSnippets('/vault-b', { '/vault-a': ['foo.css'] });
+
+    expect(document.querySelectorAll('style[data-obsidium-vault-snippet]')).toHaveLength(0);
+    await applyVaultSnippets('/vault-b', { '/vault-b': ['foo.css'] });
+    expect(document.querySelector('style[data-obsidium-vault-snippet]')?.textContent).toBe('.b {}');
   });
 });

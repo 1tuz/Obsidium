@@ -96,3 +96,183 @@
   --q-palette-one-dark-light-accent: #4078f2;
   --q-palette-one-dark-dark-accent: #61afef;
 }
+
+:root[data-palette="everforest"] {
+  --q-palette-everforest-light-background: #fdf6e3;
+  --q-palette-everforest-dark-background: #2d353b;
+  --q-palette-everforest-light-text: #5c6a72;
+  --q-palette-everforest-dark-text: #d3c6aa;
+  --q-palette-everforest-light-accent: #8da101;
+  --q-palette-everforest-dark-accent: #a7c080;
+}
+
+:root[data-palette="kanagawa"] {
+  --q-palette-kanagawa-light-background: #f2ecbc;
+  --q-palette-kanagawa-dark-background: #1f1f28;
+  --q-palette-kanagawa-light-text: #54546d;
+  --q-palette-kanagawa-dark-text: #dcd7ba;
+  --q-palette-kanagawa-light-accent: #4d699b;
+  --q-palette-kanagawa-dark-accent: #7e9cd8;
+}
+
+:root[data-palette="flexoki"] {
+  --q-palette-flexoki-light-background: #fffcf0;
+  --q-palette-flexoki-dark-background: #100f0f;
+  --q-palette-flexoki-light-text: #282726;
+  --q-palette-flexoki-dark-text: #cecdc3;
+  --q-palette-flexoki-light-accent: #bc5215;
+  --q-palette-flexoki-dark-accent: #d0a215;
+}
+
+:root[data-palette="ayu"] {
+  --q-palette-ayu-light-background: #fafafa;
+  --q-palette-ayu-dark-background: #0b0e14;
+  --q-palette-ayu-light-text: #5c6166;
+  --q-palette-ayu-dark-text: #bfbdb6;
+  --q-palette-ayu-light-accent: #ff9940;
+  --q-palette-ayu-dark-accent: #e6b450;
+}
+
+:root[data-palette="solarized"] {
+  --q-palette-solarized-light-background: #fdf6e3;
+  --q-palette-solarized-dark-background: #002b36;
+  --q-palette-solarized-light-text: #657b83;
+  --q-palette-solarized-dark-text: #839496;
+  --q-palette-solarized-light-accent: #268bd2;
+  --q-palette-solarized-dark-accent: #2aa198;
+}
+
+:root[data-palette="material"] {
+  --q-palette-material-light-background: #fafafa;
+  --q-palette-material-dark-background: #212121;
+  --q-palette-material-light-text: #212121;
+  --q-palette-material-dark-text: #eeffff;
+  --q-palette-material-light-accent: #009688;
+  --q-palette-material-dark-accent: #80cbc4;
+}
+
+:root[data-palette="github"] {
+  --q-palette-github-light-background: #ffffff;
+  --q-palette-github-dark-background: #0d1117;
+  --q-palette-github-light-text: #1f2328;
+  --q-palette-github-dark-text: #e6edf3;
+  --q-palette-github-light-accent: #0969da;
+  --q-palette-github-dark-accent: #2f81f7;
+}
+
+:root[data-palette="nightfox"] {
+  --q-palette-nightfox-light-background: #f4f2f1;
+  --q-palette-nightfox-dark-background: #192330;
+  --q-palette-nightfox-light-text: #575279;
+  --q-palette-nightfox-dark-text: #cdcecf;
+  --q-palette-nightfox-light-accent: #2848a9;
+  --q-palette-nightfox-dark-accent: #719cd6;
+}
+
+:root[data-palette="graphite"] {
+  --q-palette-graphite-light-background: #f3f3f2;
+  --q-palette-graphite-dark-background: #242629;
+  --q-palette-graphite-light-text: #333537;
+  --q-palette-graphite-dark-text: #d1d2d4;
+  --q-palette-graphite-light-accent: #5d6268;
+  --q-palette-graphite-dark-accent: #a8adb4;
+}
+
+:root[data-palette="carbon"] {
+  --q-palette-carbon-light-background: #f6f6f6;
+  --q-palette-carbon-dark-background: #161616;
+  --q-palette-carbon-light-text: #262626;
+  --q-palette-carbon-dark-text: #f5f5f5;
+  --q-palette-carbon-light-accent: #c2410c;
+  --q-palette-carbon-dark-accent: #ff6b35;
+}
+
+:root[data-palette="metal"] {
+  --q-palette-metal-light-background: #eef1f4;
+  --q-palette-metal-dark-background: #20252b;
+  --q-palette-metal-light-text: #303942;
+  --q-palette-metal-dark-text: #c7cdd4;
+  --q-palette-metal-light-accent: #526d82;
+  --q-palette-metal-dark-accent: #9bb5c9;
+}
+
+:root[data-palette="iceberg"] {
+  --q-palette-iceberg-light-background: #e8e9ec;
+  --q-palette-iceberg-dark-background: #161821;
+  --q-palette-iceberg-light-text: #33374c;
+  --q-palette-iceberg-dark-text: #c6c8d1;
+  --q-palette-iceberg-light-accent: #4c66a6;
+  --q-palette-iceberg-dark-accent: #84a0c6;
+}
+
+:root[data-palette="notion"] {
+  --q-palette-notion-light-background: #fbfaf8;
+  --q-palette-notion-dark-background: #191919;
+  --q-palette-notion-light-text: #37352f;
+  --q-palette-notion-dark-text: #d8d7d4;
+  --q-palette-notion-light-accent: #77756f;
+  --q-palette-notion-dark-accent: #b7b5b0;
+}
+
+:root[data-palette="craft"] {
+  --q-palette-craft-light-background: #f8f8f6;
+  --q-palette-craft-dark-background: #202124;
+  --q-palette-craft-light-text: #292a2d;
+  --q-palette-craft-dark-text: #e8e8e5;
+  --q-palette-craft-light-accent: #537d74;
+  --q-palette-craft-dark-accent: #92b4a9;
+}
+
+:root[data-palette="bear"] {
+  --q-palette-bear-light-background: #fffefa;
+  --q-palette-bear-dark-background: #1b1b1b;
+  --q-palette-bear-light-text: #272521;
+  --q-palette-bear-dark-text: #e8e5df;
+  --q-palette-bear-light-accent: #c4473a;
+  --q-palette-bear-dark-accent: #e66b5f;
+}
+
+:root[data-palette="capacities"] {
+  --q-palette-capacities-light-background: #f7f7fa;
+  --q-palette-capacities-dark-background: #20212a;
+  --q-palette-capacities-light-text: #30313c;
+  --q-palette-capacities-dark-text: #d9d9e2;
+  --q-palette-capacities-light-accent: #6258b6;
+  --q-palette-capacities-dark-accent: #aaa2f5;
+}
+
+:root[data-palette="anytype"] {
+  --q-palette-anytype-light-background: #ffffff;
+  --q-palette-anytype-dark-background: #161616;
+  --q-palette-anytype-light-text: #262626;
+  --q-palette-anytype-dark-text: #ededed;
+  --q-palette-anytype-light-accent: #555555;
+  --q-palette-anytype-dark-accent: #b7b7b7;
+}
+
+:root[data-palette="notesnook"] {
+  --q-palette-notesnook-light-background: #f8fafc;
+  --q-palette-notesnook-dark-background: #121a2b;
+  --q-palette-notesnook-light-text: #1e293b;
+  --q-palette-notesnook-dark-text: #dbe4f0;
+  --q-palette-notesnook-light-accent: #4f46e5;
+  --q-palette-notesnook-dark-accent: #818cf8;
+}
+
+:root[data-palette="heptabase"] {
+  --q-palette-heptabase-light-background: #f6f7f9;
+  --q-palette-heptabase-dark-background: #171a21;
+  --q-palette-heptabase-light-text: #30343b;
+  --q-palette-heptabase-dark-text: #e5e8ef;
+  --q-palette-heptabase-light-accent: #c66a32;
+  --q-palette-heptabase-dark-accent: #f0a357;
+}
+
+:root[data-palette="logseq"] {
+  --q-palette-logseq-light-background: #f4f7f8;
+  --q-palette-logseq-dark-background: #1b2428;
+  --q-palette-logseq-light-text: #27363b;
+  --q-palette-logseq-dark-text: #dbe8e8;
+  --q-palette-logseq-light-accent: #128c91;
+  --q-palette-logseq-dark-accent: #54c8cb;
+}

@@ -140,8 +140,25 @@ export default function App() {
   }, [config, themeMode, updateConfig]);
 
   useEffect(() => {
-    void applyVaultSnippets(workspacePath, config?.ui.enabledSnippets ?? []);
+    void applyVaultSnippets(workspacePath, config?.ui.enabledSnippets ?? {});
   }, [config?.ui.enabledSnippets, workspacePath]);
+
+  useEffect(() => {
+    const legacy = config?.ui.enabledSnippets?.__legacy__;
+    if (!workspacePath || !config || !legacy) return;
+    const enabledSnippets = { ...(config.ui.enabledSnippets ?? {}) };
+    delete enabledSnippets.__legacy__;
+    void updateConfig({
+      ...config,
+      ui: {
+        ...config.ui,
+        enabledSnippets: {
+          ...enabledSnippets,
+          [workspacePath]: enabledSnippets[workspacePath] ?? legacy,
+        },
+      },
+    }).catch((error) => console.error('Failed to migrate vault CSS snippet settings', error));
+  }, [config, workspacePath, updateConfig]);
 
   const liveTabIds = useLiveTabs(tabs, activeTabId, config?.editor.liveTabs ?? DEFAULT_LIVE_TABS);
   const livePanes = liveTabIds.flatMap((tabId) => {

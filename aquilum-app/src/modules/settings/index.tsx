@@ -75,8 +75,9 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
 interface UiSettings extends FontSettings {
   appearance: 'system' | 'light' | 'dark';
   palette: string;
+  accentMode: 'palette' | 'custom';
   motion: 'system' | 'on' | 'off';
-  enabledSnippets: string[];
+  enabledSnippets: Record<string, string[]>;
   language: string;
   primaryColor: string;
 }
@@ -147,13 +148,6 @@ function withKnownFonts(config: AppConfig): AppConfig {
   };
 }
 
-function applyPrimaryColor(root: HTMLElement, hex: string) {
-  if (hex.toLowerCase() === '#1471eb') return;
-  root.style.setProperty('--q-blue-alpha-main', hex);
-  root.style.setProperty('--q-blue-500', hex);
-  root.style.setProperty('--q-blue-600', `color-mix(in srgb, ${hex} 78%, black)`);
-}
-
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -206,7 +200,13 @@ function applySettingsToDom(config: AppConfig) {
   const root = document.documentElement;
   setLanguage(config.ui.language);
   setFilesFolder(config.files.folder);
-  setTheme(config.ui.appearance, config.ui.palette, config.ui.motion);
+  setTheme(
+    config.ui.appearance,
+    config.ui.palette,
+    config.ui.motion,
+    config.ui.accentMode,
+    config.ui.primaryColor,
+  );
   applyFont(root, config.ui, 'ui');
   applyFont(root, config.editor, 'editor');
   root.style.setProperty('--q-editor-line-height', String(config.editor.lineHeight));
@@ -214,5 +214,4 @@ function applySettingsToDom(config: AppConfig) {
     '--q-editor-max-width',
     `${config.editor.maxWidthCh}ch`,
   );
-  applyPrimaryColor(root, config.ui.primaryColor);
 }

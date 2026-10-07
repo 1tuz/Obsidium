@@ -16,6 +16,9 @@ describe('theme engine', () => {
     expect(themePalettes.map(({ id }) => id)).toEqual([
       'obsidium', 'obsidian', 'dracula', 'vscode', 'cursor', 'catppuccin',
       'nord', 'tokyo-night', 'gruvbox', 'rose-pine', 'one-dark',
+      'everforest', 'kanagawa', 'flexoki', 'ayu', 'solarized', 'material',
+      'github', 'nightfox', 'graphite', 'carbon', 'metal', 'iceberg',
+      'notion', 'craft', 'bear', 'capacities', 'anytype', 'notesnook', 'heptabase', 'logseq',
     ]);
     for (const palette of themePalettes) {
       expect(palette.light.accent).toContain(`${palette.id}-light-accent`);
@@ -48,5 +51,14 @@ describe('theme engine', () => {
     expect(document.documentElement.classList.contains('theme-dark')).toBe(true);
     expect(document.documentElement.classList.contains('theme-light')).toBe(false);
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toContain('nord-dark-accent');
+  });
+
+  it('uses palette accent by default and only replaces it in custom mode', () => {
+    setTheme('light', 'graphite');
+    expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main'))
+      .toContain('graphite-light-accent');
+
+    setTheme('light', 'graphite', 'system', 'custom', '#ff00aa');
+    expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toBe('#ff00aa');
   });
 });

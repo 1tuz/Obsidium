@@ -207,7 +207,10 @@
       "homePage": "Домашняя страница",
       "homePageHint": "Название заметки для кнопки с домиком. Пусто — кнопки нет",
       "homePageAria": "Название домашней страницы",
-      "primaryColor": "Основной цвет"
+      "primaryColor": "Основной цвет",
+      "accentMode": "Источник акцента",
+      "paletteAccent": "Палитра",
+      "customAccent": "Свой цвет"
     },
     "editor": {
       "lineHeight": "Межстрочный интервал",

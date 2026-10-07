@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -146,12 +147,38 @@ pub struct UiSettings {
     #[serde(alias = "theme")]
     pub appearance: String,
     pub palette: String,
+    #[serde(default = "legacy_accent_mode")]
+    pub accent_mode: String,
     pub motion: String,
-    pub enabled_snippets: Vec<String>,
+    #[serde(deserialize_with = "deserialize_enabled_snippets")]
+    pub enabled_snippets: HashMap<String, Vec<String>>,
     pub language: String,
     pub primary_color: String,
     #[serde(flatten)]
     pub font: FontSettings,
+}
+
+fn legacy_accent_mode() -> String {
+    "legacy".to_string()
+}
+
+fn deserialize_enabled_snippets<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StoredSnippets {
+        Scoped(HashMap<String, Vec<String>>),
+        Legacy(Vec<String>),
+    }
+
+    match StoredSnippets::deserialize(deserializer)? {
+        StoredSnippets::Scoped(snippets) => Ok(snippets),
+        StoredSnippets::Legacy(names) => Ok(HashMap::from([("__legacy__".to_string(), names)])),
+    }
 }
 
 impl Default for UiSettings {
@@ -159,8 +186,9 @@ impl Default for UiSettings {
         Self {
             appearance: "system".to_string(),
             palette: "obsidium".to_string(),
+            accent_mode: "palette".to_string(),
             motion: "system".to_string(),
-            enabled_snippets: Vec::new(),
+            enabled_snippets: HashMap::new(),
             language: String::new(),
             primary_color: "#1471eb".to_string(),
             font: FontSettings {
@@ -180,9 +208,7 @@ pub struct TrashSettings {
 
 impl Default for TrashSettings {
     fn default() -> Self {
-        Self {
-            retention_days: 30,
-        }
+        Self { retention_days: 30 }
     }
 }
 
@@ -236,7 +262,9 @@ pub struct TemplateSettings {
 
 impl Default for TemplateSettings {
     fn default() -> Self {
-        Self { folder: "Templates".to_string() }
+        Self {
+            folder: "Templates".to_string(),
+        }
     }
 }
 
@@ -248,7 +276,9 @@ pub struct FilesSettings {
 
 impl Default for FilesSettings {
     fn default() -> Self {
-        Self { folder: "Files".to_string() }
+        Self {
+            folder: "Files".to_string(),
+        }
     }
 }
 

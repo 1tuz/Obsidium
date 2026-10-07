@@ -1,6 +1,7 @@
 export type Theme = 'light' | 'dark' | 'system';
 export type ThemeMode = 'light' | 'dark';
 export type Motion = 'system' | 'on' | 'off';
+export type AccentMode = 'palette' | 'custom';
 
 export interface ThemeTokens {
   background: string;
@@ -56,10 +57,34 @@ export const themePalettes: ThemePalette[] = [
   palette('gruvbox', 'Gruvbox'),
   palette('rose-pine', 'Rose Pine'),
   palette('one-dark', 'One Dark'),
+  palette('everforest', 'Everforest'),
+  palette('kanagawa', 'Kanagawa'),
+  palette('flexoki', 'Flexoki'),
+  palette('ayu', 'Ayu'),
+  palette('solarized', 'Solarized'),
+  palette('material', 'Material'),
+  palette('github', 'GitHub'),
+  palette('nightfox', 'Nightfox'),
+  palette('graphite', 'Graphite'),
+  palette('carbon', 'Carbon'),
+  palette('metal', 'Metal'),
+  palette('iceberg', 'Iceberg'),
+  palette('notion', 'Notion'),
+  palette('craft', 'Craft'),
+  palette('bear', 'Bear'),
+  palette('capacities', 'Capacities'),
+  palette('anytype', 'Anytype'),
+  palette('notesnook', 'Notesnook'),
+  palette('heptabase', 'Heptabase'),
+  palette('logseq', 'Logseq'),
 ];
 
 let currentAppearance: Theme = 'system';
 let currentMode: ThemeMode = 'light';
+let currentPalette = 'obsidium';
+let currentMotion: Motion = 'system';
+let currentAccentMode: AccentMode = 'palette';
+let currentPrimaryColor = '#1471eb';
 const modeListeners = new Set<() => void>();
 
 function resolveAppearance(appearance: Theme): ThemeMode {
@@ -68,11 +93,18 @@ function resolveAppearance(appearance: Theme): ThemeMode {
     : appearance;
 }
 
-function applyTheme(appearance: Theme, paletteId: string, motion: Motion): void {
+function applyTheme(
+  appearance: Theme,
+  paletteId: string,
+  motion: Motion,
+  accentMode: AccentMode,
+  primaryColor: string,
+): void {
   const root = document.documentElement;
   const mode = resolveAppearance(appearance);
   const selected = themePalettes.find(({ id }) => id === paletteId) ?? themePalettes[0];
   const tokens = selected[mode];
+  const accent = accentMode === 'custom' ? primaryColor : tokens.accent;
   root.dataset.appearance = mode;
   root.dataset.theme = mode;
   root.dataset.palette = selected.id;
@@ -85,9 +117,12 @@ function applyTheme(appearance: Theme, paletteId: string, motion: Motion): void 
   root.style.setProperty('--q-text-primary', tokens.text);
   root.style.setProperty('--q-text-secondary', tokens.secondaryText);
   root.style.setProperty('--q-border-solid', tokens.border);
-  root.style.setProperty('--q-blue-alpha-main', tokens.accent);
-  root.style.setProperty('--q-blue-500', tokens.accent);
-  root.style.setProperty('--q-blue-600', tokens.accent);
+  root.dataset.accentMode = accentMode;
+  root.style.setProperty('--q-blue-alpha-main', accent);
+  root.style.setProperty('--q-blue-500', accent);
+  root.style.setProperty('--q-blue-600', accentMode === 'custom'
+    ? `color-mix(in srgb, ${accent} 78%, black)`
+    : accent);
   root.style.setProperty('--background-primary', 'var(--q-bg-canvas)');
   root.style.setProperty('--background-secondary', 'var(--q-bg-surface)');
   root.style.setProperty('--background-modifier-hover', 'var(--q-bg-surface-hover)');
@@ -113,18 +148,29 @@ export function subscribeThemeMode(listener: () => void): () => void {
   return () => modeListeners.delete(listener);
 }
 
-export function setTheme(appearance: Theme, paletteId = 'obsidium', motion: Motion = 'system'): void {
+export function setTheme(
+  appearance: Theme,
+  paletteId = 'obsidium',
+  motion: Motion = 'system',
+  accentMode: AccentMode = 'palette',
+  primaryColor = '#1471eb',
+): void {
   currentAppearance = appearance;
-  applyTheme(appearance, paletteId, motion);
+  currentPalette = paletteId;
+  currentMotion = motion;
+  currentAccentMode = accentMode;
+  currentPrimaryColor = primaryColor;
+  applyTheme(appearance, paletteId, motion, accentMode, primaryColor);
 }
 
 export function initTheme(): () => void {
-  applyTheme(currentAppearance, 'obsidium', 'system');
+  applyTheme(currentAppearance, currentPalette, currentMotion, currentAccentMode, currentPrimaryColor);
   const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
   const handleChange = () => {
     if (currentAppearance === 'system') {
       const root = document.documentElement;
-      applyTheme('system', root.dataset.palette ?? 'obsidium', (root.dataset.motion as Motion) ?? 'system');
+      applyTheme('system', root.dataset.palette ?? 'obsidium', (root.dataset.motion as Motion) ?? 'system',
+        (root.dataset.accentMode as AccentMode) ?? 'palette', currentPrimaryColor);
     }
   };
   colorScheme.addEventListener('change', handleChange);

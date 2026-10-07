@@ -13,7 +13,14 @@ import { editorMarkdownSupport } from '../markdownConfig';
 import { markdownStyles } from '../theme';
 import type { LivePreviewConfig } from '../livePreviewConfig';
 
-const embeddedViewByRoot = new WeakMap<HTMLElement, EditorView>();
+interface EmbedResources {
+  view?: EditorView;
+  observer?: IntersectionObserver;
+  abort: AbortController;
+  unregister?: () => void;
+}
+
+const resourcesByRoot = new WeakMap<HTMLElement, EmbedResources>();
 
 function noteBody(text: string): string {
   const range = frontmatterRange(text);
@@ -24,9 +31,11 @@ export class NoteTransclusionWidget extends WidgetType {
   constructor(
     private readonly embed: NoteEmbed,
     private readonly config: LivePreviewConfig,
+    private readonly targetKey: string,
     private readonly revision: number,
     private readonly ancestry: string[],
     private readonly nestedExtension: (path: string, nextAncestry: string[]) => Extension,
+    private readonly registerTarget: (target: string, path: string) => () => void,
   ) {
     super();
   }
@@ -47,6 +56,8 @@ export class NoteTransclusionWidget extends WidgetType {
     root.contentEditable = 'false';
 
     const source = document.createElement('button');
+    const resources: EmbedResources = { abort: new AbortController() };
+    resourcesByRoot.set(root, resources);
     source.className = 'q-note-transclusion__source';
     source.type = 'button';
     source.textContent = this.embed.target;
@@ -54,28 +65,43 @@ export class NoteTransclusionWidget extends WidgetType {
       event.preventDefault();
       event.stopPropagation();
       this.config.onOpenWikiLink(this.embed.target, 'current');
-    });
+    }, { signal: resources.abort.signal });
 
     const body = document.createElement('div');
     body.className = 'q-note-transclusion__body';
     body.textContent = t('editor.loadingEmbeddedNote');
     root.append(source, body);
-    void this.load(root, body);
+    if (typeof IntersectionObserver === 'undefined') {
+      void this.load(root, body, resources);
+    } else {
+      resources.observer = new IntersectionObserver((entries) => {
+        if (!entries.some(({ isIntersecting }) => isIntersecting)) return;
+        resources.observer?.disconnect();
+        resources.observer = undefined;
+        void this.load(root, body, resources);
+      }, { rootMargin: '400px' });
+      resources.observer.observe(root);
+    }
     return root;
   }
 
   destroy(dom: HTMLElement): void {
-    embeddedViewByRoot.get(dom)?.destroy();
-    embeddedViewByRoot.delete(dom);
+    const resources = resourcesByRoot.get(dom);
+    resources?.observer?.disconnect();
+    resources?.abort.abort();
+    resources?.unregister?.();
+    resources?.view?.destroy();
+    resourcesByRoot.delete(dom);
   }
 
   ignoreEvent(): boolean {
     return true;
   }
 
-  private async load(root: HTMLElement, body: HTMLElement): Promise<void> {
+  private async load(root: HTMLElement, body: HTMLElement, resources: EmbedResources): Promise<void> {
     try {
       const resolution = await this.config.resolveWikiLinks([this.embed.target]);
+      if (resources.abort.signal.aborted || !root.isConnected) return;
       const path = resolution.paths[0];
       if (!path) {
         body.textContent = t('editor.embeddedNoteUnavailable', { target: this.embed.target });
@@ -85,7 +111,9 @@ export class NoteTransclusionWidget extends WidgetType {
         body.textContent = t('editor.embeddedNoteCycle');
         return;
       }
+      resources.unregister = this.registerTarget(this.targetKey, path);
       const snapshot = await readFileSnapshot(path);
+      if (resources.abort.signal.aborted || !root.isConnected) return;
       const content = noteEmbedSection(noteBody(snapshot.content), this.embed.heading);
       if (!content) {
         body.textContent = this.embed.heading
@@ -93,9 +121,8 @@ export class NoteTransclusionWidget extends WidgetType {
           : t('editor.embeddedNoteEmpty');
         return;
       }
-      if (!root.isConnected) return;
       body.replaceChildren();
-      const view = new EditorView({
+      resources.view = new EditorView({
         state: EditorState.create({
           doc: content,
           extensions: [
@@ -109,8 +136,8 @@ export class NoteTransclusionWidget extends WidgetType {
         }),
         parent: body,
       });
-      embeddedViewByRoot.set(root, view);
     } catch (error) {
+      if (resources.abort.signal.aborted) return;
       console.error('Failed to load embedded note', error);
       body.textContent = t('editor.embeddedNoteUnavailable', { target: this.embed.target });
     }

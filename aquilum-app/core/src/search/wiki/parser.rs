@@ -75,9 +75,13 @@ pub fn extract_markdown(source: &str) -> Vec<WikiLink> {
                     .get(wiki_ranges.partition_point(|wiki_range| wiki_range.end <= range.start))
                     .is_none_or(|wiki_range| !overlaps(wiki_range, &range)) =>
             {
+                let target = dest_url.to_string();
+                let target_range = source[range.clone()]
+                    .find(&target)
+                    .map(|offset| range.start + offset..range.start + offset + target.len())?;
                 Some(WikiLink {
-                    target: dest_url.to_string(),
-                    target_range: range.clone(),
+                    target,
+                    target_range,
                     offset_utf16: source[..range.start].encode_utf16().count(),
                 })
             }
@@ -168,5 +172,15 @@ mod tests {
             ["Folder/Note.md#part"]
         );
         assert!(extract_markdown("[[Note]]").is_empty());
+    }
+
+    #[test]
+    fn markdown_link_ranges_cover_only_the_destination() {
+        let source = "[relative](Каталог/旧.md#абзац)";
+        let links = extract_markdown(source);
+        assert_eq!(
+            &source[links[0].target_range.clone()],
+            "Каталог/旧.md#абзац"
+        );
     }
 }

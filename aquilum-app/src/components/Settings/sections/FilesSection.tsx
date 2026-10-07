@@ -32,11 +32,16 @@ export function FilesSection({ config, workspacePath, onChange }: {
   }, [workspacePath]);
 
   const toggleSnippet = (name: string, enabled: boolean) => {
-    const current = config.ui.enabledSnippets ?? [];
+    if (!workspacePath) return;
+    const snippetsByVault = config.ui.enabledSnippets ?? {};
+    const current = snippetsByVault[workspacePath] ?? [];
     const enabledSnippets = enabled
       ? [...new Set([...current, name])]
       : current.filter((item) => item !== name);
-    onChange({ ...config, ui: { ...config.ui, enabledSnippets } });
+    onChange({
+      ...config,
+      ui: { ...config.ui, enabledSnippets: { ...snippetsByVault, [workspacePath]: enabledSnippets } },
+    });
   };
 
   return <Section title={t('settings.files.section')}>
@@ -53,7 +58,7 @@ export function FilesSection({ config, workspacePath, onChange }: {
       {snippets.map((snippet) => (
         <Row key={snippet.path} label={snippet.name}>
           <Switch
-            checked={(config.ui.enabledSnippets ?? []).includes(snippet.name)}
+            checked={(config.ui.enabledSnippets?.[workspacePath ?? ''] ?? []).includes(snippet.name)}
             onChange={(enabled) => toggleSnippet(snippet.name, enabled)}
             label={t('settings.files.toggleSnippet', { name: snippet.name })}
           />

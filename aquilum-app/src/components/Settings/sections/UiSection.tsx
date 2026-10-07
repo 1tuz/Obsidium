@@ -62,6 +62,16 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
             onChange={(palette) => patchUi({ palette })}
           />
         </Row>
+        <Row label={t('settings.ui.accentMode')}>
+          <SegmentedControl
+            value={config.ui.accentMode}
+            onChange={(accentMode) => patchUi({ accentMode: accentMode as AppConfig['ui']['accentMode'] })}
+            options={[
+              { value: 'palette', label: t('settings.ui.paletteAccent') },
+              { value: 'custom', label: t('settings.ui.customAccent') },
+            ]}
+          />
+        </Row>
         <Row label={t('settings.ui.animations')}>
           <SegmentedControl
             value={config.ui.motion}
@@ -95,13 +105,15 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
             onChange={onHomePageChange}
           />
         </Row>
-        <Row label={t('settings.ui.primaryColor')}>
-          <ColorControl
-            ariaLabel={t('settings.ui.primaryColor')}
-            value={config.ui.primaryColor}
-            onChange={(primaryColor) => patchUi({ primaryColor })}
-          />
-        </Row>
+        {config.ui.accentMode === 'custom' ? (
+          <Row label={t('settings.ui.primaryColor')}>
+            <ColorControl
+              ariaLabel={t('settings.ui.primaryColor')}
+              value={config.ui.primaryColor}
+              onChange={(primaryColor) => patchUi({ primaryColor })}
+            />
+          </Row>
+        ) : null}
       </Section>
       <Section title={t('settings.font.section')}>
         <FontSettingsRows

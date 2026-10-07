@@ -20,12 +20,14 @@ export async function listVaultSnippets(workspacePath: string | null): Promise<V
 
 export async function applyVaultSnippets(
   workspacePath: string | null,
-  enabledNames: string[],
+  enabledByVault: Record<string, string[]>,
 ): Promise<void> {
   const generation = ++applyGeneration;
   const head = document.head;
   head.querySelectorAll(STYLE_SELECTOR).forEach((style) => style.remove());
-  if (!workspacePath || enabledNames.length === 0) return;
+  if (!workspacePath) return;
+  const enabledNames = enabledByVault[workspacePath] ?? [];
+  if (enabledNames.length === 0) return;
 
   const snippets = await listVaultSnippets(workspacePath);
   const enabled = snippets.filter(({ name }) => enabledNames.includes(name));

@@ -22,12 +22,31 @@ impl SettingsManager {
 
     fn load_or_default(path: &Path) -> AppConfig {
         match fs::read_to_string(path) {
-            Ok(content) => match serde_json::from_str(&content) {
-                Ok(config) => return config,
-                Err(error) => set_aside_unreadable(path, &error),
-            },
+            Ok(content) => {
+                match serde_json::from_str::<AppConfig>(&content) {
+                    Ok(mut config) => {
+                        if config.ui.accent_mode == "legacy" {
+                            config.ui.accent_mode =
+                                if config.ui.primary_color.eq_ignore_ascii_case("#1471eb") {
+                                    "palette"
+                                } else {
+                                    "custom"
+                                }
+                                .to_string();
+                            if let Err(error) = write_config(path, &config) {
+                                eprintln!("[aquilum:settings] не удалось сохранить миграцию accent: {error}");
+                            }
+                        }
+                        return config;
+                    }
+                    Err(error) => set_aside_unreadable(path, &error),
+                }
+            }
             Err(error) if error.kind() == ErrorKind::NotFound => {}
-            Err(error) => eprintln!("[aquilum:settings] не удалось прочитать {}: {error}", path.display()),
+            Err(error) => eprintln!(
+                "[aquilum:settings] не удалось прочитать {}: {error}",
+                path.display()
+            ),
         }
         let default_config = AppConfig::default();
         if let Err(error) = write_config(path, &default_config) {
@@ -121,5 +140,37 @@ mod tests {
         let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
         assert!(stored.contains("\"appearance\": \"dark\""));
         assert!(!stored.contains("\"theme\""));
+    }
+
+    #[test]
+    fn legacy_custom_accent_is_migrated_without_losing_its_color() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r##"{"ui":{"primaryColor":"#ff00aa"}}"##,
+        )
+        .unwrap();
+
+        let manager = SettingsManager::new(dir.path());
+        let config = manager.get_config();
+
+        assert_eq!(config.ui.accent_mode, "custom");
+        assert_eq!(config.ui.primary_color, "#ff00aa");
+        let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
+        assert!(stored.contains("\"accentMode\": \"custom\""));
+    }
+
+    #[test]
+    fn legacy_enabled_snippet_names_are_preserved_under_a_migration_key() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{"ui":{"enabledSnippets":["foo.css"]}}"#,
+        )
+        .unwrap();
+
+        let config = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!(config.ui.enabled_snippets["__legacy__"], ["foo.css"]);
     }
 }

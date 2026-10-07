@@ -163,4 +163,30 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(names, vec!["Note.md".to_owned()]);
     }
+
+    #[test]
+    fn renames_unicode_notes_and_preserves_crlf_embed_and_plugin_text() {
+        let directory = tempfile::tempdir().unwrap();
+        let old_path = directory.path().join("Каталог/旧.md");
+        let new_path = directory.path().join("Проекты/Заметка.md");
+        let source_path = directory.path().join("Источник.md");
+        fs::create_dir_all(old_path.parent().unwrap()).unwrap();
+        fs::create_dir_all(new_path.parent().unwrap()).unwrap();
+        let original = "---\r\nplugin: !expr [[keep]]\r\n---\r\n![[Каталог/旧#Раздел]]\r\n```plugin\r\n![[Каталог/旧]]\r\n```\r\n";
+        let updated = "---\r\nplugin: !expr [[keep]]\r\n---\r\n![[Проекты/Заметка#Раздел]]\r\n```plugin\r\n![[Каталог/旧]]\r\n```\r\n";
+        fs::write(&old_path, "# note").unwrap();
+        fs::write(&source_path, original).unwrap();
+        let rewrite = LinkRewrite {
+            path: source_path.clone(),
+            original: original.to_owned(),
+            original_hash: hash_bytes(original.as_bytes()),
+            content: updated.to_owned(),
+        };
+
+        apply_rename(&old_path, &new_path, vec![rewrite]).unwrap();
+
+        assert!(!old_path.exists());
+        assert_eq!(fs::read_to_string(&new_path).unwrap(), "# note");
+        assert_eq!(fs::read_to_string(source_path).unwrap(), updated);
+    }
 }

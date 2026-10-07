@@ -205,7 +205,10 @@
       "homePage": "Home page",
       "homePageHint": "Note name for the home button. Empty — no button",
       "homePageAria": "Home page note name",
-      "primaryColor": "Accent color"
+      "primaryColor": "Accent color",
+      "accentMode": "Accent source",
+      "paletteAccent": "Palette",
+      "customAccent": "Custom"
     },
     "editor": {
       "lineHeight": "Line height",
