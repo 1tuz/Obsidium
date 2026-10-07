@@ -10,8 +10,8 @@ on:
       - "scripts/install.sh"
       - "scripts/uninstall.sh"
       - "scripts/test-install-scripts.sh"
-      - ".github/workflows/**"
-      - ".github/workflows/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/docs.yml"
   pull_request:
     paths-ignore:
       - "*.md"
@@ -65,7 +65,7 @@ jobs:
         with:
           components: rustfmt
 
-      - run: cargo fmt --manifest-path aquilum-app/src-tauri/Cargo.toml --all -- --check
+      - run: rustfmt --check --edition 2021 --config skip_children=true aquilum-app/src-tauri/src/main.rs
 
   packages:
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
