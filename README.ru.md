@@ -159,7 +159,7 @@ Aquilum предоставляет опциональный локальный M
 
 Aquilum устанавливается для текущего пользователя и не требует прав администратора. Сейчас установщик не подписан сертификатом подписи кода Windows, поэтому SmartScreen может показать предупреждение. Если файл скачан из этого репозитория, выберите **Подробнее → Выполнить в любом случае**.
 
-### macOS (Apple Silicon)
+### macOS (Apple Silicon и Intel)
 
 Скачайте `.dmg` из [последнего релиза](https://github.com/Freaction/Aquilum/releases/latest) или установите приложение одной командой в Терминале:
 
@@ -187,10 +187,8 @@ curl -fsSL https://raw.githubusercontent.com/Freaction/Aquilum/main/scripts/unin
 
 - 64-разрядная Windows 10 или Windows 11.
 - Microsoft Edge WebView2. Обычно он уже есть в Windows; при необходимости установщик может его загрузить.
-- macOS на Apple Silicon (arm64).
-- Ubuntu 24, x86_64.
-
-GitHub Actions также собирает тестовые пакеты для Windows x64, Apple Silicon и Ubuntu 24 после изменений приложения.
+- macOS на Apple Silicon (arm64) или Intel (x86_64).
+- Ubuntu 22.04 или новее, x86_64.
 
 ## Конфиденциальность и хранение данных
 

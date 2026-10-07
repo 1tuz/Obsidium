@@ -159,7 +159,7 @@ Aquilum exposes an optional local MCP server. Compatible AI tools can search and
 
 Aquilum installs for the current user and does not require administrator rights. The installer is not currently signed with a Windows code-signing certificate, so SmartScreen may show a warning. Choose **More info → Run anyway** if you downloaded it from this repository.
 
-### macOS (Apple Silicon)
+### macOS (Apple Silicon and Intel)
 
 Download the `.dmg` from the [latest release](https://github.com/Freaction/Aquilum/releases/latest), or install it from Terminal:
 
@@ -187,10 +187,8 @@ Aquilum checks this public repository for updates at launch. When a newer versio
 
 - Windows 10 or Windows 11, 64-bit.
 - Microsoft Edge WebView2. It is normally present on Windows; the installer can obtain it when needed.
-- macOS on Apple Silicon (arm64).
-- Ubuntu 24, x86_64.
-
-GitHub Actions also produces test builds for Windows x64, Apple Silicon macOS, and Ubuntu 24 on application changes.
+- macOS on Apple Silicon (arm64) or Intel (x86_64).
+- Ubuntu 22.04 or later, x86_64.
 
 ## Privacy and data locations
 

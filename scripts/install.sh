@@ -12,7 +12,8 @@ fi
 
 case "$(uname -m)" in
   arm64) target="aarch64" ;;
-  *) printf 'Aquilum DMG installer supports Apple Silicon Macs only (arm64).\n' >&2; exit 1 ;;
+  x86_64) target="x64" ;;
+  *) printf 'Aquilum DMG installer supports Apple Silicon and Intel Macs only.\n' >&2; exit 1 ;;
 esac
 
 work_dir="$(mktemp -d)"
