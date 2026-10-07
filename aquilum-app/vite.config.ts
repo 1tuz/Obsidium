@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
+import preact from "@preact/preset-vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,7 +11,7 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [
-    react(),
+    preact(),
     {
       // Vite 7 requires `./`-prefixed globs for `new URL(..., import.meta.url)` asset expansion.
       name: "foliate-pdfjs-glob-fix",

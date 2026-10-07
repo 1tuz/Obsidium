@@ -1,4 +1,5 @@
-import { ChevronsUpDown, Settings } from 'lucide-react';
+import { ChevronsUpDown, Settings } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
 
@@ -24,14 +25,14 @@ export function SidebarFooter({
         title={t('workspace.switch')}
       >
         <span className="q-file-icon" aria-hidden="true">
-          <ChevronsUpDown />
+          <Icon icon={ChevronsUpDown} />
         </span>
         <span className="q-sidebar-footer-title" title={workspacePath || ''}>
           {workspaceName}
         </span>
       </button>
       <IconButton label={t('common.settings')} onClick={onOpenSettings}>
-        <Settings />
+        <Icon icon={Settings} />
       </IconButton>
     </div>
   );

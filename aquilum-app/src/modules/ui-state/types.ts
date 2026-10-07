@@ -36,6 +36,7 @@ interface LoadedTab extends StoredTab {
 }
 
 export interface ViewState {
+  path?: string;
   documentId: string;
   paneId: string;
   cursorAnchor: number[];

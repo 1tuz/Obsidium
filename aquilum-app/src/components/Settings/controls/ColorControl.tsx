@@ -44,8 +44,8 @@ export function ColorControl({ value, onChange, ariaLabel }: ColorControlProps) 
           value={color}
           aria-label={ariaLabel}
           onChange={(event) => {
-            setHex(event.target.value);
-            schedule(event.target.value);
+            setHex(event.currentTarget.value);
+            schedule(event.currentTarget.value);
           }}
         />
       </span>
@@ -54,8 +54,8 @@ export function ColorControl({ value, onChange, ariaLabel }: ColorControlProps) 
         value={hex}
         aria-label={ariaLabel}
         onChange={(event) => {
-          setHex(event.target.value);
-          const next = parseHex(event.target.value);
+          setHex(event.currentTarget.value);
+          const next = parseHex(event.currentTarget.value);
           if (next) schedule(next);
         }}
         onBlur={() => setHex(value)}

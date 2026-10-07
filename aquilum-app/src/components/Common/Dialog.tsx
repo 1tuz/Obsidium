@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { X } from 'lucide';
+import { Icon } from './Icon';
 import { IconButton } from './IconButton';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import './Dialog.css';
@@ -15,7 +16,7 @@ function DialogHeader({ id, title, closeLabel, onClose }: {
       <h2 id={id} className="q-dialog__title">{title}</h2>
       {closeLabel ? (
         <IconButton label={closeLabel} onClick={onClose}>
-          <X />
+          <Icon icon={X} />
         </IconButton>
       ) : null}
     </header>

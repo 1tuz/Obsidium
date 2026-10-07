@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import type { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { frontmatterRange } from '../../../modules/docs/frontmatter';
@@ -47,7 +46,7 @@ function applyExpanded(view: EditorView, expanded: boolean): void {
 export function useEditorMetadata(options: {
   filePath: string;
   docContent: string;
-  bodyRef: RefObject<ReactCodeMirrorRef | null>;
+  bodyRef: RefObject<EditorView | null>;
 }) {
   const { filePath, docContent, bodyRef } = options;
   const hasFrontmatter = Boolean(frontmatterRange(docContent));
@@ -64,7 +63,7 @@ export function useEditorMetadata(options: {
       return;
     }
     setExpanded(stored);
-    const view = bodyRef.current?.view;
+    const view = bodyRef.current;
     if (view) applyExpanded(view, stored);
   }, [bodyRef, expanded, filePath]);
 
@@ -80,7 +79,7 @@ export function useEditorMetadata(options: {
   }, [expanded]);
 
   const toggle = useCallback(() => {
-    const view = bodyRef.current?.view;
+    const view = bodyRef.current;
     const next = view
       ? !isFrontmatterExpanded(view.state)
       : !expanded;

@@ -1,5 +1,5 @@
 import { plural, t } from '../../i18n';
-import { Network } from 'lucide-react';
+import { Network } from 'lucide';
 import { Button } from '../Common/Button';
 import { EmptyState } from '../Common/EmptyState';
 

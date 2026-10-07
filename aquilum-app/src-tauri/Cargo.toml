@@ -1,6 +1,6 @@
 [package]
 name = "aquilum-app"
-version = "0.2.1"
+version = "0.2.2"
 description = "Fast local-first Markdown knowledge base"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
@@ -34,6 +34,7 @@ unicode-normalization = "0.1.25"
 pulldown-cmark = "0.13.4"
 ureq = "2.12"
 httparse = "1"
+yrs = "0.28"
 
 [features]
 updater = ["dep:tauri-plugin-updater"]

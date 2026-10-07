@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import { DatabaseZap, FolderSearch, Search, SearchX } from 'lucide-react';
+import { DatabaseZap, FolderSearch, Search, SearchX } from 'lucide';
 import { formatShortcut, SHORTCUTS } from '../../config/shortcuts';
 import { EmptyState } from '../Common/EmptyState';
 import type { SearchIndexStatus, SearchResult } from '../../modules/search';

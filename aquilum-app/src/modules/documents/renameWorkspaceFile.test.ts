@@ -2,23 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renameFile } from './fileGateway';
 import { renameWorkspaceFile } from './renameWorkspaceFile';
 
-vi.mock('../docs', () => ({
-  flushDocumentsUnder: vi.fn(),
-  getManagedWriterForPath: vi.fn(() => null),
-  getOpenDoc: vi.fn(() => null),
-}));
-vi.mock('../docSync', () => ({
-  applyTextEdits: vi.fn(),
-  documentText: vi.fn(),
-  forgetSyncRecord: vi.fn(),
-  mergeExternalChange: vi.fn(),
-  writeSyncRecord: vi.fn(),
-}));
-vi.mock('../sync', () => ({ clearLocalDoc: vi.fn() }));
 vi.mock('./fileGateway', () => ({
   isFileCommandError: vi.fn(() => false),
   isMarkdownPath: (path: string) => path.endsWith('.md'),
-  readFileSnapshot: vi.fn(),
   renameFile: vi.fn(async () => ({ updatedPaths: [], content: '', hash: 'h', textHash: 't' })),
 }));
 

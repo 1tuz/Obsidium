@@ -6,7 +6,9 @@ use super::models::{
 };
 use super::paths::{canonical_workspace, normalize_relative};
 use super::service::UiStateService;
-use tauri::State;
+use crate::documents::DocumentHub;
+use std::path::Path;
+use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
 #[tauri::command]
@@ -76,11 +78,29 @@ pub async fn open_ui_session(
 
 #[tauri::command]
 pub async fn save_ui_state_batch(
+    app: AppHandle,
     service: State<'_, UiStateService>,
-    input: SaveStateBatchInput,
+    mut input: SaveStateBatchInput,
 ) -> Result<bool, UiStateError> {
     let service = service.inner().clone();
-    run_blocking(move || service.save_batch(&input)).await
+    run_blocking(move || {
+        anchor_views(&app.state::<DocumentHub>(), &mut input);
+        service.save_batch(&input)
+    })
+    .await
+}
+
+fn anchor_views(hub: &DocumentHub, input: &mut SaveStateBatchInput) {
+    for view in &mut input.views {
+        let Some(path) = view.path.as_deref() else { continue };
+        let offsets = [view.fallback_anchor, view.fallback_head, view.fallback_scroll_anchor]
+            .map(|offset| offset.max(0) as usize);
+        let Some(encoded) = hub.encode_positions(Path::new(path), &offsets) else { continue };
+        let [anchor, head, scroll] = <[Option<Vec<u8>>; 3]>::try_from(encoded).expect("three positions");
+        view.cursor_anchor = anchor.unwrap_or_default();
+        view.cursor_head = head.unwrap_or_default();
+        view.scroll_anchor = scroll.unwrap_or_default();
+    }
 }
 
 #[tauri::command]

@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText } from 'lucide';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import { Button } from '../Common/Button';
 import { DeleteNotesDialog } from '../Common/DeleteNotesDialog';

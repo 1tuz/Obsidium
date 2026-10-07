@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
-import * as Y from 'yjs';
+import type { ViewState } from '../../../modules/ui-state';
 import { ViewStateController } from './controller';
-import { documentText } from '../../../modules/docSync/applyExternalText';
+import { fallbackView } from './positions';
+
+function resolvedFor(initial: ViewState | null) {
+  return initial ? fallbackView(initial) : null;
+}
 
 function stubPageLifecycle() {
   const windowListeners = new Map<string, EventListener>();
@@ -94,8 +98,6 @@ describe('ViewStateController tab lifecycle', () => {
   });
 
   it('captures the current state synchronously when a tab unmounts', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.scrollTop = 120;
@@ -103,8 +105,9 @@ describe('ViewStateController tab lifecycle', () => {
     const view = createView(scrollDOM);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange,
     });
 
@@ -114,7 +117,9 @@ describe('ViewStateController tab lifecycle', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toMatchObject({
+      path: 'note.md',
       documentId: 'doc',
+      cursorAnchor: [],
       fallbackAnchor: 4,
       fallbackScrollAnchor: 2,
     });
@@ -122,8 +127,6 @@ describe('ViewStateController tab lifecycle', () => {
 
   it('does not replace a valid snapshot while the tab is live but hidden', () => {
     vi.useFakeTimers();
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.scrollTop = 120;
@@ -141,8 +144,9 @@ describe('ViewStateController tab lifecycle', () => {
     } as unknown as EditorView;
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange,
     });
 
@@ -167,8 +171,6 @@ describe('ViewStateController tab lifecycle', () => {
 
   it('does not replace a valid scroll snapshot after CodeMirror detaches its DOM', () => {
     vi.useFakeTimers();
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.scrollTop = 120;
@@ -186,8 +188,9 @@ describe('ViewStateController tab lifecycle', () => {
     } as unknown as EditorView;
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange,
     });
 
@@ -213,16 +216,15 @@ describe('ViewStateController tab lifecycle', () => {
   });
 
   it('captures layout-only scroll changes before the editor DOM is removed', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     const scrollDOM = element(-100);
     const view = createView(scrollDOM);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange,
     });
 
@@ -238,8 +240,6 @@ describe('ViewStateController tab lifecycle', () => {
   });
 
   it('does not touch layout while the reader is scrolling', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const scrollElement = element(0);
     scrollElement.scrollTop = 120;
     const scrollDOM = element(-100);
@@ -247,8 +247,9 @@ describe('ViewStateController tab lifecycle', () => {
     const measured = vi.spyOn(view, 'coordsAtPos');
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange: vi.fn(),
     });
 
@@ -266,8 +267,6 @@ describe('ViewStateController tab lifecycle', () => {
   });
 
   it('flushes on pagehide without waiting for debounce', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.scrollTop = 120;
@@ -275,8 +274,9 @@ describe('ViewStateController tab lifecycle', () => {
     const view = createView(scrollDOM);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange,
     });
 
@@ -294,8 +294,6 @@ describe('ViewStateController tab lifecycle', () => {
   });
 
   it('flushes on visibility hidden', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.scrollTop = 80;
@@ -303,8 +301,9 @@ describe('ViewStateController tab lifecycle', () => {
     const view = createView(scrollDOM);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange,
     });
 
@@ -395,16 +394,15 @@ describe('ViewStateController live tab', () => {
 
   it('puts the position back when a hidden tab is shown again', () => {
     vi.useFakeTimers();
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const scrollElement = element(0);
     scrollElement.setReach(1000);
     scrollElement.scrollTop = 120;
     const { view, targets, frame } = restoringView(scrollElement);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: null,
+      resolved: resolvedFor(null),
       onChange: vi.fn(),
     });
 
@@ -436,15 +434,14 @@ describe('ViewStateController restore', () => {
   });
 
   it('hands the stored line and offset to CodeMirror instead of setting scrollTop itself', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const scrollElement = element(0);
     scrollElement.setReach(1000);
     const stage = restoringView(scrollElement);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: { ...storedTop(), scrollOffsetPx: 12 },
+      resolved: resolvedFor({ ...storedTop(), scrollOffsetPx: 12 }),
       onChange: vi.fn(),
     });
 
@@ -458,16 +455,15 @@ describe('ViewStateController restore', () => {
   });
 
   it('never stores a position before the restore has been applied', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.setReach(1000);
     const stage = restoringView(scrollElement);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: storedTop(),
+      resolved: resolvedFor(storedTop()),
       onChange,
     });
 
@@ -479,16 +475,15 @@ describe('ViewStateController restore', () => {
   });
 
   it('records the reader scrolling once the restore settled', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.setReach(1000);
     const stage = restoringView(scrollElement);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: storedTop(),
+      resolved: resolvedFor(storedTop()),
       onChange,
     });
 
@@ -504,16 +499,15 @@ describe('ViewStateController restore', () => {
   });
 
   it('stores the restored position when the tab closes', () => {
-    const ydoc = new Y.Doc();
-    documentText(ydoc).insert(0, '0123456789');
     const onChange = vi.fn();
     const scrollElement = element(0);
     scrollElement.setReach(1000);
     const stage = restoringView(scrollElement);
     const controller = new ViewStateController({
       documentId: 'doc',
-      ydoc,
+      path: () => 'note.md',
       initial: storedTop(),
+      resolved: resolvedFor(storedTop()),
       onChange,
     });
 

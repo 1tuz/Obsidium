@@ -1,7 +1,8 @@
 import { t } from '../../i18n';
 import { matchesShortcut, SHORTCUTS } from '../../config/shortcuts';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Settings2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Settings2, X } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { IconButton } from '../Common/IconButton';
 import { useSettingsPersist } from '../Settings/useSettingsPersist';
@@ -214,14 +215,14 @@ export function BookReader({
             aria-expanded={settingsOpen}
             onClick={() => setSettingsOpen((open) => !open)}
           >
-            <Settings2 />
+            <Icon icon={Settings2} />
           </IconButton>
           <IconButton
             size="medium"
             label={t('reader.close')}
             onClick={onClose}
           >
-            <X />
+            <Icon icon={X} />
           </IconButton>
         </div>
         {settingsOpen ? (
@@ -241,7 +242,7 @@ export function BookReader({
           aria-label={t('reader.prevPage')}
           onClick={() => void engineRef.current?.prev()}
         >
-          <ChevronLeft />
+          <Icon icon={ChevronLeft} />
         </button>
         <button
           type="button"
@@ -250,7 +251,7 @@ export function BookReader({
           aria-label={t('reader.nextPage')}
           onClick={() => void engineRef.current?.next()}
         >
-          <ChevronRight />
+          <Icon icon={ChevronRight} />
         </button>
 
         {loading && <div className="q-book-reader-loading" aria-busy="true" />}

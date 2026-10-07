@@ -1,7 +1,9 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { StrictMode, useEffect, type ReactNode } from 'react';
+// @vitest-environment happy-dom
+import { act } from 'preact/test-utils';
+import { useEffect, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { actAndSettle, mountDom, type MountedDom } from './testing/mountDom';
 
 const editorLifecycle: string[] = [];
 const graphLifecycle: string[] = [];
@@ -15,16 +17,6 @@ const uiStateMocks = vi.hoisted(() => ({
   queueActiveTab: vi.fn(),
   queueTabsSnapshot: vi.fn(),
 }));
-let keydownHandler: ((event: KeyboardEvent) => void) | null = null;
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-vi.stubGlobal('window', {
-  addEventListener: vi.fn((type: string, listener: (event: KeyboardEvent) => void) => {
-    if (type === 'keydown') keydownHandler = listener;
-  }),
-  removeEventListener: vi.fn((type: string, listener: (event: KeyboardEvent) => void) => {
-    if (type === 'keydown' && keydownHandler === listener) keydownHandler = null;
-  }),
-});
 
 vi.mock('./hooks/useWorkspace', () => ({
   useWorkspace: () => ({
@@ -193,15 +185,17 @@ function sessionStub(overrides: Record<string, unknown> = {}) {
 }
 
 describe('App editor lifecycle', () => {
-  let renderer: ReactTestRenderer | null = null;
+  let renderer: MountedDom | null = null;
 
-  async function renderWithSession(node = <App />): Promise<ReactTestRenderer> {
+  const find = (id: string) => renderer!.container.querySelectorAll<HTMLElement>(`#${id}`);
+  const attribute = (id: string, name: string) => find(id)[0]?.getAttribute(name);
+  const click = (id: string) => act(() => find(id)[0].click());
+
+  async function renderWithSession(node = <App />): Promise<MountedDom> {
     workspaceState.workspaceReady = true;
     uiStateMocks.open.mockResolvedValue(sessionStub());
-    await act(async () => {
-      renderer = create(node);
-      await Promise.resolve();
-      await Promise.resolve();
+    await actAndSettle(() => {
+      renderer = mountDom(node);
     });
     return renderer!;
   }
@@ -215,24 +209,23 @@ describe('App editor lifecycle', () => {
     graphLifecycle.length = 0;
     workspaceState.files = [];
     workspaceState.workspaceReady = false;
-    keydownHandler = null;
     vi.clearAllMocks();
   });
 
   it('keeps the editor area empty until the workspace session is restored', () => {
     act(() => {
-      renderer = create(<App />);
+      renderer = mountDom(<App />);
     });
 
-    expect(renderer?.root.findAllByProps({ id: 'open-file-from-new-tab' })).toHaveLength(0);
+    expect(find('open-file-from-new-tab')).toHaveLength(0);
     expect(editorLifecycle).toHaveLength(0);
   });
 
   it('creates a fresh editor instance when a sidebar selection replaces the active file', async () => {
-    await renderWithSession(<StrictMode><App /></StrictMode>);
+    await renderWithSession();
 
-    act(() => renderer?.root.findByProps({ id: 'open-a' }).props.onClick());
-    act(() => renderer?.root.findByProps({ id: 'open-b' }).props.onClick());
+    click('open-a');
+    click('open-b');
 
     const unmountedA = editorLifecycle.lastIndexOf('unmount:C:\\notes\\a.md');
     const mountedB = editorLifecycle.lastIndexOf('mount:C:\\notes\\b.md');
@@ -243,68 +236,66 @@ describe('App editor lifecycle', () => {
   it('keeps the graph mounted and merely hidden while another tab is active', async () => {
     await renderWithSession();
 
-    act(() => renderer?.root.findByProps({ id: 'open-a' }).props.onClick());
-    act(() => renderer?.root.findByProps({ id: 'open-graph' }).props.onClick());
+    click('open-a');
+    await actAndSettle(() => find('open-graph')[0].click());
     expect(graphLifecycle).toEqual(['mount']);
-    expect(renderer?.root.findByProps({ id: 'graph' }).props['data-inactive']).toBe(false);
+    expect(attribute('graph', 'data-inactive')).toBe('false');
 
-    act(() => renderer?.root.findByProps({ id: 'open-a' }).props.onClick());
+    click('open-a');
     expect(graphLifecycle).toEqual(['mount']);
-    expect(renderer?.root.findByProps({ id: 'graph' }).props['data-inactive']).toBe(true);
+    expect(attribute('graph', 'data-inactive')).toBe('true');
 
-    act(() => renderer?.root.findByProps({ id: 'open-graph' }).props.onClick());
+    click('open-graph');
     expect(graphLifecycle).toEqual(['mount']);
-    expect(renderer?.root.findByProps({ id: 'graph' }).props['data-inactive']).toBe(false);
+    expect(attribute('graph', 'data-inactive')).toBe('false');
   });
 
   it('opens global search with the physical Ctrl+O shortcut', () => {
     act(() => {
-      renderer = create(<App />);
+      renderer = mountDom(<App />);
     });
-    const preventDefault = vi.fn();
-
-    act(() => keydownHandler?.({
+    const shortcut = new KeyboardEvent('keydown', {
       code: 'KeyO',
       key: 'щ',
       ctrlKey: true,
-      metaKey: false,
-      altKey: false,
-      shiftKey: false,
-      preventDefault,
-    } as unknown as KeyboardEvent));
+      cancelable: true,
+    });
 
-    expect(preventDefault).toHaveBeenCalledOnce();
-    expect(renderer?.root.findByProps({ id: 'search-dialog' }).props['data-open']).toBe(true);
+    act(() => {
+      window.dispatchEvent(shortcut);
+    });
+
+    expect(shortcut.defaultPrevented).toBe(true);
+    expect(attribute('search-dialog', 'data-open')).toBe('true');
   });
 
   it('opens search from a new tab', async () => {
     await renderWithSession();
 
-    act(() => renderer?.root.findByProps({ id: 'open-file-from-new-tab' }).props.onClick());
+    click('open-file-from-new-tab');
 
-    expect(renderer?.root.findByProps({ id: 'search-dialog' }).props['data-open']).toBe(true);
+    expect(attribute('search-dialog', 'data-open')).toBe('true');
   });
 
   it('hides and restores both sidebars', () => {
     act(() => {
-      renderer = create(<App />);
+      renderer = mountDom(<App />);
     });
-    const root = renderer!.root;
 
-    expect(root.findAllByProps({ id: 'left-sidebar' })).toHaveLength(1);
-    expect(root.findAllByProps({ id: 'right-sidebar' })).toHaveLength(1);
+    expect(find('left-sidebar')).toHaveLength(1);
+    expect(find('right-sidebar')).toHaveLength(1);
 
-    act(() => root.findByProps({ id: 'hide-left-sidebar' }).props.onClick());
-    expect(root.findAllByProps({ id: 'left-sidebar' })).toHaveLength(0);
+    click('hide-left-sidebar');
+    expect(find('left-sidebar')).toHaveLength(0);
 
-    act(() => root.findByProps({ id: 'hide-left-sidebar' }).props.onClick());
-    expect(root.findAllByProps({ id: 'left-sidebar' })).toHaveLength(1);
+    click('hide-left-sidebar');
+    expect(find('left-sidebar')).toHaveLength(1);
 
-    act(() => root.findByProps({ id: 'toggle-right-sidebar' }).props.onClick());
-    expect(root.findAllByProps({ id: 'right-sidebar' })).toHaveLength(0);
+    click('toggle-right-sidebar');
+    expect(find('right-sidebar')).toHaveLength(0);
 
-    act(() => root.findByProps({ id: 'toggle-right-sidebar' }).props.onClick());
-    expect(root.findAllByProps({ id: 'right-sidebar' })).toHaveLength(1);
+    click('toggle-right-sidebar');
+    expect(find('right-sidebar')).toHaveLength(1);
   });
 
   it('restores an existing tab and rejects a missing active tab', async () => {
@@ -331,10 +322,8 @@ describe('App editor lifecycle', () => {
       dispose: vi.fn(),
     });
 
-    await act(async () => {
-      renderer = create(<App />);
-      await Promise.resolve();
-      await Promise.resolve();
+    await actAndSettle(() => {
+      renderer = mountDom(<App />);
     });
 
     expect(editorLifecycle[editorLifecycle.length - 1]).toBe('mount:C:\\notes\\kept.md');

@@ -58,14 +58,6 @@ export function readFileSnapshot(path: string): Promise<FileSnapshot> {
   return invoke<FileSnapshot>('read_file_snapshot', { path });
 }
 
-export function readFileHash(path: string): Promise<string> {
-  return invoke<string>('read_file_hash', { path });
-}
-
-export function hashText(text: string): Promise<string> {
-  return invoke<string>('hash_text', { text });
-}
-
 interface FileStat {
   byteLength: number;
 }

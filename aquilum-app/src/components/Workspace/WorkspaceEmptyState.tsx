@@ -1,4 +1,5 @@
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { EmptyState } from '../Common/EmptyState';
 import { pickWorkspaceFolder } from '../../modules/workspaces';
@@ -22,7 +23,7 @@ export function WorkspaceEmptyState({ onOpen, failedPath }: WorkspaceEmptyStateP
       description={failedPath ? t('workspaces.openFailed', { path: failedPath }) : undefined}
     >
       <Button size="s" onClick={() => void handleOpenFolder()}>
-        <FolderOpen aria-hidden="true" />
+        <Icon icon={FolderOpen} />
         {t('common.openFolder')}
       </Button>
     </EmptyState>

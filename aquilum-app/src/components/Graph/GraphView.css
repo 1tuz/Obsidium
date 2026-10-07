@@ -9,6 +9,10 @@
   background-color: var(--q-graph-backdrop);
 }
 
+.q-graph--hidden {
+  display: none;
+}
+
 .q-graph-canvas {
   display: block;
   width: 100%;

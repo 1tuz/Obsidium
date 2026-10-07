@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { WindowControls } from "./components/Layout/WindowControls";
@@ -11,10 +11,8 @@ import { NewTab } from "./components/Editor/NewTab";
 import { WorkspaceEmptyState } from "./components/Workspace/WorkspaceEmptyState";
 import { SearchDialog } from "./components/Search/SearchDialog";
 import { TemplateDialog } from "./components/Templates/TemplateDialog";
-import { SettingsDialog } from "./components/Settings/SettingsDialog";
 import { WorkspaceDialog } from "./components/Workspace/WorkspaceDialog";
 import { BacklinksPanel } from "./components/Backlinks/BacklinksPanel";
-import { GraphView } from "./components/Graph/GraphView";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useTabs } from "./hooks/useTabs";
 import { useNavigationHistory } from "./hooks/useNavigationHistory";
@@ -44,12 +42,18 @@ import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
 import { keepVersionsOf } from "./modules/history";
 import { useRetentionCleanup } from "./hooks/useRetentionCleanup";
-import { flushOpenDocuments, getOpenDoc, isDocSynced } from "./modules/docs";
-import { applyTemplateToDoc } from "./components/Editor/docMutations";
+import { flushDocuments } from "./modules/documents/documentGateway";
+import { useWindowDocumentSync } from "./modules/documents/useWindowDocumentSync";
+import { applyTemplateToDocument } from "./components/Editor/docMutations";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
 import "./App.css";
+
+const GraphView = lazy(() => import("./components/Graph/GraphView")
+  .then((module) => ({ default: module.GraphView })));
+const SettingsDialog = lazy(() => import("./components/Settings/SettingsDialog")
+  .then((module) => ({ default: module.SettingsDialog })));
 
 export default function App() {
   const search = useOverlay();
@@ -193,8 +197,10 @@ export default function App() {
     });
   }, [loadConfig]);
 
+  useWindowDocumentSync();
+
   useTauriSubscription(
-    () => getCurrentWindow().onCloseRequested(() => flushOpenDocuments()),
+    () => getCurrentWindow().onCloseRequested(() => flushDocuments()),
     "window close",
   );
 
@@ -231,8 +237,7 @@ export default function App() {
 
   const handleTemplateSelect = useCallback(async (template: NoteTemplate) => {
     const content = await readTemplate(template);
-    const openDoc = activeTab?.kind === 'document' ? getOpenDoc(activeTab.path) : null;
-    if (openDoc && isDocSynced(openDoc)) applyTemplateToDoc(openDoc, content);
+    if (activeTab?.kind === 'document') await applyTemplateToDocument(activeTab.path, content);
     else await createFromTemplate(content);
     templates.hide();
   }, [activeTab, createFromTemplate, templates.hide]);
@@ -415,15 +420,17 @@ export default function App() {
           <div className="q-app-content">
 
             {hasGraphTab && (
-              <GraphView
-                workspacePath={workspacePath}
-                indexRevision={linkIndexRevision}
-                inactive={!graphActive}
-                sessionReady={sessionReady}
-                readCamera={readGraphCamera}
-                onCameraChange={onGraphCameraChange}
-                onOpenNote={openNote}
-              />
+              <Suspense fallback={null}>
+                <GraphView
+                  workspacePath={workspacePath}
+                  indexRevision={linkIndexRevision}
+                  inactive={!graphActive}
+                  sessionReady={sessionReady}
+                  readCamera={readGraphCamera}
+                  onCameraChange={onGraphCameraChange}
+                  onOpenNote={openNote}
+                />
+              </Suspense>
             )}
             <main className={graphActive ? "q-app-editor q-offstage" : "q-app-editor"}>
               {!workspacePath ? (
@@ -508,13 +515,17 @@ export default function App() {
         folder={config?.templates.folder ?? ''} onClose={templates.hide}
         onSelect={handleTemplateSelect} />
 
-      <SettingsDialog
-        open={settings.open}
-        workspacePath={workspacePath}
-        homePage={workspaceHomePage}
-        onHomePageChange={changeHomePage}
-        onClose={settings.hide}
-      />
+      {settings.open && (
+        <Suspense fallback={null}>
+          <SettingsDialog
+            open
+            workspacePath={workspacePath}
+            homePage={workspaceHomePage}
+            onHomePageChange={changeHomePage}
+            onClose={settings.hide}
+          />
+        </Suspense>
+      )}
 
       <WorkspaceDialog
         open={workspaces.open}

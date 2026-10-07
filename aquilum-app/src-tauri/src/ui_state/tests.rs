@@ -72,6 +72,7 @@ fn listed_paths_drop_the_windows_verbatim_prefix() {
 
 fn view(document_id: Uuid, position: i64) -> ViewStateInput {
     ViewStateInput {
+        path: None,
         document_id,
         pane_id: "main".to_owned(),
         cursor_anchor: vec![1, 2],

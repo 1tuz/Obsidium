@@ -1,6 +1,6 @@
 import { useCallback, useState, type MouseEvent, type RefObject } from 'react';
-import type { ReactCodeMirrorRef } from '@uiw/react-codemirror';
-import { BookOpen, Table2, Tags } from 'lucide-react';
+import { BookOpen, Table2, Tags } from 'lucide';
+import type { EditorView } from '@codemirror/view';
 import { t } from '../../../i18n';
 import type { MenuItem } from '../../Common/Menu';
 import { useSelectionMenu } from '../../Common/useSelectionMenu';
@@ -10,15 +10,15 @@ import { insertTable } from '../extensions/tables';
 import { canInsertFrontmatter, insertFrontmatter } from '../extensions/frontmatterInsert';
 
 export function useEditorBodyMenu(
-    bodyRef: RefObject<ReactCodeMirrorRef | null>,
+    bodyRef: RefObject<EditorView | null>,
     autoLinkTitle: boolean,
 ) {
-    const getView = useCallback(() => bodyRef.current?.view, [bodyRef]);
+    const getView = useCallback(() => bodyRef.current, [bodyRef]);
     const selectionMenu = useSelectionMenu(getView);
     const [frontmatterDisabled, setFrontmatterDisabled] = useState(false);
 
     const paste = useCallback(async () => {
-        const view = bodyRef.current?.view;
+        const view = bodyRef.current;
         if (!view) return;
         const text = await navigator.clipboard.readText();
         if (!text) return;
@@ -31,27 +31,27 @@ export function useEditorBodyMenu(
     }, [autoLinkTitle, bodyRef]);
 
     const insertBodyTable = useCallback(() => {
-        const view = bodyRef.current?.view;
+        const view = bodyRef.current;
         if (!view) return;
         insertTable(view);
     }, [bodyRef]);
 
     const insertBodyFrontmatter = useCallback(() => {
-        const view = bodyRef.current?.view;
+        const view = bodyRef.current;
         if (!view) return;
         insertFrontmatter(view);
     }, [bodyRef]);
 
     const insertBodyBook = useCallback(() => {
-        const view = bodyRef.current?.view;
+        const view = bodyRef.current;
         if (!view) return;
         insertBookCallout(view);
     }, [bodyRef]);
 
     const openSelectionMenu = selectionMenu.onContextMenu;
-    const onContextMenu = useCallback((event: MouseEvent) => {
+    const onContextMenu = useCallback((event: MouseEvent<Element>) => {
         if ((event.target as HTMLElement).closest('.q-editor-inline-title-cm')) return;
-        const state = bodyRef.current?.view?.state;
+        const state = bodyRef.current?.state;
         setFrontmatterDisabled(state ? !canInsertFrontmatter(state) : true);
         openSelectionMenu(event);
     }, [bodyRef, openSelectionMenu]);

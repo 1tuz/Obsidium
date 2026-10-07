@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { useEffect, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { CodeMirrorField, type CodeMirrorFieldRef } from '../Common/CodeMirrorField';
 import { Dialog } from '../Common/Dialog';
 import { IconButton } from '../Common/IconButton';
@@ -94,7 +95,7 @@ export function SearchDialog({
       onClose={onClose}
     >
       <div className="q-search-box">
-        <Search aria-hidden="true" />
+        <Icon icon={Search} />
         <CodeMirrorField
           ref={inputRef}
           className="q-search-input"
@@ -115,7 +116,7 @@ export function SearchDialog({
               inputRef.current?.focus();
             }}
           >
-            <X />
+            <Icon icon={X} />
           </IconButton>
         )}
       </div>

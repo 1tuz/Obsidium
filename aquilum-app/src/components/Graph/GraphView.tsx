@@ -32,7 +32,7 @@ export function GraphView({
   onOpenNote,
 }: GraphViewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const cameraAppliedRef = useRef(false);
+  const cameraGenerationRef = useRef(0);
   const [attempt, setAttempt] = useState(0);
   const [reload, setReload] = useState(0);
   const [activated, setActivated] = useState(!inactive);
@@ -53,23 +53,28 @@ export function GraphView({
     };
   }, [labels]);
 
+  const visible = activated && !inactive;
+  const generationRef = useRef(0);
+
   const handleCameraSettled = useStableCallback((camera: GraphCameraState) => {
-    cameraAppliedRef.current = true;
+    cameraGenerationRef.current = generationRef.current;
     onCameraChange(camera);
   });
 
-  const { rendererRef, rendererError, visibleNodes, attachScaleReadout } = useGraphRenderer({
+  const { rendererRef, generation, rendererError, visibleNodes, attachScaleReadout } = useGraphRenderer({
     canvasRef,
     labels,
-    activated,
-    inactive,
+    visible,
     attempt,
     onOpenNote,
     onCameraSettled: handleCameraSettled,
   });
 
+  generationRef.current = generation;
+
   const { counts, range, snapshotError } = useGraphSnapshot({
     rendererRef,
+    generation,
     labels,
     workspacePath,
     indexRevision,
@@ -82,6 +87,7 @@ export function GraphView({
 
   const { controls, createdShare, setCreatedShare, patchControls } = useGraphControls(
     rendererRef,
+    generation,
     counts,
     range,
   );
@@ -89,16 +95,16 @@ export function GraphView({
   const readStoredCamera = useStableCallback(readCamera);
 
   useEffect(() => {
-    cameraAppliedRef.current = false;
+    cameraGenerationRef.current = 0;
   }, [workspacePath]);
 
   useEffect(() => {
-    if (cameraAppliedRef.current || !counts || !sessionReady) return;
+    if (cameraGenerationRef.current === generation || !counts || !sessionReady) return;
     const stored = readStoredCamera();
     if (!stored) return;
-    cameraAppliedRef.current = true;
+    cameraGenerationRef.current = generation;
     rendererRef.current?.applyCamera(stored);
-  }, [counts, readStoredCamera, rendererRef, sessionReady]);
+  }, [counts, generation, readStoredCamera, rendererRef, sessionReady]);
 
   const drawnEdges = counts ? Math.min(counts.edgeCount, MAX_EDGES_PER_FRAME) : 0;
   const status = !counts
@@ -111,8 +117,8 @@ export function GraphView({
   const blocked = !workspacePath || failure !== null;
 
   return (
-    <div className={inactive ? 'q-graph q-offstage' : 'q-graph'} aria-hidden={inactive}>
-      <canvas className="q-graph-canvas" key={attempt} ref={canvasRef} />
+    <div className={inactive ? 'q-graph q-graph--hidden' : 'q-graph'}>
+      {visible && <canvas className="q-graph-canvas" key={attempt} ref={canvasRef} />}
       {!blocked && (
         <GraphStatus
           status={status}

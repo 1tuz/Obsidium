@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getOpenDoc } from '../docs';
-import { documentText } from '../docSync';
+import { onDocumentChanged, readDocument } from '../documents/documentGateway';
 import { isEmptyTabPath } from '../ui-state';
 import { resolveDocumentText } from './documentText';
 import { searchWikixiv } from './gateway';
@@ -89,11 +88,11 @@ export function useWikixivSources(documentPath: string | null, enabled: boolean)
 
   useEffect(() => {
     if (!enabled || !documentPath || isEmptyTabPath(documentPath)) return;
-    const doc = getOpenDoc(documentPath);
-    if (!doc) return;
+    let disposed = false;
 
-    const onUpdate = () => {
-      const text = documentText(doc).toString();
+    const onUpdate = async () => {
+      const { text } = await readDocument(documentPath);
+      if (disposed) return;
       const previous = lastTextRef.current;
       lastTextRef.current = text;
       clearPauseTimer();
@@ -104,9 +103,12 @@ export function useWikixivSources(documentPath: string | null, enabled: boolean)
       pauseTimerRef.current = setTimeout(() => void runSearch(text), WIKIXIV_PAUSE_MS);
     };
 
-    doc.on('update', onUpdate);
+    const unsubscribe = onDocumentChanged(() => documentPath, () => {
+      void onUpdate().catch((error) => console.error('Failed to read the note for wikixiv', error));
+    });
     return () => {
-      doc.off('update', onUpdate);
+      disposed = true;
+      unsubscribe();
       clearPauseTimer();
     };
   }, [documentPath, enabled, runSearch]);

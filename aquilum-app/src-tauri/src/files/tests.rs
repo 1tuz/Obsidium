@@ -176,7 +176,7 @@ fn a_snapshot_normalises_crlf_but_keeps_the_hash_of_the_bytes_on_disk() {
     assert_eq!(
         snapshot.text_hash,
         hash_bytes("первая\nвторая\nтретья".as_bytes()),
-        "text_hash считается от нормализованного текста — его и видит Y.Doc"
+        "text_hash считается от нормализованного текста — его и видит документ в ядре"
     );
 }
 

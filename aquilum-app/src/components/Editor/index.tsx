@@ -1,11 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
-import type { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { EditorNotice } from './EditorNotice';
 import { t } from '../../i18n';
 import { useEditorDoc } from './hooks/useEditorDoc';
 import { useEditorExtensions } from './extensions';
-import { revealExternalInsert } from './extensions/externalReveal';
+import { documentSync } from './extensions/documentSync';
+import { registerEditor } from './openEditors';
+import type { OpenedDocument } from '../../modules/documents/documentGateway';
 import { invalidateWikiLinks } from './extensions/livePreviewPlugin';
 import { EditorContent } from './EditorContent';
 import type { CodeMirrorFieldRef } from '../Common/CodeMirrorField';
@@ -40,32 +41,28 @@ export function Editor({
   onBodyViewChange,
 }: EditorProps) {
   const titleRef = useRef<CodeMirrorFieldRef>(null);
-  const bodyRef = useRef<ReactCodeMirrorRef>(null);
+  const bodyRef = useRef<EditorView>(null);
   useEffect(() => () => onBodyViewChange?.(null), [onBodyViewChange]);
 
   const {
-    isReady,
-    ydoc,
+    opened,
     title,
     renameTo,
     missing,
     openError,
     saveError,
     retrySave,
-  } = useEditorDoc(filePath, {
-    onExternalEdit: (edit) => {
-      const view = bodyRef.current?.view;
-      if (view) revealExternalInsert(view, edit);
-    },
-    readCaret: () => {
-      const view = bodyRef.current?.view;
-      return view?.hasFocus ? view.state.selection.main.head : null;
-    },
-    restoreCaret: (position) => {
-      const view = bodyRef.current?.view;
-      if (view) view.dispatch({ selection: { anchor: position } });
-    },
-  }, workspacePath);
+    reportFailure,
+  } = useEditorDoc(filePath, workspacePath);
+  const [resynced, setResynced] = useState<OpenedDocument | null>(null);
+  const loaded = resynced ?? opened;
+  const isReady = loaded !== null;
+
+  const notePathRef = useRef(filePath);
+  useEffect(() => {
+    notePathRef.current = filePath;
+  }, [filePath]);
+  const currentNotePath = useCallback(() => notePathRef.current, []);
 
   const commitTitle = async () => {
     if (!document.hasFocus()) return;
@@ -81,19 +78,22 @@ export function Editor({
   const linkSuggest = editorSettings?.linkSuggest ?? true;
   const linkSuggestMinChars = editorSettings?.linkSuggestMinChars ?? 2;
 
-  const { initialBody, docContent, setDocContent } = useEditorDocContent(ydoc, isReady);
+  const { initialBody, docContent, setDocContent } = useEditorDocContent(loaded?.text ?? '');
+  const readText = useCallback(
+    () => bodyRef.current?.state.doc.toString() ?? loaded?.text ?? '',
+    [loaded],
+  );
 
   const bookPage = useEditorBookPage({
-    ydoc,
+    readText,
     filePath,
     workspacePath,
-    isReady,
     docContent,
     setDocContent,
   });
 
   const reader = useEditorReader({
-    ydoc,
+    readText,
     filePath,
     title,
     bookFile: bookPage.bookFile,
@@ -114,7 +114,7 @@ export function Editor({
     viewStateReady,
     initialViewState,
     revealOffset,
-    ydoc,
+    path: currentNotePath,
     isReady,
     initialBody,
     onViewStateChange,
@@ -122,15 +122,16 @@ export function Editor({
     inactive,
   });
 
-  const notePathRef = useRef(filePath);
-  useEffect(() => {
-    notePathRef.current = filePath;
-  }, [filePath]);
-  const currentNotePath = useCallback(() => notePathRef.current, []);
+  const clientID = useMemo(() => crypto.randomUUID(), []);
+  const syncExtension = useMemo(() => (loaded ? documentSync({
+    path: currentNotePath,
+    startVersion: loaded.version,
+    clientID,
+    onResync: setResynced,
+    onFailure: reportFailure,
+  }) : []), [clientID, currentNotePath, loaded, reportFailure]);
 
-  const extensions = useEditorExtensions(
-    ydoc,
-    isReady,
+  const baseExtensions = useEditorExtensions(
     resolveWikiLinks,
     onOpenWikiLink,
     reader.handleOpenExternalUrl,
@@ -143,9 +144,13 @@ export function Editor({
     linkSuggest,
     linkSuggestMinChars,
   );
+  const extensions = useMemo(
+    () => (isReady ? [baseExtensions, syncExtension] : []),
+    [baseExtensions, isReady, syncExtension],
+  );
 
   useEffect(() => {
-    bodyRef.current?.view?.dispatch({ effects: invalidateWikiLinks.of() });
+    bodyRef.current?.dispatch({ effects: invalidateWikiLinks.of() });
   }, [linkRevision]);
 
   const quoteRefs = useMemo(
@@ -156,7 +161,7 @@ export function Editor({
   const handleQuoteRefClick = useCallback((cfi: string) => {
     reader.handleCloseReader();
     requestAnimationFrame(() => {
-      const view = bodyRef.current?.view;
+      const view = bodyRef.current;
       if (!view) return;
       const span = findReaderQuotes(view.state.doc)
         .find((quote) => parseReaderQuoteHref(quote.href)?.cfi === cfi);
@@ -176,11 +181,16 @@ export function Editor({
     bodyRef,
   });
 
+  const unregisterEditor = useRef<(() => void) | null>(null);
+  useEffect(() => () => unregisterEditor.current?.(), []);
+
   const handleCreateEditor = useCallback((view: EditorView) => {
+    unregisterEditor.current?.();
+    unregisterEditor.current = registerEditor(currentNotePath, view);
     onBodyViewChange?.(view);
     metadata.syncOnCreate(view);
     handleCreate(view);
-  }, [handleCreate, metadata.syncOnCreate, onBodyViewChange]);
+  }, [currentNotePath, handleCreate, metadata.syncOnCreate, onBodyViewChange]);
 
   const handleEditorUpdate = useCallback((update: ViewUpdate) => {
     handleUpdate(update);
@@ -193,6 +203,7 @@ export function Editor({
 
   const editorContent = (
     <EditorContent
+        key={resynced ? `resync-${resynced.version}` : 'opened'}
         titleRef={titleRef}
         bodyRef={bodyRef}
         title={title}

@@ -117,6 +117,7 @@ type FoliateView = HTMLElement & {
   getCFI: (index: number, range?: Range) => string;
   addAnnotation: (annotation: { value: string }, remove?: boolean) => Promise<void>;
   renderer?: FoliateRenderer;
+  book?: { destroy?: () => void };
   lastLocation?: {
     cfi?: string;
     fraction?: number;
@@ -564,6 +565,11 @@ export class FoliateReaderEngine {
       view.close();
     } catch (error) {
       console.error('Failed to close the book view', error);
+    }
+    try {
+      view.book?.destroy?.();
+    } catch (error) {
+      console.error('Failed to release the book', error);
     }
     view.remove();
     this.view = null;

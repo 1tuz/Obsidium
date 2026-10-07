@@ -5,7 +5,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide';
+import { Icon } from './Icon';
 import { Menu, type MenuItem } from './Menu';
 import './Dropdown.css';
 
@@ -79,7 +80,7 @@ export function Dropdown({
         }}
       >
         <span className="q-dropdown__label">{selected?.label ?? value}</span>
-        <ChevronDown className="q-dropdown__chevron" aria-hidden="true" strokeWidth={1.2} />
+        <Icon icon={ChevronDown} className="q-dropdown__chevron" strokeWidth={1.2} />
       </button>
       <Menu
         id={listboxId}

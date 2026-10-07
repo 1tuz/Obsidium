@@ -1,7 +1,6 @@
 import { t } from '../../../../i18n';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { Plus } from 'lucide-react';
+import { Plus } from 'lucide';
+import { createIconElement } from '../../../Common/iconElement';
 import {
     anchorAt,
     columnCount,
@@ -20,7 +19,7 @@ function createTableAddIcon(): HTMLElement {
     const icon = document.createElement('span');
     icon.className = 'q-md-table-add-icon';
     icon.setAttribute('aria-hidden', 'true');
-    icon.innerHTML = renderToStaticMarkup(createElement(Plus, { strokeWidth: 1.5 }));
+    icon.appendChild(createIconElement(Plus, 1.5));
     return icon;
 }
 

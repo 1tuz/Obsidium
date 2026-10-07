@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, type MouseEvent } from 'react';
-import { History } from 'lucide-react';
+import { History } from 'lucide';
+import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
 import {
   enabledSidebarMethods,
@@ -55,7 +56,7 @@ interface BacklinksPanelProps {
   onOpenAnalysis: (result: AnalysisResult, disposition: LinkDisposition) => void;
 }
 
-function dispositionFromEvent(event: MouseEvent): LinkDisposition {
+function dispositionFromEvent(event: MouseEvent<Element>): LinkDisposition {
   return event.ctrlKey || event.metaKey ? 'new-tab' : 'current';
 }
 
@@ -196,7 +197,7 @@ function BacklinksPanelComponent({
             aria-pressed={isHistory}
             onClick={() => setMode('history')}
           >
-            <History />
+            <Icon icon={History} />
           </IconButton>
         </div>
       </div>

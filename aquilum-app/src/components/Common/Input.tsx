@@ -1,5 +1,6 @@
 import { forwardRef, type ReactNode } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus } from 'lucide';
+import { Icon } from './Icon';
 import { CodeMirrorField, type CodeMirrorFieldRef } from './CodeMirrorField';
 import { IconButton } from './IconButton';
 import { t } from '../../i18n';
@@ -54,7 +55,7 @@ export const Input = forwardRef<CodeMirrorFieldRef, InputProps>(function Input({
     <InputFrame counter={counter} disabled={disabled} fullWidth={fullWidth} startAdornment={startAdornment} className={frameClass}>
       {stepper && (
         <IconButton label={t('common.decrease')} size="small" disabled={disabled || !stepper.canDecrease} onClick={() => stepper.onStep(-1)}>
-          <Minus />
+          <Icon icon={Minus} />
         </IconButton>
       )}
       <CodeMirrorField
@@ -70,7 +71,7 @@ export const Input = forwardRef<CodeMirrorFieldRef, InputProps>(function Input({
       />
       {stepper && (
         <IconButton label={t('common.increase')} size="small" disabled={disabled || !stepper.canIncrease} onClick={() => stepper.onStep(1)}>
-          <Plus />
+          <Icon icon={Plus} />
         </IconButton>
       )}
     </InputFrame>

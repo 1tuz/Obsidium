@@ -13,8 +13,7 @@ import {
   type WikiLinkResolver,
 } from '../../modules/links';
 import type { ViewState, SessionTab } from '../../modules/ui-state';
-import { getOpenDoc } from '../../modules/docs';
-import { documentText } from '../../modules/docSync';
+import { readDocument } from '../../modules/documents/documentGateway';
 import { exportNoteToPdf } from '../../modules/export';
 import { fileName, fileStem, samePath } from '../../modules/paths';
 import { closeVersion, useOpenedVersion } from '../../modules/history';
@@ -99,13 +98,9 @@ export function EditorPane({
   }, []);
 
   const exportPdf = useCallback(() => {
-    const doc = getOpenDoc(tab.path);
-    if (!doc) return;
-    void exportNoteToPdf({
-      title: fileStem(tab.path),
-      markdown: documentText(doc).toString(),
-      workspacePath,
-    }).catch((error) => console.error('Failed to export the note to PDF', error));
+    void readDocument(tab.path)
+      .then(({ text }) => exportNoteToPdf({ title: fileStem(tab.path), markdown: text, workspacePath }))
+      .catch((error) => console.error('Failed to export the note to PDF', error));
   }, [tab.path, workspacePath]);
 
   const documentId = tab.documentId;

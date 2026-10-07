@@ -1,48 +1,46 @@
+# Release builds for Windows, macOS and Linux.
+# Pushing a tag v* builds every platform into a draft release with latest.json for the updater.
+# The draft is published by hand once all jobs are green, so the updater never sees a partial release.
 name: Release
 
 on:
   push:
-    tags: ["v*.*.*"]
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  checks:
-    uses: ./.github/workflows/ci.yml
-
   build:
-    needs: checks
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         include:
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
-            args: --bundles nsis
-          - runner: macos-15
-            target: aarch64-apple-darwin
-            args: --bundles dmg --target aarch64-apple-darwin
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            args: --bundles dmg --target x86_64-apple-darwin
-    runs-on: ${{ matrix.runner }}
+          - platform: windows-latest
+            args: ''
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            rust-targets: aarch64-apple-darwin
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            rust-targets: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ''
+    runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Check release tag version
-        run: node -e 'const version = require("./aquilum-app/package.json").version; if ("v" + version !== process.env.GITHUB_REF_NAME) throw new Error("Release tag must match package.json version")'
+      - name: Linux dependencies
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
 
-      - name: Validate Apple signing secrets
-        env:
-          APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' || secrets.APPLE_CERTIFICATE_PASSWORD != '' || secrets.APPLE_SIGNING_IDENTITY != '' || secrets.APPLE_ID != '' || secrets.APPLE_PASSWORD != '' || secrets.APPLE_TEAM_ID != '' }}
-          APPLE_SIGNING_COMPLETE: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
-        run: node -e 'if (process.env.APPLE_SIGNING_CONFIGURED === "true" && process.env.APPLE_SIGNING_COMPLETE !== "true") throw new Error("Configure all Apple signing secrets or leave them all unset")'
-
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -50,42 +48,29 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.rust-targets }}
 
-      - uses: actions/cache@v6
+      - uses: swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            .artifacts/cargo-release
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.target }}-
+          workspaces: aquilum-app/src-tauri -> target
+          key: ${{ matrix.args }}
 
-      - run: npm ci
+      - name: Install frontend dependencies
         working-directory: aquilum-app
+        run: npm ci
 
-      - uses: tauri-apps/tauri-action@v1
+      - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_SIGNING_IDENTITY || '-' }}
-          APPLE_ID: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ matrix.runner != 'windows-latest' && secrets.APPLE_TEAM_ID || '' }}
         with:
           projectPath: aquilum-app
-          tauriScript: npm run tauri --
-          args: >-
-            ${{ matrix.args }}
-            ${{ secrets.TAURI_SIGNING_PRIVATE_KEY == '' && '--config src-tauri/tauri.unsigned.conf.json' || '' }}
-          tagName: ${{ github.ref_name }}
-          releaseName: Aquilum ${{ github.ref_name }}
-          releaseBody: Aquilum ${{ github.ref_name }} release.
+          tauriScript: npx tauri
+          args: --features updater ${{ matrix.args }}
+          tagName: v__VERSION__
+          releaseName: __VERSION__
+          releaseBody: See the release notes below.
           releaseDraft: true
           prerelease: false
-          uploadUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
-          uploadUpdaterSignatures: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          includeUpdaterJson: true

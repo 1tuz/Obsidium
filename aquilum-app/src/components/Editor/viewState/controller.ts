@@ -1,17 +1,16 @@
 import type { ViewUpdate } from '@codemirror/view';
 import { EditorView } from '@codemirror/view';
-import * as Y from 'yjs';
 import type { ViewState } from '../../../modules/ui-state';
 import { captureScroll } from './scroll';
 import { markOpenStage } from '../../../modules/perf/openTrace';
-import { encodePosition, resolvePosition } from './positions';
-import { documentText } from '../../../modules/docSync/applyExternalText';
+import type { ResolvedView } from './positions';
 import { clamp } from '../../../modules/math';
 
 interface ControllerConfig {
   documentId: string;
-  ydoc: Y.Doc;
+  path: () => string;
   initial: ViewState | null;
+  resolved: ResolvedView | null;
   onChange: (state: ViewState) => void;
   revealOffset?: number;
 }
@@ -82,7 +81,7 @@ export class ViewStateController {
   }
 
   private restore(): void {
-    const { initial, revealOffset, ydoc } = this.config;
+    const { initial, resolved, revealOffset } = this.config;
     const view = this.view;
     if (!view) return;
     if (revealOffset !== undefined) {
@@ -95,20 +94,13 @@ export class ViewStateController {
       markOpenStage('scroll');
       return;
     }
-    if (!initial) {
+    if (!initial || !resolved) {
       view.focus();
       markOpenStage('scroll');
       return;
     }
-    const ytext = documentText(ydoc);
-    const anchor = resolvePosition(
-      initial.scrollAnchor,
-      initial.fallbackScrollAnchor,
-      ydoc,
-      ytext,
-    );
     view.focus();
-    this.applyScroll(view, anchor, initial.scrollOffsetPx);
+    this.applyScroll(view, resolved.scroll, initial.scrollOffsetPx);
   }
 
   restoreNow(): void {
@@ -165,17 +157,17 @@ export class ViewStateController {
   }
 
   private capture(view: EditorView, scrollElement: HTMLElement): ViewState {
-    const ytext = documentText(this.config.ydoc);
     const selection = view.state.selection.main;
     const scroll = captureScroll(view, scrollElement);
     return {
+      path: this.config.path(),
       documentId: this.config.documentId,
       paneId: 'main',
-      cursorAnchor: encodePosition(ytext, selection.anchor),
-      cursorHead: encodePosition(ytext, selection.head),
+      cursorAnchor: [],
+      cursorHead: [],
       fallbackAnchor: selection.anchor,
       fallbackHead: selection.head,
-      scrollAnchor: encodePosition(ytext, scroll.anchor),
+      scrollAnchor: [],
       fallbackScrollAnchor: scroll.anchor,
       scrollOffsetPx: scroll.offset,
       focusedSurface: 'body',
