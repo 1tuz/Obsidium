@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
   workflow_call:
@@ -62,3 +62,74 @@ jobs:
       - run: cargo check --locked --manifest-path aquilum-app/src-tauri/Cargo.toml
 
       - run: cargo test --locked --manifest-path aquilum-app/src-tauri/Cargo.toml
+
+  packages:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    needs: [frontend, rust]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            tauri_args: --bundles nsis
+            bundle: nsis
+            extension: exe
+            artifact: windows-x64
+            apple_signing_identity: ''
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            tauri_args: --bundles dmg --target aarch64-apple-darwin
+            bundle: dmg
+            extension: dmg
+            artifact: macos-arm64
+            apple_signing_identity: '-'
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            tauri_args: --bundles dmg --target x86_64-apple-darwin
+            bundle: dmg
+            extension: dmg
+            artifact: macos-x64
+            apple_signing_identity: '-'
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aquilum-app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .artifacts/cargo-release
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - run: npm ci
+        working-directory: aquilum-app
+
+      - name: Build installer
+        run: npm run tauri -- build ${{ matrix.tauri_args }} --config src-tauri/tauri.unsigned.conf.json
+        working-directory: aquilum-app
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ matrix.apple_signing_identity }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aquilum-${{ matrix.artifact }}-${{ github.sha }}
+          path: .artifacts/cargo-release/**/bundle/${{ matrix.bundle }}/*.${{ matrix.extension }}
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7

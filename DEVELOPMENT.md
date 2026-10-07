@@ -131,8 +131,10 @@ cargo test
 `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD` и `APPLE_TEAM_ID`.
 Если Apple secrets не заданы, workflow создаёт ad-hoc подписанный, но не нотариально заверенный DMG.
 
-Проверки PR и push в `main` выполняет workflow `CI`; он собирает фронтенд и запускает тесты без
-упаковки установщиков. Подробности — в [cross-platform-build.md](knowledge%20base/cross-platform-build.md).
+Каждый push ветки и PR запускает workflow `CI`: лёгкие проверки, затем Windows x64 NSIS и macOS
+arm64/Intel DMG. Готовые установщики прикрепляются как Actions artifacts на 7 дней; npm и Cargo
+зависимости кэшируются. На теге сборки выполняются workflow `Release` и загружаются в черновик
+релиза. Подробности — в [cross-platform-build.md](knowledge%20base/cross-platform-build.md).
 
 ---
 

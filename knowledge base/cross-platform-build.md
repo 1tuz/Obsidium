@@ -5,11 +5,14 @@
 All CI checks and release packaging run on GitHub-hosted runners. Do not use the local Windows-only
 release script from an Actions job.
 
-`.github/workflows/ci.yml` runs on pull requests, pushes to `main`, manual dispatch, and as a
+`.github/workflows/ci.yml` runs on every branch push, pull requests, manual dispatch, and as a
 reusable workflow. The Ubuntu job checks the frontend build and unit tests. A Windows job checks
-the Rust entrypoint formatting, `cargo check`, and `cargo test`. The repository-wide
+the Rust entrypoint formatting, `cargo check`, and `cargo test`. After those checks, a cached build matrix
+packages Windows x64 NSIS and macOS arm64/Intel DMGs. The unsigned build config disables updater
+signing artifacts; each package is uploaded to the workflow run for seven days. The repository-wide
 `cargo fmt --check` currently reports formatting differences in untouched files, so the CI formatting
-gate is limited to the changed entrypoint. It does not package installers.
+gate is limited to the changed entrypoint. Tag-triggered release runs skip this intermediate package
+job and let the release workflow build directly into the draft release.
 
 `.github/workflows/release.yml` runs for `v*.*.*` tags. It waits for CI, then builds the Windows x64
 NSIS installer and separate Apple Silicon and Intel macOS DMGs. The Tauri updater private key and
