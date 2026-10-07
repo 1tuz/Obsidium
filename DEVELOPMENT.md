@@ -131,6 +131,11 @@ npm run release
 - Сгенерированный файл: `Aquilum_<версия>_x64-setup.exe` и манифест `latest.json` для автообновлений.
 - Подробности архитектуры и процесса релизов описаны в каталоге `knowledge base/`.
 
+Каждый push ветки запускает лёгкие проверки и сборки Windows NSIS и macOS DMG для arm64/Intel;
+PR запускает тот же CI. Установщики доступны в Actions artifacts 7 дней, npm- и Cargo-зависимости
+кэшируются. `Sync upstream fork` ежедневно подтягивает `Freaction/Aquilum` в `main` и запускает CI
+при обновлении исходников. Actions используют Node.js 24, Ubuntu runner закреплён на `ubuntu-24.04`.
+
 ---
 
 ## Автор
