@@ -108,7 +108,7 @@ jobs:
       - name: Install Linux build dependencies
         if: startsWith(matrix.runner, 'ubuntu-')
         run: |
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list.d/ubuntu.sources
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://archive.ubuntu.com/ubuntu/|g' /etc/apt/apt-mirrors.txt
           timeout -k 5s 60s sudo apt-get update -o Acquire::Retries=2 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15
           timeout -k 5s 600s sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
             librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
