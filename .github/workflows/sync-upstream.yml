@@ -1,0 +1,30 @@
+name: Sync upstream fork
+
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: upstream-sync-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Sync fork main with upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          result="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/merge-upstream" -f branch=main)"
+          merge_type="$(jq -r '.merge_type // "unknown"' <<< "$result")"
+          echo "Upstream sync result: $merge_type"
+
+          if [[ "$merge_type" != "identical" ]]; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" -f ref=main
+          fi

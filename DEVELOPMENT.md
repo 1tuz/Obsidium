@@ -133,8 +133,10 @@ cargo test
 
 Каждый push ветки и PR запускает workflow `CI`: лёгкие проверки, затем Windows x64 NSIS и macOS
 arm64/Intel DMG. Готовые установщики прикрепляются как Actions artifacts на 7 дней; npm и Cargo
-зависимости кэшируются. На теге сборки выполняются workflow `Release` и загружаются в черновик
-релиза. Подробности — в [cross-platform-build.md](knowledge%20base/cross-platform-build.md).
+зависимости кэшируются. Workflow `Sync upstream fork` ежедневно синхронизирует `main` с
+`Freaction/Aquilum` и запускает `CI` при появлении обновлений. На теге сборки выполняются workflow
+`Release` и загружаются в черновик релиза. Подробности — в
+[cross-platform-build.md](knowledge%20base/cross-platform-build.md).
 
 ---
 
