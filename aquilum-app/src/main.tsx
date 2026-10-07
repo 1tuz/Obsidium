@@ -29,5 +29,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 );
 
 markBootStage("render");
+revealAppWindow();
 
 initScaling();
