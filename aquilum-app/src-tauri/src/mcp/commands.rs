@@ -1,24 +1,20 @@
-use super::active::ActiveNote;
-use super::{McpServer, McpStatus};
-use crate::settings::manager::SettingsManager;
+use super::McpStatus;
+use crate::app_core::Core;
 use std::path::PathBuf;
-use tauri::{AppHandle, State};
+use std::sync::Arc;
+use tauri::State;
 
 #[tauri::command]
-pub fn set_active_note(active: State<'_, ActiveNote>, path: Option<String>) {
-    active.set(path.map(PathBuf::from));
+pub fn set_active_note(core: State<'_, Arc<Core>>, path: Option<String>) {
+    core.active_note.set(path.map(PathBuf::from));
 }
 
 #[tauri::command]
-pub fn get_mcp_status(server: State<'_, McpServer>) -> McpStatus {
-    server.status()
+pub fn get_mcp_status(core: State<'_, Arc<Core>>) -> McpStatus {
+    core.mcp.status()
 }
 
 #[tauri::command]
-pub fn apply_mcp_settings(
-    app: AppHandle,
-    server: State<'_, McpServer>,
-    settings: State<'_, SettingsManager>,
-) -> McpStatus {
-    server.apply(&app, &settings.get_config().mcp)
+pub fn apply_mcp_settings(core: State<'_, Arc<Core>>) -> McpStatus {
+    core.apply_mcp_settings()
 }

@@ -55,7 +55,26 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "aquilum-app"
-version = "0.2.2"
+version = "0.2.3"
+dependencies = [
+ "aquilum-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "uuid",
+ "webview2-com",
+ "windows",
+]
+
+[[package]]
+name = "aquilum-core"
+version = "0.2.3"
 dependencies = [
  "atomic-write-file",
  "blake3",
@@ -67,20 +86,11 @@ dependencies = [
  "serde",
  "serde_json",
  "tantivy",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
  "tempfile",
  "unicode-normalization",
  "ureq",
  "uuid",
  "walkdir",
- "webview2-com",
- "windows",
  "yrs",
 ]
 

@@ -1,26 +1,65 @@
 #[cfg(all(desktop, not(debug_assertions)))]
 mod autostart;
 mod blocking;
-mod documents;
 mod export;
-mod files;
-mod history;
-mod link_title;
-mod mcp;
-mod migration;
-mod search;
-mod settings;
-mod ui_state;
 mod window_state;
-mod wikixiv;
 mod updater;
-mod web_agent;
+
+use aquilum_core::{app_core, migration};
+
+// Each core module is re-exported under its old path, with the Tauri commands for it next to it, so
+// `crate::search::...` keeps working in the shell and commands still sit beside their module.
+mod documents {
+    pub use aquilum_core::documents::*;
+    pub mod commands;
+}
+mod files {
+    pub use aquilum_core::files::*;
+    pub mod commands;
+}
+mod history {
+    pub use aquilum_core::history::*;
+    pub mod commands;
+}
+mod mcp {
+    pub use aquilum_core::mcp::*;
+    pub mod commands;
+}
+mod link_title {
+    pub use aquilum_core::link_title::*;
+    pub mod commands;
+}
+mod search {
+    pub use aquilum_core::search::*;
+    pub mod commands;
+    pub mod analysis {
+        pub use aquilum_core::search::analysis::*;
+        pub mod commands;
+    }
+    pub mod graph {
+        pub mod commands;
+    }
+}
+mod settings {
+    pub use aquilum_core::settings::*;
+    pub mod commands;
+}
+mod ui_state {
+    pub use aquilum_core::ui_state::*;
+    pub mod commands;
+}
+mod wikixiv {
+    pub use aquilum_core::wikixiv::*;
+    pub mod commands;
+}
 
 use std::sync::Arc;
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::webview::PageLoadEvent;
+use tauri::window::Color;
+use tauri::{Emitter, Manager, Theme, WindowEvent};
 
 pub fn run_mcp_stdio_bridge() -> i32 {
-    mcp::run_stdio_bridge()
+    mcp::run_stdio_bridge(env!("AQUILUM_APP_IDENTIFIER"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -45,71 +84,38 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
     builder
-        .setup(|app| {
-            let handle = app.handle().clone();
-            let notifier: search::ChangeNotifier = Arc::new(move |paths| {
-                let paths = paths
-                    .into_iter()
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .collect::<Vec<_>>();
-                let _ = handle.emit(search::WORKSPACE_CHANGED_EVENT, paths);
-            });
-            let handle = app.handle().clone();
-            let watch_sink: files::watcher::WatchSink = Arc::new(move |batch| {
-                use files::watcher::WatchScope;
-                let names = batch
-                    .paths
-                    .iter()
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .collect::<Vec<_>>();
-                if batch.scope >= WatchScope::Structure {
-                    let _ = handle.emit(search::WORKSPACE_CHANGED_EVENT, &names);
+        .on_page_load(|webview, payload| {
+            if payload.event() == PageLoadEvent::Finished && webview.label() == "main" {
+                if let Err(error) = webview.window().show() {
+                    eprintln!("[aquilum] окно не показано: {error}");
                 }
-                handle.state::<documents::DocumentHub>().reconcile_paths(&handle, &batch.paths);
-                handle
-                    .state::<search::SearchService>()
-                    .ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
-            });
-            app.manage(files::watcher::WorkspaceWatcher::new(watch_sink));
-            let handle = app.handle().clone();
-            let index_notifier: search::IndexNotifier = Arc::new(move |event| {
-                let _ = handle.emit(search::LINKS_CHANGED_EVENT, event);
-            });
-            
+            }
+        })
+        .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             migration::migrate_legacy_data(&app_data_dir);
-            
-            let settings_manager = settings::SettingsManager::new(&app_data_dir);
-            let mcp_settings = settings_manager.get_config().mcp;
-            app.manage(settings_manager);
+
+            let handle = app.handle().clone();
+            let events: Arc<dyn app_core::EventSink> = Arc::new(move |event: app_core::CoreEvent| {
+                if let Err(error) = handle.emit(event.name(), &event) {
+                    eprintln!("[aquilum] событие {} не отправлено: {error}", event.name());
+                }
+            });
+            let core = app_core::Core::open(&app_data_dir, events);
+            core.apply_mcp_settings();
+            app.manage(core);
+
             let window_state_manager = window_state::WindowStateManager::new(&app_data_dir);
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "windows")]
                 allow_pinch_gestures(&window);
+                paint_canvas(&window, &app.state::<Arc<app_core::Core>>().settings.get_config().ui.theme);
                 window_state_manager.restore(&window);
                 window_state_manager.initialize(&window);
             }
             app.manage(window_state_manager);
-            app.manage(wikixiv::WikixivService::new());
 
-            let ui_state_service = ui_state::UiStateService::open(&app_data_dir.join("ui-state.sqlite3"));
-            let search_service = search::SearchService::new(
-                app_data_dir.join("search-v2"),
-                notifier,
-                index_notifier,
-            );
-            app.manage(ui_state_service);
-            app.manage(history::HistoryService::new(&app_data_dir));
-            let document_hub = documents::DocumentHub::new(&app_data_dir.join("documents.sqlite3"));
-            document_hub.start(app.handle().clone());
-            app.manage(document_hub);
-            app.manage(search_service);
-
-            app.manage(mcp::active::ActiveNote::default());
-            let mcp_server = mcp::McpServer::new();
-            mcp_server.apply(app.handle(), &mcp_settings);
-            app.manage(mcp_server);
 
             #[cfg(all(desktop, not(debug_assertions)))]
             autostart::repoint_to_current_exe(app.handle());
@@ -196,15 +202,27 @@ pub fn run() {
                 WindowEvent::Resized(_) => state.observe(window),
                 WindowEvent::CloseRequested { .. } => {
                     state.capture_and_persist(window);
-                    window.state::<documents::DocumentHub>().flush_all(window.app_handle());
-                    window.state::<mcp::McpServer>().shutdown();
-                    window.state::<files::watcher::WorkspaceWatcher>().stop();
+                    window.state::<Arc<app_core::Core>>().shutdown();
                 }
                 _ => {}
             }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+const DARK_CANVAS: Color = Color(0x09, 0x0b, 0x11, 0xff);
+const LIGHT_CANVAS: Color = Color(0xff, 0xff, 0xff, 0xff);
+
+fn paint_canvas(window: &tauri::WebviewWindow, theme: &str) {
+    let dark = match theme {
+        "dark" => true,
+        "light" => false,
+        _ => matches!(window.theme(), Ok(Theme::Dark)),
+    };
+    if let Err(error) = window.set_background_color(Some(if dark { DARK_CANVAS } else { LIGHT_CANVAS })) {
+        eprintln!("[aquilum] фон окна не задан: {error}");
+    }
 }
 
 #[cfg(target_os = "windows")]

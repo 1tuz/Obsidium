@@ -8,6 +8,7 @@ const projectRoot = resolve(__dirname, '..');
 const packageJsonPath = join(projectRoot, 'package.json');
 const tauriConfPath = join(projectRoot, 'src-tauri', 'tauri.conf.json');
 const cargoTomlPath = join(projectRoot, 'src-tauri', 'Cargo.toml');
+const coreCargoTomlPath = join(projectRoot, 'core', 'Cargo.toml');
 
 const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
 const version = packageJson.version;
@@ -23,8 +24,9 @@ async function setFilePattern(path, pattern, replacement) {
 
 const tauriChanged = await setFilePattern(tauriConfPath, /"version"\s*:\s*"[^"]+"/, `"version": "${version}"`);
 const cargoChanged = await setFilePattern(cargoTomlPath, /^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
+const coreChanged = await setFilePattern(coreCargoTomlPath, /^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
 
-if (tauriChanged || cargoChanged) {
+if (tauriChanged || cargoChanged || coreChanged) {
   console.log(`Synced app version ${version} from package.json`);
 }
 

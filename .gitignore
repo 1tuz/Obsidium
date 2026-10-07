@@ -20,6 +20,8 @@ node_modules/
 /aquilum-app/.build/
 /aquilum-app/releases/
 /aquilum-app/src-tauri/target/
+/aquilum-app/core/target/
+/aquilum-app/core/Cargo.lock
 
 coverage/
 *.tsbuildinfo
