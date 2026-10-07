@@ -10,8 +10,7 @@ on:
       - "scripts/install.sh"
       - "scripts/uninstall.sh"
       - "scripts/test-install-scripts.sh"
-      - ".github/workflows/docs.yml"
-      - ".github/workflows/docs.yml"
+      - ".github/workflows/**"
   pull_request:
     paths-ignore:
       - "*.md"
@@ -20,7 +19,6 @@ on:
       - "scripts/install.sh"
       - "scripts/uninstall.sh"
       - "scripts/test-install-scripts.sh"
-      - ".github/workflows/**"
       - ".github/workflows/**"
   workflow_dispatch:
 
