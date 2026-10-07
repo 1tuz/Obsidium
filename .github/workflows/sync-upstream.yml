@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Merge upstream changes and keep fork workflows
+      - name: Apply upstream source changes and keep fork-owned files
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -29,35 +29,39 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/Freaction/Aquilum.git
           git fetch upstream main
-          previous="$(git rev-parse HEAD)"
 
-          if ! git merge --no-edit upstream/main; then
-            conflicts="$(git diff --name-only --diff-filter=U)"
-            if [[ -z "$conflicts" ]]; then
-              echo "Upstream merge failed without a resolvable file conflict." >&2
-              exit 1
-            fi
-
-            while IFS= read -r path; do
-              case "$path" in
-                .github/workflows/*)
-                  git checkout --ours -- "$path"
-                  git add -- "$path"
-                  ;;
-                *)
-                  echo "Manual upstream conflict requires review: $path" >&2
-                  exit 1
-                  ;;
-              esac
-            done <<< "$conflicts"
-            git commit --no-edit
+          upstream_sha="$(git rev-parse upstream/main)"
+          last_synced="$(git log -1 --format=%B --grep='^Upstream-Sync:' | sed -n 's/^Upstream-Sync: //p')"
+          if [[ -z "$last_synced" ]]; then
+            last_synced="$(git merge-base HEAD upstream/main)"
+          fi
+          if ! git merge-base --is-ancestor "$last_synced" upstream/main; then
+            echo "Recorded upstream commit is not on upstream/main: $last_synced" >&2
+            exit 1
           fi
 
-          current="$(git rev-parse HEAD)"
-          if [[ "$current" == "$previous" ]]; then
-            echo "Fork main is already current."
+          patch_file="$(mktemp)"
+          trap 'rm -f "$patch_file"' EXIT
+          git diff --binary "$last_synced" "$upstream_sha" -- . \
+            ':(exclude,top).github/**' \
+            ':(exclude,top)README.md' \
+            ':(exclude,top)README.ru.md' \
+            ':(exclude,top)DEVELOPMENT.md' \
+            ':(exclude,top)AGENTS.md' \
+            ':(exclude,top)scripts/**' \
+            ':(exclude,top)knowledge base/**' \
+            ':(exclude,top)screenshots/**' \
+            ':(exclude,top)assets/readme/**' \
+            ':(exclude,top)obsidian-crystal-belt-icon.png' \
+            ':(exclude,top)aquilum-app/src-tauri/icons/**' > "$patch_file"
+
+          if [[ ! -s "$patch_file" ]]; then
+            echo "No upstream source changes to apply; fork-owned files are unchanged."
             exit 0
           fi
 
+          git apply --3way "$patch_file"
+          git add -A
+          git commit -m "sync: apply upstream source changes" -m "Upstream-Sync: $upstream_sha"
           git push origin HEAD:main
           gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" -f ref=main
