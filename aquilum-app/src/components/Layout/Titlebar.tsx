@@ -18,7 +18,6 @@ interface TitlebarProps {
   onClose?: (path: string) => void;
   onNewTab?: () => void;
   onReorder?: (from: number, to: number) => void;
-  leftSidebarOpen?: boolean;
   rightSidebarOpen?: boolean;
   onToggleRightSidebar?: () => void;
 }
@@ -32,7 +31,6 @@ export function Titlebar({
   onClose,
   onNewTab,
   onReorder,
-  leftSidebarOpen = true,
   rightSidebarOpen = true,
   onToggleRightSidebar,
 }: TitlebarProps) {
@@ -40,9 +38,7 @@ export function Titlebar({
   useTabStrip(tabsRef, (from, to) => onReorder?.(from, to));
   useHorizontalWheelScroll(tabsRef, true, null);
 
-  const inset = isMacOs()
-    ? (!leftSidebarOpen ? 'q-titlebar--leading-inset' : '')
-    : (!rightSidebarOpen ? 'q-titlebar--trailing-inset' : '');
+  const inset = !isMacOs() && !rightSidebarOpen ? 'q-titlebar--trailing-inset' : '';
 
   return (
     <div data-tauri-drag-region className={`q-titlebar ${inset}`.trim()}>

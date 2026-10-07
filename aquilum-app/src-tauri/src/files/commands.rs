@@ -14,7 +14,9 @@ use super::trash::{
 };
 use super::workspace::{existing_files_impl, read_directory_impl};
 use std::path::Path;
-use tauri::AppHandle;
+use crate::app_core::Core;
+use std::sync::Arc;
+use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
 const TRASH_PAGE_LIMIT: usize = 200;
@@ -78,45 +80,49 @@ pub async fn read_file_stat(path: String) -> Result<FileStat, FileCommandError> 
 
 #[tauri::command]
 pub async fn write_file_atomic(
-    app: AppHandle,
+    core: State<'_, Arc<Core>>,
     path: String,
     content: String,
     expected_hash: Option<String>,
     source: Option<WriteSource>,
 ) -> Result<FileWriteResult, FileCommandError> {
     let source = Source::from(source.unwrap_or_default());
+    let core = Arc::clone(&core);
     run_blocking(move || {
-        gate::write(&app, Path::new(&path), &content, expected_hash.as_deref(), source, None)
+        gate::write(&core, Path::new(&path), &content, expected_hash.as_deref(), source, None)
     })
     .await
 }
 
 #[tauri::command]
 pub async fn create_file(
-    app: AppHandle,
+    core: State<'_, Arc<Core>>,
     path: String,
     content: String,
 ) -> Result<FileWriteResult, FileCommandError> {
-    run_blocking(move || gate::create(&app, Path::new(&path), &content, Source::Me, None)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || gate::create(&core, Path::new(&path), &content, Source::Me, None)).await
 }
 
 #[tauri::command]
 pub async fn create_binary_file(
-    app: AppHandle,
+    core: State<'_, Arc<Core>>,
     path: String,
     bytes: Vec<u8>,
 ) -> Result<FileWriteResult, FileCommandError> {
-    run_blocking(move || gate::create_binary(&app, Path::new(&path), &bytes)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || gate::create_binary(&core, Path::new(&path), &bytes)).await
 }
 
 #[tauri::command]
 pub async fn trash_file(
-    app: AppHandle,
+    core: State<'_, Arc<Core>>,
     workspace_path: String,
     path: String,
 ) -> Result<String, FileCommandError> {
+    let core = Arc::clone(&core);
     let moved = run_blocking(move || {
-        gate::trash(&app, Path::new(&workspace_path), Path::new(&path))
+        gate::trash(&core, Path::new(&workspace_path), Path::new(&path))
     })
     .await?;
     Ok(moved.to_string_lossy().into_owned())
@@ -133,11 +139,12 @@ pub async fn list_trash(
 
 #[tauri::command]
 pub async fn restore_deletion(
-    app: AppHandle,
+    core: State<'_, Arc<Core>>,
     workspace_path: String,
     id: String,
 ) -> Result<(), FileCommandError> {
-    run_blocking(move || gate::restore_deletion(&app, Path::new(&workspace_path), &id)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || gate::restore_deletion(&core, Path::new(&workspace_path), &id)).await
 }
 
 #[tauri::command]
@@ -169,15 +176,17 @@ pub async fn ensure_directory(path: String) -> Result<(), FileCommandError> {
 }
 
 #[tauri::command]
-pub async fn copy_file(app: AppHandle, from: String, to: String) -> Result<(), FileCommandError> {
-    run_blocking(move || gate::copy(&app, Path::new(&from), Path::new(&to))).await
+pub async fn copy_file(core: State<'_, Arc<Core>>, from: String, to: String) -> Result<(), FileCommandError> {
+    let core = Arc::clone(&core);
+    run_blocking(move || gate::copy(&core, Path::new(&from), Path::new(&to))).await
 }
 
 #[tauri::command]
 pub async fn rename_file(
-    app: AppHandle,
+    core: State<'_, Arc<Core>>,
     old_path: String,
     new_path: String,
 ) -> Result<FileRenameResult, FileCommandError> {
-    run_blocking(move || gate::rename(&app, Path::new(&old_path), Path::new(&new_path))).await
+    let core = Arc::clone(&core);
+    run_blocking(move || gate::rename(&core, Path::new(&old_path), Path::new(&new_path))).await
 }

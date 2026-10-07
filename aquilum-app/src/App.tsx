@@ -408,7 +408,6 @@ export default function App() {
             onSelect={openNote}
             onClose={closeTab}
             onNewTab={newTab}
-            leftSidebarOpen={leftSidebarVisible}
             rightSidebarOpen={rightSidebarVisible}
             onToggleRightSidebar={focusMode ? undefined : toggleRightSidebar}
           />
