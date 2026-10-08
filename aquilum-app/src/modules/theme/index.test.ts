@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setTheme, themeMode, themePalettes } from './index';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { motionEnabled, setTheme, themeMode, themePalettes } from './index';
+
+const paletteStyles = readFileSync(resolve(process.cwd(), 'src/styles/themes/palettes.css'), 'utf8');
+const motionStyles = readFileSync(resolve(process.cwd(), 'src/styles/themes/motion.css'), 'utf8');
 
 describe('theme engine', () => {
   beforeEach(() => {
@@ -13,16 +18,37 @@ describe('theme engine', () => {
   });
 
   it('registers every requested palette with both appearances', () => {
-    expect(themePalettes.map(({ id }) => id)).toEqual([
+    expect(themePalettes.map(({ id }) => id).sort()).toEqual([
       'obsidium', 'obsidian', 'dracula', 'vscode', 'cursor', 'catppuccin',
       'nord', 'tokyo-night', 'gruvbox', 'rose-pine', 'one-dark',
       'everforest', 'kanagawa', 'flexoki', 'ayu', 'solarized', 'material',
       'github', 'nightfox', 'graphite', 'carbon', 'metal', 'iceberg',
       'notion', 'craft', 'bear', 'capacities', 'anytype', 'notesnook', 'heptabase', 'logseq',
-    ]);
+      'reham-amber', 'reham-aubergine', 'reham-dawn', 'reham-dracula', 'reham-ember',
+      'reham-forest', 'reham-graphite', 'reham-ink', 'reham-matcha', 'reham-mint',
+      'reham-mist', 'reham-nord', 'reham-obsidian', 'reham-ocean', 'reham-peach',
+      'reham-quantum', 'reham-ruby', 'reham-sakura', 'reham-solarized', 'reham-synth',
+      'reham-teal', 'reham-violet', 'reham-void', 'blush-osyx', 'malachite-osyx',
+      'sakura-osyx', 'cendre',
+    ].sort());
     for (const palette of themePalettes) {
       expect(palette.light.accent).toContain(`${palette.id}-light-accent`);
       expect(palette.dark.accent).toContain(`${palette.id}-dark-accent`);
+    }
+    expect(themePalettes.map(({ name }) => name)).toEqual(
+      [...themePalettes.map(({ name }) => name)].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' })),
+    );
+  });
+
+  it('keeps every palette token available for the settings previews', () => {
+    const rootTokens = [...paletteStyles.matchAll(/:root\s*\{([^}]*)\}/gu)]
+      .map((match) => match[1])
+      .join('\n');
+    for (const { id } of themePalettes) {
+      expect(rootTokens).toContain(`--q-palette-${id}-light-background`);
+      expect(rootTokens).toContain(`--q-palette-${id}-light-accent`);
+      expect(rootTokens).toContain(`--q-palette-${id}-dark-background`);
+      expect(rootTokens).toContain(`--q-palette-${id}-dark-accent`);
     }
   });
 
@@ -33,6 +59,22 @@ describe('theme engine', () => {
     });
     expect(document.documentElement.classList.contains('theme-light')).toBe(true);
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toContain('dracula-light-accent');
+  });
+
+  it('disables CSS animation and transition when motion is off', () => {
+    setTheme('light', 'obsidium', 'off');
+    expect(motionEnabled()).toBe(false);
+    expect(motionStyles).toContain('animation: none !important');
+    expect(motionStyles).toContain('transition: none !important');
+  });
+
+  it('keeps motion disabled before saved settings load', () => {
+    expect(motionEnabled()).toBe(false);
+  });
+
+  it('allows motion when the user turns it on', () => {
+    setTheme('light', 'obsidium', 'on');
+    expect(motionEnabled()).toBe(true);
   });
 
   it('tracks system appearance changes and system reduced-motion preference', () => {
@@ -51,6 +93,14 @@ describe('theme engine', () => {
     expect(document.documentElement.classList.contains('theme-dark')).toBe(true);
     expect(document.documentElement.classList.contains('theme-light')).toBe(false);
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toContain('nord-dark-accent');
+  });
+
+  it('switches the selected palette independently between light and dark modes', () => {
+    setTheme('dark', 'dracula');
+    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas')).toContain('dracula-dark-background');
+    setTheme('light', 'dracula');
+    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas')).toContain('dracula-light-background');
+    expect(document.documentElement.dataset.palette).toBe('dracula');
   });
 
   it('uses palette accent by default and only replaces it in custom mode', () => {

@@ -512,7 +512,7 @@ function BaseKanban({
           onDrop={(event) => move(event, column.value)}
         >
           <header className="q-base-kanban__header">
-            <span>{column.value || t('bases.groupEmpty')}</span>
+            <span>{column.value || t('bases.kanbanUnassigned')}</span>
             <strong>{column.rows.length}</strong>
           </header>
           <div className="q-base-kanban__cards">

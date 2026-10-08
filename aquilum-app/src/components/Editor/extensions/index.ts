@@ -4,7 +4,8 @@ import { EditorState } from '@codemirror/state';
 import { syntaxHighlighting, indentUnit } from '@codemirror/language';
 
 import { livePreviewExtension } from './livePreviewPlugin';
-import { listCalloutsExtension, outlineExtension } from './outline';
+import { listCalloutsExtension, outlineExtension, advancedOutlineExtension } from './outline';
+import { coloredHighlightExtension } from './highlightr';
 import { tablesExtension } from './tables';
 import { bookCalloutTheme, type BookCalloutReadRequest } from './bookCallout';
 import { dataviewTheme } from './dataview';
@@ -41,6 +42,8 @@ export function useEditorExtensions(
     notePath: () => string = () => '',
     linkSuggest = true,
     linkSuggestMinChars = 2,
+    highlightrEnabled = true,
+    advancedOutlinerEnabled = true,
 ) {
     return useMemo(() => {
         return [
@@ -52,6 +55,7 @@ export function useEditorExtensions(
                 minChars: linkSuggestMinChars,
             }),
             outlineExtension,
+            ...(advancedOutlinerEnabled ? [advancedOutlineExtension] : []),
             listCalloutsExtension(listCallouts),
             tablesExtension,
             blockWidthExtension(),
@@ -61,6 +65,7 @@ export function useEditorExtensions(
             readerQuoteTheme,
             imageEmbedExtension,
             formattingKeymap,
+            ...(highlightrEnabled ? [coloredHighlightExtension] : []),
             indentUnit.of("\t"),
             editorMarkdownSupport,
             syntaxHighlighting(markdownStyles),
@@ -86,5 +91,5 @@ export function useEditorExtensions(
             EditorView.lineWrapping,
             placeholder("Начните писать текст..."),
         ];
-    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath]);
+    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, highlightrEnabled, advancedOutlinerEnabled]);
 }

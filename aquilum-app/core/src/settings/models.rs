@@ -187,7 +187,7 @@ impl Default for UiSettings {
             appearance: "system".to_string(),
             palette: "obsidium".to_string(),
             accent_mode: "palette".to_string(),
-            motion: "system".to_string(),
+            motion: "off".to_string(),
             enabled_snippets: HashMap::new(),
             language: String::new(),
             primary_color: "#1471eb".to_string(),
@@ -244,14 +244,36 @@ pub struct BuiltinPluginSettings {
     pub editing_toolbar: bool,
     pub kanban: bool,
     pub toolbar_position: String,
+    pub highlightr: bool,
+    pub outliner: bool,
+    pub iconize: bool,
+    pub highlight_colors: Vec<String>,
+    pub icon_assignments: HashMap<String, HashMap<String, FileIconAssignment>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileIconAssignment {
+    pub name: String,
+    pub color: String,
 }
 
 impl Default for BuiltinPluginSettings {
     fn default() -> Self {
         Self {
             editing_toolbar: true,
-            kanban: false,
+            kanban: true,
             toolbar_position: "top".to_owned(),
+            highlightr: true,
+            outliner: true,
+            iconize: true,
+            highlight_colors: [
+                "#ffe96b", "#b8f3c3", "#a6dfff", "#ffc6df", "#dcc9ff", "#ffcf9c",
+            ]
+            .iter()
+            .map(|color| (*color).to_owned())
+            .collect(),
+            icon_assignments: HashMap::new(),
         }
     }
 }

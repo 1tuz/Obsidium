@@ -24,6 +24,7 @@ describe('Titlebar', () => {
       `[aria-label="${t('titlebar.hideRightSidebar')}"]`,
     );
     expect(button).not.toBeNull();
+    expect(button?.classList.contains('q-titlebar-right-sidebar')).toBe(true);
 
     act(() => button!.click());
 

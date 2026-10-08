@@ -31,7 +31,7 @@ import {
   type LinkDisposition,
   type OutgoingLink,
 } from "./modules/links";
-import { DEFAULT_LIVE_TABS, useSettingsStore } from "./modules/settings";
+import { DEFAULT_BUILTINS, DEFAULT_LIVE_TABS, useSettingsStore } from "./modules/settings";
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
@@ -144,6 +144,7 @@ export default function App() {
   } = useNavigationHistory(workspacePath);
 
   const { config, loadConfig, updateConfig } = useSettingsStore();
+  const kanbanEnabled = config?.builtins?.kanban ?? DEFAULT_BUILTINS.kanban;
   const themeMode = useThemeMode();
   const toggleTheme = useCallback(async () => {
     const currentConfig = config ?? await loadConfig();
@@ -370,21 +371,35 @@ export default function App() {
     setLeftSidebarOpen(true);
   }, [setLeftSidebarOpen]);
 
+  const openFileManager = useCallback(() => {
+    setSidebarPanel('files');
+    setLeftSidebarOpen(true);
+  }, [setLeftSidebarOpen]);
+
   const toggleBoards = useCallback(() => {
+    if (!kanbanEnabled) return;
     setSidebarPanel((current) => leftSidebarVisible && current === 'boards' ? 'files' : 'boards');
     setLeftSidebarOpen(true);
-  }, [leftSidebarVisible, setLeftSidebarOpen]);
+  }, [kanbanEnabled, leftSidebarVisible, setLeftSidebarOpen]);
+
+  useEffect(() => {
+    if (kanbanEnabled) return;
+    setSidebarPanel((current) => current === 'boards' ? 'files' : current);
+    setBoardActionRequest(null);
+  }, [kanbanEnabled]);
 
   const openNewBoard = useCallback(() => {
+    if (!kanbanEnabled) return;
     openBoards();
     setCreateBoardRequest((current) => current + 1);
-  }, [openBoards]);
+  }, [kanbanEnabled, openBoards]);
 
   const requestBoardAction = useCallback((path: string, action: BoardActionRequest['action']) => {
+    if (!kanbanEnabled) return;
     openBoards();
     boardRequestId.current += 1;
     setBoardActionRequest({ path, action, id: boardRequestId.current });
-  }, [openBoards]);
+  }, [kanbanEnabled, openBoards]);
 
   const openBaseView = useCallback((path: string, index: number) => {
     boardRequestId.current += 1;
@@ -441,9 +456,9 @@ export default function App() {
       run: toggleFocusMode,
     },
     { id: 'view.graph', title: t('commands.graph'), enabled: () => Boolean(workspacePath), run: openGraph },
-    { id: 'boards.open', title: t('commands.boards'), enabled: () => Boolean(workspacePath), run: openBoards },
-    { id: 'boards.new', title: t('commands.newBoard'), enabled: () => Boolean(workspacePath), run: openNewBoard },
-    { id: 'boards.addCurrentNote', title: t('commands.addCurrentNoteToBoard'), enabled: () => Boolean(activeFile && isMarkdownPath(activeFile)), run: addCurrentNoteToBoard },
+    { id: 'boards.open', title: t('commands.boards'), enabled: () => Boolean(workspacePath && kanbanEnabled), run: openBoards },
+    { id: 'boards.new', title: t('commands.newBoard'), enabled: () => Boolean(workspacePath && kanbanEnabled), run: openNewBoard },
+    { id: 'boards.addCurrentNote', title: t('commands.addCurrentNoteToBoard'), enabled: () => Boolean(kanbanEnabled && activeFile && isMarkdownPath(activeFile)), run: addCurrentNoteToBoard },
     { id: 'view.settings', title: t('commands.settings'), run: settings.show },
     { id: 'workspace.switch', title: t('commands.workspaces'), run: workspaces.show },
     { id: 'view.sidebar.left', title: t('commands.leftSidebar'), run: toggleLeftSidebar },
@@ -452,7 +467,7 @@ export default function App() {
   ]), [
     commandPalette.toggle, config, createNewFile, openGraph, search.show, settings.show,
     templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
-    workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile,
+    workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile, kanbanEnabled,
   ]);
 
   useEffect(() => {
@@ -510,8 +525,10 @@ export default function App() {
           onOpenSettings={focusMode
             ? () => { void commandRegistry.execute('view.settings'); }
             : undefined}
-          onOpenBoards={focusMode ? undefined : toggleBoards}
+          onOpenBoards={focusMode || !kanbanEnabled ? undefined : toggleBoards}
+          onOpenFiles={focusMode ? undefined : openFileManager}
           boardsActive={sidebarPanel === 'boards' && leftSidebarVisible}
+          filesActive={sidebarPanel === 'files' && leftSidebarVisible}
         />
         <Sidebar
           activeFile={activeFile}
@@ -533,8 +550,8 @@ export default function App() {
           boardActionRequest={boardActionRequest}
           onBoardActionRequestComplete={() => setBoardActionRequest(null)}
           createBoardRequest={createBoardRequest}
-          onAddToBoard={(path) => requestBoardAction(path, 'add')}
-          onRemoveFromBoard={removeNoteFromBoard}
+          onAddToBoard={kanbanEnabled ? (path) => requestBoardAction(path, 'add') : undefined}
+          onRemoveFromBoard={kanbanEnabled ? removeNoteFromBoard : undefined}
         />
 
         <div className="q-app-main">

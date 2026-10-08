@@ -1,9 +1,14 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { t } from '../../i18n';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 
-const state = vi.hoisted(() => ({ savedView: 0, loadDeferred: null as Promise<number> | null }));
+const state = vi.hoisted(() => ({
+  savedView: 0,
+  loadDeferred: null as Promise<number> | null,
+  rows: [] as { path: string; fields: Record<string, string> }[],
+}));
 
 vi.mock('../../modules/documents/fileGateway', () => ({
   readFileSnapshot: vi.fn(async () => ({ content: [
@@ -18,7 +23,7 @@ vi.mock('../../modules/documents/fileGateway', () => ({
   writeFileAtomic: vi.fn(async () => ({ hash: 'saved' })),
 }));
 
-vi.mock('../../modules/bases/gateway', () => ({ getBaseRows: vi.fn(async () => []) }));
+vi.mock('../../modules/bases/gateway', () => ({ getBaseRows: vi.fn(async () => state.rows) }));
 
 vi.mock('../../modules/ui-state/gateway', () => ({
   loadBaseView: vi.fn(() => state.loadDeferred ?? Promise.resolve(state.savedView)),
@@ -27,6 +32,7 @@ vi.mock('../../modules/ui-state/gateway', () => ({
 
 const { BaseView } = await import('./BaseView');
 const { saveBaseView } = await import('../../modules/ui-state/gateway');
+const { writeFileAtomic } = await import('../../modules/documents/fileGateway');
 
 describe('BaseView view selection', () => {
   let renderer: MountedDom | null = null;
@@ -34,6 +40,7 @@ describe('BaseView view selection', () => {
   afterEach(() => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
+    state.rows = [];
   });
 
   it('opens the requested view and remembers it for an ordinary reopen', async () => {
@@ -90,5 +97,64 @@ describe('BaseView view selection', () => {
     expect([...renderer!.container.querySelectorAll('[role="tab"]')]
       .map((tab) => tab.getAttribute('aria-selected'))).toEqual(['false', 'true', 'false']);
     state.loadDeferred = null;
+  });
+
+  it('drags a kanban note to another value and saves that value', async () => {
+    state.rows = [
+      { path: '/vault/Task.md', fields: { status: 'todo' } },
+      { path: '/vault/Done.md', fields: { status: 'done' } },
+    ];
+    const props = {
+      path: '/vault/Project.base',
+      workspacePath: '/vault',
+      indexReady: true,
+      indexRevision: 0,
+      onOpenNote: vi.fn(),
+      viewRequest: { path: '/vault/Project.base', index: 1, id: 1 },
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    const card = [...renderer!.container.querySelectorAll<HTMLElement>('.q-base-kanban__card')]
+      .find((candidate) => candidate.textContent?.includes('Task'))!;
+    expect(card.getAttribute('draggable')).toBe('true');
+    const values: Record<string, string> = {};
+    const dataTransfer = {
+      setData: vi.fn((type: string, value: string) => { values[type] = value; }),
+      getData: (type: string) => values[type] ?? '',
+      effectAllowed: '',
+    };
+    const dragStart = new Event('dragstart', { bubbles: true });
+    Object.defineProperty(dragStart, 'dataTransfer', { value: dataTransfer });
+    act(() => { card.dispatchEvent(dragStart); });
+    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '/vault/Task.md');
+    expect(dataTransfer.effectAllowed).toBe('move');
+
+    const columns = renderer!.container.querySelectorAll<HTMLElement>('.q-base-kanban__column');
+    const drop = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
+    const doneColumn = [...columns].find((column) => column.textContent?.includes('done'))!;
+    act(() => { doneColumn.dispatchEvent(drop); });
+    await actAndSettle();
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
+    );
+  });
+
+  it('keeps notes without a group value in an unassigned column', async () => {
+    state.rows = [{ path: '/vault/Unsorted.md', fields: {} }];
+    const props = {
+      path: '/vault/Project.base',
+      workspacePath: '/vault',
+      indexReady: true,
+      indexRevision: 0,
+      onOpenNote: vi.fn(),
+      viewRequest: { path: '/vault/Project.base', index: 1, id: 1 },
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    expect(renderer!.container.textContent).toContain(t('bases.kanbanUnassigned'));
+    expect(renderer!.container.textContent).toContain('Unsorted');
   });
 });

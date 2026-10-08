@@ -143,6 +143,8 @@ export function EditorPane({
           <EditingToolbar
             view={inactive || viewingVersion ? null : bodyView}
             position={builtins.toolbarPosition ?? 'top'}
+            highlightrEnabled={builtins.highlightr ?? true}
+            highlightColors={builtins.highlightColors ?? DEFAULT_BUILTINS.highlightColors}
           />
         )}
         {stateError !== null && (

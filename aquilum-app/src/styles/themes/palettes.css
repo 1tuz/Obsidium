@@ -7,7 +7,7 @@
   --q-palette-obsidium-dark-accent: #5690dc;
 }
 
-:root[data-palette="obsidian"] {
+:root {
   --q-palette-obsidian-light-background: #ffffff;
   --q-palette-obsidian-dark-background: #202020;
   --q-palette-obsidian-light-text: #202020;
@@ -16,7 +16,7 @@
   --q-palette-obsidian-dark-accent: #a78bfa;
 }
 
-:root[data-palette="dracula"] {
+:root {
   --q-palette-dracula-light-background: #f8f8f2;
   --q-palette-dracula-dark-background: #282a36;
   --q-palette-dracula-light-text: #282a36;
@@ -25,7 +25,7 @@
   --q-palette-dracula-dark-accent: #bd93f9;
 }
 
-:root[data-palette="vscode"] {
+:root {
   --q-palette-vscode-light-background: #ffffff;
   --q-palette-vscode-dark-background: #1e1e1e;
   --q-palette-vscode-light-text: #1f1f1f;
@@ -34,7 +34,7 @@
   --q-palette-vscode-dark-accent: #3794ff;
 }
 
-:root[data-palette="cursor"] {
+:root {
   --q-palette-cursor-light-background: #ffffff;
   --q-palette-cursor-dark-background: #181818;
   --q-palette-cursor-light-text: #1a1a1a;
@@ -43,7 +43,7 @@
   --q-palette-cursor-dark-accent: #c4a7e7;
 }
 
-:root[data-palette="catppuccin"] {
+:root {
   --q-palette-catppuccin-light-background: #eff1f5;
   --q-palette-catppuccin-dark-background: #1e1e2e;
   --q-palette-catppuccin-light-text: #4c4f69;
@@ -52,7 +52,7 @@
   --q-palette-catppuccin-dark-accent: #cba6f7;
 }
 
-:root[data-palette="nord"] {
+:root {
   --q-palette-nord-light-background: #eceff4;
   --q-palette-nord-dark-background: #2e3440;
   --q-palette-nord-light-text: #2e3440;
@@ -61,7 +61,7 @@
   --q-palette-nord-dark-accent: #88c0d0;
 }
 
-:root[data-palette="tokyo-night"] {
+:root {
   --q-palette-tokyo-night-light-background: #d5d6db;
   --q-palette-tokyo-night-dark-background: #1a1b26;
   --q-palette-tokyo-night-light-text: #343b58;
@@ -70,7 +70,7 @@
   --q-palette-tokyo-night-dark-accent: #7aa2f7;
 }
 
-:root[data-palette="gruvbox"] {
+:root {
   --q-palette-gruvbox-light-background: #fbf1c7;
   --q-palette-gruvbox-dark-background: #282828;
   --q-palette-gruvbox-light-text: #3c3836;
@@ -79,7 +79,7 @@
   --q-palette-gruvbox-dark-accent: #fabd2f;
 }
 
-:root[data-palette="rose-pine"] {
+:root {
   --q-palette-rose-pine-light-background: #faf4ed;
   --q-palette-rose-pine-dark-background: #191724;
   --q-palette-rose-pine-light-text: #575279;
@@ -88,7 +88,7 @@
   --q-palette-rose-pine-dark-accent: #c4a7e7;
 }
 
-:root[data-palette="one-dark"] {
+:root {
   --q-palette-one-dark-light-background: #fafafa;
   --q-palette-one-dark-dark-background: #282c34;
   --q-palette-one-dark-light-text: #383a42;
@@ -97,7 +97,7 @@
   --q-palette-one-dark-dark-accent: #61afef;
 }
 
-:root[data-palette="everforest"] {
+:root {
   --q-palette-everforest-light-background: #fdf6e3;
   --q-palette-everforest-dark-background: #2d353b;
   --q-palette-everforest-light-text: #5c6a72;
@@ -106,7 +106,7 @@
   --q-palette-everforest-dark-accent: #a7c080;
 }
 
-:root[data-palette="kanagawa"] {
+:root {
   --q-palette-kanagawa-light-background: #f2ecbc;
   --q-palette-kanagawa-dark-background: #1f1f28;
   --q-palette-kanagawa-light-text: #54546d;
@@ -115,7 +115,7 @@
   --q-palette-kanagawa-dark-accent: #7e9cd8;
 }
 
-:root[data-palette="flexoki"] {
+:root {
   --q-palette-flexoki-light-background: #fffcf0;
   --q-palette-flexoki-dark-background: #100f0f;
   --q-palette-flexoki-light-text: #282726;
@@ -124,7 +124,7 @@
   --q-palette-flexoki-dark-accent: #d0a215;
 }
 
-:root[data-palette="ayu"] {
+:root {
   --q-palette-ayu-light-background: #fafafa;
   --q-palette-ayu-dark-background: #0b0e14;
   --q-palette-ayu-light-text: #5c6166;
@@ -133,7 +133,7 @@
   --q-palette-ayu-dark-accent: #e6b450;
 }
 
-:root[data-palette="solarized"] {
+:root {
   --q-palette-solarized-light-background: #fdf6e3;
   --q-palette-solarized-dark-background: #002b36;
   --q-palette-solarized-light-text: #657b83;
@@ -142,7 +142,7 @@
   --q-palette-solarized-dark-accent: #2aa198;
 }
 
-:root[data-palette="material"] {
+:root {
   --q-palette-material-light-background: #fafafa;
   --q-palette-material-dark-background: #212121;
   --q-palette-material-light-text: #212121;
@@ -151,7 +151,7 @@
   --q-palette-material-dark-accent: #80cbc4;
 }
 
-:root[data-palette="github"] {
+:root {
   --q-palette-github-light-background: #ffffff;
   --q-palette-github-dark-background: #0d1117;
   --q-palette-github-light-text: #1f2328;
@@ -160,7 +160,7 @@
   --q-palette-github-dark-accent: #2f81f7;
 }
 
-:root[data-palette="nightfox"] {
+:root {
   --q-palette-nightfox-light-background: #f4f2f1;
   --q-palette-nightfox-dark-background: #192330;
   --q-palette-nightfox-light-text: #575279;
@@ -169,7 +169,7 @@
   --q-palette-nightfox-dark-accent: #719cd6;
 }
 
-:root[data-palette="graphite"] {
+:root {
   --q-palette-graphite-light-background: #f3f3f2;
   --q-palette-graphite-dark-background: #242629;
   --q-palette-graphite-light-text: #333537;
@@ -178,7 +178,7 @@
   --q-palette-graphite-dark-accent: #a8adb4;
 }
 
-:root[data-palette="carbon"] {
+:root {
   --q-palette-carbon-light-background: #f6f6f6;
   --q-palette-carbon-dark-background: #161616;
   --q-palette-carbon-light-text: #262626;
@@ -187,7 +187,7 @@
   --q-palette-carbon-dark-accent: #ff6b35;
 }
 
-:root[data-palette="metal"] {
+:root {
   --q-palette-metal-light-background: #eef1f4;
   --q-palette-metal-dark-background: #20252b;
   --q-palette-metal-light-text: #303942;
@@ -196,7 +196,7 @@
   --q-palette-metal-dark-accent: #9bb5c9;
 }
 
-:root[data-palette="iceberg"] {
+:root {
   --q-palette-iceberg-light-background: #e8e9ec;
   --q-palette-iceberg-dark-background: #161821;
   --q-palette-iceberg-light-text: #33374c;
@@ -205,7 +205,7 @@
   --q-palette-iceberg-dark-accent: #84a0c6;
 }
 
-:root[data-palette="notion"] {
+:root {
   --q-palette-notion-light-background: #fbfaf8;
   --q-palette-notion-dark-background: #191919;
   --q-palette-notion-light-text: #37352f;
@@ -214,7 +214,7 @@
   --q-palette-notion-dark-accent: #b7b5b0;
 }
 
-:root[data-palette="craft"] {
+:root {
   --q-palette-craft-light-background: #f8f8f6;
   --q-palette-craft-dark-background: #202124;
   --q-palette-craft-light-text: #292a2d;
@@ -223,7 +223,7 @@
   --q-palette-craft-dark-accent: #92b4a9;
 }
 
-:root[data-palette="bear"] {
+:root {
   --q-palette-bear-light-background: #fffefa;
   --q-palette-bear-dark-background: #1b1b1b;
   --q-palette-bear-light-text: #272521;
@@ -232,7 +232,7 @@
   --q-palette-bear-dark-accent: #e66b5f;
 }
 
-:root[data-palette="capacities"] {
+:root {
   --q-palette-capacities-light-background: #f7f7fa;
   --q-palette-capacities-dark-background: #20212a;
   --q-palette-capacities-light-text: #30313c;
@@ -241,7 +241,7 @@
   --q-palette-capacities-dark-accent: #aaa2f5;
 }
 
-:root[data-palette="anytype"] {
+:root {
   --q-palette-anytype-light-background: #ffffff;
   --q-palette-anytype-dark-background: #161616;
   --q-palette-anytype-light-text: #262626;
@@ -250,7 +250,7 @@
   --q-palette-anytype-dark-accent: #b7b7b7;
 }
 
-:root[data-palette="notesnook"] {
+:root {
   --q-palette-notesnook-light-background: #f8fafc;
   --q-palette-notesnook-dark-background: #121a2b;
   --q-palette-notesnook-light-text: #1e293b;
@@ -259,7 +259,7 @@
   --q-palette-notesnook-dark-accent: #818cf8;
 }
 
-:root[data-palette="heptabase"] {
+:root {
   --q-palette-heptabase-light-background: #f6f7f9;
   --q-palette-heptabase-dark-background: #171a21;
   --q-palette-heptabase-light-text: #30343b;
@@ -268,11 +268,253 @@
   --q-palette-heptabase-dark-accent: #f0a357;
 }
 
-:root[data-palette="logseq"] {
+:root {
   --q-palette-logseq-light-background: #f4f7f8;
   --q-palette-logseq-dark-background: #1b2428;
   --q-palette-logseq-light-text: #27363b;
   --q-palette-logseq-dark-text: #dbe8e8;
   --q-palette-logseq-light-accent: #128c91;
   --q-palette-logseq-dark-accent: #54c8cb;
+}
+:root {
+  --q-palette-reham-amber-dark-background: #000000;
+  --q-palette-reham-amber-dark-text: #f2e8c8;
+  --q-palette-reham-amber-dark-accent: #e8a24a;
+  --q-palette-reham-amber-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-amber-light-text: color-mix(in srgb, #f2e8c8 24%, #000000);
+  --q-palette-reham-amber-light-accent: color-mix(in srgb, #e8a24a 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-aubergine-dark-background: #000000;
+  --q-palette-reham-aubergine-dark-text: #e6def0;
+  --q-palette-reham-aubergine-dark-accent: #a78be0;
+  --q-palette-reham-aubergine-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-aubergine-light-text: color-mix(in srgb, #e6def0 24%, #000000);
+  --q-palette-reham-aubergine-light-accent: color-mix(in srgb, #a78be0 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-dawn-dark-background: #12100c;
+  --q-palette-reham-dawn-dark-text: #e9e0d0;
+  --q-palette-reham-dawn-dark-accent: #d9a96b;
+  --q-palette-reham-dawn-light-background: color-mix(in srgb, #12100c 8%, #ffffff);
+  --q-palette-reham-dawn-light-text: color-mix(in srgb, #e9e0d0 24%, #000000);
+  --q-palette-reham-dawn-light-accent: color-mix(in srgb, #d9a96b 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-dracula-dark-background: #000000;
+  --q-palette-reham-dracula-dark-text: #e6e6ee;
+  --q-palette-reham-dracula-dark-accent: #bd93f9;
+  --q-palette-reham-dracula-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-dracula-light-text: color-mix(in srgb, #e6e6ee 24%, #000000);
+  --q-palette-reham-dracula-light-accent: color-mix(in srgb, #bd93f9 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-ember-dark-background: #120f11;
+  --q-palette-reham-ember-dark-text: #e9dddf;
+  --q-palette-reham-ember-dark-accent: #d9908f;
+  --q-palette-reham-ember-light-background: color-mix(in srgb, #120f11 8%, #ffffff);
+  --q-palette-reham-ember-light-text: color-mix(in srgb, #e9dddf 24%, #000000);
+  --q-palette-reham-ember-light-accent: color-mix(in srgb, #d9908f 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-forest-dark-background: #0e1311;
+  --q-palette-reham-forest-dark-text: #dce8e1;
+  --q-palette-reham-forest-dark-accent: #90bf9e;
+  --q-palette-reham-forest-light-background: color-mix(in srgb, #0e1311 8%, #ffffff);
+  --q-palette-reham-forest-light-text: color-mix(in srgb, #dce8e1 24%, #000000);
+  --q-palette-reham-forest-light-accent: color-mix(in srgb, #90bf9e 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-graphite-dark-background: #000000;
+  --q-palette-reham-graphite-dark-text: #e0e3e7;
+  --q-palette-reham-graphite-dark-accent: #7fc7c7;
+  --q-palette-reham-graphite-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-graphite-light-text: color-mix(in srgb, #e0e3e7 24%, #000000);
+  --q-palette-reham-graphite-light-accent: color-mix(in srgb, #7fc7c7 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-ink-dark-background: #000000;
+  --q-palette-reham-ink-dark-text: #f0f0f2;
+  --q-palette-reham-ink-dark-accent: #e0c07d;
+  --q-palette-reham-ink-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-ink-light-text: color-mix(in srgb, #f0f0f2 24%, #000000);
+  --q-palette-reham-ink-light-accent: color-mix(in srgb, #e0c07d 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-matcha-dark-background: #000000;
+  --q-palette-reham-matcha-dark-text: #dfe8d3;
+  --q-palette-reham-matcha-dark-accent: #96b75c;
+  --q-palette-reham-matcha-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-matcha-light-text: color-mix(in srgb, #dfe8d3 24%, #000000);
+  --q-palette-reham-matcha-light-accent: color-mix(in srgb, #96b75c 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-mint-dark-background: #000000;
+  --q-palette-reham-mint-dark-text: #dfe8ec;
+  --q-palette-reham-mint-dark-accent: #7dd3c5;
+  --q-palette-reham-mint-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-mint-light-text: color-mix(in srgb, #dfe8ec 24%, #000000);
+  --q-palette-reham-mint-light-accent: color-mix(in srgb, #7dd3c5 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-mist-dark-background: #0f0f0f;
+  --q-palette-reham-mist-dark-text: #e9e9e9;
+  --q-palette-reham-mist-dark-accent: #d4b88c;
+  --q-palette-reham-mist-light-background: color-mix(in srgb, #0f0f0f 8%, #ffffff);
+  --q-palette-reham-mist-light-text: color-mix(in srgb, #e9e9e9 24%, #000000);
+  --q-palette-reham-mist-light-accent: color-mix(in srgb, #d4b88c 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-nord-dark-background: #000000;
+  --q-palette-reham-nord-dark-text: #d8dee9;
+  --q-palette-reham-nord-dark-accent: #88c0d0;
+  --q-palette-reham-nord-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-nord-light-text: color-mix(in srgb, #d8dee9 24%, #000000);
+  --q-palette-reham-nord-light-accent: color-mix(in srgb, #88c0d0 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-obsidian-dark-background: #000000;
+  --q-palette-reham-obsidian-dark-text: #e8e3d9;
+  --q-palette-reham-obsidian-dark-accent: #d9b06c;
+  --q-palette-reham-obsidian-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-obsidian-light-text: color-mix(in srgb, #e8e3d9 24%, #000000);
+  --q-palette-reham-obsidian-light-accent: color-mix(in srgb, #d9b06c 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-ocean-dark-background: #0a1018;
+  --q-palette-reham-ocean-dark-text: #dde7f0;
+  --q-palette-reham-ocean-dark-accent: #6bb3d9;
+  --q-palette-reham-ocean-light-background: color-mix(in srgb, #0a1018 8%, #ffffff);
+  --q-palette-reham-ocean-light-text: color-mix(in srgb, #dde7f0 24%, #000000);
+  --q-palette-reham-ocean-light-accent: color-mix(in srgb, #6bb3d9 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-peach-dark-background: #000000;
+  --q-palette-reham-peach-dark-text: #efdfc8;
+  --q-palette-reham-peach-dark-accent: #f0a868;
+  --q-palette-reham-peach-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-peach-light-text: color-mix(in srgb, #efdfc8 24%, #000000);
+  --q-palette-reham-peach-light-accent: color-mix(in srgb, #f0a868 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-quantum-dark-background: #000000;
+  --q-palette-reham-quantum-dark-text: #e2e2e6;
+  --q-palette-reham-quantum-dark-accent: #61afef;
+  --q-palette-reham-quantum-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-quantum-light-text: color-mix(in srgb, #e2e2e6 24%, #000000);
+  --q-palette-reham-quantum-light-accent: color-mix(in srgb, #61afef 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-ruby-dark-background: #000000;
+  --q-palette-reham-ruby-dark-text: #e9dcde;
+  --q-palette-reham-ruby-dark-accent: #e0556d;
+  --q-palette-reham-ruby-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-ruby-light-text: color-mix(in srgb, #e9dcde 24%, #000000);
+  --q-palette-reham-ruby-light-accent: color-mix(in srgb, #e0556d 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-sakura-dark-background: #000000;
+  --q-palette-reham-sakura-dark-text: #f0dfe4;
+  --q-palette-reham-sakura-dark-accent: #e59ab0;
+  --q-palette-reham-sakura-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-sakura-light-text: color-mix(in srgb, #f0dfe4 24%, #000000);
+  --q-palette-reham-sakura-light-accent: color-mix(in srgb, #e59ab0 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-solarized-dark-background: #000000;
+  --q-palette-reham-solarized-dark-text: #93a1a1;
+  --q-palette-reham-solarized-dark-accent: #2aa198;
+  --q-palette-reham-solarized-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-solarized-light-text: color-mix(in srgb, #93a1a1 24%, #000000);
+  --q-palette-reham-solarized-light-accent: color-mix(in srgb, #2aa198 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-synth-dark-background: #000000;
+  --q-palette-reham-synth-dark-text: #e8def2;
+  --q-palette-reham-synth-dark-accent: #ff6ec7;
+  --q-palette-reham-synth-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-synth-light-text: color-mix(in srgb, #e8def2 24%, #000000);
+  --q-palette-reham-synth-light-accent: color-mix(in srgb, #ff6ec7 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-teal-dark-background: #000000;
+  --q-palette-reham-teal-dark-text: #cbded9;
+  --q-palette-reham-teal-dark-accent: #2eccb5;
+  --q-palette-reham-teal-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-teal-light-text: color-mix(in srgb, #cbded9 24%, #000000);
+  --q-palette-reham-teal-light-accent: color-mix(in srgb, #2eccb5 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-violet-dark-background: #0f0e16;
+  --q-palette-reham-violet-dark-text: #e3dff0;
+  --q-palette-reham-violet-dark-accent: #ab9df2;
+  --q-palette-reham-violet-light-background: color-mix(in srgb, #0f0e16 8%, #ffffff);
+  --q-palette-reham-violet-light-text: color-mix(in srgb, #e3dff0 24%, #000000);
+  --q-palette-reham-violet-light-accent: color-mix(in srgb, #ab9df2 60%, #000000);
+}
+
+:root {
+  --q-palette-reham-void-dark-background: #000000;
+  --q-palette-reham-void-dark-text: #d4d8e3;
+  --q-palette-reham-void-dark-accent: #7aa2f7;
+  --q-palette-reham-void-light-background: color-mix(in srgb, #000000 8%, #ffffff);
+  --q-palette-reham-void-light-text: color-mix(in srgb, #d4d8e3 24%, #000000);
+  --q-palette-reham-void-light-accent: color-mix(in srgb, #7aa2f7 60%, #000000);
+}
+
+:root {
+  --q-palette-blush-osyx-dark-background: #12080a;
+  --q-palette-blush-osyx-dark-text: #ca9395;
+  --q-palette-blush-osyx-dark-accent: #b97074;
+  --q-palette-blush-osyx-light-background: color-mix(in srgb, #12080a 8%, #ffffff);
+  --q-palette-blush-osyx-light-text: color-mix(in srgb, #ca9395 24%, #000000);
+  --q-palette-blush-osyx-light-accent: color-mix(in srgb, #b97074 60%, #000000);
+}
+
+:root {
+  --q-palette-malachite-osyx-dark-background: #00140e;
+  --q-palette-malachite-osyx-dark-text: #8ed7cf;
+  --q-palette-malachite-osyx-dark-accent: #01736c;
+  --q-palette-malachite-osyx-light-background: color-mix(in srgb, #00140e 8%, #ffffff);
+  --q-palette-malachite-osyx-light-text: color-mix(in srgb, #8ed7cf 24%, #000000);
+  --q-palette-malachite-osyx-light-accent: color-mix(in srgb, #01736c 60%, #000000);
+}
+
+:root {
+  --q-palette-sakura-osyx-dark-background: #080e18;
+  --q-palette-sakura-osyx-dark-text: #fcd8e4;
+  --q-palette-sakura-osyx-dark-accent: #e08098;
+  --q-palette-sakura-osyx-light-background: color-mix(in srgb, #080e18 8%, #ffffff);
+  --q-palette-sakura-osyx-light-text: color-mix(in srgb, #fcd8e4 24%, #000000);
+  --q-palette-sakura-osyx-light-accent: color-mix(in srgb, #e08098 60%, #000000);
+}
+
+:root {
+  --q-palette-cendre-dark-background: #171311;
+  --q-palette-cendre-dark-text: #e6d5c2;
+  --q-palette-cendre-dark-accent: #ea9875;
+  --q-palette-cendre-light-background: #f2ede7;
+  --q-palette-cendre-light-text: #332820;
+  --q-palette-cendre-light-accent: #a94f2f;
 }

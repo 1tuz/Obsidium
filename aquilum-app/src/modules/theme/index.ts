@@ -21,9 +21,9 @@ export interface ThemePalette {
 }
 
 export function motionEnabled(): boolean {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return true;
+  if (typeof document === 'undefined' || typeof window === 'undefined') return false;
   const motion = document.documentElement.dataset.motion;
-  return motion === 'on' || (motion !== 'off'
+  return motion === 'on' || (motion === 'system'
     && !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 
@@ -77,12 +77,39 @@ export const themePalettes: ThemePalette[] = [
   palette('notesnook', 'Notesnook'),
   palette('heptabase', 'Heptabase'),
   palette('logseq', 'Logseq'),
-];
+  palette("reham-amber", "Amber (RehamVim)"),
+  palette("reham-aubergine", "Aubergine (RehamVim)"),
+  palette("reham-dawn", "Dawn (RehamVim)"),
+  palette("reham-dracula", "Dracula (RehamVim)"),
+  palette("reham-ember", "Ember (RehamVim)"),
+  palette("reham-forest", "Forest (RehamVim)"),
+  palette("reham-graphite", "Graphite (RehamVim)"),
+  palette("reham-ink", "Ink (RehamVim)"),
+  palette("reham-matcha", "Matcha (RehamVim)"),
+  palette("reham-mint", "Mint (RehamVim)"),
+  palette("reham-mist", "Mist (RehamVim)"),
+  palette("reham-nord", "Nord (RehamVim)"),
+  palette("reham-obsidian", "Obsidian (RehamVim)"),
+  palette("reham-ocean", "Ocean (RehamVim)"),
+  palette("reham-peach", "Peach (RehamVim)"),
+  palette("reham-quantum", "Quantum (RehamVim)"),
+  palette("reham-ruby", "Ruby (RehamVim)"),
+  palette("reham-sakura", "Sakura (RehamVim)"),
+  palette("reham-solarized", "Solarized (RehamVim)"),
+  palette("reham-synth", "Synth (RehamVim)"),
+  palette("reham-teal", "Teal (RehamVim)"),
+  palette("reham-violet", "Violet (RehamVim)"),
+  palette("reham-void", "Void (RehamVim)"),
+  palette('blush-osyx', 'Blush (osyx)'),
+  palette('malachite-osyx', 'Malachite (osyx)'),
+  palette('sakura-osyx', 'Sakura (osyx)'),
+  palette('cendre', 'Cendre'),
+].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 
 let currentAppearance: Theme = 'system';
 let currentMode: ThemeMode = 'light';
 let currentPalette = 'obsidium';
-let currentMotion: Motion = 'system';
+let currentMotion: Motion = 'off';
 let currentAccentMode: AccentMode = 'palette';
 let currentPrimaryColor = '#1471eb';
 const modeListeners = new Set<() => void>();
@@ -151,7 +178,7 @@ export function subscribeThemeMode(listener: () => void): () => void {
 export function setTheme(
   appearance: Theme,
   paletteId = 'obsidium',
-  motion: Motion = 'system',
+  motion: Motion = 'off',
   accentMode: AccentMode = 'palette',
   primaryColor = '#1471eb',
 ): void {
@@ -169,7 +196,7 @@ export function initTheme(): () => void {
   const handleChange = () => {
     if (currentAppearance === 'system') {
       const root = document.documentElement;
-      applyTheme('system', root.dataset.palette ?? 'obsidium', (root.dataset.motion as Motion) ?? 'system',
+      applyTheme('system', root.dataset.palette ?? 'obsidium', (root.dataset.motion as Motion) ?? currentMotion,
         (root.dataset.accentMode as AccentMode) ?? 'palette', currentPrimaryColor);
     }
   };

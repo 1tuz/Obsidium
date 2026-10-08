@@ -10,6 +10,8 @@ import { SidebarFooter } from './SidebarFooter';
 import { buildVisibleFileRows, unloadedExpandedFolders, type FileTreeActions } from './fileTreeModel';
 import type { LinkDisposition } from '../../modules/links';
 import { useExpandedFolders } from '../../modules/workspace/uiPersist';
+import { useSettingsStore, DEFAULT_BUILTINS } from '../../modules/settings';
+import { setFileIcon, rebaseFileIcons, type FileIconAssignment } from './iconize';
 import { moveIntoFolder } from './moveIntoFolder';
 import { useFileTreeDrag } from './useFileDragAndDrop';
 import { useFileSelection } from './useFileSelection';
@@ -38,8 +40,8 @@ interface SidebarProps {
   boardActionRequest?: BoardActionRequest | null;
   onBoardActionRequestComplete: () => void;
   createBoardRequest: number;
-  onAddToBoard: (path: string) => void;
-  onRemoveFromBoard: (path: string) => void;
+  onAddToBoard?: (path: string) => void;
+  onRemoveFromBoard?: (path: string) => void;
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -66,6 +68,36 @@ export const Sidebar = memo(function Sidebar({
   onRemoveFromBoard,
 }: SidebarProps) {
   const { expandedFolders, setExpandedFolders, followFolder } = useExpandedFolders(workspacePath);
+  const { config, updateConfig } = useSettingsStore();
+  const configRef = useRef(config);
+  configRef.current = config;
+  const builtins = config?.builtins ?? DEFAULT_BUILTINS;
+  const iconizeEnabled = Boolean(config) && builtins.iconize;
+  const iconAssignments = workspacePath
+    ? builtins.iconAssignments?.[workspacePath] ?? {}
+    : {};
+  const updateIconAssignments = useStableCallback((
+    update: (current: Record<string, FileIconAssignment>) => Record<string, FileIconAssignment>,
+  ) => {
+    const current = configRef.current;
+    if (!current || !workspacePath) return;
+    const settings = current.builtins ?? DEFAULT_BUILTINS;
+    const assignments = update(settings.iconAssignments[workspacePath] ?? {});
+    const next = {
+      ...current,
+      builtins: {
+        ...settings,
+        iconAssignments: { ...settings.iconAssignments, [workspacePath]: assignments },
+      },
+    };
+    configRef.current = next;
+    void updateConfig(next).catch((error) => {
+      console.error('Failed to save file icon settings', error);
+    });
+  });
+  const updateIcon = useStableCallback((path: string, icon: FileIconAssignment | null) => {
+    updateIconAssignments((current) => setFileIcon(current, path, icon));
+  });
   const contentRef = useRef<HTMLDivElement>(null);
   const pendingScrollTopRef = useRef<number | null>(null);
   const treeReady = Boolean(workspacePath && directories.has(workspacePath));
@@ -84,7 +116,10 @@ export const Sidebar = memo(function Sidebar({
     targetsFor,
     clearSelection,
     onPatchFileInTree,
-    onPathMoved: followFolder,
+    onPathMoved: (from, to) => {
+      followFolder(from, to);
+      updateIconAssignments((current) => rebaseFileIcons(current, from, to));
+    },
   });
 
   const moveFiles = useStableCallback(async (sourceId: string, targetId: string) => {
@@ -94,6 +129,7 @@ export const Sidebar = memo(function Sidebar({
       if (!moved) continue;
       anyMoved = true;
       followFolder(fileId, moved);
+      updateIconAssignments((current) => rebaseFileIcons(current, fileId, moved));
     }
 
     if (!anyMoved) return;
@@ -177,6 +213,8 @@ export const Sidebar = memo(function Sidebar({
             selectedFiles={selectedFiles}
             renamingPath={fileOps.renamingPath}
             actions={treeActions}
+            icons={iconizeEnabled ? iconAssignments : undefined}
+            onIconChange={iconizeEnabled ? updateIcon : undefined}
           />
         )}
         </div>

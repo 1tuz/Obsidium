@@ -72,7 +72,10 @@ export function Editor({
     if (!await renameTo(draft)) titleRef.current?.setValue(title);
   };
 
-  const editorSettings = useSettingsStore().config?.editor;
+  const appSettings = useSettingsStore().config;
+  const editorSettings = appSettings?.editor;
+  const highlightrEnabled = appSettings?.builtins?.highlightr ?? true;
+  const advancedOutlinerEnabled = appSettings?.builtins?.outliner ?? true;
   const smartDashes = editorSettings?.smartDashes ?? true;
   const listCallouts = editorSettings?.listCallouts ?? true;
   const autoLinkTitle = editorSettings?.autoLinkTitle ?? true;
@@ -144,6 +147,8 @@ export function Editor({
     currentNotePath,
     linkSuggest,
     linkSuggestMinChars,
+    highlightrEnabled,
+    advancedOutlinerEnabled,
   );
   const extensions = useMemo(
     () => (isReady ? [baseExtensions, syncExtension] : []),

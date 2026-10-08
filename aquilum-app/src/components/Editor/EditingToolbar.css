@@ -35,6 +35,28 @@
   padding-right: 0;
 }
 
+.q-editing-toolbar__palette {
+  position: fixed;
+  z-index: 121;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--q-space-4);
+  align-items: center;
+  max-width: 300px;
+  padding: var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-rounded-lg);
+  background: var(--q-bg-surface-raised);
+  box-shadow: var(--q-elevation-md);
+}
+.q-editing-toolbar__color {
+  flex: 0 0 var(--q-size-24);
+  width: var(--q-size-24);
+  height: var(--q-size-24);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-rounded-sm);
+  cursor: pointer;
+}
 .q-editing-toolbar--floating {
   position: fixed;
   z-index: 120;

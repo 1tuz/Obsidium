@@ -101,12 +101,25 @@ export interface BuiltinPluginSettings {
   editingToolbar: boolean;
   kanban: boolean;
   toolbarPosition: 'top' | 'selection';
+  highlightr: boolean;
+  outliner: boolean;
+  iconize: boolean;
+  highlightColors: string[];
+  iconAssignments: Record<string, Record<string, FileIconAssignment>>;
 }
+
+export type FileIconId = 'file' | 'folder' | 'book' | 'star' | 'tag' | 'code' | 'briefcase' | 'pin' | 'heart' | 'music';
+export interface FileIconAssignment { name: FileIconId; color: string }
 
 export const DEFAULT_BUILTINS: BuiltinPluginSettings = {
   editingToolbar: true,
-  kanban: false,
+  kanban: true,
   toolbarPosition: 'top',
+  highlightr: true,
+  outliner: true,
+  iconize: true,
+  highlightColors: ['#ffe96b', '#b8f3c3', '#a6dfff', '#ffc6df', '#dcc9ff', '#ffcf9c'],
+  iconAssignments: {},
 };
 
 export interface AppConfig {
@@ -155,6 +168,7 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
 function withKnownFonts(config: AppConfig): AppConfig {
   return {
     ...config,
+    builtins: { ...DEFAULT_BUILTINS, ...config.builtins },
     ui: knownFont('ui', config.ui),
     editor: knownFont('editor', config.editor),
     reader: knownFont('reader', config.reader),

@@ -39,6 +39,7 @@ export function Titlebar({
   useHorizontalWheelScroll(tabsRef, true, null);
 
   const inset = !isMacOs() && !rightSidebarOpen ? 'q-titlebar--trailing-inset' : '';
+  const rightSidebarInset = !isMacOs() ? 'q-titlebar-right-sidebar--trailing-inset' : '';
 
   return (
     <div data-tauri-drag-region className={`q-titlebar ${inset}`.trim()}>
@@ -70,6 +71,7 @@ export function Titlebar({
           <IconButton
             label={rightSidebarOpen ? t('titlebar.hideRightSidebar') : t('titlebar.showRightSidebar')}
             size="medium"
+            className={`q-titlebar-right-sidebar ${rightSidebarInset}`.trim()}
             aria-expanded={rightSidebarOpen}
             onClick={onToggleRightSidebar}
           >

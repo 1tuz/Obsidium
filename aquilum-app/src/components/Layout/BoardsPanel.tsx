@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { Button } from '../Common/Button';
 import { Dialog, DialogFooter } from '../Common/Dialog';
 import { Icon } from '../Common/Icon';
-import { Columns3, Folder } from 'lucide';
+import { IconButton } from '../Common/IconButton';
+import { Menu, type MenuItem, type MenuPosition } from '../Common/Menu';
+import { ConfirmDialog } from '../Common/ConfirmDialog';
+import { Columns3, Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
 import { listen } from '@tauri-apps/api/event';
 import { t } from '../../i18n';
 import {
@@ -22,9 +25,11 @@ import {
   isBasePath,
   readDirectory,
   readFileSnapshot,
+  trashFile,
   writeFileAtomic,
   type FileSnapshot,
 } from '../../modules/documents/fileGateway';
+import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile';
 import { childPath } from '../../modules/paths';
 import { boardTree, type BoardFolder } from '../../modules/bases/boardTree';
 import './BoardsPanel.css';
@@ -49,20 +54,35 @@ const STATUS_COLUMNS = ['backlog', 'todo', 'doing', 'done'];
 function FolderTree({
   folder,
   onOpenView,
-}: { folder: BoardFolder; onOpenView: BoardsPanelProps['onOpenView'] }) {
+  onRenameBoard,
+  onDeleteBoard,
+}: {
+  folder: BoardFolder;
+  onOpenView: BoardsPanelProps['onOpenView'];
+  onRenameBoard: (board: KanbanBoard) => void;
+  onDeleteBoard: (board: KanbanBoard) => void;
+}) {
   return (
     <ul className="q-boards-tree">
       {folder.folders.map((child) => (
         <li key={child.path}>
           <details open>
             <summary><Icon icon={Folder} />{child.name}</summary>
-            <FolderTree folder={child} onOpenView={onOpenView} />
+            <FolderTree
+              folder={child}
+              onOpenView={onOpenView}
+              onRenameBoard={onRenameBoard}
+              onDeleteBoard={onDeleteBoard}
+            />
           </details>
         </li>
       ))}
       {folder.boards.map((board) => (
         <li className="q-boards-tree__board" key={board.path}>
-          <strong>{board.name}</strong>
+          <div className="q-boards-tree__heading">
+            <strong>{board.name}</strong>
+            <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
+          </div>
           {board.views.map((view) => (
             <button
               type="button"
@@ -77,6 +97,40 @@ function FolderTree({
         </li>
       ))}
     </ul>
+  );
+}
+
+function BoardMenu({
+  board,
+  onRename,
+  onDelete,
+}: {
+  board: KanbanBoard;
+  onRename: (board: KanbanBoard) => void;
+  onDelete: (board: KanbanBoard) => void;
+}) {
+  const [position, setPosition] = useState<MenuPosition | null>(null);
+  const close = useCallback(() => setPosition(null), []);
+  const items: MenuItem[] = [
+    { id: 'rename', label: t('common.rename'), icon: Pencil, onSelect: () => onRename(board) },
+    { id: 'delete', label: t('common.delete'), icon: Trash2, onSelect: () => onDelete(board) },
+  ];
+
+  return (
+    <>
+      <IconButton
+        label={t('boards.actions', { name: board.name })}
+        size="small"
+        aria-expanded={Boolean(position)}
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          setPosition({ top: rect.bottom, left: rect.right });
+        }}
+      >
+        <Icon icon={MoreHorizontal} />
+      </IconButton>
+      <Menu open={Boolean(position)} position={position} items={items} onClose={close} />
+    </>
   );
 }
 
@@ -97,6 +151,11 @@ export function BoardsPanel({
   const [failed, setFailed] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [renameTarget, setRenameTarget] = useState<KanbanBoard | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<KanbanBoard | null>(null);
+  const [renameError, setRenameError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [boardActionPending, setBoardActionPending] = useState(false);
   const tree = useMemo(
     () => workspacePath ? boardTree(boards, workspacePath) : null,
     [boards, workspacePath],
@@ -166,6 +225,37 @@ export function BoardsPanel({
     onActionRequestComplete();
   };
 
+  const saveBoardName = async (name: string) => {
+    if (!renameTarget || boardActionPending) return;
+    setBoardActionPending(true);
+    setRenameError('');
+    try {
+      const nextPath = await renameWorkspaceFile(renameTarget.path, name);
+      if (!nextPath && name.trim() !== renameTarget.name) throw new Error(t('boards.invalidName'));
+      setRenameTarget(null);
+      await refresh();
+    } catch (error) {
+      setRenameError(t('boards.renameError', { reason: String(error) }));
+    } finally {
+      setBoardActionPending(false);
+    }
+  };
+
+  const confirmBoardDelete = async () => {
+    if (!deleteTarget || !workspacePath || boardActionPending) return;
+    setBoardActionPending(true);
+    setDeleteError('');
+    try {
+      await trashFile(workspacePath, deleteTarget.path);
+      setDeleteTarget(null);
+      await refresh();
+    } catch (error) {
+      setDeleteError(t('boards.deleteError', { reason: String(error) }));
+    } finally {
+      setBoardActionPending(false);
+    }
+  };
+
   const applyBoardAction = async (board: KanbanBoard, viewIndex: number) => {
     if (!actionRequest) return;
     const view = board.views.find((candidate) => candidate.index === viewIndex);
@@ -206,7 +296,14 @@ export function BoardsPanel({
       {loading && boards.length === 0 ? <p>{t('boards.loading')}</p> : null}
       {failed ? <p role="alert">{t('boards.loadError')}</p> : null}
       {!loading && !failed && boards.length === 0 ? <p>{t('boards.empty')}</p> : null}
-      {tree && boards.length > 0 ? <FolderTree folder={tree} onOpenView={onOpenView} /> : null}
+      {tree && boards.length > 0 ? (
+        <FolderTree
+          folder={tree}
+          onOpenView={onOpenView}
+          onRenameBoard={(board) => { setRenameError(''); setRenameTarget(board); }}
+          onDeleteBoard={(board) => { setDeleteError(''); setDeleteTarget(board); }}
+        />
+      ) : null}
       <NewBoardDialog
         open={newOpen}
         workspacePath={workspacePath}
@@ -220,7 +317,67 @@ export function BoardsPanel({
         onSelect={applyBoardAction}
         onClose={completeAction}
       />
+      <RenameBoardDialog
+        board={renameTarget}
+        error={renameError}
+        pending={boardActionPending}
+        onSave={saveBoardName}
+        onClose={() => setRenameTarget(null)}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={t('boards.deleteTitle')}
+        description={t('boards.deleteDescription', { name: deleteTarget?.name ?? '' })}
+        error={deleteError}
+        confirmLabel={t('common.delete')}
+        pending={boardActionPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void confirmBoardDelete()}
+      />
     </section>
+  );
+}
+
+function RenameBoardDialog({
+  board,
+  error,
+  pending,
+  onSave,
+  onClose,
+}: {
+  board: KanbanBoard | null;
+  error: string;
+  pending: boolean;
+  onSave: (name: string) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState('');
+
+  useEffect(() => setName(board?.name ?? ''), [board]);
+
+  return (
+    <Dialog
+      open={Boolean(board)}
+      title={t('boards.renameTitle')}
+      closeLabel={t('common.cancel')}
+      dismissible={!pending}
+      onClose={onClose}
+      className="q-boards-dialog"
+    >
+      <div className="q-boards-form">
+        <label className="q-boards-form__field">
+          <span>{t('boards.name')}</span>
+          <input autoFocus value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.currentTarget.value)} />
+        </label>
+        {error ? <p className="q-boards-form__error" role="alert">{error}</p> : null}
+      </div>
+      <DialogFooter>
+        <Button variant="ghost" disabled={pending} onClick={onClose}>{t('common.cancel')}</Button>
+        <Button disabled={pending || !name.trim()} onClick={() => onSave(name)}>
+          {pending ? t('boards.renaming') : t('common.rename')}
+        </Button>
+      </DialogFooter>
+    </Dialog>
   );
 }
 
