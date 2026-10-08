@@ -40,4 +40,10 @@ describe('editing toolbar Markdown actions', () => {
     expect(applyEdits(markdown, blockMarkdownEdits(markdown, 0, 0, 'h1')))
       .toBe('# line');
   });
+
+  it('supports all remaining Markdown heading levels', () => {
+    expect(applyEdits('text', blockMarkdownEdits('text', 0, 4, 'h4'))).toBe('#### text');
+    expect(applyEdits('text', blockMarkdownEdits('text', 0, 4, 'h5'))).toBe('##### text');
+    expect(applyEdits('text', blockMarkdownEdits('text', 0, 4, 'h6'))).toBe('###### text');
+  });
 });

@@ -4,8 +4,9 @@ import {
   type NavigationHistoryState,
 } from '../navigationHistory';
 import { absolutePath, comparablePath, rebasedPath, relativePath } from '../paths';
-import type { SessionTab } from '../ui-state';
+import type { PaneLayout, SessionTab } from '../ui-state';
 import { clamp } from '../math';
+import { getWindowId } from '../windowId';
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -109,27 +110,66 @@ export function useExpandedFolders(workspacePath: string | null) {
 }
 
 function tabsCacheKey(workspacePath: string): string {
+  return `${workspaceStorageKey('aquilum_tabs_cache', workspacePath)}:${getWindowId()}`;
+}
+
+function legacyTabsCacheKey(workspacePath: string): string {
   return workspaceStorageKey('aquilum_tabs_cache', workspacePath);
 }
 
 interface StoredTabSession {
   tabs: SessionTab[];
   activeTabId: string;
+  layout: PaneLayout;
+}
+
+function isPaneLayout(value: unknown): value is PaneLayout {
+  const paneIds = new Set<string>();
+  let leaves = 0;
+  const visit = (node: unknown, depth = 0): boolean => {
+    if (depth > 7) return false;
+    if (typeof node !== 'object' || node === null) return false;
+    const layout = node as Record<string, unknown>;
+    if (layout.kind === 'pane') {
+      if (typeof layout.paneId !== 'string' || !layout.paneId || paneIds.has(layout.paneId)) return false;
+      if (layout.activeTabId !== null && typeof layout.activeTabId !== 'string') return false;
+      paneIds.add(layout.paneId);
+      leaves += 1;
+      return leaves <= 4;
+    }
+    if (layout.kind !== 'split' || (layout.direction !== 'horizontal' && layout.direction !== 'vertical')) return false;
+    if (typeof layout.ratio !== 'number' || !Number.isFinite(layout.ratio)) return false;
+    if (!Array.isArray(layout.children) || layout.children.length !== 2) return false;
+    return visit(layout.children[0], depth + 1) && visit(layout.children[1], depth + 1);
+  };
+  return visit(value);
 }
 
 export function loadTabSessionCache(workspacePath: string): StoredTabSession | null {
-  const stored = readJson<StoredTabSession | null>(tabsCacheKey(workspacePath), null);
-  if (!stored || !Array.isArray(stored.tabs) || stored.tabs.length === 0) return null;
+  const scoped = readJson<StoredTabSession | null>(tabsCacheKey(workspacePath), null);
+  const stored = scoped ?? (getWindowId() === 'main'
+    ? readJson<Omit<StoredTabSession, 'layout'> & { layout?: PaneLayout } | null>(legacyTabsCacheKey(workspacePath), null)
+    : null);
+  if (!stored || !Array.isArray(stored.tabs) || stored.tabs.length === 0
+    || !stored.tabs.every((tab) => typeof tab === 'object' && tab !== null
+      && typeof tab.tabId === 'string' && typeof tab.path === 'string')) return null;
   if (typeof stored.activeTabId !== 'string') return null;
-  return stored;
+  const layout = stored.layout ?? { kind: 'pane', paneId: 'main', activeTabId: stored.activeTabId };
+  if (!isPaneLayout(layout)) return null;
+  return {
+    ...stored,
+    tabs: stored.tabs.map((tab) => ({ ...tab, paneId: tab.paneId || 'main' })),
+    layout,
+  };
 }
 
 export function saveTabSessionCache(
   workspacePath: string,
   tabs: StoredTabSession['tabs'],
   activeTabId: string,
+  layout: PaneLayout,
 ): void {
-  writeJson(tabsCacheKey(workspacePath), { tabs, activeTabId } satisfies StoredTabSession);
+  writeJson(tabsCacheKey(workspacePath), { tabs, activeTabId, layout } satisfies StoredTabSession);
 }
 
 function navigationKey(workspacePath: string): string {

@@ -16,6 +16,7 @@ const uiStateMocks = vi.hoisted(() => ({
   markDocumentMissing: vi.fn(),
   open: vi.fn(),
   queueActiveTab: vi.fn(),
+  queueLayout: vi.fn(),
   queueTabsSnapshot: vi.fn(),
 }));
 const settingsState = vi.hoisted(() => ({
@@ -143,7 +144,7 @@ vi.mock('./components/Settings/SettingsDialog', () => ({
 
 vi.mock('./modules/settings', () => ({
   DEFAULT_LIVE_TABS: 3,
-  DEFAULT_BUILTINS: { editingToolbar: false, kanban: true, toolbarPosition: 'top' },
+  DEFAULT_BUILTINS: { editingToolbar: false, kanban: true, panes: false, toolbarPosition: 'top' },
   useSettingsStore: () => ({
     config: settingsState.config,
     isLoading: false,
@@ -179,6 +180,7 @@ function sessionStub(overrides: Record<string, unknown> = {}) {
     restoredTabs: () => [],
     markDocumentMissing: uiStateMocks.markDocumentMissing,
     queueActiveTab: uiStateMocks.queueActiveTab,
+    queueLayout: uiStateMocks.queueLayout,
     queueTabsSnapshot: uiStateMocks.queueTabsSnapshot,
     queueView: vi.fn(),
     loadedView: vi.fn(() => null),
@@ -387,13 +389,17 @@ describe('App editor lifecycle', () => {
     workspaceState.files = [{ id: 'C:\\notes\\kept.md', name: 'kept.md', type: 'file' }];
     uiStateMocks.markDocumentMissing.mockResolvedValue(undefined);
     uiStateMocks.open.mockResolvedValue({
-      loaded: { activeTabId: 'missing-tab' },
+      loaded: {
+        activeTabId: 'missing-tab',
+        layout: { kind: 'pane', paneId: 'main', activeTabId: 'missing-tab' },
+      },
       restoredTabs: () => [
-        { tabId: 'kept-tab', documentId: 'kept-doc', kind: 'document', path: 'C:\\notes\\kept.md' },
-        { tabId: 'missing-tab', documentId: 'missing-doc', kind: 'document', path: 'C:\\notes\\missing.md' },
+        { tabId: 'kept-tab', documentId: 'kept-doc', kind: 'document', path: 'C:\\notes\\kept.md', paneId: 'main' },
+        { tabId: 'missing-tab', documentId: 'missing-doc', kind: 'document', path: 'C:\\notes\\missing.md', paneId: 'main' },
       ],
       markDocumentMissing: uiStateMocks.markDocumentMissing,
       queueActiveTab: uiStateMocks.queueActiveTab,
+      queueLayout: uiStateMocks.queueLayout,
       queueTabsSnapshot: uiStateMocks.queueTabsSnapshot,
       queueView: vi.fn(),
       loadedView: vi.fn(() => null),
@@ -415,6 +421,7 @@ describe('App editor lifecycle', () => {
     expect(uiStateMocks.queueTabsSnapshot).toHaveBeenLastCalledWith(
       [expect.objectContaining({ tabId: 'kept-tab' })],
       'kept-tab',
+      expect.objectContaining({ kind: 'pane', paneId: 'main' }),
     );
   });
 });

@@ -45,7 +45,11 @@
       "task": "Список задач",
       "quote": "Цитата",
       "indent": "Увеличить отступ",
-      "outdent": "Уменьшить отступ"
+      "outdent": "Уменьшить отступ",
+      "h4": "Заголовок 4",
+      "h5": "Заголовок 5",
+      "h6": "Заголовок 6",
+      "image": "Изображение"
     },
     "metadata": "Метаданные",
     "createNote": "Создать заметку",
@@ -75,7 +79,9 @@
       "cellAria": "Ячейка таблицы",
       "addColumn": "Добавить столбец",
       "addRow": "Добавить строку"
-    }
+    },
+    "readingMode": "Режим чтения",
+    "editingMode": "Режим редактирования"
   },
   "tabs": {
     "graph": "Граф",
@@ -216,7 +222,20 @@
       "top": "Над редактором",
       "selection": "Возле выделенного текста",
       "kanban": "Kanban",
-      "kanbanHint": "Показывать панель досок и команды Kanban"
+      "kanbanHint": "Показывать панель досок и команды Kanban",
+      "panes": "Панели рабочего пространства",
+      "panesHint": "Разделять редактор на независимые панели вкладок",
+      "highlightr": "Highlightr",
+      "highlightrHint": "Цветное выделение текста с совместимой HTML-разметкой",
+      "outliner": "Outliner",
+      "outlinerHint": "Перемещение веток списка и сворачивание вложенных пунктов",
+      "iconize": "Iconize",
+      "iconizeHint": "Значки и цвета файлов и папок",
+      "palette": "Цвета выделения",
+      "color": "Цвет {{index}}",
+      "moveUp": "Выше",
+      "removeColor": "Удалить",
+      "addColor": "Добавить цвет"
     },
     "font": {
       "section": "Шрифты",
@@ -248,7 +267,8 @@
       "primaryColor": "Основной цвет",
       "accentMode": "Источник акцента",
       "paletteAccent": "Палитра",
-      "customAccent": "Свой цвет"
+      "customAccent": "Свой цвет",
+      "motionAuto": "Авто"
     },
     "editor": {
       "lineHeight": "Межстрочный интервал",
@@ -462,7 +482,12 @@
     "hideRightSidebar": "Скрыть правую боковую панель",
     "showRightSidebar": "Показать правую боковую панель",
     "switchToLightTheme": "Переключить на светлую тему",
-    "switchToDarkTheme": "Переключить на тёмную тему"
+    "switchToDarkTheme": "Переключить на тёмную тему",
+    "splitSide": "Разделить панель рядом",
+    "splitBelow": "Разделить панель снизу",
+    "closePane": "Закрыть панель",
+    "resizePaneWidth": "Изменить ширину панели",
+    "resizePaneHeight": "Изменить высоту панели"
   },
   "commands": {
     "title": "Палитра команд",
@@ -571,7 +596,10 @@
       "few": "{{count}} заметки",
       "many": "{{count}} заметок",
       "other": "{{count}} заметки"
-    }
+    },
+    "iconize": "Изменить значок или цвет",
+    "iconColor": "Цвет значка",
+    "iconReset": "Сбросить значок"
   },
   "workspace": {
     "switch": "Переключить базу знаний",

@@ -23,10 +23,10 @@ const openSessionMock = vi.mocked(openSession);
 const resolveWorkspaceMock = vi.mocked(resolveWorkspace);
 const saveStateBatchMock = vi.mocked(saveStateBatch);
 
-function view(documentId: string, position: number): ViewState {
+function view(documentId: string, position: number, paneId = 'main'): ViewState {
   return {
     documentId,
-    paneId: 'main',
+    paneId,
     cursorAnchor: [1],
     cursorHead: [2],
     fallbackAnchor: position,
@@ -42,7 +42,13 @@ describe('WorkspaceSession view state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resolveWorkspaceMock.mockResolvedValue(crypto.randomUUID());
-    openSessionMock.mockResolvedValue({ activeTabId: null, tabs: [], views: [], graphCamera: null });
+    openSessionMock.mockResolvedValue({
+      activeTabId: null,
+      tabs: [],
+      layout: { kind: 'pane', paneId: 'main', activeTabId: null },
+      views: [],
+      graphCamera: null,
+    });
     saveStateBatchMock.mockResolvedValue(true);
   });
 
@@ -74,5 +80,20 @@ describe('WorkspaceSession view state', () => {
     expect(session.isViewLoaded(documentId)).toBe(true);
     await expect(session.ensureViewLoaded(documentId)).resolves.toEqual(stored);
     expect(loadDocumentViewMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps cursor state for the same document separate by pane', async () => {
+    const documentId = crypto.randomUUID();
+    loadDocumentViewMock.mockImplementation(async (_workspace, _window, _document, paneId) => view(documentId, paneId === 'right' ? 9 : 2, paneId));
+    const session = await WorkspaceSession.open('C:\\notes');
+
+    await Promise.all([
+      session.ensureViewLoaded(documentId, 'main'),
+      session.ensureViewLoaded(documentId, 'right'),
+    ]);
+
+    expect(session.loadedView(documentId, 'main')?.fallbackAnchor).toBe(2);
+    expect(session.loadedView(documentId, 'right')?.fallbackAnchor).toBe(9);
+    expect(loadDocumentViewMock).toHaveBeenCalledTimes(2);
   });
 });

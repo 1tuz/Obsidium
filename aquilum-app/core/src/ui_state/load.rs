@@ -2,8 +2,11 @@ use super::database::UiStateDatabase;
 use super::error::UiStateError;
 use super::models::{
     parse_uuid_column, GraphCameraState, LoadedSession, LoadedTabState, LoadedViewState, TabKind,
+    TabState,
 };
+use super::panes::{normalize_active_tabs, restore_layout};
 use rusqlite::{params, OptionalExtension, Row};
+use std::collections::HashSet;
 use uuid::Uuid;
 
 impl UiStateDatabase {
@@ -12,50 +15,87 @@ impl UiStateDatabase {
         workspace_id: Uuid,
         window_id: &str,
     ) -> Result<LoadedSession, UiStateError> {
-        let stored_active = self
+        let stored_session = self
             .connection
             .query_row(
                 "SELECT CASE WHEN EXISTS(
                      SELECT 1 FROM tabs t WHERE t.workspace_id = sessions.workspace_id
                      AND t.window_id = sessions.window_id AND t.tab_id = sessions.active_tab_id
-                 ) THEN active_tab_id ELSE NULL END
+                 ) THEN active_tab_id ELSE NULL END, layout_json
                  FROM sessions WHERE workspace_id = ?1 AND window_id = ?2",
                 params![workspace_id.to_string(), window_id],
-                |row| row.get::<_, Option<String>>(0),
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                    ))
+                },
             )
             .optional()?
-            .flatten()
+            .unwrap_or((None, None));
+        let stored_active = stored_session
+            .0
             .map(|value| parse_uuid_column(value, 0))
             .transpose()?;
         let mut tab_query = self.connection.prepare(
-            "SELECT t.tab_id, t.document_id, t.kind, t.position, d.relative_path
+            "SELECT t.tab_id, t.document_id, t.kind, t.position, d.relative_path, t.pane_id,
+                    (t.document_id IS NULL OR d.status = 'active')
              FROM tabs t LEFT JOIN documents d
                  ON d.workspace_id = t.workspace_id AND d.id = t.document_id
              WHERE t.workspace_id = ?1 AND t.window_id = ?2
-                 AND (t.document_id IS NULL OR d.status = 'active')
              ORDER BY t.position, t.tab_id",
         )?;
-        let tabs = tab_query
+        let stored_tabs = tab_query
             .query_map(params![workspace_id.to_string(), window_id], |row| {
                 let tab_id = parse_uuid_column(row.get::<_, String>(0)?, 0)?;
                 let document_id = row
                     .get::<_, Option<String>>(1)?
                     .map(|value| parse_uuid_column(value, 1))
                     .transpose()?;
-                Ok(LoadedTabState {
-                    tab_id,
-                    document_id,
-                    kind: TabKind::parse(&row.get::<_, String>(2)?, 2)?,
-                    position: row.get(3)?,
-                    relative_path: row.get(4)?,
-                })
+                Ok((
+                    LoadedTabState {
+                        tab_id,
+                        document_id,
+                        kind: TabKind::parse(&row.get::<_, String>(2)?, 2)?,
+                        position: row.get(3)?,
+                        relative_path: row.get(4)?,
+                        pane_id: row.get(5)?,
+                    },
+                    row.get::<_, bool>(6)?,
+                ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        let active = stored_active.filter(|active| tabs.iter().any(|tab| tab.tab_id == *active));
+        let mut tab_states = stored_tabs
+            .iter()
+            .map(|(tab, _)| TabState {
+                tab_id: tab.tab_id,
+                document_id: tab.document_id,
+                kind: tab.kind.clone(),
+                position: tab.position,
+                pane_id: tab.pane_id.clone(),
+            })
+            .collect::<Vec<_>>();
+        let mut layout =
+            restore_layout(stored_session.1.as_deref(), &mut tab_states, stored_active);
+        let tabs = stored_tabs
+            .into_iter()
+            .zip(tab_states.iter())
+            .filter_map(|((mut tab, visible), state)| {
+                tab.pane_id = state.pane_id.clone();
+                visible.then_some(tab)
+            })
+            .collect::<Vec<_>>();
+        let visible_ids: HashSet<_> = tabs.iter().map(|tab| tab.tab_id).collect();
+        tab_states.retain(|state| visible_ids.contains(&state.tab_id));
+        let active = stored_active
+            .filter(|active| tabs.iter().any(|tab| tab.tab_id == *active))
+            .or_else(|| tabs.first().map(|tab| tab.tab_id));
+        normalize_active_tabs(&mut layout, &tab_states, active);
         let views = self.load_open_views(workspace_id, window_id)?;
         let graph_camera = self.load_graph_camera(workspace_id, window_id)?;
         Ok(LoadedSession {
             active_tab_id: active,
+            layout,
             tabs,
             views,
             graph_camera,
@@ -74,18 +114,22 @@ impl UiStateDatabase {
                  WHERE workspace_id = ?1 AND window_id = ?2",
                 params![workspace_id.to_string(), window_id],
                 |row| {
-                    Ok(match (
-                        row.get::<_, Option<f64>>(0)?,
-                        row.get::<_, Option<f64>>(1)?,
-                        row.get::<_, Option<f64>>(2)?,
-                    ) {
-                        (Some(center_x), Some(center_y), Some(scale)) => Some(GraphCameraState {
-                            center_x,
-                            center_y,
-                            scale,
-                        }),
-                        _ => None,
-                    })
+                    Ok(
+                        match (
+                            row.get::<_, Option<f64>>(0)?,
+                            row.get::<_, Option<f64>>(1)?,
+                            row.get::<_, Option<f64>>(2)?,
+                        ) {
+                            (Some(center_x), Some(center_y), Some(scale)) => {
+                                Some(GraphCameraState {
+                                    center_x,
+                                    center_y,
+                                    scale,
+                                })
+                            }
+                            _ => None,
+                        },
+                    )
                 },
             )
             .optional()?

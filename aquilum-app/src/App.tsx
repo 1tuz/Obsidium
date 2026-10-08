@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { Titlebar } from "./components/Layout/Titlebar";
+import { PaneLayoutView } from "./components/Layout/PaneLayoutView";
 import { WindowControls } from "./components/Layout/WindowControls";
 import { Sidebar } from "./components/Layout/Sidebar";
 import { SidebarRail } from "./components/Layout/SidebarRail";
@@ -51,6 +52,7 @@ import { useOverlay } from "./hooks/useOverlay";
 import { useThemeMode } from "./hooks/useThemeMode";
 import { CommandRegistry } from "./modules/commands/registry";
 import type { BoardActionRequest } from "./components/Layout/BoardsPanel";
+import { paneLeaves } from "./modules/panes/layout";
 import "./App.css";
 
 const GraphView = lazy(() => import("./components/Graph/GraphView")
@@ -80,15 +82,15 @@ export default function App() {
   const rightSidebarVisible = rightSidebarOpen && !focusMode;
   const [searchReveal, setSearchReveal] = useState<{
     path: string;
+    paneId: string;
     offset: number;
     nonce: string;
   } | null>(null);
-  const [revealNonceByPath, setRevealNonceByPath] = useState<Record<string, string>>({});
   const [homePagePath, setHomePagePath] = useState<string | null>(null);
   const [sidebarPanel, setSidebarPanel] = useState<'files' | 'boards'>('files');
   const [boardActionRequest, setBoardActionRequest] = useState<BoardActionRequest | null>(null);
   const [createBoardRequest, setCreateBoardRequest] = useState(0);
-  const [baseViewRequest, setBaseViewRequest] = useState<{ path: string; index: number; id: number } | null>(null);
+  const [baseViewRequest, setBaseViewRequest] = useState<{ path: string; index: number; id: number; paneId: string } | null>(null);
   const boardRequestId = useRef(0);
   const {
     files,
@@ -112,9 +114,10 @@ export default function App() {
   } = useLinkIndex(workspacePath);
   const {
     tabs,
-    openFiles,
     activeFile,
     activeTabId,
+    activePaneId,
+    layout,
     sessionReady,
     viewRevision,
     stateError,
@@ -125,6 +128,12 @@ export default function App() {
     closeTab,
     newTab,
     reorderTabs,
+    splitPane,
+    moveTab,
+    removePane,
+    resizePane,
+    focusPane,
+    selectTab,
     openGraph,
     readGraphCamera,
     onGraphCameraChange,
@@ -135,12 +144,6 @@ export default function App() {
     handleExternalRename
   } = useTabs(workspacePath, workspaceReady);
   const activeTab = tabs.find((tab) => tab.tabId === activeTabId) ?? null;
-  const hasGraphTab = tabs.some((tab) => tab.kind === 'graph');
-  const graphActive = activeTab?.kind === 'graph';
-  const activeBasePath = activeTab?.kind === 'document' && isBasePath(activeTab.path)
-    ? activeTab.path : null;
-  const activeCanvasPath = activeTab?.kind === 'document' && isCanvasPath(activeTab.path)
-    ? activeTab.path : null;
   const {
     push,
     go,
@@ -150,6 +153,7 @@ export default function App() {
 
   const { config, loadConfig, updateConfig } = useSettingsStore();
   const kanbanEnabled = config?.builtins?.kanban ?? DEFAULT_BUILTINS.kanban;
+  const panesEnabled = config?.builtins?.panes ?? DEFAULT_BUILTINS.panes;
   const themeMode = useThemeMode();
   const toggleTheme = useCallback(async () => {
     const currentConfig = config ?? await loadConfig();
@@ -181,7 +185,16 @@ export default function App() {
     }).catch((error) => console.error('Failed to migrate vault CSS snippet settings', error));
   }, [config, workspacePath, updateConfig]);
 
-  const liveTabIds = useLiveTabs(tabs, activeTabId, config?.editor.liveTabs ?? DEFAULT_LIVE_TABS);
+  const activePaneTabIds = useMemo(
+    () => paneLeaves(layout).flatMap((pane) => pane.activeTabId ? [pane.activeTabId] : []),
+    [layout],
+  );
+  const liveTabIds = useLiveTabs(
+    tabs,
+    activeTabId,
+    config?.editor.liveTabs ?? DEFAULT_LIVE_TABS,
+    activePaneTabIds,
+  );
   const livePanes = liveTabIds.flatMap((tabId) => {
     const tab = tabs.find((candidate) => candidate.tabId === tabId);
     return tab && tab.kind === 'document' ? [tab] : [];
@@ -193,14 +206,16 @@ export default function App() {
       offset?: number;
       disposition?: LinkDisposition;
       record?: boolean;
+      paneId?: string;
     },
   ) => {
     const {
       offset,
       disposition = 'current',
       record = true,
+      paneId,
     } = options ?? {};
-    if (offset === undefined && activeFile === path) return;
+    if (offset === undefined && activeFile === path && paneId === undefined) return;
     const isNote = isMarkdownPath(path);
     if (isNote) beginOpenTrace(path);
     if (record && isNote) {
@@ -211,11 +226,10 @@ export default function App() {
     }
     if (offset !== undefined) {
       const nonce = crypto.randomUUID();
-      setSearchReveal({ path, offset, nonce });
-      setRevealNonceByPath((current) => ({ ...current, [path]: nonce }));
+      setSearchReveal({ path, paneId: paneId ?? activePaneId, offset, nonce });
     }
-    activateFile(path, { disposition });
-  }, [activateFile, activeFile, push]);
+    activateFile(path, { disposition, paneId });
+  }, [activateFile, activeFile, activePaneId, push]);
 
   const handleOpenExternalUrl = useCallback((url: string) => {
     void openExternalUrl(url).catch((error) => {
@@ -304,25 +318,28 @@ export default function App() {
     openNote(result.path, { offset: result.matchOffset, disposition });
   }, [openNote]);
 
-  const resolveVisibleWikiLinks = useCallback(async (targets: string[]) => {
-    if (!workspacePath || !activeFile) return { paths: targets.map(() => null), complete: false };
+  const resolveVisibleWikiLinks = useCallback(async (targets: string[], sourcePath = activeFile) => {
+    if (!workspacePath || !sourcePath) return { paths: targets.map(() => null), complete: false };
     await ensureLinksReady();
-    return resolveWikiLinks(workspacePath, activeFile, targets);
+    return resolveWikiLinks(workspacePath, sourcePath, targets);
   }, [activeFile, ensureLinksReady, workspacePath]);
 
   const handleOpenWikiLink = useCallback((
     target: string,
     disposition: LinkDisposition,
+    paneId?: string,
   ) => {
-    void resolveVisibleWikiLinks([target]).then(async ({ paths: [path], complete }) => {
+    const sourcePane = paneId ? paneLeaves(layout).find((pane) => pane.paneId === paneId) : null;
+    const sourcePath = tabs.find((tab) => tab.tabId === sourcePane?.activeTabId)?.path ?? activeFile;
+    void resolveVisibleWikiLinks([target], sourcePath).then(async ({ paths: [path], complete }) => {
       if (!path && complete) {
         const created = await createLinkedFile(target);
-        if (created) openNote(created, { disposition });
+        if (created) openNote(created, { disposition, paneId });
       } else if (path) {
-        openNote(path, { disposition });
+        openNote(path, { disposition, paneId });
       }
     }).catch((error) => console.error('Failed to open wiki link', error));
-  }, [createLinkedFile, openNote, resolveVisibleWikiLinks]);
+  }, [activeFile, createLinkedFile, layout, openNote, resolveVisibleWikiLinks, tabs]);
 
   const homePage = workspaceHomePage.trim();
   useEffect(() => {
@@ -372,10 +389,9 @@ export default function App() {
   }, []);
 
   const openBoards = useCallback(() => {
-    if (!kanbanEnabled) return;
     setSidebarPanel('boards');
     setLeftSidebarOpen(true);
-  }, [kanbanEnabled, setLeftSidebarOpen]);
+  }, [setLeftSidebarOpen]);
 
   const openFileManager = useCallback(() => {
     setSidebarPanel('files');
@@ -409,9 +425,9 @@ export default function App() {
 
   const openBaseView = useCallback((path: string, index: number) => {
     boardRequestId.current += 1;
-    setBaseViewRequest({ path, index, id: boardRequestId.current });
+    setBaseViewRequest({ path, index, id: boardRequestId.current, paneId: activePaneId });
     openNote(path);
-  }, [openNote]);
+  }, [activePaneId, openNote]);
 
   const addCurrentNoteToBoard = useCallback(() => {
     if (activeFile && isMarkdownPath(activeFile)) requestBoardAction(activeFile, 'add');
@@ -500,12 +516,6 @@ export default function App() {
 
   const handleFileRenamed = useCallback((oldPath: string, newPath: string) => {
     patchFileInTree(oldPath, { id: newPath, name: fileStem(newPath) });
-    setRevealNonceByPath((current) => {
-      const nonce = current[oldPath];
-      if (nonce === undefined) return current;
-      const { [oldPath]: _moved, ...rest } = current;
-      return { ...rest, [newPath]: nonce };
-    });
     setSearchReveal((current) => (
       current?.path === oldPath ? { ...current, path: newPath } : current
     ));
@@ -525,6 +535,148 @@ export default function App() {
     openNote: (path, disposition) => openNote(path, { disposition }),
     openWorkspace: (path) => { void openWorkspace(path); },
   });
+
+  const renderPane = (paneId: string) => {
+    const pane = paneLeaves(layout).find((item) => item.paneId === paneId);
+    if (!pane) return null;
+    const paneTabs = tabs.filter((tab) => tab.paneId === paneId);
+    const paneActiveTab = paneTabs.find((tab) => tab.tabId === pane.activeTabId) ?? paneTabs[0] ?? null;
+    const graphTab = paneTabs.find((tab) => tab.kind === 'graph') ?? null;
+    const graphActive = graphTab?.tabId === paneActiveTab?.tabId;
+    const activeBasePath = paneActiveTab?.kind === 'document' && isBasePath(paneActiveTab.path)
+      ? paneActiveTab.path : null;
+    const activeCanvasPath = paneActiveTab?.kind === 'document' && isCanvasPath(paneActiveTab.path)
+      ? paneActiveTab.path : null;
+
+    return (
+      <div
+        className="q-app-main"
+        key={paneId}
+        data-pane-drop-target={paneId}
+        onMouseDownCapture={() => focusPane(paneId)}
+        onFocusCapture={() => focusPane(paneId)}
+      >
+        <Titlebar
+          paneId={paneId}
+          tabItems={paneTabs.map(({ tabId, path }) => ({ tabId, path }))}
+          activeFile={paneActiveTab?.path ?? null}
+          onReorder={(from, to) => reorderTabs(from, to, paneId)}
+          onMoveTab={moveTab}
+          renamingPath={tabFileOps.renamingPath}
+          tabActions={tabFileOps.rowActions}
+          onSelect={(path, tabId) => {
+            if (!tabId) return;
+            const tab = paneTabs.find((item) => item.tabId === tabId);
+            if (tab?.kind === 'document' && !isBasePath(path)) openNote(path, { paneId });
+            else selectTab(tabId, paneId);
+          }}
+          onClose={closeTab}
+          onNewTab={() => newTab(paneId)}
+          onSplitHorizontal={panesEnabled && paneLeaves(layout).length < 4
+            ? () => splitPane(paneId, 'horizontal') : undefined}
+          onSplitVertical={panesEnabled && paneLeaves(layout).length < 4
+            ? () => splitPane(paneId, 'vertical') : undefined}
+          onClosePane={panesEnabled && paneLeaves(layout).length > 1
+            ? () => removePane(paneId) : undefined}
+          rightSidebarOpen={rightSidebarVisible}
+          onToggleRightSidebar={focusMode || paneId !== activePaneId
+            ? undefined
+            : () => { void commandRegistry.execute('view.sidebar.right'); }}
+        />
+        <div className="q-app-content">
+          {!workspacePath ? (
+            workspaceRestoring ? null : (
+              <WorkspaceEmptyState onOpen={openWorkspace} failedPath={openFailedPath} />
+            )
+          ) : !sessionReady ? (
+            <div className="q-app-editor-boot" aria-busy="true" />
+          ) : (
+            <>
+              {graphTab && (
+                <Suspense fallback={null}>
+                  <GraphView
+                    workspacePath={workspacePath}
+                    indexRevision={linkIndexRevision}
+                    inactive={!graphActive}
+                    sessionReady={sessionReady}
+                    readCamera={readGraphCamera}
+                    onCameraChange={onGraphCameraChange}
+                    onOpenNote={(path) => openNote(path, { paneId })}
+                  />
+                </Suspense>
+              )}
+              <main className={graphActive || activeCanvasPath ? 'q-app-editor q-offstage' : 'q-app-editor'}>
+                {activeBasePath && (
+                  <Suspense fallback={null}>
+                    <BaseView
+                      path={activeBasePath}
+                      workspacePath={workspacePath}
+                      indexReady={linkIndexReady}
+                      indexRevision={linkIndexRevision}
+                      onOpenNote={(path) => openNote(path, { paneId })}
+                      viewRequest={baseViewRequest?.path === activeBasePath && baseViewRequest.paneId === paneId ? baseViewRequest : null}
+                      onViewRequestConsumed={(id) => {
+                        setBaseViewRequest((current) => current?.id === id ? null : current);
+                      }}
+                    />
+                  </Suspense>
+                )}
+                {activeCanvasPath && (
+                  <Suspense fallback={null}>
+                    <CanvasView
+                      key={`${paneId}:${activeCanvasPath}`}
+                      path={activeCanvasPath}
+                      workspacePath={workspacePath}
+                      onOpenFile={(path) => openNote(path, { paneId })}
+                    />
+                  </Suspense>
+                )}
+                {!activeBasePath && !activeCanvasPath && paneActiveTab?.kind === 'empty' ? (
+                  <NewTab
+                    key={paneActiveTab.tabId}
+                    onCreate={createNewFile}
+                    onOpen={search.show}
+                    onClose={() => closeTab(paneActiveTab.path, paneActiveTab.tabId)}
+                  />
+                ) : null}
+                {livePanes.filter((tab) => tab.paneId === paneId).map((tab) => (
+                  <EditorPane
+                    key={`${tab.tabId}:${paneId}:${searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.nonce : ''}`}
+                    paneId={paneId}
+                    inactive={tab.tabId !== paneActiveTab?.tabId}
+                    focused={tab.tabId === activeTabId}
+                    canGoBack={canGoBack}
+                    canGoForward={canGoForward}
+                    onNavigate={restoreNavigation}
+                    tab={tab}
+                    remountNonce={searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.nonce : ''}
+                    workspacePath={workspacePath}
+                    ensureLinksReady={ensureLinksReady}
+                    linkRevision={linkIndexRevision}
+                    loadedView={loadedView}
+                    isViewLoaded={isViewLoaded}
+                    viewRevision={viewRevision}
+                    stateError={stateError}
+                    revealOffset={searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.offset : undefined}
+                    onViewStateChange={onViewStateChange}
+                    onFileMissing={closeTab}
+                    onOpenWikiLink={(target, disposition) => handleOpenWikiLink(target, disposition, paneId)}
+                    onOpenExternalUrl={handleOpenExternalUrl}
+                    focusMode={focusMode}
+                    onToggleFocusMode={toggleFocusMode}
+                  />
+                ))}
+              </main>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const visiblePaneLayout = panesEnabled
+    ? layout
+    : paneLeaves(layout).find((pane) => pane.paneId === activePaneId) ?? paneLeaves(layout)[0];
 
   return (
     <div className="q-app-shell" key={resolveLocale(config?.ui.language)}>
@@ -566,111 +718,9 @@ export default function App() {
           onRemoveFromBoard={kanbanEnabled ? removeNoteFromBoard : undefined}
         />
 
-        <div className="q-app-main">
-          <Titlebar
-            activeFile={activeFile}
-            openFiles={openFiles}
-            onReorder={reorderTabs}
-            renamingPath={tabFileOps.renamingPath}
-            tabActions={tabFileOps.rowActions}
-            onSelect={openNote}
-            onClose={closeTab}
-            onNewTab={newTab}
-            rightSidebarOpen={rightSidebarVisible}
-            onToggleRightSidebar={focusMode
-              ? undefined
-              : () => { void commandRegistry.execute('view.sidebar.right'); }}
-          />
-
-          <div className="q-app-content">
-
-            {hasGraphTab && (
-              <Suspense fallback={null}>
-                <GraphView
-                  workspacePath={workspacePath}
-                  indexRevision={linkIndexRevision}
-                  inactive={!graphActive}
-                  sessionReady={sessionReady}
-                  readCamera={readGraphCamera}
-                  onCameraChange={onGraphCameraChange}
-                  onOpenNote={openNote}
-                />
-              </Suspense>
-            )}
-            <main className={graphActive ? "q-app-editor q-offstage" : "q-app-editor"}>
-              {!workspacePath ? (
-                workspaceRestoring ? null : (
-                  <WorkspaceEmptyState onOpen={openWorkspace} failedPath={openFailedPath} />
-                )
-              ) : !sessionReady ? (
-                <div className="q-app-editor-boot" aria-busy="true" />
-              ) : (
-                <>
-                  {activeBasePath && (
-                    <Suspense fallback={null}>
-                      <BaseView
-                        path={activeBasePath}
-                        workspacePath={workspacePath}
-                        indexReady={linkIndexReady}
-                        indexRevision={linkIndexRevision}
-                        onOpenNote={openNote}
-                        viewRequest={baseViewRequest}
-                        onViewRequestConsumed={(id) => {
-                          setBaseViewRequest((current) => current?.id === id ? null : current);
-                        }}
-                      />
-                    </Suspense>
-                  )}
-                  {activeCanvasPath && (
-                    <Suspense fallback={null}>
-                      <CanvasView
-                        key={activeCanvasPath}
-                        path={activeCanvasPath}
-                        workspacePath={workspacePath}
-                        onOpenFile={openNote}
-                      />
-                    </Suspense>
-                  )}
-                  {!activeBasePath && !activeCanvasPath && activeTab?.kind === 'empty' ? (
-                    <NewTab
-                      key={activeTab.tabId}
-                      onCreate={createNewFile}
-                      onOpen={search.show}
-                      onClose={() => closeTab(activeTab.path)}
-                    />
-                  ) : null}
-                  {livePanes.map((tab) => (
-                    <EditorPane
-                      key={tab.tabId}
-                      inactive={tab.tabId !== activeTabId}
-                      canGoBack={canGoBack}
-                      canGoForward={canGoForward}
-                      onNavigate={restoreNavigation}
-                      tab={tab}
-                      remountNonce={revealNonceByPath[tab.path] ?? ''}
-                      workspacePath={workspacePath}
-                      ensureLinksReady={ensureLinksReady}
-                      linkRevision={linkIndexRevision}
-                      loadedView={loadedView}
-                      isViewLoaded={isViewLoaded}
-                      viewRevision={viewRevision}
-                      stateError={stateError}
-                      revealOffset={
-                        searchReveal?.path === tab.path ? searchReveal.offset : undefined
-                      }
-                      onViewStateChange={onViewStateChange}
-                      onFileMissing={closeTab}
-                      onOpenWikiLink={handleOpenWikiLink}
-                      onOpenExternalUrl={handleOpenExternalUrl}
-                      focusMode={focusMode}
-                      onToggleFocusMode={toggleFocusMode}
-                    />
-                  ))}
-                </>
-              )}
-            </main>
-          </div>
-        </div>
+        {panesEnabled ? (
+          <PaneLayoutView layout={visiblePaneLayout} renderPane={renderPane} onResize={(path, ratio) => resizePane(path, ratio)} />
+        ) : renderPane(activePaneId)}
         <BacklinksPanel
           workspacePath={workspacePath}
           documentPath={activeFile}

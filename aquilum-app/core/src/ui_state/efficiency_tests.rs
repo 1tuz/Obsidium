@@ -16,6 +16,7 @@ fn active_only_batch_keeps_existing_tabs() {
             sequence: 2,
             now_ms: 20,
             session: Some(SessionStateInput {
+                layout: None,
                 active_tab_id,
                 tabs: None,
             }),
@@ -40,6 +41,7 @@ fn active_only_batch_rejects_unknown_tab() {
         sequence: 2,
         now_ms: 20,
         session: Some(SessionStateInput {
+            layout: None,
             active_tab_id: Some(Uuid::new_v4()),
             tabs: None,
         }),

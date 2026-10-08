@@ -25,12 +25,17 @@ const saveStateBatchMock = vi.mocked(saveStateBatch);
 const resolveDocumentMock = vi.mocked(resolveDocument);
 const renameDocumentMock = vi.mocked(renameDocument);
 
+function layout(activeTabId: string | null = null) {
+  return { kind: 'pane' as const, paneId: 'main', activeTabId };
+}
+
 function tab(documentId: string): SessionTab {
   return {
     tabId: crypto.randomUUID(),
     documentId,
     kind: 'document',
     path: `C:\\notes\\${documentId}.md`,
+    paneId: 'main',
   };
 }
 
@@ -38,7 +43,7 @@ describe('WorkspaceSession', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resolveWorkspaceMock.mockResolvedValue(crypto.randomUUID());
-    openSessionMock.mockResolvedValue({ activeTabId: null, tabs: [], views: [], graphCamera: null });
+    openSessionMock.mockResolvedValue({ activeTabId: null, tabs: [], layout: layout(), views: [], graphCamera: null });
     saveStateBatchMock.mockResolvedValue(true);
   });
 
@@ -57,6 +62,8 @@ describe('WorkspaceSession', () => {
     session.queueTabsSnapshot([latest], latest.tabId);
 
     expect(saveStateBatchMock).toHaveBeenCalledTimes(1);
+    expect(saveStateBatchMock.mock.calls[0][0].session?.tabs?.[0].paneId).toBe('main');
+    expect(saveStateBatchMock.mock.calls[0][0].session?.layout).toEqual(layout(first.tabId));
     releaseFirst(true);
     await vi.waitFor(() => expect(saveStateBatchMock).toHaveBeenCalledTimes(2));
     expect(saveStateBatchMock.mock.calls[1][0].session?.tabs?.[0].documentId).toBe('latest');
@@ -73,6 +80,7 @@ describe('WorkspaceSession', () => {
     await vi.waitFor(() => expect(saveStateBatchMock).toHaveBeenCalledTimes(2));
     expect(saveStateBatchMock.mock.calls[0][0].session?.tabs).not.toBeNull();
     expect(saveStateBatchMock.mock.calls[1][0].session?.tabs).toBeNull();
+    expect(saveStateBatchMock.mock.calls[1][0].session?.layout).toBeNull();
   });
 
   it('keeps active-only persistence constant for a large restored session', async () => {
@@ -81,15 +89,17 @@ describe('WorkspaceSession', () => {
       documentId: crypto.randomUUID(),
       kind: 'document' as const,
       position,
+      paneId: 'main',
       relativePath: `${position}.md`,
     }));
-    openSessionMock.mockResolvedValue({ activeTabId: tabs[0].tabId, tabs, views: [], graphCamera: null });
+    openSessionMock.mockResolvedValue({ activeTabId: tabs[0].tabId, tabs, layout: layout(tabs[0].tabId), views: [], graphCamera: null });
     const session = await WorkspaceSession.open('C:\\notes');
     session.queueActiveTab(tabs[9_999].tabId);
     await vi.waitFor(() => expect(saveStateBatchMock).toHaveBeenCalledTimes(1));
     expect(saveStateBatchMock.mock.calls[0][0].session).toEqual({
       activeTabId: tabs[9_999].tabId,
       tabs: null,
+      layout: null,
     });
   });
 
@@ -129,6 +139,7 @@ describe('WorkspaceSession', () => {
     const emptyTabId = crypto.randomUUID();
     openSessionMock.mockResolvedValue({
       activeTabId: documentTabId,
+      layout: layout(documentTabId),
       views: [],
       graphCamera: null,
       tabs: [
@@ -137,6 +148,7 @@ describe('WorkspaceSession', () => {
           documentId,
           kind: 'document',
           position: 0,
+          paneId: 'main',
           relativePath: 'folder/note.md',
         },
         {
@@ -144,6 +156,7 @@ describe('WorkspaceSession', () => {
           documentId: null,
           kind: 'empty',
           position: 1,
+          paneId: 'main',
           relativePath: null,
         },
       ],
@@ -162,12 +175,14 @@ describe('WorkspaceSession.restorable', () => {
     documentId: null,
     kind: 'graph',
     path: '__graph_tab__',
+    paneId: 'main',
   };
   const emptyTab: SessionTab = {
     tabId: crypto.randomUUID(),
     documentId: null,
     kind: 'empty',
     path: emptyTabPath('1'),
+    paneId: 'main',
   };
 
   it('keeps a document tab only while its file is there', () => {
@@ -200,6 +215,7 @@ describe('WorkspaceSession graph camera', () => {
     const camera = { centerX: 1.5, centerY: -2.5, scale: 30 };
     openSessionMock.mockResolvedValue({
       activeTabId: null,
+      layout: layout(),
       tabs: [],
       views: [],
       graphCamera: camera,
@@ -213,6 +229,7 @@ describe('WorkspaceSession graph camera', () => {
   it('reports no camera for a workspace nobody looked at yet', async () => {
     openSessionMock.mockResolvedValue({
       activeTabId: null,
+      layout: layout(),
       tabs: [],
       views: [],
       graphCamera: null,
@@ -226,6 +243,7 @@ describe('WorkspaceSession graph camera', () => {
   it('sends a moved camera through the same batch as the tabs', async () => {
     openSessionMock.mockResolvedValue({
       activeTabId: null,
+      layout: layout(),
       tabs: [],
       views: [],
       graphCamera: null,
@@ -243,6 +261,7 @@ describe('WorkspaceSession graph camera', () => {
   it('forgets the camera once the session is disposed', async () => {
     openSessionMock.mockResolvedValue({
       activeTabId: null,
+      layout: layout(),
       tabs: [],
       views: [],
       graphCamera: null,

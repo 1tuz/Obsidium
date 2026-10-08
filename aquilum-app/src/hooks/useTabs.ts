@@ -9,10 +9,15 @@ import { createUniqueCanvas, createUniqueFile } from '../modules/documents/docum
 import { useTabSession } from './useTabSession';
 import { isBasePath, isCanvasPath, isMarkdownPath } from '../modules/documents/fileGateway';
 import type { LinkDisposition } from '../modules/links';
+import { paneLeaves } from '../modules/panes/layout';
 
 function createInitialState(): TabsState {
   const tab = createEmptySessionTab();
-  return { tabs: [tab], activeTabId: tab.tabId };
+  return {
+    tabs: [tab],
+    activeTabId: tab.tabId,
+    layout: { kind: 'pane', paneId: 'main', activeTabId: tab.tabId },
+  };
 }
 
 export function useTabs(
@@ -47,7 +52,7 @@ export function useTabs(
     [state.tabs],
   );
   const activeFile = pathsByTabId.get(state.activeTabId) ?? null;
-  const openFiles = useMemo(() => state.tabs.map((tab) => tab.path), [state.tabs]);
+  const activePaneId = state.tabs.find((tab) => tab.tabId === state.activeTabId)?.paneId ?? 'main';
 
   const openGraph = useCallback(() => {
     touch();
@@ -56,47 +61,100 @@ export function useTabs(
 
   const activateFile = useCallback((
     path: string,
-    options?: { disposition?: LinkDisposition },
+    options?: { disposition?: LinkDisposition; paneId?: string },
   ) => {
     if (path === GRAPH_TAB_PATH) {
       openGraph();
       return;
     }
     const disposition = options?.disposition ?? 'current';
-    if (disposition === 'current' && state.tabs.some((tab) => tab.path === path)) {
+    const paneId = options?.paneId ?? activePaneId;
+    const existing = disposition === 'current'
+      ? state.tabs.find((tab) => tab.paneId === paneId && tab.path === path)
+      : undefined;
+    if (existing) {
       touch();
-      dispatch({ type: 'select', path });
+      dispatch({ type: 'select', tabId: existing.tabId, paneId });
       return;
     }
     if (!isMarkdownPath(path) && !isBasePath(path) && !isCanvasPath(path)) return;
     touch();
+    if (paneId !== activePaneId) dispatch({ type: 'focus-pane', paneId });
     dispatch(disposition === 'new-tab'
       ? { type: 'open-file-new-tab', path, tabId: crypto.randomUUID() }
       : { type: 'open-file', path, tabId: crypto.randomUUID() });
-  }, [openGraph, state.tabs, touch]);
+  }, [activePaneId, openGraph, state.tabs, touch]);
 
-  const closeTab = useCallback((path: string) => {
+  const closeTab = useCallback((path: string, tabId?: string) => {
     touch();
-    dispatch({ type: 'close', path, fallback: createEmptySessionTab() });
-  }, [touch]);
+    const closing = tabId ? state.tabs.filter((tab) => tab.tabId === tabId) : state.tabs.filter((tab) => tab.path === path);
+    for (const tab of closing) {
+      dispatch({ type: 'close', tabId: tab.tabId, fallback: createEmptySessionTab(tab.paneId) });
+    }
+  }, [state.tabs, touch]);
 
-  const reorderTabs = useCallback((from: number, to: number) => {
+  const reorderTabs = useCallback((from: number, to: number, paneId = activePaneId) => {
     touch();
-    dispatch({ type: 'reorder', from, to });
-  }, [touch]);
+    dispatch({ type: 'reorder', from, to, paneId });
+  }, [activePaneId, touch]);
 
-  const newTab = useCallback(() => {
+  const newTab = useCallback((paneId = activePaneId) => {
     touch();
-    dispatch({ type: 'new-tab', tab: createEmptySessionTab() });
-  }, [touch]);
+    if (paneId !== activePaneId) dispatch({ type: 'focus-pane', paneId });
+    dispatch({ type: 'new-tab', tab: createEmptySessionTab(paneId) });
+  }, [activePaneId, touch]);
+
+  const splitPane = useCallback((paneId: string, direction: 'horizontal' | 'vertical') => {
+    const pane = paneLeaves(state.layout).find((item) => item.paneId === paneId);
+    if (!pane) return;
+    const current = state.tabs.find((tab) => tab.tabId === pane.activeTabId);
+    const newPaneId = crypto.randomUUID();
+    const duplicate = current
+      ? { ...current, tabId: crypto.randomUUID(), paneId: newPaneId, mountKey: crypto.randomUUID() }
+      : createEmptySessionTab(newPaneId);
+    touch();
+    dispatch({ type: 'focus-pane', paneId });
+    dispatch({ type: 'split-pane', paneId, newPaneId, direction, tab: duplicate });
+  }, [state.layout, state.tabs, touch]);
+
+  const moveTab = useCallback((tabId: string, paneId: string, beforeTabId: string | null) => {
+    const targetTabs = state.tabs.filter((tab) => tab.paneId === paneId && tab.tabId !== tabId);
+    const to = beforeTabId ? targetTabs.findIndex((tab) => tab.tabId === beforeTabId) : targetTabs.length;
+    const moving = state.tabs.find((tab) => tab.tabId === tabId);
+    if (!moving) return;
+    touch();
+    dispatch({ type: 'move-tab', tabId, paneId, to, fallback: createEmptySessionTab(moving.paneId) });
+  }, [state.tabs, touch]);
+
+  const removePane = useCallback((paneId: string) => {
+    const targetPaneId = paneLeaves(state.layout).find((pane) => pane.paneId !== paneId)?.paneId;
+    if (!targetPaneId) return;
+    touch();
+    dispatch({ type: 'remove-pane', paneId, targetPaneId });
+  }, [state.layout, touch]);
+
+  const resizePane = useCallback((path: readonly number[], ratio: number) => {
+    dispatch({ type: 'resize-pane', path, ratio });
+  }, []);
+
+  const focusPane = useCallback((paneId: string) => {
+    dispatch({ type: 'focus-pane', paneId });
+  }, []);
+
+  const selectTab = useCallback((tabId: string, paneId: string) => {
+    dispatch({ type: 'select', tabId, paneId });
+  }, []);
 
   const createNewFile = useCallback(async (preferredTitle?: string) => {
     if (!workspacePath) return;
     const uniquePath = await createUniqueFile(workspacePath, preferredTitle);
     if (!uniquePath) return;
     touch();
+    if (state.tabs.find((tab) => tab.tabId === state.activeTabId)?.paneId !== activePaneId) {
+      dispatch({ type: 'focus-pane', paneId: activePaneId });
+    }
     dispatch({ type: 'open-file', path: uniquePath, tabId: crypto.randomUUID() });
-  }, [touch, workspacePath]);
+  }, [activePaneId, state.activeTabId, state.tabs, touch, workspacePath]);
 
   const createFromTemplate = useCallback(async (content: string) => {
     if (!workspacePath) return;
@@ -127,9 +185,10 @@ export function useTabs(
 
   return {
     tabs: state.tabs,
-    openFiles,
     activeFile,
     activeTabId: state.activeTabId,
+    activePaneId,
+    layout: state.layout,
     sessionReady,
     viewRevision,
     stateError,
@@ -142,6 +201,12 @@ export function useTabs(
     closeTab,
     newTab,
     reorderTabs,
+    splitPane,
+    moveTab,
+    removePane,
+    resizePane,
+    focusPane,
+    selectTab,
     openGraph,
     createNewFile,
     createFromTemplate,

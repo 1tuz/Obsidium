@@ -42,12 +42,58 @@ const VERSION_ONE: &str = "CREATE TABLE workspaces (
      PRAGMA user_version = 1;";
 
 #[test]
+fn version_nine_migration_keeps_tabs_and_creates_main_layout() {
+    let connection = Connection::open_in_memory().unwrap();
+    let schema = super::migrations::schema::SCHEMA
+        .replace("         layout_json TEXT,\n", "")
+        .replace("         pane_id TEXT NOT NULL DEFAULT 'main',\n", "");
+    connection.execute_batch(&schema).unwrap();
+    connection
+        .execute_batch("PRAGMA user_version = 9;")
+        .unwrap();
+    let workspace = Uuid::new_v4().to_string();
+    let tab = Uuid::new_v4().to_string();
+    connection
+        .execute(
+            "INSERT INTO workspaces(id, path, last_seen_ms) VALUES(?1, '/notes', 1)",
+            [&workspace],
+        )
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO sessions(workspace_id, window_id, epoch, active_tab_id, updated_at_ms)
+         VALUES(?1, 'main', 'epoch', ?2, 1)",
+            params![workspace, tab],
+        )
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO tabs(workspace_id, window_id, tab_id, kind, position)
+         VALUES(?1, 'main', ?2, 'empty', 0)",
+            params![workspace, tab],
+        )
+        .unwrap();
+    migrate(&connection).unwrap();
+    let (pane, layout): (String, String) = connection
+        .query_row(
+            "SELECT t.pane_id, s.layout_json FROM tabs t JOIN sessions s
+         ON s.workspace_id = t.workspace_id AND s.window_id = t.window_id",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(pane, "main");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&layout).unwrap(),
+        serde_json::json!({"kind": "pane", "paneId": "main", "activeTabId": tab})
+    );
+}
+
+#[test]
 fn version_one_allows_new_file_beside_missing_tombstone_after_migration() {
     let connection = Connection::open_in_memory().expect("database");
     connection
-        .execute_batch(
-            VERSION_ONE,
-        )
+        .execute_batch(VERSION_ONE)
         .expect("legacy schema");
     let workspace_id = Uuid::new_v4().to_string();
     connection
@@ -72,7 +118,7 @@ fn version_one_allows_new_file_beside_missing_tombstone_after_migration() {
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 9);
+    assert_eq!(version, 10);
 }
 
 #[test]
@@ -105,9 +151,7 @@ fn unavailable_database_does_not_prevent_service_creation() {
 fn migration_preserves_foreign_keys_and_cascades() {
     let connection = Connection::open_in_memory().expect("database");
     connection
-        .execute_batch(
-            &format!("PRAGMA foreign_keys = ON; {VERSION_ONE}"),
-        )
+        .execute_batch(&format!("PRAGMA foreign_keys = ON; {VERSION_ONE}"))
         .expect("legacy schema");
     let workspace_id = Uuid::new_v4().to_string();
     let document_id = Uuid::new_v4().to_string();
@@ -154,6 +198,8 @@ fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
              ALTER TABLE sessions DROP COLUMN graph_scale;
              ALTER TABLE workspaces DROP COLUMN home_page;
              DROP TABLE base_view_states;
+             ALTER TABLE tabs DROP COLUMN pane_id;
+             ALTER TABLE sessions DROP COLUMN layout_json;
              PRAGMA user_version = 5;",
         )
         .expect("roll the schema back to five");
@@ -194,7 +240,7 @@ fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
         .expect("version");
 
     assert_eq!(row, ("tab".to_owned(), None, None, None));
-    assert_eq!(version, 9);
+    assert_eq!(version, 10);
 }
 
 #[test]
@@ -248,9 +294,11 @@ fn a_fresh_database_is_created_at_the_latest_version_without_dead_tables() {
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 9);
+    assert_eq!(version, 10);
     assert!(
-        !schema_shape(&connection).iter().any(|line| line.contains("document_versions")),
+        !schema_shape(&connection)
+            .iter()
+            .any(|line| line.contains("document_versions")),
         "новая база не создаёт таблицу, которую потом удаляет миграция"
     );
 }

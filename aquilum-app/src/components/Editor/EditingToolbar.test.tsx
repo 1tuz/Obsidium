@@ -12,10 +12,20 @@ describe('EditingToolbar', () => {
     renderer = null;
   });
 
-  it('uses a full-width layout above the editor', () => {
+  it('uses the top toolbar variant above the editor', () => {
     act(() => { renderer = mountDom(<EditingToolbar view={null} position="top" />); });
     expect(renderer!.container.querySelector('.q-editing-toolbar')?.classList.contains(
       'q-editing-toolbar--top',
     )).toBe(true);
+  });
+
+  it('exposes the remaining Markdown heading levels and image insertion', () => {
+    act(() => { renderer = mountDom(<EditingToolbar view={null} position="top" />); });
+    const labels = [...renderer!.container.querySelectorAll('button')]
+      .map((button) => button.getAttribute('aria-label'));
+    expect(labels).toContain('Heading 4');
+    expect(labels).toContain('Heading 5');
+    expect(labels).toContain('Heading 6');
+    expect(labels).toContain('Image');
   });
 });

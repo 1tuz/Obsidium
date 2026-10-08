@@ -1,5 +1,7 @@
-import { memo, type CSSProperties } from 'react';
-import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide';
+import { memo, useRef, useState, type CSSProperties } from 'react';
+import { ChevronDown, ChevronRight, LoaderCircle, Palette } from 'lucide';
+import { IconizePicker } from './IconizePicker';
+import { fileIcon, type FileIconAssignment } from './iconize';
 import { Icon } from '../Common/Icon';
 import { isBasePath, isCanvasPath, isMarkdownPath, type WorkspaceItem } from '../../modules/documents/fileGateway';
 import { fileActionItems } from './fileActionItems';
@@ -20,6 +22,8 @@ interface FileTreeRowProps {
   guideDepths: string;
   renaming: boolean;
   actions: FileTreeActions;
+  icon?: FileIconAssignment;
+  onIconChange?: (path: string, icon: FileIconAssignment | null) => void;
 }
 
 export const FileTreeRow = memo(function FileTreeRow({
@@ -32,10 +36,14 @@ export const FileTreeRow = memo(function FileTreeRow({
   guideDepths,
   renaming,
   actions,
+  icon,
+  onIconChange,
 }: FileTreeRowProps) {
   const isFolder = item.type === 'folder';
   const canRowActions = isFolder || isMarkdownPath(item.id) || isBasePath(item.id) || isCanvasPath(item.id);
   const menu = useContextMenu();
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
 
   const itemClass = [
     'q-file-item',
@@ -46,6 +54,7 @@ export const FileTreeRow = memo(function FileTreeRow({
 
   return (
     <div
+      ref={rowRef}
       className="q-file-tree-node"
       data-file-id={item.id}
       data-file-type={item.type}
@@ -98,6 +107,8 @@ export const FileTreeRow = memo(function FileTreeRow({
               ? <Icon icon={LoaderCircle} className="q-file-icon__spinner" />
               : expanded ? <Icon icon={ChevronDown} /> : <Icon icon={ChevronRight} />)}
           </span>
+          {onIconChange && icon && <span className="q-file-icon-custom"
+            style={{ color: icon.color }} aria-hidden="true"><Icon icon={fileIcon(icon.name)} /></span>}
           <span
             className="q-file-name"
             onMouseEnter={(event) => titleWhenClipped(event.currentTarget, item.name)}
@@ -110,11 +121,18 @@ export const FileTreeRow = memo(function FileTreeRow({
         <Menu
           open
           position={menu.position}
-          items={fileActionItems(actions, item.id)}
+          items={onIconChange ? [
+            ...fileActionItems(actions, item.id),
+            { id: 'iconize', label: t('fileTree.iconize'), icon: Palette,
+              onSelect: () => setIconPickerOpen(true) },
+          ] : fileActionItems(actions, item.id)}
           onClose={menu.close}
           ariaLabel={isFolder ? t('fileTree.folderActions') : t('fileTree.fileActions')}
         />
       )}
+      {onIconChange && iconPickerOpen && rowRef.current && <IconizePicker anchor={rowRef.current} value={icon}
+        onChange={(next) => onIconChange(item.id, next)}
+        onClose={() => setIconPickerOpen(false)} />}
     </div>
   );
 });

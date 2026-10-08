@@ -5,6 +5,7 @@ export type { TabsAction, TabsState } from './tabReducer';
 export { emptyTabPath, GRAPH_TAB_PATH, isEmptyTabPath, stateFailure } from './types';
 export type {
   GraphCameraState,
+  PaneLayout,
   StateFailure,
   ViewState,
   SessionTab,

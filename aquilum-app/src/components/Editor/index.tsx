@@ -27,6 +27,8 @@ import './Editor.css';
 export function Editor({
   filePath,
   documentId,
+  paneId,
+  focused,
   workspacePath,
   initialViewState,
   viewStateReady,
@@ -37,6 +39,7 @@ export function Editor({
   onOpenWikiLink,
   onOpenExternalUrl,
   revealOffset,
+  readOnly,
   inactive = false,
   onBodyViewChange,
 }: EditorProps) {
@@ -71,7 +74,10 @@ export function Editor({
     if (!await renameTo(draft)) titleRef.current?.setValue(title);
   };
 
-  const editorSettings = useSettingsStore().config?.editor;
+  const appSettings = useSettingsStore().config;
+  const editorSettings = appSettings?.editor;
+  const highlightrEnabled = appSettings?.builtins?.highlightr ?? true;
+  const advancedOutlinerEnabled = appSettings?.builtins?.outliner ?? true;
   const smartDashes = editorSettings?.smartDashes ?? true;
   const listCallouts = editorSettings?.listCallouts ?? true;
   const autoLinkTitle = editorSettings?.autoLinkTitle ?? true;
@@ -111,6 +117,8 @@ export function Editor({
     ready,
   } = useEditorViewSetup({
     documentId,
+    paneId,
+    focused,
     viewStateReady,
     initialViewState,
     revealOffset,
@@ -143,6 +151,8 @@ export function Editor({
     currentNotePath,
     linkSuggest,
     linkSuggestMinChars,
+    highlightrEnabled,
+    advancedOutlinerEnabled,
   );
   const extensions = useMemo(
     () => (isReady ? [baseExtensions, syncExtension] : []),
@@ -211,6 +221,7 @@ export function Editor({
         initialBody={initialBody}
         selection={selection}
         extensions={extensions}
+        readOnly={readOnly}
         autoLinkTitle={autoLinkTitle}
         onCreateEditor={handleCreateEditor}
         onUpdate={handleEditorUpdate}
@@ -285,4 +296,3 @@ export function Editor({
     </div>
   );
 }
-

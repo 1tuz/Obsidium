@@ -129,6 +129,10 @@ mod tests {
         manager.update_config(config).unwrap();
         let stored = SettingsManager::new(dir.path()).get_config();
         assert!(!stored.builtins.editing_toolbar);
+        assert!(stored.builtins.highlightr);
+        assert!(stored.builtins.outliner);
+        assert!(stored.builtins.iconize);
+        assert_eq!(stored.builtins.highlight_colors.len(), 6);
         assert_eq!(stored.builtins.toolbar_position, "selection");
     }
 
@@ -170,7 +174,11 @@ mod tests {
     #[test]
     fn explicit_motion_preference_is_preserved() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("settings.json"), r#"{"ui":{"motion":"on"}}"#).unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{"ui":{"motion":"on"}}"#,
+        )
+        .unwrap();
 
         let config = SettingsManager::new(dir.path()).get_config();
 
