@@ -1,0 +1,16 @@
+[package]
+name = "obsidium-cli"
+version = "0.2.8"
+description = "Headless CLI for Obsidium"
+authors = ["Dmitriy Chaplinskiy"]
+license = "AGPL-3.0-only"
+edition = "2021"
+workspace = "../src-tauri"
+
+[[bin]]
+name = "obsidium"
+path = "src/main.rs"
+
+[dependencies]
+aquilum-core = { path = "../core" }
+serde_json = "1"

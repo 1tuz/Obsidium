@@ -61,6 +61,10 @@ pub fn run_mcp_stdio_bridge() -> i32 {
     mcp::run_stdio_bridge(env!("AQUILUM_APP_IDENTIFIER"))
 }
 
+pub fn run_mcp_stdio_headless() -> i32 {
+    mcp::run_stdio_headless(env!("AQUILUM_APP_IDENTIFIER"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()

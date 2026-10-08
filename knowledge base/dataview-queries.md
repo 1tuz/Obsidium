@@ -11,6 +11,7 @@
 - [[search-indexing-workspaces-part-1]] — где лежит `documents.sqlite3` и что такое ревизия индекса.
 - [[book-widget-sync]] — тот же приём отрисовки блока: сначала данные, потом один раз DOM.
 - [[editor-viewport-decorations]] — слой блочных декораций, в который встал виджет запроса.
+- [[bases-kanban]] — kanban-представление `.base` и запись статуса заметки.
 
 ## Что умеет
 

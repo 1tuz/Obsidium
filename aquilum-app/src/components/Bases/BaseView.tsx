@@ -7,8 +7,11 @@ import { readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileG
 import { setFrontmatterField } from '../../modules/docs/frontmatter';
 import {
   baseProperty,
+  buildKanbanColumns,
   evaluateBaseFilter,
   getBaseRows,
+  kanbanProperty,
+  kanbanWritableProperty,
   parseBase,
   sortBaseRows,
   type BaseDefinition,
@@ -187,7 +190,7 @@ export function BaseView({
   };
 
   const grouped = groupRows(materialized.rows, view, workspacePath);
-  const kind = ['table', 'list', 'cards'].includes(view.type) ? view.type : 'table';
+  const kind = ['table', 'list', 'cards', 'kanban'].includes(view.type) ? view.type : 'table';
 
   return (
     <section className="q-base-view" aria-label={view.name}>
@@ -213,8 +216,18 @@ export function BaseView({
       )}
 
       <div className="q-base-view__scroll">
-        {materialized.rows.length === 0 ? (
+        {materialized.rows.length === 0 && kind !== 'kanban' ? (
           <div className="q-base-state">{t('bases.empty')}</div>
+        ) : kind === 'kanban' ? (
+          <BaseKanban
+            rows={materialized.rows}
+            columns={columns}
+            definition={loaded.definition}
+            view={view}
+            workspacePath={workspacePath}
+            onCommit={commitProperty}
+            onOpen={onOpenNote}
+          />
         ) : grouped.map((group) => (
           <section className="q-base-group" key={group.key}>
             {group.label !== null && <h2>{group.label || t('bases.groupEmpty')}</h2>}
@@ -400,6 +413,84 @@ function BaseCards({
             </div>
           ))}
         </article>
+      ))}
+    </div>
+  );
+}
+
+function BaseKanban({
+  rows,
+  columns,
+  definition,
+  view,
+  workspacePath,
+  onCommit,
+  onOpen,
+}: {
+  rows: BaseRow[];
+  columns: string[];
+  definition: BaseDefinition;
+  view: BaseViewDefinition;
+  workspacePath: string;
+  onCommit: (row: BaseRow, property: string, value: string) => Promise<void>;
+  onOpen: (path: string) => void;
+}) {
+  const groupProperty = kanbanProperty(view);
+  const writable = kanbanWritableProperty(groupProperty);
+  const board = buildKanbanColumns(rows, view, workspacePath);
+  const cardFields = columns
+    .filter((property) => property !== 'file.name' && property !== groupProperty)
+    .slice(0, 4);
+
+  const move = (event: DragEvent, value: string) => {
+    if (!writable) return;
+    event.preventDefault();
+    const path = event.dataTransfer?.getData('text/plain');
+    const row = rows.find((candidate) => candidate.path === path);
+    if (!row) return;
+    const current = displayValue(baseProperty(row, groupProperty, workspacePath));
+    if (current === value) return;
+    void onCommit(row, groupProperty, value)
+      .catch((error) => console.error('Failed to move base kanban card', error));
+  };
+
+  return (
+    <div className="q-base-kanban" role="list">
+      {board.map((column) => (
+        <section
+          key={column.key}
+          className="q-base-kanban__column"
+          onDragOver={(event) => { if (writable) event.preventDefault(); }}
+          onDrop={(event) => move(event, column.value)}
+        >
+          <header className="q-base-kanban__header">
+            <span>{column.value || t('bases.groupEmpty')}</span>
+            <strong>{column.rows.length}</strong>
+          </header>
+          <div className="q-base-kanban__cards">
+            {column.rows.map((row) => (
+              <article
+                key={row.path}
+                className="q-base-kanban__card"
+                draggable={writable}
+                onDragStart={(event) => {
+                  event.dataTransfer?.setData('text/plain', row.path);
+                  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+                }}
+              >
+                <button type="button" className="q-base-card__title" onClick={() => onOpen(row.path)}>
+                  {rowTitle(row, workspacePath)}
+                </button>
+                {cardFields.map((property) => (
+                  <div className="q-base-card__property" key={property}>
+                    <span>{propertyLabel(definition, property)}</span>
+                    <strong>{displayValue(baseProperty(row, property, workspacePath)) || '—'}</strong>
+                  </div>
+                ))}
+              </article>
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );

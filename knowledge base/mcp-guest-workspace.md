@@ -10,6 +10,7 @@
 - [[mcp-agent-ergonomics]] — почему агент уходит мимо инструментов, если они не отвечают на его вопрос.
 - [[search-indexing-workspaces-part-1]] — устройство индекса одной базы: tantivy плюс `documents.sqlite3`.
 - [[workspace-switching]] — переключение базы пользователем.
+- [[headless-cli-and-mcp-transactions]] — CLI и отдельный MCP stdio runtime без WebView.
 
 ## Правило видимости
 

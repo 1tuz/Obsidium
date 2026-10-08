@@ -25,7 +25,7 @@
 | Имя npm-пакета | `quantum-app` | `aquilum-app` | `package.json` |
 | Репозиторий релизов | `Freaction/Quantum-release` | `Freaction/Aquilum` | `tauri.conf.json` (`endpoints`), `build-release.mjs` |
 | Каталог истории внутри базы знаний | `.quantum/history` | `.aquilum/history` | `src-tauri/src/history/store.rs` |
-| Имя MCP-сервера | `quantum` | `aquilum` | `src-tauri/src/mcp/protocol.rs` |
+| Имя MCP-сервера | `quantum` | `obsidium` | `core/src/mcp/protocol.rs` |
 | Токенизатор поискового индекса | `quantum_text` | `aquilum_text` | `src-tauri/src/search/analyzer/pipeline.rs` |
 
 Установленный quantum-app — отдельная программа (своя запись удаления, свой автозапуск `quantum-app`,
@@ -74,12 +74,10 @@
 
 ## 5. MCP
 
-- stdio-мост (`src-tauri/src/mcp/stdio.rs`) читает `AQUILUM_MCP_PORT` и `AQUILUM_MCP_TOKEN`, иначе
-  порт и токен из `settings.json` в `com.dmitriy.aquilum-app`. Старых имён (`QUANTUM_MCP_*`,
-  `com.dmitriy.quantum-app`) он не знает: настройки quantum-app переносит `migrate_legacy_data`, а
-  конфигурацию агента пользователь обновляет командой из настроек MCP.
-- В шаблонах интеграции (`McpSection.tsx`) команды для Claude Code, Codex CLI и Gemini CLI используют
-  имя сервера `aquilum`.
+- GUI-бинарник запускает `--mcp-stdio` напрямую через отдельный headless `Core`; прежний HTTP-мост
+  доступен через `--mcp-stdio-bridge`. Подробности — [[headless-cli-and-mcp-transactions]].
+- Имя сервера в MCP-ответах — `obsidium`; настройки подключения в пользовательских клиентах
+  обновляются из актуального шаблона в настройках MCP.
 
 ## 6. Модульность и размер файлов
 
