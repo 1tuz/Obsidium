@@ -5,18 +5,22 @@
 All CI checks and release packaging run on GitHub-hosted runners. Do not use the local Windows-only
 release script from an Actions job.
 
-`.github/workflows/ci.yml` runs on every branch push, pull request, manual dispatch, and reusable
-workflow call. It checks the frontend build and tests, installer-script safety, and Rust formatting,
-then packages Windows x64 NSIS, an Apple Silicon macOS DMG, and an Ubuntu 24 x64 `.deb`. npm and Cargo
-dependencies are cached; package artifacts remain available for seven days.
+`.github/workflows/ci.yml` runs source checks on branch pushes and pull requests: the frontend build
+and tests, installer-script checks, Rust formatting, and core Rust tests. It ignores documentation-only
+changes. Its three-platform package matrix runs only when manually dispatched. This keeps installer
+packaging out of routine source checks; tagged releases use `release.yml` instead.
+
+`.github/workflows/docs.yml` runs only when Markdown, screenshots, or README assets change on a branch
+or pull request. It checks patch whitespace with `git diff --check`; it does not lint or validate
+documentation content. Branch filters exclude tag pushes.
 
 The macOS bundle is ad-hoc signed with identity `-`. This produces a code signature but does not make
 downloads trusted by Gatekeeper or eligible for notarization. Normal first-launch approval for
 quarantined downloads requires an Apple Developer ID certificate and Apple notarization; those
 credentials are not configured in this repository's GitHub Actions secrets.
 
-`.github/workflows/release.yml` builds the same three targets into a draft GitHub Release on `v*`
-tags. `release-macos.yml`, `release-linux.yml`, and
+`.github/workflows/release.yml` builds the three targets into a draft GitHub Release on `v*` tags,
+then publishes it after all platform builds succeed. `release-macos.yml`, `release-linux.yml`, and
 `release-windows.yml` publish one selected platform without waiting for the other package jobs.
 Each single-platform workflow uses `.github/workflows/release-platform.yml`; the package is published
 to `v<version>` from `aquilum-app/package.json` and its updater entry is merged with existing

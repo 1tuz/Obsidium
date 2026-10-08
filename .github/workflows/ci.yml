@@ -1,4 +1,4 @@
-name: CI
+name: Code checks and manual packages
 
 on:
   push:
@@ -8,14 +8,12 @@ on:
       - "**/*.md"
       - "screenshots/**"
       - "assets/readme/**"
-      - ".github/workflows/**"
   pull_request:
     paths-ignore:
       - "*.md"
       - "**/*.md"
       - "screenshots/**"
       - "assets/readme/**"
-      - ".github/workflows/**"
   workflow_dispatch:
   workflow_call:
 
@@ -28,6 +26,7 @@ concurrency:
 
 jobs:
   frontend:
+    name: Frontend build, tests, and installer scripts
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -55,6 +54,7 @@ jobs:
           bash scripts/test-install-scripts.sh
 
   rust:
+    name: Rust formatting
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -67,9 +67,21 @@ jobs:
 
       - run: rustfmt --check --edition 2021 --config skip_children=true aquilum-app/src-tauri/src/main.rs
 
+  core-tests:
+    name: Core Rust tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: cargo test --locked --manifest-path aquilum-app/core/Cargo.toml
+
   packages:
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-    needs: [frontend, rust]
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: [frontend, rust, core-tests]
     strategy:
       fail-fast: false
       matrix:
@@ -99,7 +111,7 @@ jobs:
             artifact: ubuntu-24-x64
             apple_signing_identity: '-'
     runs-on: ${{ matrix.runner }}
-    name: Build ${{ matrix.name }} Package
+    name: Build ${{ matrix.name }} package (manual)
     steps:
       - uses: actions/checkout@v7
         with:

@@ -1,6 +1,6 @@
 # Release builds for Windows, macOS and Linux.
 # Pushing a tag v* builds every platform into a draft release with latest.json for the updater.
-name: Release All Platforms
+name: Tagged multi-platform release
 
 on:
   push:
@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build ${{ matrix.name }} installer
     strategy:
       fail-fast: false
       matrix:
@@ -85,6 +86,7 @@ jobs:
           uploadUpdaterJson: true
 
   publish:
+    name: Publish after all platform builds
     needs: build
     runs-on: ubuntu-24.04
     steps:
