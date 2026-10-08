@@ -14,13 +14,13 @@ describe('UiSection', () => {
     renderer = null;
   });
 
-  it('explains automatic animation behavior in terms of reduced motion', () => {
+  it('shows a binary animation control without an automatic mode', () => {
     const config = {
       ui: {
         appearance: 'system',
         palette: 'obsidium',
         accentMode: 'palette',
-        motion: 'system',
+        motion: 'on',
         enabledSnippets: {},
         language: 'ru',
         primaryColor: '#D357FE',
@@ -44,9 +44,9 @@ describe('UiSection', () => {
 
     const motionRow = [...renderer!.container.querySelectorAll('.q-settings-row')]
       .find((row) => row.textContent?.includes(t('settings.ui.animations')));
-    expect(motionRow?.textContent).toContain(t('settings.ui.motionAuto'));
-    expect(motionRow?.textContent).toContain(t('settings.ui.motionHint'));
-    expect(motionRow?.textContent).not.toContain(t('theme.system'));
+    expect(motionRow?.textContent).toContain(t('theme.on'));
+    expect(motionRow?.textContent).toContain(t('theme.off'));
+    expect(motionRow?.textContent).not.toContain('Авто');
     expect(renderer!.container.textContent).not.toContain(t('settings.ui.primaryColor'));
   });
 });

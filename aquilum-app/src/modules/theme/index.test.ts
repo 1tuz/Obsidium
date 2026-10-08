@@ -35,15 +35,15 @@ describe('theme engine', () => {
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toContain('dracula-light-accent');
   });
 
-  it('tracks system appearance changes and system reduced-motion preference', () => {
+  it('tracks system appearance changes while motion remains binary', () => {
     const query = { matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     vi.spyOn(window, 'matchMedia').mockImplementation((media) => ({
       ...query,
       matches: media.includes('color-scheme'),
     }) as unknown as MediaQueryList);
-    setTheme('system', 'obsidium', 'system');
+    setTheme('system', 'obsidium', 'on');
     expect(themeMode()).toBe('dark');
-    expect(document.documentElement.dataset.motion).toBe('system');
+    expect(document.documentElement.dataset.motion).toBe('on');
   });
 
   it('keeps mode aliases synchronized after a palette change', () => {
@@ -58,7 +58,7 @@ describe('theme engine', () => {
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main'))
       .toContain('graphite-light-accent');
 
-    setTheme('light', 'graphite', 'system', 'custom', '#ff00aa');
+    setTheme('light', 'graphite', 'on', 'custom', '#ff00aa');
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toBe('#ff00aa');
   });
 });

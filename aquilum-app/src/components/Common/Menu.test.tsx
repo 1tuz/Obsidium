@@ -13,6 +13,7 @@ describe('Menu', () => {
   });
 
   it('stays open while its own list is scrolled', () => {
+    document.documentElement.dataset.motion = 'off';
     const onClose = vi.fn();
     act(() => {
       renderer = mountDom(
