@@ -10,7 +10,7 @@ export interface InlineMarkdownEdit extends MarkdownEdit {
 }
 
 export type BlockFormat =
-  | 'h1' | 'h2' | 'h3'
+  | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
   | 'bullet' | 'ordered' | 'task' | 'quote';
 
 export function inlineMarkdownEdit(
@@ -65,6 +65,9 @@ function desiredPrefix(format: BlockFormat, index: number): string {
     case 'h1': return '# ';
     case 'h2': return '## ';
     case 'h3': return '### ';
+    case 'h4': return '#### ';
+    case 'h5': return '##### ';
+    case 'h6': return '###### ';
     case 'bullet': return '- ';
     case 'ordered': return `${index + 1}. `;
     case 'task': return '- [ ] ';

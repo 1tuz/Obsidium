@@ -23,6 +23,7 @@ export interface EditorProps {
   onOpenWikiLink: (target: string, disposition: LinkDisposition) => void;
   onOpenExternalUrl: (url: string) => void;
   revealOffset?: number;
+  readOnly: boolean;
   inactive?: boolean;
   onBodyViewChange?: (view: EditorView | null) => void;
 }
@@ -45,4 +46,3 @@ export type CoverFieldKey =
   | typeof FM_BOOK_FILE
   | typeof FM_READER_POSITION
   | typeof FM_READ_PERCENT;
-

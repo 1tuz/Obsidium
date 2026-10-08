@@ -37,6 +37,7 @@ export function Editor({
   onOpenWikiLink,
   onOpenExternalUrl,
   revealOffset,
+  readOnly,
   inactive = false,
   onBodyViewChange,
 }: EditorProps) {
@@ -211,6 +212,7 @@ export function Editor({
         initialBody={initialBody}
         selection={selection}
         extensions={extensions}
+        readOnly={readOnly}
         autoLinkTitle={autoLinkTitle}
         onCreateEditor={handleCreateEditor}
         onUpdate={handleEditorUpdate}
@@ -285,4 +287,3 @@ export function Editor({
     </div>
   );
 }
-

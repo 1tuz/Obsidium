@@ -67,11 +67,14 @@ export function EditorPane({
   const [pageSearchOpen, setPageSearchOpen] = useState(false);
   const [pageSearchFocusRequest, setPageSearchFocusRequest] = useState(0);
   const [bodyView, setBodyView] = useState<EditorView | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
   const { config } = useSettingsStore();
   const builtins = config?.builtins ?? DEFAULT_BUILTINS;
   const opened = useOpenedVersion(tab.tabId);
   const viewing = opened && samePath(opened.path, tab.path) ? opened : null;
   const viewingVersion = viewing !== null;
+
+  useEffect(() => setReadOnly(false), [tab.path]);
 
   useEffect(() => {
     if (opened && !viewing) closeVersion(tab.tabId);
@@ -132,8 +135,11 @@ export function EditorPane({
           onExportPdf={exportPdf}
           focusMode={focusMode}
           onToggleFocusMode={onToggleFocusMode}
+          readOnly={readOnly || viewingVersion}
+          onToggleReadMode={() => setReadOnly((current) => !current)}
+          showModeToggle={!viewingVersion}
         />
-        {(builtins.editingToolbar ?? true) && (
+        {!readOnly && (builtins.editingToolbar ?? true) && (
           <EditingToolbar
             view={inactive || viewingVersion ? null : bodyView}
             position={builtins.toolbarPosition ?? 'top'}
@@ -178,6 +184,7 @@ export function EditorPane({
               onOpenWikiLink={onOpenWikiLink}
               onOpenExternalUrl={onOpenExternalUrl}
               revealOffset={revealOffset}
+              readOnly={readOnly || viewingVersion}
               inactive={inactive}
               onBodyViewChange={setBodyView}
             />
@@ -188,5 +195,3 @@ export function EditorPane({
     </ErrorBoundary>
   );
 }
-
-

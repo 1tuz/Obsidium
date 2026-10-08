@@ -55,8 +55,12 @@
 }
 
 .q-editor-inline-title-cm {
-    --q-cm-font-size: var(--q-font-size-24);
-    --q-cm-font-weight: var(--q-editor-heading-weight);
+  --q-cm-font-size: var(--q-font-size-24);
+  --q-cm-font-weight: var(--q-editor-heading-weight);
+}
+
+.q-editor-content--reading .cm-cursor {
+  display: none;
 }
 
 .q-editor-inline-title-cm .cm-content {

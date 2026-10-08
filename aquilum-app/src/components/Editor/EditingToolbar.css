@@ -9,8 +9,16 @@
   padding: var(--q-space-4) var(--q-space-8);
   overflow-x: auto;
   scrollbar-width: thin;
-  background: var(--q-editor-bg);
-  border-bottom: var(--q-border-1) solid var(--q-border-default);
+  background: var(--q-bg-surface-raised);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-rounded-lg);
+  box-shadow: var(--q-shadow-action);
+}
+
+.q-editing-toolbar--top {
+  align-self: center;
+  width: min(100%, calc(var(--q-editor-max-width) + 2 * var(--q-editor-padding-x)));
+  justify-content: flex-start;
 }
 
 .q-editing-toolbar__group {
@@ -31,9 +39,6 @@
   position: fixed;
   z-index: 120;
   width: max-content;
+  justify-content: flex-start;
   max-width: calc(100vw - 16px);
-  min-height: var(--q-size-40);
-  border: var(--q-border-1) solid var(--q-border-default);
-  border-radius: var(--q-rounded-lg);
-  box-shadow: var(--q-shadow-action);
 }

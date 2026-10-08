@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { useMemo, type RefObject } from 'react';
-import type { Extension } from '@codemirror/state';
-import type { EditorView, ViewUpdate } from '@codemirror/view';
+import { EditorState, type Extension } from '@codemirror/state';
+import { EditorView, type ViewUpdate } from '@codemirror/view';
 import { CodeMirrorField, type CodeMirrorFieldRef } from '../Common/CodeMirrorField';
 import { CodeMirrorView } from '../Common/CodeMirrorView';
 import { Menu } from '../Common/Menu';
@@ -30,6 +30,7 @@ interface EditorContentProps {
     selection: { anchor: number; head: number } | undefined;
     extensions: Extension[];
     autoLinkTitle: boolean;
+    readOnly?: boolean;
     onCreateEditor: (view: EditorView) => void;
     onUpdate: (update: ViewUpdate) => void;
     hasFrontmatter?: boolean;
@@ -46,6 +47,7 @@ export function EditorContent({
     selection,
     extensions,
     autoLinkTitle,
+    readOnly = false,
     onCreateEditor,
     onUpdate,
     hasFrontmatter = false,
@@ -53,10 +55,18 @@ export function EditorContent({
     onToggleMetadata,
 }: EditorContentProps) {
     const titleExtensions = useMemo(() => [wikiHoverHighlightTitle], []);
+    const bodyExtensions = useMemo<Extension[]>(() => [
+        extensions,
+        EditorState.readOnly.of(readOnly),
+        EditorView.editable.of(!readOnly),
+    ], [extensions, readOnly]);
     const bodyMenu = useEditorBodyMenu(bodyRef, autoLinkTitle);
 
     return (
-        <div className="q-editor-content" onContextMenu={bodyMenu.onContextMenu}>
+        <div
+            className={`q-editor-content${readOnly ? ' q-editor-content--reading' : ''}`}
+            onContextMenu={readOnly ? undefined : bodyMenu.onContextMenu}
+        >
             <CodeMirrorField
                 ref={titleRef}
                 className="q-editor-inline-title-cm"
@@ -65,6 +75,7 @@ export function EditorContent({
                 mode="single-line"
                 lineWrapping
                 placeholder={t('editor.untitled')}
+                disabled={readOnly}
                 extensions={titleExtensions}
                 onBlur={onCommitTitle}
                 onFocus={() => collapseViewSelection(bodyRef.current)}
@@ -94,13 +105,13 @@ export function EditorContent({
                 viewRef={bodyRef}
                 doc={initialBody}
                 selection={selection}
-                extensions={extensions}
+                extensions={bodyExtensions}
                 onCreate={onCreateEditor}
                 onUpdate={onUpdate}
                 onFocus={() => collapseViewSelection(titleRef.current?.view)}
             />
             <Menu
-                open={bodyMenu.open}
+                open={!readOnly && bodyMenu.open}
                 position={bodyMenu.position}
                 items={bodyMenu.items}
                 onClose={bodyMenu.close}
@@ -109,4 +120,3 @@ export function EditorContent({
         </div>
     );
 }
-

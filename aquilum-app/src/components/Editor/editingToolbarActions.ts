@@ -13,7 +13,7 @@ export type EditingAction =
   | BlockFormat
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike'
   | 'highlight' | 'inlineCode' | 'codeBlock' | 'link'
-  | 'table' | 'rule' | 'indent' | 'outdent';
+  | 'image' | 'table' | 'rule' | 'indent' | 'outdent';
 
 function applyWrap(view: EditorView, marker: string): void {
   const state = view.state;
@@ -56,13 +56,14 @@ function applyCodeBlock(view: EditorView): void {
   });
 }
 
-function applyLink(view: EditorView): void {
+function applyLink(view: EditorView, image = false): void {
   const state = view.state;
   const spec = state.changeByRange((range) => {
     const selected = state.doc.sliceString(range.from, range.to);
-    const label = selected || 'link';
-    const insert = `[${label}](https://)`;
-    const start = selected ? range.from + label.length + 3 : range.from + 1;
+    const label = selected || (image ? 'alt' : 'link');
+    const prefix = image ? '![' : '[';
+    const insert = `${prefix}${label}](https://)`;
+    const start = selected ? range.from + prefix.length + label.length + 2 : range.from + prefix.length;
     const end = selected ? start + 8 : start + label.length;
     return {
       changes: { from: range.from, to: range.to, insert },
@@ -100,11 +101,13 @@ export function runEditingAction(view: EditorView, action: EditingAction): boole
     case 'highlight': applyWrap(view, '=='); break;
     case 'inlineCode': applyWrap(view, '`'); break;
     case 'h1': case 'h2': case 'h3':
+    case 'h4': case 'h5': case 'h6':
     case 'bullet': case 'ordered': case 'task': case 'quote':
       applyBlock(view, action);
       break;
     case 'codeBlock': applyCodeBlock(view); break;
     case 'link': applyLink(view); break;
+    case 'image': applyLink(view, true); break;
     case 'table': insertTable(view); break;
     case 'rule': applyRule(view); break;
     case 'indent': indentMore(view); break;

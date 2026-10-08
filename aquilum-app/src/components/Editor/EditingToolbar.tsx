@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
 import {
   Bold, Italic, Strikethrough, Highlighter, Code, Heading1, Heading2,
-  Heading3, List, ListOrdered, ListTodo, Quote, Link2, Table2,
+  Heading3, Heading4, Heading5, Heading6, List, ListOrdered, ListTodo,
+  Quote, Link2, Image, Table2,
   Minus, Undo2, Redo2, IndentIncrease, IndentDecrease, type IconNode,
 } from 'lucide';
 import { Icon } from '../Common/Icon';
@@ -25,13 +26,14 @@ interface ButtonDefinition {
 
 const GROUPS: readonly (readonly ButtonDefinition[])[] = [
   [{ action: 'undo', icon: Undo2 }, { action: 'redo', icon: Redo2 }],
-  [{ action: 'h1', icon: Heading1 }, { action: 'h2', icon: Heading2 }, { action: 'h3', icon: Heading3 }],
+  [{ action: 'h1', icon: Heading1 }, { action: 'h2', icon: Heading2 }, { action: 'h3', icon: Heading3 },
+    { action: 'h4', icon: Heading4 }, { action: 'h5', icon: Heading5 }, { action: 'h6', icon: Heading6 }],
   [{ action: 'bold', icon: Bold }, { action: 'italic', icon: Italic },
     { action: 'strike', icon: Strikethrough }, { action: 'highlight', icon: Highlighter },
     { action: 'inlineCode', icon: Code }],
   [{ action: 'bullet', icon: List }, { action: 'ordered', icon: ListOrdered },
     { action: 'task', icon: ListTodo }, { action: 'quote', icon: Quote }],
-  [{ action: 'link', icon: Link2 }, { action: 'table', icon: Table2 },
+  [{ action: 'link', icon: Link2 }, { action: 'image', icon: Image }, { action: 'table', icon: Table2 },
     { action: 'codeBlock', icon: Code }, { action: 'rule', icon: Minus }],
   [{ action: 'indent', icon: IndentIncrease }, { action: 'outdent', icon: IndentDecrease }],
 ];

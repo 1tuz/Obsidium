@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import { ArrowLeft, ArrowRight, MoreHorizontal, Search } from 'lucide';
+import { ArrowLeft, ArrowRight, BookOpen, MoreHorizontal, Pencil, Search } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { IconButton } from '../Common/IconButton';
@@ -18,9 +18,24 @@ interface EditorToolbarProps {
   onExportPdf: () => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
+  readOnly: boolean;
+  onToggleReadMode: () => void;
+  showModeToggle?: boolean;
 }
 
-export function EditorToolbar({ fileName, canGoBack, canGoForward, onNavigate, onSearch, onExportPdf, focusMode, onToggleFocusMode }: EditorToolbarProps) {
+export function EditorToolbar({
+  fileName,
+  canGoBack,
+  canGoForward,
+  onNavigate,
+  onSearch,
+  onExportPdf,
+  focusMode,
+  onToggleFocusMode,
+  readOnly,
+  onToggleReadMode,
+  showModeToggle = true,
+}: EditorToolbarProps) {
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const close = useCallback(() => setPosition(null), []);
@@ -42,6 +57,17 @@ export function EditorToolbar({ fileName, canGoBack, canGoForward, onNavigate, o
     </div>
     {!focusMode && <div className="q-editor-toolbar__name" title={fileName}>{fileName}</div>}
     <div className="q-editor-toolbar__side">
+      {showModeToggle && (
+        <Button
+          variant="ghost"
+          size="xs"
+          aria-pressed={readOnly}
+          onClick={onToggleReadMode}
+        >
+          <Icon icon={readOnly ? Pencil : BookOpen} />
+          {t(readOnly ? 'editor.editingMode' : 'editor.readingMode')}
+        </Button>
+      )}
       <Button variant="ghost" size="xs" aria-pressed={focusMode} onClick={onToggleFocusMode}>{t('editor.focusMode')}</Button>
       {!focusMode && <IconButton label={t('editor.searchInNote')} size="medium" onClick={onSearch}><Icon icon={Search} /></IconButton>}
       <span ref={triggerRef}><IconButton label={t('editor.noteActions')} size="medium" aria-expanded={Boolean(position)} onClick={openMenu}><Icon icon={MoreHorizontal} /></IconButton></span>
