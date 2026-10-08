@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { t } from '../../i18n';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 
 const state = vi.hoisted(() => ({
@@ -30,11 +31,17 @@ vi.mock('../../modules/documents/fileGateway', () => ({
   readFileSnapshot: vi.fn(async (path: string) => ({
     content: state.sources[path], hash: state.sources[path], textHash: state.sources[path],
   })),
+  trashFile: vi.fn(),
   writeFileAtomic: vi.fn(),
 }));
 
+vi.mock('../../modules/documents/renameWorkspaceFile', () => ({
+  renameWorkspaceFile: vi.fn(async () => '/vault/Work/Roadmap.base'),
+}));
+
 const { BoardsPanel } = await import('./BoardsPanel');
-const { readDirectory } = await import('../../modules/documents/fileGateway');
+const { readDirectory, trashFile } = await import('../../modules/documents/fileGateway');
+const { renameWorkspaceFile } = await import('../../modules/documents/renameWorkspaceFile');
 
 describe('BoardsPanel', () => {
   let renderer: MountedDom | null = null;
@@ -83,5 +90,55 @@ describe('BoardsPanel', () => {
     act(() => state.listener?.({ payload: ['/vault/Releases.base'] }));
     await actAndSettle(() => new Promise((resolve) => setTimeout(resolve, 100)));
     expect(renderer!.container.textContent).toContain('Releases');
+  });
+
+  it('offers board file rename and delete actions', async () => {
+    const props = {
+      active: true,
+      workspacePath: '/vault',
+      onOpenView: vi.fn(),
+      actionRequest: null,
+      onActionRequestComplete: vi.fn(),
+      createRequest: 0,
+    };
+    act(() => { renderer = mountDom(<BoardsPanel {...props} />); });
+    await actAndSettle();
+
+    const menuButton = renderer!.container.querySelector<HTMLButtonElement>(
+      `[aria-label="${t('boards.actions', { name: 'Bugs' })}"]`,
+    );
+    expect(menuButton).not.toBeNull();
+    act(() => menuButton!.click());
+    await actAndSettle();
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
+      t('common.rename'), t('common.delete'),
+    ]);
+
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((item) => item.textContent === t('common.rename'))!.click());
+    await actAndSettle();
+    const renameDialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const input = renameDialog?.querySelector<HTMLInputElement>('input');
+    expect(input?.value).toBe('Bugs');
+    input!.value = 'Roadmap';
+    act(() => { input!.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => [...renameDialog!.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === t('common.rename'))!.click());
+    await actAndSettle();
+    expect(renameWorkspaceFile).toHaveBeenCalledWith('/vault/Work/Bugs.base', 'Roadmap');
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>(
+      `[aria-label="${t('boards.actions', { name: 'Bugs' })}"]`,
+    )!.click());
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((item) => item.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+    const deleteDialog = document.querySelector<HTMLElement>('[role="alertdialog"]');
+    expect(deleteDialog?.textContent).toContain('Bugs');
+    act(() => [...deleteDialog!.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+    expect(trashFile).toHaveBeenCalledWith('/vault', '/vault/Work/Bugs.base');
   });
 });

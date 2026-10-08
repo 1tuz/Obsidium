@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView, type DecorationSet } from '@codemirror/view';
 import {
@@ -33,6 +33,13 @@ function editor(doc: string) {
 const AGENT_TEXT = 'текст от агента';
 
 describe('externalReveal', () => {
+  beforeEach(() => {
+    vi.stubGlobal('document', { documentElement: { dataset: { motion: 'on' } } });
+    vi.stubGlobal('window', {});
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
   it('hides the whole inserted range and uncovers it step by step', () => {
     const { view, hidden } = editor(`начало ${AGENT_TEXT} конец`);
     revealExternalInsert(view, { from: 7, to: 7, insert: AGENT_TEXT });

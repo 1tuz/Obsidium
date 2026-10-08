@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { t } from '../../i18n';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 
 const state = vi.hoisted(() => ({
@@ -138,5 +139,22 @@ describe('BaseView view selection', () => {
     expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
       '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
     );
+  });
+
+  it('keeps notes without a group value in an unassigned column', async () => {
+    state.rows = [{ path: '/vault/Unsorted.md', fields: {} }];
+    const props = {
+      path: '/vault/Project.base',
+      workspacePath: '/vault',
+      indexReady: true,
+      indexRevision: 0,
+      onOpenNote: vi.fn(),
+      viewRequest: { path: '/vault/Project.base', index: 1, id: 1 },
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    expect(renderer!.container.textContent).toContain(t('bases.kanbanUnassigned'));
+    expect(renderer!.container.textContent).toContain('Unsorted');
   });
 });

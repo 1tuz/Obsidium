@@ -21,11 +21,11 @@ export interface ThemePalette {
 }
 
 export function motionEnabled(): boolean {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return true;
+  if (typeof document === 'undefined' || typeof window === 'undefined') return false;
   const motion = document.documentElement.dataset.motion;
   if (motion === 'off') return false;
-  return typeof window.matchMedia !== 'function'
-    || !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return motion === 'on' && (typeof window.matchMedia !== 'function'
+    || !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 
 function palette(id: string, name: string): ThemePalette {
@@ -110,7 +110,7 @@ export const themePalettes: ThemePalette[] = [
 let currentAppearance: Theme = 'system';
 let currentMode: ThemeMode = 'light';
 let currentPalette = 'obsidium';
-let currentMotion: Motion = 'on';
+let currentMotion: Motion = 'off';
 let currentAccentMode: AccentMode = 'palette';
 let currentPrimaryColor = '#1471eb';
 const modeListeners = new Set<() => void>();
@@ -179,7 +179,7 @@ export function subscribeThemeMode(listener: () => void): () => void {
 export function setTheme(
   appearance: Theme,
   paletteId = 'obsidium',
-  motion: Motion = 'on',
+  motion: Motion = 'off',
   accentMode: AccentMode = 'palette',
   primaryColor = '#1471eb',
 ): void {
@@ -197,7 +197,7 @@ export function initTheme(): () => void {
   const handleChange = () => {
     if (currentAppearance === 'system') {
       const root = document.documentElement;
-      applyTheme('system', root.dataset.palette ?? 'obsidium', (root.dataset.motion as Motion) ?? 'on',
+      applyTheme('system', root.dataset.palette ?? 'obsidium', (root.dataset.motion as Motion) ?? currentMotion,
         (root.dataset.accentMode as AccentMode) ?? 'palette', currentPrimaryColor);
     }
   };

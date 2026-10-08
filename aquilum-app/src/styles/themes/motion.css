@@ -21,15 +21,13 @@
   view-transition-name: none;
 }
 
+[data-motion="off"],
 [data-motion="off"] *,
 [data-motion="off"] *::before,
 [data-motion="off"] *::after {
-  animation-delay: 0s !important;
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
+  animation: none !important;
   scroll-behavior: auto !important;
-  transition-delay: 0s !important;
-  transition-duration: 0.01ms !important;
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -37,15 +35,13 @@
     view-transition-name: none;
   }
 
+  [data-motion="on"],
   [data-motion="on"] *,
   [data-motion="on"] *::before,
   [data-motion="on"] *::after {
-    animation-delay: 0s !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
+    animation: none !important;
     scroll-behavior: auto !important;
-    transition-delay: 0s !important;
-    transition-duration: 0.01ms !important;
+    transition: none !important;
   }
 }
 

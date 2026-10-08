@@ -214,7 +214,7 @@
       "top": "Above the editor",
       "selection": "Next to selected text",
       "kanban": "Kanban",
-      "kanbanUnavailable": "Kanban is not implemented in this Obsidium version"
+      "kanbanHint": "Show the Boards panel and Kanban commands"
     },
     "font": {
       "section": "Fonts",
@@ -233,8 +233,11 @@
       "scaleHint": "Also Ctrl + mouse wheel; {{reset}} resets to 100%",
       "theme": "Appearance",
       "palette": "Palette",
+      "paletteChoose": "Choose palette",
+      "paletteDialogTitle": "Color palette",
+      "paletteClose": "Close palettes",
       "animations": "Animations",
-      "motionHint": "Enable smooth transitions and interface micro-animations",
+      "motionHint": "Off by default. Your choice is saved.",
       "language": "Language",
       "languageAria": "Interface language",
       "homePage": "Home page",
@@ -492,7 +495,8 @@
     "error": "Could not open this base",
     "unsupported": "Some Base expressions are not supported yet; unsupported filters stay visible.",
     "untitledView": "View",
-    "groupEmpty": "Without value"
+    "groupEmpty": "Without value",
+    "kanbanUnassigned": "Unassigned"
   },
   "canvas": {
     "toolbar": "Canvas tools",
@@ -520,6 +524,7 @@
     "empty": "No Kanban views found",
     "loading": "Finding boards…",
     "loadError": "Could not load boards",
+    "actions": "Actions for {{name}}",
     "name": "Name",
     "source": "Card source",
     "folder": "Folder",
@@ -532,6 +537,12 @@
     "columns": "Initial columns",
     "create": "Create board",
     "creating": "Creating…",
+    "renameTitle": "Rename board",
+    "renaming": "Renaming…",
+    "renameError": "Could not rename board: {{reason}}",
+    "deleteTitle": "Delete board?",
+    "deleteDescription": "Board file “{{name}}” and all its views will be moved to the vault trash.",
+    "deleteError": "Could not move board to trash: {{reason}}",
     "cancel": "Cancel",
     "addToBoard": "Add to board",
     "removeFromBoard": "Remove from board",

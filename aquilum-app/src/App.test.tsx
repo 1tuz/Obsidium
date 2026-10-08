@@ -83,13 +83,16 @@ vi.mock('./components/Layout/SidebarRail', () => ({
   SidebarRail: ({
     onToggleSidebar,
     onOpenGraph,
+    onOpenBoards,
   }: {
     onToggleSidebar: () => void;
     onOpenGraph: () => void;
+    onOpenBoards?: () => void;
   }) => (
     <>
       <button id="hide-left-sidebar" onClick={onToggleSidebar} />
       <button id="open-graph" onClick={onOpenGraph} />
+      {onOpenBoards ? <button id="open-boards" onClick={onOpenBoards} /> : null}
     </>
   ),
 }));
@@ -140,7 +143,7 @@ vi.mock('./components/Settings/SettingsDialog', () => ({
 
 vi.mock('./modules/settings', () => ({
   DEFAULT_LIVE_TABS: 3,
-  DEFAULT_BUILTINS: { editingToolbar: false, kanban: false, toolbarPosition: 'top' },
+  DEFAULT_BUILTINS: { editingToolbar: false, kanban: true, toolbarPosition: 'top' },
   useSettingsStore: () => ({
     config: settingsState.config,
     isLoading: false,
@@ -237,6 +240,27 @@ describe('App editor lifecycle', () => {
     });
 
     expect(find('toggle-theme')).toHaveLength(1);
+  });
+
+  it('shows the Boards entry only when the Kanban built-in is enabled', async () => {
+    settingsState.config = {
+      editor: { liveTabs: 3 },
+      updates: { auto: false },
+      trash: { retentionDays: 30 },
+      history: { retentionDays: 30 },
+      templates: { folder: '' },
+      ui: { appearance: 'system', palette: 'obsidium', motion: 'system', language: 'ru', enabledSnippets: {} },
+      builtins: { editingToolbar: true, kanban: false, toolbarPosition: 'top' },
+    };
+    await renderWithSession();
+    expect(find('open-boards')).toHaveLength(0);
+
+    settingsState.config = {
+      ...settingsState.config,
+      builtins: { editingToolbar: true, kanban: true, toolbarPosition: 'top' },
+    };
+    await actAndSettle(() => renderer!.update(<App />));
+    expect(find('open-boards')).toHaveLength(1);
   });
 
   it('loads settings and switches theme when clicked before config is ready', async () => {

@@ -9,8 +9,6 @@ import { Row } from '../Row';
 import { Section } from '../Section';
 import type { SettingsSectionProps } from '../types';
 
-const KANBAN_AVAILABLE = false;
-
 export function BuiltinsSection({ config, onChange }: SettingsSectionProps) {
   const builtins = { ...DEFAULT_BUILTINS, ...config.builtins };
   const patch = (value: Partial<BuiltinPluginSettings>) => onChange({
@@ -47,11 +45,10 @@ export function BuiltinsSection({ config, onChange }: SettingsSectionProps) {
           </Row>
         ) : null}
         <Row label={t('settings.builtins.kanban')}
-          description={t('settings.builtins.kanbanUnavailable')}>
+          description={t('settings.builtins.kanbanHint')}>
           <Switch
-            checked={KANBAN_AVAILABLE && builtins.kanban}
+            checked={builtins.kanban}
             label={t('settings.builtins.kanban')}
-            disabled={!KANBAN_AVAILABLE}
             onChange={(kanban) => patch({ kanban })}
           />
         </Row>

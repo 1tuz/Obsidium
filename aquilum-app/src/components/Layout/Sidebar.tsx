@@ -38,8 +38,8 @@ interface SidebarProps {
   boardActionRequest?: BoardActionRequest | null;
   onBoardActionRequestComplete: () => void;
   createBoardRequest: number;
-  onAddToBoard: (path: string) => void;
-  onRemoveFromBoard: (path: string) => void;
+  onAddToBoard?: (path: string) => void;
+  onRemoveFromBoard?: (path: string) => void;
 }
 
 export const Sidebar = memo(function Sidebar({

@@ -88,7 +88,7 @@ export function EditingToolbar({ view, position }: EditingToolbarProps) {
     <div
       role="toolbar"
       aria-label={t('editor.formatting.toolbar')}
-      className={`q-editing-toolbar${position === 'selection' ? ' q-editing-toolbar--floating' : ''}`}
+      className={`q-editing-toolbar${position === 'selection' ? ' q-editing-toolbar--floating' : ' q-editing-toolbar--top'}`}
       style={position === 'selection' && point ? { left: point.left, top: point.top } : undefined}
       onMouseDown={(event) => event.preventDefault()}
     >

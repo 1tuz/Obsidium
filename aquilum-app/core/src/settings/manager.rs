@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(config.editor.save_debounce_ms, 1000);
         assert!(config.analysis.enable_bm25f);
         assert!(config.builtins.editing_toolbar);
-        assert!(!config.builtins.kanban);
+        assert!(config.builtins.kanban);
     }
 
     #[test]
@@ -122,7 +122,7 @@ mod tests {
         let manager = SettingsManager::new(dir.path());
         let mut config = manager.get_config();
         assert!(config.builtins.editing_toolbar);
-        assert!(!config.builtins.kanban);
+        assert!(config.builtins.kanban);
         assert_eq!(config.builtins.toolbar_position, "top");
         config.builtins.editing_toolbar = false;
         config.builtins.toolbar_position = "selection".to_owned();
@@ -159,12 +159,22 @@ mod tests {
 
         assert_eq!(config.ui.appearance, "dark");
         assert_eq!(config.ui.palette, "obsidium");
-        assert_eq!(config.ui.motion, "on");
+        assert_eq!(config.ui.motion, "off");
         assert!(config.ui.enabled_snippets.is_empty());
         manager.update_config(config).unwrap();
         let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
         assert!(stored.contains("\"appearance\": \"dark\""));
         assert!(!stored.contains("\"theme\""));
+    }
+
+    #[test]
+    fn explicit_motion_preference_is_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("settings.json"), r#"{"ui":{"motion":"on"}}"#).unwrap();
+
+        let config = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!(config.ui.motion, "on");
     }
 
     #[test]

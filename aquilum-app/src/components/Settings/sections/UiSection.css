@@ -2,7 +2,15 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--q-space-3);
-  margin-block: var(--q-space-3);
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--q-gap-lg);
+}
+
+.q-theme-palette-dialog {
+  width: min(92vw, 60rem);
+  height: min(80vh, 48rem);
 }
 
 .q-theme-card {

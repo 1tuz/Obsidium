@@ -75,11 +75,27 @@
   margin-block: var(--q-space-4);
 }
 
-.q-boards-tree__board strong {
+.q-boards-tree__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-4);
+  min-width: 0;
+}
+
+.q-boards-tree__heading strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   padding: var(--q-space-4) var(--q-space-8);
   color: var(--q-text-secondary);
   font-size: var(--q-font-size-ui-xs);
   font-weight: var(--q-font-weight-ui-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-boards-tree__heading .q-icon-button {
+  flex: 0 0 auto;
 }
 
 .q-boards-tree__board > button {

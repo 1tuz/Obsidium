@@ -13,6 +13,11 @@
   border-bottom: var(--q-border-1) solid var(--q-border-default);
 }
 
+.q-editing-toolbar--top {
+  width: 100%;
+  justify-content: space-between;
+}
+
 .q-editing-toolbar__group {
   display: flex;
   flex: 0 0 auto;
@@ -31,6 +36,7 @@
   position: fixed;
   z-index: 120;
   width: max-content;
+  justify-content: flex-start;
   max-width: calc(100vw - 16px);
   min-height: var(--q-size-40);
   border: var(--q-border-1) solid var(--q-border-default);

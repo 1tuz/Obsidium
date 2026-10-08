@@ -105,7 +105,7 @@ export interface BuiltinPluginSettings {
 
 export const DEFAULT_BUILTINS: BuiltinPluginSettings = {
   editingToolbar: true,
-  kanban: false,
+  kanban: true,
   toolbarPosition: 'top',
 };
 
@@ -153,7 +153,7 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
 }
 
 function normalizeMotion(value: unknown): UiSettings['motion'] {
-  return value === 'off' ? 'off' : 'on';
+  return value === 'on' ? 'on' : 'off';
 }
 
 function withKnownFonts(config: AppConfig): AppConfig {

@@ -50,10 +50,10 @@ describe('UiSection', () => {
     expect(renderer!.container.textContent).not.toContain(t('settings.ui.primaryColor'));
   });
 
-  it('renders selectable palette cards and highlights the current palette', () => {
+  it('opens the palette chooser in a separate dialog and selects a palette', () => {
     const config = {
       ui: {
-        appearance: 'dark', palette: 'dracula', accentMode: 'palette', motion: 'system',
+        appearance: 'dark', palette: 'dracula', accentMode: 'palette', motion: 'off',
         enabledSnippets: {}, language: 'ru', primaryColor: '#D357FE',
         fontFamily: 'Inter', fontWeight: 400, fontSizeBase: 14,
       },
@@ -66,6 +66,9 @@ describe('UiSection', () => {
       );
     });
 
+    expect(renderer!.container.querySelector('.q-theme-card')).toBeNull();
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('[data-testid="open-palette-chooser"]')?.click());
+    expect(renderer!.container.querySelector('.q-theme-palette-dialog')).not.toBeNull();
     const cards = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-theme-card')];
     expect(cards.length).toBeGreaterThan(31);
     expect(cards.find((card) => card.textContent?.includes('Dracula'))?.getAttribute('aria-pressed')).toBe('true');
@@ -75,5 +78,6 @@ describe('UiSection', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       ui: expect.objectContaining({ palette: 'cendre' }),
     }));
+    expect(renderer!.container.querySelector('.q-theme-palette-dialog')).toBeNull();
   });
 });

@@ -187,7 +187,7 @@ impl Default for UiSettings {
             appearance: "system".to_string(),
             palette: "obsidium".to_string(),
             accent_mode: "palette".to_string(),
-            motion: "on".to_string(),
+            motion: "off".to_string(),
             enabled_snippets: HashMap::new(),
             language: String::new(),
             primary_color: "#1471eb".to_string(),
@@ -250,7 +250,7 @@ impl Default for BuiltinPluginSettings {
     fn default() -> Self {
         Self {
             editing_toolbar: true,
-            kanban: false,
+            kanban: true,
             toolbar_position: "top".to_owned(),
         }
     }
