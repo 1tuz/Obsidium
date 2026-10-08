@@ -16,7 +16,12 @@
     overflow-y: auto;
     overflow-anchor: none;
     background-color: var(--q-editor-bg);
+    transition: background-color var(--q-duration-normal) var(--q-ease-out);
     padding: var(--q-editor-padding-y) var(--q-editor-padding-x);
+}
+
+.q-editor-container .cm-editor {
+    transition: color var(--q-duration-normal) var(--q-ease-out);
 }
 
 .q-editor-container--book {

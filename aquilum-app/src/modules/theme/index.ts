@@ -140,6 +140,7 @@ function applyTheme(
   root.classList.toggle('theme-light', mode === 'light');
   root.classList.toggle('theme-dark', mode === 'dark');
   root.style.setProperty('--q-bg-canvas', tokens.background);
+  root.style.setProperty('--q-editor-bg', tokens.background);
   root.style.setProperty('--q-bg-surface', tokens.surface);
   root.style.setProperty('--q-bg-surface-raised', tokens.raised);
   root.style.setProperty('--q-text-primary', tokens.text);

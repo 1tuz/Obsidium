@@ -46,6 +46,7 @@ describe('UiSection', () => {
       .find((row) => row.textContent?.includes(t('settings.ui.animations')));
     expect(motionRow?.textContent).toContain(t('theme.on'));
     expect(motionRow?.textContent).toContain(t('theme.off'));
+    expect(motionRow?.textContent).toContain(t('settings.ui.motionHint'));
     expect(motionRow?.textContent).not.toContain('Авто');
     expect(renderer!.container.textContent).not.toContain(t('settings.ui.primaryColor'));
   });
