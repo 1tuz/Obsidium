@@ -10,7 +10,7 @@ import { HighlightMap } from './highlightMap';
 import { LabelLayer, type LabelTypography } from './labelLayer';
 import type { NoteLabels } from './noteLabels';
 import { dimmedBy, MAX_EDGES_PER_FRAME } from './nodeMetrics';
-import { readPalette, type Palette } from './palette';
+import { observePaletteChanges, readPalette, type Palette } from './palette';
 import { pickNode } from './pickGrid';
 import { PointerInteraction } from './pointerInteraction';
 import { ScaleReadout } from './scaleReadout';
@@ -80,8 +80,7 @@ export class GraphRenderer {
       this.onContextLost?.();
     };
     canvas.addEventListener('webglcontextlost', this.handleContextLost);
-    this.themeWatcher = new MutationObserver(() => this.refreshPalette());
-    this.themeWatcher.observe(document.documentElement, { attributeFilter: ['data-theme'] });
+    this.themeWatcher = observePaletteChanges(document.documentElement, () => this.refreshPalette());
   }
 
   setSnapshot(snapshot: GraphSnapshot, keepCamera = false): void {

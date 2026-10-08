@@ -17,6 +17,12 @@ export interface Palette {
   labelHalo: Color;
 }
 
+export function observePaletteChanges(element: HTMLElement, onChange: () => void): MutationObserver {
+  const observer = new MutationObserver(onChange);
+  observer.observe(element, { attributeFilter: ['data-theme', 'data-palette'] });
+  return observer;
+}
+
 let probe: CanvasRenderingContext2D | null = null;
 
 export function readPalette(element: HTMLElement): Palette {

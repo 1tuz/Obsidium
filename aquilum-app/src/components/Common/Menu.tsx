@@ -74,17 +74,21 @@ export function Menu({
     };
 
     const handleReposition = () => onClose();
+    const handleScroll = (event: Event) => {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      onClose();
+    };
 
     window.addEventListener('mousedown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('resize', handleReposition);
-    window.addEventListener('scroll', handleReposition, true);
+    window.addEventListener('scroll', handleScroll, true);
 
     return () => {
       window.removeEventListener('mousedown', handlePointerDown);
       window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('resize', handleReposition);
-      window.removeEventListener('scroll', handleReposition, true);
+      window.removeEventListener('scroll', handleScroll, true);
     };
   }, [excludeRef, onClose, open]);
 
