@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { childPath, isInsidePath, rebasedPath, relativePath, samePath, siblingPath } from './paths';
+import { childPath, fileStem, isInsidePath, rebasedPath, relativePath, samePath, siblingPath } from './paths';
 
 describe('paths', () => {
   it('treats only real descendants as inside a folder', () => {
@@ -34,5 +34,9 @@ describe('paths', () => {
     expect(childPath('C:\\notes\\', 'Plan.md')).toBe('C:\\notes\\Plan.md');
     expect(childPath('/notes', 'Plan.md')).toBe('/notes/Plan.md');
     expect(siblingPath('C:\\notes\\Old.md', 'New.md')).toBe('C:\\notes\\New.md');
+  });
+
+  it('returns the board filename without its Base extension', () => {
+    expect(fileStem('C:\\vault\\Project.base')).toBe('Project');
   });
 });

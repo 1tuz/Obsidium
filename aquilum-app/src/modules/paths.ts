@@ -36,7 +36,7 @@ export function fileName(path: string): string {
 }
 
 export function fileStem(path: string): string {
-  return fileName(path).replace(/\.md$/i, '');
+  return fileName(path).replace(/\.(?:md|base)$/i, '');
 }
 
 export function parentDirectory(path: string): string {

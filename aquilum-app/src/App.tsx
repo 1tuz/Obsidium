@@ -375,6 +375,11 @@ export default function App() {
     setLeftSidebarOpen(true);
   }, [setLeftSidebarOpen]);
 
+  const openFileManager = useCallback(() => {
+    setSidebarPanel('files');
+    setLeftSidebarOpen(true);
+  }, [setLeftSidebarOpen]);
+
   const toggleBoards = useCallback(() => {
     setSidebarPanel((current) => leftSidebarVisible && current === 'boards' ? 'files' : 'boards');
     setLeftSidebarOpen(true);
@@ -522,7 +527,9 @@ export default function App() {
             ? () => { void commandRegistry.execute('view.settings'); }
             : undefined}
           onOpenBoards={focusMode ? undefined : toggleBoards}
+          onOpenFiles={focusMode ? undefined : openFileManager}
           boardsActive={sidebarPanel === 'boards' && leftSidebarVisible}
+          filesActive={sidebarPanel === 'files' && leftSidebarVisible}
         />
         <Sidebar
           activeFile={activeFile}

@@ -28,7 +28,7 @@ describe('UiSection', () => {
         fontWeight: 400,
         fontSizeBase: 14,
       },
-    } as AppConfig;
+    } as unknown as AppConfig;
 
     act(() => {
       renderer = mountDom(
@@ -48,5 +48,32 @@ describe('UiSection', () => {
     expect(motionRow?.textContent).toContain(t('theme.off'));
     expect(motionRow?.textContent).not.toContain('Авто');
     expect(renderer!.container.textContent).not.toContain(t('settings.ui.primaryColor'));
+  });
+
+  it('renders selectable palette cards and highlights the current palette', () => {
+    const config = {
+      ui: {
+        appearance: 'dark', palette: 'dracula', accentMode: 'palette', motion: 'system',
+        enabledSnippets: {}, language: 'ru', primaryColor: '#D357FE',
+        fontFamily: 'Inter', fontWeight: 400, fontSizeBase: 14,
+      },
+    } as unknown as AppConfig;
+    const onChange = vi.fn();
+
+    act(() => {
+      renderer = mountDom(
+        <UiSection config={config} onChange={onChange} workspacePath={null} homePage="" onHomePageChange={vi.fn()} />,
+      );
+    });
+
+    const cards = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-theme-card')];
+    expect(cards.length).toBeGreaterThan(31);
+    expect(cards.find((card) => card.textContent?.includes('Dracula'))?.getAttribute('aria-pressed')).toBe('true');
+    const cendre = cards.find((card) => card.textContent?.includes('Cendre'))!;
+    expect(cendre.querySelector('.q-theme-card__preview')).not.toBeNull();
+    act(() => cendre.click());
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      ui: expect.objectContaining({ palette: 'cendre' }),
+    }));
   });
 });

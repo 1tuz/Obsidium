@@ -12,6 +12,8 @@ import { ColorControl } from '../controls/ColorControl';
 import { Dropdown } from '../../Common/Dropdown';
 import type { SettingsSectionProps } from '../types';
 import { Input } from '../../Common/Input';
+import { useThemeMode } from '../../../hooks/useThemeMode';
+import './UiSection.css';
 
 interface UiSectionProps extends SettingsSectionProps {
   workspacePath: string | null;
@@ -21,6 +23,7 @@ interface UiSectionProps extends SettingsSectionProps {
 
 export function UiSection({ config, workspacePath, homePage, onHomePageChange, onChange }: UiSectionProps) {
   const scale = useInterfaceScale();
+  const activeMode = useThemeMode();
   const patchUi = (partial: Partial<AppConfig['ui']>) => onChange({
     ...config,
     ui: { ...config.ui, ...partial },
@@ -54,14 +57,39 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
             ]}
           />
         </Row>
-        <Row label={t('settings.ui.palette')}>
-          <Dropdown
-            ariaLabel={t('settings.ui.palette')}
-            value={config.ui.palette}
-            options={themePalettes.map(({ id, name }) => ({ value: id, label: name }))}
-            onChange={(palette) => patchUi({ palette })}
-          />
-        </Row>
+        <div className="q-theme-gallery" role="group" aria-label={t('settings.ui.palette')}>
+          {themePalettes.map((palette) => {
+            const colors = palette[activeMode];
+            return (
+              <button
+                className="q-theme-card"
+                type="button"
+                key={palette.id}
+                aria-pressed={config.ui.palette === palette.id}
+                onClick={() => patchUi({ palette: palette.id })}
+              >
+                <span className="q-theme-card__name">{palette.name}</span>
+                <span className="q-theme-card__preview" style={{
+                  background: colors.background,
+                  color: colors.text,
+                  borderColor: colors.border,
+                }}>
+                  <span className="q-theme-card__sidebar" style={{ background: colors.raised }} />
+                  <span className="q-theme-card__content" style={{ background: colors.surface }}>
+                    <span className="q-theme-card__line" style={{ background: colors.secondaryText }} />
+                    <span className="q-theme-card__line q-theme-card__line--short" style={{ background: colors.secondaryText }} />
+                    <span className="q-theme-card__selection" style={{ background: colors.accent }} />
+                  </span>
+                </span>
+                <span className="q-theme-card__swatches" aria-hidden="true">
+                  {[colors.background, colors.raised, colors.text, colors.accent].map((color, index) => (
+                    <span key={index} style={{ background: color }} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
         <Row label={t('settings.ui.accentMode')}>
           <SegmentedControl
             value={config.ui.accentMode}

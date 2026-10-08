@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   height: var(--q-tabs-height);
-  padding-inline: 0;
+  padding-inline: 0 var(--q-size-40);
   background-color: var(--q-tabs-bg);
   border-bottom: var(--q-border-1) solid var(--q-tabs-border);
   user-select: none;
@@ -14,7 +14,7 @@
 }
 
 .q-titlebar--trailing-inset {
-  padding-inline-end: var(--q-titlebar-controls-inset);
+  padding-inline-end: calc(var(--q-size-40) + var(--q-titlebar-controls-inset));
 }
 
 .q-titlebar-tabs {
@@ -46,6 +46,18 @@
   gap: var(--q-space-8);
   margin-inline-start: auto;
   padding: var(--q-space-4) var(--q-space-6);
+}
+
+.q-titlebar-right-sidebar {
+  position: fixed;
+  z-index: var(--q-z-header);
+  top: 0;
+  right: var(--q-space-6);
+  height: var(--q-tabs-height);
+}
+
+.q-titlebar-right-sidebar--trailing-inset {
+  right: var(--q-titlebar-controls-inset);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,4 +1,4 @@
-import { isMarkdownPath } from '../../modules/documents/fileGateway';
+import { isBasePath, isMarkdownPath } from '../../modules/documents/fileGateway';
 import { fileStem } from '../../modules/paths';
 import { ConfirmDialog } from './ConfirmDialog';
 import { t } from '../../i18n';
@@ -17,7 +17,8 @@ export function DeleteNotesDialog({
   onConfirm,
 }: DeleteNotesDialogProps) {
   const many = targets.length > 1;
-  const folder = !many && targets.length === 1 && !isMarkdownPath(targets[0]);
+  const folder = !many && targets.length === 1
+    && !isMarkdownPath(targets[0]) && !isBasePath(targets[0]);
 
   return (
     <ConfirmDialog
