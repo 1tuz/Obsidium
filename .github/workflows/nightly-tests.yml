@@ -1,0 +1,41 @@
+name: Nightly full tests
+
+on:
+  schedule:
+    - cron: "17 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-full-tests
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: Frontend, core, and installer tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aquilum-app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: npm ci
+        working-directory: aquilum-app
+
+      - run: npm test
+        working-directory: aquilum-app
+
+      - run: cargo test --locked --manifest-path aquilum-app/core/Cargo.toml
+
+      - name: Test macOS installer scripts
+        run: bash scripts/test-install-scripts.sh
