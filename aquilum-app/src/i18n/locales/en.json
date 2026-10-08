@@ -24,6 +24,29 @@
     "embeddedNoteCycle": "A note cannot embed itself",
     "focusMode": "Focus mode",
     "noteActions": "Note actions",
+    "formatting": {
+      "toolbar": "Formatting toolbar",
+      "undo": "Undo",
+      "redo": "Redo",
+      "h1": "Heading 1",
+      "h2": "Heading 2",
+      "h3": "Heading 3",
+      "bold": "Bold",
+      "italic": "Italic",
+      "strike": "Strikethrough",
+      "highlight": "Highlight",
+      "inlineCode": "Inline code",
+      "codeBlock": "Code block",
+      "link": "Link",
+      "table": "Table",
+      "rule": "Horizontal rule",
+      "bullet": "Bulleted list",
+      "ordered": "Numbered list",
+      "task": "Task list",
+      "quote": "Blockquote",
+      "indent": "Indent",
+      "outdent": "Outdent"
+    },
     "metadata": "Metadata",
     "createNote": "Create a note",
     "openFile": "Go to the file",
@@ -171,6 +194,7 @@
     "nav": {
       "ui": "Interface",
       "editor": "Editor",
+      "builtins": "Built-in plugins",
       "reader": "Reader",
       "search": "Search",
       "templates": "Templates",
@@ -181,6 +205,16 @@
       "trash": "Trash",
       "system": "System",
       "shortcuts": "Keyboard shortcuts"
+    },
+    "builtins": {
+      "section": "Built-in plugins",
+      "toolbar": "Editing Toolbar",
+      "toolbarHint": "Built-in Markdown editing commands",
+      "toolbarPosition": "Toolbar position",
+      "top": "Above the editor",
+      "selection": "Next to selected text",
+      "kanban": "Kanban",
+      "kanbanUnavailable": "Kanban is not implemented in this Obsidium version"
     },
     "font": {
       "section": "Fonts",
@@ -415,7 +449,8 @@
     "showSidebar": "Show the left sidebar",
     "home": "Open the home page",
     "graph": "Open the link graph",
-    "boards": "Open boards"
+    "boards": "Open boards",
+    "fileManager": "Open file manager"
   },
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",

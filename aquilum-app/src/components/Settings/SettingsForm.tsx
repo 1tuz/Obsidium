@@ -5,6 +5,7 @@ import { t } from '../../i18n';
 
 const AnalysisSection = lazy(() => import('./sections/AnalysisSection').then((module) => ({ default: module.AnalysisSection })));
 const EditorSection = lazy(() => import('./sections/EditorSection').then((module) => ({ default: module.EditorSection })));
+const BuiltinsSection = lazy(() => import('./sections/BuiltinsSection').then((module) => ({ default: module.BuiltinsSection })));
 const McpSection = lazy(() => import('./sections/McpSection').then((module) => ({ default: module.McpSection })));
 const ReaderSection = lazy(() => import('./sections/ReaderSection').then((module) => ({ default: module.ReaderSection })));
 const HistorySection = lazy(() => import('./sections/HistorySection').then((module) => ({ default: module.HistorySection })));
@@ -53,6 +54,9 @@ export function SettingsForm({
       break;
     case 'editor':
       content = <EditorSection config={config} onChange={onChange} />;
+      break;
+    case 'builtins':
+      content = <BuiltinsSection config={config} onChange={onChange} />;
       break;
     case 'reader':
       content = <ReaderSection config={config} onChange={onChange} />;

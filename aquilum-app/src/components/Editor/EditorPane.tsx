@@ -19,6 +19,8 @@ import { fileName, fileStem, samePath } from '../../modules/paths';
 import { closeVersion, useOpenedVersion } from '../../modules/history';
 import { HistoryView } from '../History/HistoryView';
 import { EditorToolbar } from './EditorToolbar';
+import { EditingToolbar } from './EditingToolbar';
+import { DEFAULT_BUILTINS, useSettingsStore } from '../../modules/settings';
 import { PageSearchBar } from './PageSearchBar';
 
 interface EditorPaneProps {
@@ -65,6 +67,8 @@ export function EditorPane({
   const [pageSearchOpen, setPageSearchOpen] = useState(false);
   const [pageSearchFocusRequest, setPageSearchFocusRequest] = useState(0);
   const [bodyView, setBodyView] = useState<EditorView | null>(null);
+  const { config } = useSettingsStore();
+  const builtins = config?.builtins ?? DEFAULT_BUILTINS;
   const opened = useOpenedVersion(tab.tabId);
   const viewing = opened && samePath(opened.path, tab.path) ? opened : null;
   const viewingVersion = viewing !== null;
@@ -129,6 +133,12 @@ export function EditorPane({
           focusMode={focusMode}
           onToggleFocusMode={onToggleFocusMode}
         />
+        {(builtins.editingToolbar ?? true) && (
+          <EditingToolbar
+            view={inactive || viewingVersion ? null : bodyView}
+            position={builtins.toolbarPosition ?? 'top'}
+          />
+        )}
         {stateError !== null && (
           <EditorNotice
             message={stateError.databaseBroken

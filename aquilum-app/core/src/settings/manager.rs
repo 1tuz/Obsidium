@@ -112,6 +112,24 @@ mod tests {
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
         assert_eq!(config.editor.save_debounce_ms, 1000);
         assert!(config.analysis.enable_bm25f);
+        assert!(config.builtins.editing_toolbar);
+        assert!(!config.builtins.kanban);
+    }
+
+    #[test]
+    fn builtin_plugin_settings_survive_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        assert!(config.builtins.editing_toolbar);
+        assert!(!config.builtins.kanban);
+        assert_eq!(config.builtins.toolbar_position, "top");
+        config.builtins.editing_toolbar = false;
+        config.builtins.toolbar_position = "selection".to_owned();
+        manager.update_config(config).unwrap();
+        let stored = SettingsManager::new(dir.path()).get_config();
+        assert!(!stored.builtins.editing_toolbar);
+        assert_eq!(stored.builtins.toolbar_position, "selection");
     }
 
     #[test]

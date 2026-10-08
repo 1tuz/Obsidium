@@ -68,9 +68,9 @@ function createToggleCommand(
     };
 }
 
-const toggleBoldCommand = createToggleCommand("StrongEmphasis", "**", /^(\*\*|__)(.*)(\*\*|__)$/s);
-const toggleItalicCommand = createToggleCommand("Emphasis", "*", /^(\*|_)(.*)(\*|_)$/s);
-const toggleStrikeCommand = createToggleCommand("Strikethrough", "~~", /^(~~)(.*)(~~)$/s);
+export const toggleBoldCommand = createToggleCommand("StrongEmphasis", "**", /^(\*\*|__)(.*)(\*\*|__)$/s);
+export const toggleItalicCommand = createToggleCommand("Emphasis", "*", /^(\*|_)(.*)(\*|_)$/s);
+export const toggleStrikeCommand = createToggleCommand("Strikethrough", "~~", /^(~~)(.*)(~~)$/s);
 
 export const formattingKeymap = Prec.highest(keymap.of([
     { key: codeMirrorKey(SHORTCUTS.BOLD), run: toggleBoldCommand },
