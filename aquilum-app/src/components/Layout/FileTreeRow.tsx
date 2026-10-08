@@ -1,7 +1,7 @@
 import { memo, type CSSProperties } from 'react';
 import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide';
 import { Icon } from '../Common/Icon';
-import { isBasePath, isMarkdownPath, type WorkspaceItem } from '../../modules/documents/fileGateway';
+import { isBasePath, isCanvasPath, isMarkdownPath, type WorkspaceItem } from '../../modules/documents/fileGateway';
 import { fileActionItems } from './fileActionItems';
 import { parseGuideDepths, type FileTreeActions } from './fileTreeModel';
 import { FileTreeRename } from './FileTreeRename';
@@ -34,7 +34,7 @@ export const FileTreeRow = memo(function FileTreeRow({
   actions,
 }: FileTreeRowProps) {
   const isFolder = item.type === 'folder';
-  const canRowActions = isFolder || isMarkdownPath(item.id) || isBasePath(item.id);
+  const canRowActions = isFolder || isMarkdownPath(item.id) || isBasePath(item.id) || isCanvasPath(item.id);
   const menu = useContextMenu();
 
   const itemClass = [

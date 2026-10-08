@@ -5,9 +5,9 @@ import {
   createGraphSessionTab,
   createLinkedFile as createLinkedFileOnDisk,
 } from './tabWorkspace';
-import { createUniqueFile } from '../modules/documents/documentFactory';
+import { createUniqueCanvas, createUniqueFile } from '../modules/documents/documentFactory';
 import { useTabSession } from './useTabSession';
-import { isBasePath, isMarkdownPath } from '../modules/documents/fileGateway';
+import { isBasePath, isCanvasPath, isMarkdownPath } from '../modules/documents/fileGateway';
 import type { LinkDisposition } from '../modules/links';
 
 function createInitialState(): TabsState {
@@ -68,7 +68,7 @@ export function useTabs(
       dispatch({ type: 'select', path });
       return;
     }
-    if (!isMarkdownPath(path) && !isBasePath(path)) return;
+    if (!isMarkdownPath(path) && !isBasePath(path) && !isCanvasPath(path)) return;
     touch();
     dispatch(disposition === 'new-tab'
       ? { type: 'open-file-new-tab', path, tabId: crypto.randomUUID() }
@@ -105,6 +105,14 @@ export function useTabs(
     touch(); dispatch({ type: 'open-file', path, tabId: crypto.randomUUID() });
   }, [touch, workspacePath]);
 
+  const createCanvas = useCallback(async () => {
+    if (!workspacePath) return;
+    const path = await createUniqueCanvas(workspacePath);
+    if (!path) return;
+    touch();
+    dispatch({ type: 'open-file', path, tabId: crypto.randomUUID() });
+  }, [touch, workspacePath]);
+
   const createLinkedFile = useCallback(async (target: string) => {
     if (!workspacePath) return null;
     return createLinkedFileOnDisk(workspacePath, target);
@@ -137,6 +145,7 @@ export function useTabs(
     openGraph,
     createNewFile,
     createFromTemplate,
+    createCanvas,
     createLinkedFile,
     handleExternalRename,
   };

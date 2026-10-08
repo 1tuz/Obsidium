@@ -199,7 +199,13 @@ mod tests {
         assert!(same(&fixture.service.active_root().unwrap(), &home));
         assert!(fixture.finds(&home, "домашняя"));
         assert!(fixture.finds(&other, "чужая"));
-        assert!(!fixture.finds(&home, "чужая"), "базы не смешиваются");
+        assert!(
+            fixture
+                .service
+                .with_index(&home, |open| Ok(open.index.search("чужая", 10)?.1.is_empty()))
+                .unwrap(),
+            "базы не смешиваются"
+        );
         assert!(
             !fixture
                 .announced

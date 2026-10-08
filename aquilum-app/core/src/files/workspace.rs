@@ -17,6 +17,12 @@ fn is_base(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
 }
 
+fn is_canvas(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("canvas"))
+}
+
 pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandError> {
     let mut items = Vec::new();
 
@@ -60,7 +66,8 @@ pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandErro
 
         let is_markdown = extension == "md";
         let is_base = extension == "base";
-        if !is_markdown && !is_base && !is_attachment(extension.as_str()) {
+        let is_canvas = extension == "canvas";
+        if !is_markdown && !is_base && !is_canvas && !is_attachment(extension.as_str()) {
             continue;
         }
 
@@ -134,7 +141,7 @@ pub fn existing_files_impl(paths: Vec<String>) -> Vec<String> {
         .into_iter()
         .filter(|value| {
             let path = Path::new(value);
-            path.is_file() && (is_markdown(path) || is_base(path))
+            path.is_file() && (is_markdown(path) || is_base(path) || is_canvas(path))
         })
         .collect()
 }
