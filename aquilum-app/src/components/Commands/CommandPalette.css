@@ -1,0 +1,92 @@
+.q-command-palette {
+  width: min(100%, 42rem);
+  max-height: min(34rem, calc(100vh - var(--q-space-32)));
+}
+
+.q-command-palette__search {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-8);
+  min-height: var(--q-size-48);
+  padding: var(--q-space-12) var(--q-space-16);
+  border-bottom: var(--q-border-1) solid var(--q-border-default);
+}
+
+.q-command-palette__search > svg {
+  width: var(--q-size-18);
+  height: var(--q-size-18);
+  color: var(--q-icon-secondary);
+}
+
+.q-command-palette__search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--q-text-primary);
+  font: inherit;
+}
+
+.q-command-palette__search input::placeholder {
+  color: var(--q-text-tertiary);
+}
+
+.q-command-palette__results {
+  display: flex;
+  min-height: 7rem;
+  max-height: 27rem;
+  flex-direction: column;
+  gap: var(--q-space-2);
+  padding: var(--q-space-8);
+  overflow-y: auto;
+}
+
+.q-command-palette__item {
+  display: grid;
+  grid-template-columns: var(--q-size-28) minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: var(--q-size-40);
+  gap: var(--q-space-8);
+  padding: var(--q-space-6) var(--q-space-8);
+  border: 0;
+  border-radius: var(--q-radius-lg);
+  background: transparent;
+  color: var(--q-text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+.q-command-palette__item[aria-selected="true"] {
+  background: var(--q-bg-surface-hover);
+}
+
+.q-command-palette__icon {
+  display: grid;
+  place-items: center;
+  color: var(--q-icon-secondary);
+}
+
+.q-command-palette__icon svg {
+  width: var(--q-size-18);
+  height: var(--q-size-18);
+}
+
+.q-command-palette__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-command-palette__shortcut {
+  color: var(--q-text-tertiary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-sm);
+  font-weight: var(--q-font-weight-ui-base);
+}
+
+.q-command-palette__empty {
+  margin: auto;
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+}

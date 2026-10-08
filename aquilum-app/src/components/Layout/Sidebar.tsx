@@ -30,6 +30,7 @@ interface SidebarProps {
   isOpen: boolean;
   onOpenSettings: () => void;
   onOpenWorkspaces: () => void;
+  onToggleTheme: () => void;
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
 }
 
@@ -46,6 +47,7 @@ export const Sidebar = memo(function Sidebar({
   isOpen,
   onOpenSettings,
   onOpenWorkspaces,
+  onToggleTheme,
   onPatchFileInTree,
 }: SidebarProps) {
   const { expandedFolders, setExpandedFolders, followFolder } = useExpandedFolders(workspacePath);
@@ -173,6 +175,7 @@ export const Sidebar = memo(function Sidebar({
         workspacePath={workspacePath}
         onOpenSettings={onOpenSettings}
         onOpenWorkspaces={onOpenWorkspaces}
+        onToggleTheme={onToggleTheme}
       />
     </aside>
   );

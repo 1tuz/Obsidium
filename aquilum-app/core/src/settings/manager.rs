@@ -25,9 +25,12 @@ impl SettingsManager {
             Ok(content) => {
                 match serde_json::from_str::<AppConfig>(&content) {
                     Ok(mut config) => {
-                        if config.ui.accent_mode == "legacy" {
+                        if config.ui.accent_mode == "legacy"
+                            || (config.ui.accent_mode == "custom"
+                                && is_legacy_default_accent(&config.ui.primary_color))
+                        {
                             config.ui.accent_mode =
-                                if config.ui.primary_color.eq_ignore_ascii_case("#1471eb") {
+                                if is_legacy_default_accent(&config.ui.primary_color) {
                                     "palette"
                                 } else {
                                     "custom"
@@ -64,6 +67,10 @@ impl SettingsManager {
         *self.current_config.write().unwrap() = new_config;
         Ok(())
     }
+}
+
+fn is_legacy_default_accent(color: &str) -> bool {
+    color.eq_ignore_ascii_case("#1471eb") || color.eq_ignore_ascii_case("#d357fe")
 }
 
 fn write_config(path: &Path, config: &AppConfig) -> Result<(), String> {
@@ -158,6 +165,21 @@ mod tests {
         assert_eq!(config.ui.primary_color, "#ff00aa");
         let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
         assert!(stored.contains("\"accentMode\": \"custom\""));
+    }
+
+    #[test]
+    fn migrated_default_accent_uses_palette_and_keeps_the_legacy_color() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r##"{"ui":{"accentMode":"custom","primaryColor":"#D357FE"}}"##,
+        )
+        .unwrap();
+
+        let config = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!(config.ui.accent_mode, "palette");
+        assert_eq!(config.ui.primary_color, "#D357FE");
     }
 
     #[test]

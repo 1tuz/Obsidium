@@ -1,0 +1,97 @@
+.q-local-graph {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  padding: var(--q-space-8);
+  overflow: hidden;
+}
+
+.q-local-graph__controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--q-space-4);
+  min-width: 0;
+  padding-bottom: var(--q-space-6);
+}
+
+.q-local-graph__spacer {
+  flex: 1 1 auto;
+}
+
+.q-local-graph__canvas {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 12rem;
+  place-items: center;
+  overflow: hidden;
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-xl);
+  background: var(--q-bg-surface-subtle);
+}
+
+.q-local-graph__canvas svg {
+  width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1;
+}
+
+.q-local-graph__canvas line {
+  stroke: var(--q-graph-edge);
+  stroke-width: 1.2;
+  opacity: 0.8;
+}
+
+.q-local-graph__canvas marker path {
+  fill: var(--q-graph-edge);
+}
+
+.q-local-graph__node circle {
+  fill: var(--q-graph-node);
+  stroke: var(--q-graph-node-rim);
+  stroke-width: 2;
+}
+
+.q-local-graph__node:not(.is-root) {
+  cursor: pointer;
+}
+
+.q-local-graph__node:not(.is-root):hover circle,
+.q-local-graph__node:not(.is-root):focus circle {
+  stroke: var(--q-graph-edge-active);
+  stroke-width: 3;
+}
+
+.q-local-graph__node text {
+  fill: var(--q-graph-label);
+  font-family: var(--q-font-family-ui);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.q-local-graph__node.is-root text {
+  fill: var(--q-graph-label-focus);
+  font-weight: var(--q-font-weight-ui-medium);
+}
+
+.q-local-graph__legend {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--q-space-12);
+  justify-content: center;
+  padding-top: var(--q-space-6);
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-local-graph__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--q-space-4);
+}
+
+.q-local-graph__legend svg {
+  width: var(--q-size-12);
+  height: var(--q-size-12);
+}

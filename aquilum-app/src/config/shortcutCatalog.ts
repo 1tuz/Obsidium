@@ -19,6 +19,7 @@ export function shortcutCatalog(): ShortcutCatalogGroup[] {
         { label: t('settings.shortcuts.newTab'), shortcut: SHORTCUTS.NEW_FILE },
         { label: t('settings.shortcuts.newFromTemplate'), shortcut: SHORTCUTS.NEW_FROM_TEMPLATE },
         { label: t('settings.shortcuts.globalSearch'), shortcut: SHORTCUTS.GLOBAL_SEARCH },
+        { label: t('settings.shortcuts.commandPalette'), shortcut: SHORTCUTS.COMMAND_PALETTE },
         { label: t('settings.shortcuts.focusMode'), shortcut: SHORTCUTS.FOCUS_MODE },
         { label: t('settings.shortcuts.pageSearch'), shortcut: SHORTCUTS.PAGE_SEARCH },
         { label: t('settings.shortcuts.zoomIn'), shortcut: SHORTCUTS.ZOOM_IN },

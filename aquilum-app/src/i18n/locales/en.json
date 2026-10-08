@@ -200,6 +200,8 @@
       "theme": "Appearance",
       "palette": "Palette",
       "animations": "Animations",
+      "motionAuto": "Auto",
+      "motionHint": "Follow the system Reduce Motion setting",
       "language": "Language",
       "languageAria": "Interface language",
       "homePage": "Home page",
@@ -376,6 +378,7 @@
       "newTab": "New tab",
       "newFromTemplate": "New note from a template",
       "globalSearch": "Search the knowledge base",
+      "commandPalette": "Command palette",
       "searchWindow": "Search window",
       "searchNext": "Next result",
       "searchPrevious": "Previous result",
@@ -418,6 +421,39 @@
     "showRightSidebar": "Show the right sidebar",
     "switchToLightTheme": "Switch to light theme",
     "switchToDarkTheme": "Switch to dark theme"
+  },
+  "commands": {
+    "title": "Command palette",
+    "placeholder": "Type a command",
+    "results": "Commands",
+    "empty": "No matching commands",
+    "newNote": "New note",
+    "newFromTemplate": "New note from template",
+    "search": "Search knowledge base",
+    "graph": "Open graph",
+    "settings": "Open settings",
+    "workspaces": "Switch knowledge base",
+    "focus": "Toggle focus mode",
+    "leftSidebar": "Toggle left sidebar",
+    "rightSidebar": "Toggle right sidebar",
+    "theme": "Toggle light/dark theme"
+  },
+  "localGraph": {
+    "tab": "Local graph",
+    "title": "Local graph",
+    "incoming": "Incoming",
+    "outgoing": "Outgoing",
+    "loading": "Loading local graph…",
+    "empty": "No linked notes",
+    "error": "Could not load local graph"
+  },
+  "bases": {
+    "loading": "Loading base…",
+    "empty": "No matching notes",
+    "error": "Could not open this base",
+    "unsupported": "Some Base expressions are not supported yet; unsupported filters stay visible.",
+    "untitledView": "View",
+    "groupEmpty": "Without value"
   },
   "fileTree": {
     "renameAria": "New file name",

@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, type MouseEvent } from 'react';
-import { History } from 'lucide';
+import { History, Network } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
 import {
@@ -32,11 +32,12 @@ import {
 } from '../Icons/LinkIcons';
 import { HistoryList } from '../History/HistoryList';
 import { SidebarDocumentItem } from './SidebarDocumentItem';
+import { LocalGraph } from './LocalGraph';
 import './BacklinksPanel.css';
 
-type PanelMode = LinkMode | 'analysis' | 'history';
+type PanelMode = LinkMode | 'analysis' | 'history' | 'localGraph';
 
-const PANEL_MODES: readonly string[] = ['backlinks', 'outgoing', 'analysis', 'history'] satisfies PanelMode[];
+const PANEL_MODES: readonly string[] = ['backlinks', 'outgoing', 'analysis', 'history', 'localGraph'] satisfies PanelMode[];
 
 function resolvePanelMode(stored: string, sourcesAvailable: boolean): PanelMode {
   if (!PANEL_MODES.includes(stored)) return 'backlinks';
@@ -54,6 +55,7 @@ interface BacklinksPanelProps {
   onOpenBacklink: (backlink: Backlink, disposition: LinkDisposition) => void;
   onOpenOutgoing: (link: OutgoingLink, disposition: LinkDisposition) => void;
   onOpenAnalysis: (result: AnalysisResult, disposition: LinkDisposition) => void;
+  onOpenLocalGraph: (path: string, disposition: LinkDisposition) => void;
 }
 
 function dispositionFromEvent(event: MouseEvent<Element>): LinkDisposition {
@@ -74,6 +76,7 @@ function BacklinksPanelComponent({
   onOpenBacklink,
   onOpenOutgoing,
   onOpenAnalysis,
+  onOpenLocalGraph,
 }: BacklinksPanelProps) {
   const { config } = useSettingsStore();
   const sidebarMethods = enabledSidebarMethods(config?.analysis);
@@ -90,10 +93,11 @@ function BacklinksPanelComponent({
   const chipRowRef = useRef<HTMLDivElement>(null);
 
   const hasDocument = Boolean(
-    workspacePath && documentPath && !isEmptyTabPath(documentPath),
+    workspacePath && documentPath && !isEmptyTabPath(documentPath) && isMarkdownPath(documentPath),
   );
   const isAnalysis = mode === 'analysis';
   const isHistory = mode === 'history';
+  const isLocalGraph = mode === 'localGraph';
   const isWixiv = isAnalysis && activeSourceMethod === 'wixiv';
   useHorizontalWheelScroll(chipRowRef, isAnalysis, sidebarMethods.length);
 
@@ -109,7 +113,7 @@ function BacklinksPanelComponent({
     documentPath,
     indexReady,
     indexRevision,
-    isOpen && hasDocument && !isAnalysis && !isHistory,
+    isOpen && hasDocument && !isAnalysis && !isHistory && !isLocalGraph,
   );
   const {
     items: analysisItems,
@@ -181,6 +185,14 @@ function BacklinksPanelComponent({
           >
             <OutgoingLinksIcon />
           </IconButton>
+          <IconButton
+            label={t('localGraph.tab')}
+            className="q-backlinks__mode-button"
+            aria-pressed={isLocalGraph}
+            onClick={() => setMode('localGraph')}
+          >
+            <Icon icon={Network} />
+          </IconButton>
           {sourcesAvailable && (
             <IconButton
               label={t('analysis.tab')}
@@ -231,7 +243,18 @@ function BacklinksPanelComponent({
         </div>
       )}
 
-      {hasDocument && !isHistory && (
+      {hasDocument && isLocalGraph && workspacePath && documentPath && (
+        <LocalGraph
+          workspacePath={workspacePath}
+          documentPath={documentPath}
+          indexReady={indexReady}
+          indexRevision={indexRevision}
+          isOpen={isOpen}
+          onOpen={onOpenLocalGraph}
+        />
+      )}
+
+      {hasDocument && !isHistory && !isLocalGraph && (
         <div className="q-backlinks__content">
           <header className="q-backlinks__header">
             <h2>{heading}</h2>

@@ -66,14 +66,11 @@ vi.mock('./modules/ui-state', async (importOriginal) => {
 vi.mock('./components/Layout/Titlebar', () => ({
   Titlebar: ({
     onToggleRightSidebar,
-    onToggleTheme,
   }: {
     onToggleRightSidebar: () => void;
-    onToggleTheme?: () => void;
   }) => (
     <>
       <button id="toggle-right-sidebar" onClick={onToggleRightSidebar} />
-      {onToggleTheme && <button id="toggle-theme" onClick={onToggleTheme} />}
     </>
   ),
 }));
@@ -112,12 +109,15 @@ vi.mock('./components/Graph/GraphView', () => ({
 vi.mock('./components/Layout/Sidebar', () => ({
   Sidebar: ({
     onFileSelect,
+    onToggleTheme,
     isOpen,
   }: {
     onFileSelect: (path: string) => void;
+    onToggleTheme: () => void;
     isOpen: boolean;
   }) => isOpen ? (
     <div id="left-sidebar">
+      <button id="toggle-theme" onClick={onToggleTheme} />
       <button id="open-a" onClick={() => onFileSelect('C:\\notes\\a.md')} />
       <button id="open-b" onClick={() => onFileSelect('C:\\notes\\b.md')} />
     </div>
@@ -230,7 +230,7 @@ describe('App editor lifecycle', () => {
     expect(editorLifecycle).toHaveLength(0);
   });
 
-  it('keeps the quick theme switch visible while settings are loading', () => {
+  it('keeps the quick theme switch in the sidebar while settings are loading', () => {
     act(() => {
       renderer = mountDom(<App />);
     });
@@ -337,7 +337,7 @@ describe('App editor lifecycle', () => {
     expect(find('right-sidebar')).toHaveLength(1);
   });
 
-  it('switches the stored appearance directly from the titlebar', async () => {
+  it('switches the stored appearance from the sidebar footer', async () => {
     setTheme('light', 'obsidium');
     settingsState.config = {
       editor: { liveTabs: 3 },

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { WindowControls } from "./components/Layout/WindowControls";
@@ -33,9 +33,9 @@ import {
 } from "./modules/links";
 import { DEFAULT_LIVE_TABS, useSettingsStore } from "./modules/settings";
 import { installUpdateOnStartup } from "./modules/updates";
-import { resolveLocale } from "./i18n";
+import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isMarkdownPath } from "./modules/documents/fileGateway";
+import { isBasePath, isMarkdownPath } from "./modules/documents/fileGateway";
 import { fileStem } from "./modules/paths";
 import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
@@ -49,15 +49,21 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
 import { useThemeMode } from "./hooks/useThemeMode";
+import { CommandRegistry } from "./modules/commands/registry";
 import "./App.css";
 
 const GraphView = lazy(() => import("./components/Graph/GraphView")
   .then((module) => ({ default: module.GraphView })));
 const SettingsDialog = lazy(() => import("./components/Settings/SettingsDialog")
   .then((module) => ({ default: module.SettingsDialog })));
+const CommandPalette = lazy(() => import("./components/Commands/CommandPalette")
+  .then((module) => ({ default: module.CommandPalette })));
+const BaseView = lazy(() => import("./components/Bases/BaseView")
+  .then((module) => ({ default: module.BaseView })));
 
 export default function App() {
   const search = useOverlay();
+  const commandPalette = useOverlay();
   const templates = useOverlay();
   const settings = useOverlay();
   const workspaces = useOverlay();
@@ -122,6 +128,8 @@ export default function App() {
   const activeTab = tabs.find((tab) => tab.tabId === activeTabId) ?? null;
   const hasGraphTab = tabs.some((tab) => tab.kind === 'graph');
   const graphActive = activeTab?.kind === 'graph';
+  const activeBasePath = activeTab?.kind === 'document' && isBasePath(activeTab.path)
+    ? activeTab.path : null;
   const {
     push,
     go,
@@ -242,30 +250,11 @@ export default function App() {
     keepVersionsOf(tabs.map((tab) => tab.tabId));
   }, [tabs]);
 
-  useEffect(() => {
-    const handleKeydown = (event: KeyboardEvent) => {
-      if (matchesShortcut(event, SHORTCUTS.NEW_FILE)) {
-        event.preventDefault();
-        void createNewFile();
-      } else if (matchesShortcut(event, SHORTCUTS.NEW_FROM_TEMPLATE)) {
-        event.preventDefault();
-        templates.toggle();
-      } else if (matchesShortcut(event, SHORTCUTS.GLOBAL_SEARCH)) {
-        event.preventDefault();
-        search.toggle();
-      } else if (matchesShortcut(event, SHORTCUTS.FOCUS_MODE)) {
-        event.preventDefault();
-        toggleFocusMode();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
-  }, [createNewFile, search.toggle, templates.toggle, toggleFocusMode]);
-
   const handleTemplateSelect = useCallback(async (template: NoteTemplate) => {
     const content = await readTemplate(template);
-    if (activeTab?.kind === 'document') await applyTemplateToDocument(activeTab.path, content);
+    if (activeTab?.kind === 'document' && isMarkdownPath(activeTab.path)) {
+      await applyTemplateToDocument(activeTab.path, content);
+    }
     else await createFromTemplate(content);
     templates.hide();
   }, [activeTab, createFromTemplate, templates.hide]);
@@ -374,6 +363,67 @@ export default function App() {
     setRightSidebarOpen((current) => !current);
   }, []);
 
+  const commandRegistry = useMemo(() => new CommandRegistry([
+    {
+      id: 'command.palette',
+      title: t('commands.title'),
+      keywords: ['command', 'palette'],
+      shortcut: SHORTCUTS.COMMAND_PALETTE,
+      run: commandPalette.toggle,
+    },
+    {
+      id: 'note.new',
+      title: t('commands.newNote'),
+      shortcut: SHORTCUTS.NEW_FILE,
+      enabled: () => Boolean(workspacePath),
+      run: () => createNewFile(),
+    },
+    {
+      id: 'note.template',
+      title: t('commands.newFromTemplate'),
+      shortcut: SHORTCUTS.NEW_FROM_TEMPLATE,
+      enabled: () => Boolean(workspacePath),
+      run: templates.show,
+    },
+    {
+      id: 'search.global',
+      title: t('commands.search'),
+      shortcut: SHORTCUTS.GLOBAL_SEARCH,
+      enabled: () => Boolean(workspacePath),
+      run: search.show,
+    },
+    {
+      id: 'view.focus',
+      title: t('commands.focus'),
+      shortcut: SHORTCUTS.FOCUS_MODE,
+      run: toggleFocusMode,
+    },
+    { id: 'view.graph', title: t('commands.graph'), enabled: () => Boolean(workspacePath), run: openGraph },
+    { id: 'view.settings', title: t('commands.settings'), run: settings.show },
+    { id: 'workspace.switch', title: t('commands.workspaces'), run: workspaces.show },
+    { id: 'view.sidebar.left', title: t('commands.leftSidebar'), run: toggleLeftSidebar },
+    { id: 'view.sidebar.right', title: t('commands.rightSidebar'), run: toggleRightSidebar },
+    { id: 'theme.toggle', title: t('commands.theme'), run: toggleTheme },
+  ]), [
+    commandPalette.toggle, config, createNewFile, openGraph, search.show, settings.show,
+    templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
+    workspaces.show, workspacePath,
+  ]);
+
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      const command = commandRegistry.list().find((candidate) => (
+        candidate.shortcut && matchesShortcut(event, candidate.shortcut)
+      ));
+      if (!command) return;
+      event.preventDefault();
+      void commandRegistry.execute(command.id)
+        .catch((error) => console.error('Failed to execute shortcut', error));
+    };
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [commandRegistry]);
+
 
 
   const handleFileRenamed = useCallback((oldPath: string, newPath: string) => {
@@ -398,7 +448,7 @@ export default function App() {
   });
   useNoteRelocation({ renamed: handleFileRenamed, deleted: closeTab });
 
-  useActiveNoteReport(activeFile);
+  useActiveNoteReport(activeFile && isMarkdownPath(activeFile) ? activeFile : null);
   useMcpNavigation({
     openNote: (path, disposition) => openNote(path, { disposition }),
     openWorkspace: (path) => { void openWorkspace(path); },
@@ -410,9 +460,11 @@ export default function App() {
         <SidebarRail
           isSidebarOpen={leftSidebarVisible}
           onToggleSidebar={focusMode ? undefined : toggleLeftSidebar}
-          onOpenGraph={focusMode ? undefined : openGraph}
+          onOpenGraph={focusMode ? undefined : () => { void commandRegistry.execute('view.graph'); }}
           onOpenHome={homePagePath && !focusMode ? openHomePage : undefined}
-          onOpenSettings={focusMode ? settings.show : undefined}
+          onOpenSettings={focusMode
+            ? () => { void commandRegistry.execute('view.settings'); }
+            : undefined}
         />
         <Sidebar
           activeFile={activeFile}
@@ -422,11 +474,12 @@ export default function App() {
           workspacePath={workspacePath}
           workspaceName={workspaceName}
           onFileSelect={openNote}
-          onCreateNote={createNewFile}
+          onCreateNote={() => commandRegistry.execute('note.new').then(() => undefined)}
           onLoadDirectory={loadDirectory}
           isOpen={leftSidebarVisible}
-          onOpenSettings={settings.show}
-          onOpenWorkspaces={workspaces.show}
+          onOpenSettings={() => { void commandRegistry.execute('view.settings'); }}
+          onOpenWorkspaces={() => { void commandRegistry.execute('workspace.switch'); }}
+          onToggleTheme={toggleTheme}
           onPatchFileInTree={patchFileInTree}
         />
 
@@ -441,8 +494,9 @@ export default function App() {
             onClose={closeTab}
             onNewTab={newTab}
             rightSidebarOpen={rightSidebarVisible}
-            onToggleRightSidebar={focusMode ? undefined : toggleRightSidebar}
-            onToggleTheme={toggleTheme}
+            onToggleRightSidebar={focusMode
+              ? undefined
+              : () => { void commandRegistry.execute('view.sidebar.right'); }}
           />
 
           <div className="q-app-content">
@@ -469,7 +523,18 @@ export default function App() {
                 <div className="q-app-editor-boot" aria-busy="true" />
               ) : (
                 <>
-                  {activeTab?.kind === 'empty' ? (
+                  {activeBasePath && (
+                    <Suspense fallback={null}>
+                      <BaseView
+                        path={activeBasePath}
+                        workspacePath={workspacePath}
+                        indexReady={linkIndexReady}
+                        indexRevision={linkIndexRevision}
+                        onOpenNote={openNote}
+                      />
+                    </Suspense>
+                  )}
+                  {!activeBasePath && activeTab?.kind === 'empty' ? (
                     <NewTab
                       key={activeTab.tabId}
                       onCreate={createNewFile}
@@ -519,6 +584,7 @@ export default function App() {
           onOpenBacklink={handleOpenBacklink}
           onOpenOutgoing={handleOpenOutgoingLink}
           onOpenAnalysis={handleOpenAnalysisResult}
+          onOpenLocalGraph={(path, disposition) => openNote(path, { disposition })}
         />
       </div>
 
@@ -539,6 +605,15 @@ export default function App() {
         onOpenResult={handleOpenSearchResult}
         onCreate={createNewFile}
       />
+      {commandPalette.open && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open
+            registry={commandRegistry}
+            onClose={commandPalette.hide}
+          />
+        </Suspense>
+      )}
       <TemplateDialog open={templates.open} workspacePath={workspacePath}
         folder={config?.templates.folder ?? ''} onClose={templates.hide}
         onSelect={handleTemplateSelect} />

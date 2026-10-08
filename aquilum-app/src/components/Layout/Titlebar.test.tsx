@@ -2,7 +2,6 @@
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
-import { setTheme } from '../../modules/theme';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { Titlebar } from './Titlebar';
 
@@ -14,21 +13,20 @@ describe('Titlebar', () => {
     renderer = null;
   });
 
-  it('shows and invokes the quick theme switch in the real titlebar', () => {
-    const onToggleTheme = vi.fn();
-    setTheme('dark', 'obsidium');
+  it('shows and invokes the right sidebar control', () => {
+    const onToggleRightSidebar = vi.fn();
 
     act(() => {
-      renderer = mountDom(<Titlebar onToggleTheme={onToggleTheme} />);
+      renderer = mountDom(<Titlebar onToggleRightSidebar={onToggleRightSidebar} />);
     });
 
     const button = renderer!.container.querySelector<HTMLButtonElement>(
-      `[aria-label="${t('titlebar.switchToLightTheme')}"]`,
+      `[aria-label="${t('titlebar.hideRightSidebar')}"]`,
     );
     expect(button).not.toBeNull();
 
     act(() => button!.click());
 
-    expect(onToggleTheme).toHaveBeenCalledOnce();
+    expect(onToggleRightSidebar).toHaveBeenCalledOnce();
   });
 });
