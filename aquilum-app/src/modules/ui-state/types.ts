@@ -1,5 +1,14 @@
 type TabKind = 'document' | 'empty' | 'graph';
 
+export type PaneLayout =
+  | { kind: 'pane'; paneId: string; activeTabId: string | null }
+  | {
+      kind: 'split';
+      direction: 'horizontal' | 'vertical';
+      ratio: number;
+      children: [PaneLayout, PaneLayout];
+    };
+
 export interface StateFailure {
   error: unknown;
   databaseBroken: boolean;
@@ -29,6 +38,7 @@ export interface StoredTab {
   documentId: string | null;
   kind: TabKind;
   position: number;
+  paneId: string;
 }
 
 interface LoadedTab extends StoredTab {
@@ -58,6 +68,7 @@ export interface GraphCameraState {
 export interface LoadedSession {
   activeTabId: string | null;
   tabs: LoadedTab[];
+  layout: PaneLayout;
   views: ViewState[];
   graphCamera: GraphCameraState | null;
 }
@@ -78,6 +89,7 @@ export interface SaveStateBatchInput {
   session: {
     activeTabId: string | null;
     tabs: StoredTab[] | null;
+    layout: PaneLayout | null;
   } | null;
   views: ViewState[];
   graphCamera: GraphCameraState | null;
@@ -88,6 +100,7 @@ export interface SessionTab {
   documentId: string | null;
   kind: TabKind;
   path: string;
+  paneId: string;
   identityPath?: string;
   mountKey?: string;
 }

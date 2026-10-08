@@ -223,6 +223,8 @@
       "selection": "Возле выделенного текста",
       "kanban": "Kanban",
       "kanbanHint": "Показывать панель досок и команды Kanban",
+      "panes": "Панели рабочего пространства",
+      "panesHint": "Разделять редактор на независимые панели вкладок",
       "highlightr": "Highlightr",
       "highlightrHint": "Цветное выделение текста с совместимой HTML-разметкой",
       "outliner": "Outliner",
@@ -479,6 +481,11 @@
   "titlebar": {
     "hideRightSidebar": "Скрыть правую боковую панель",
     "showRightSidebar": "Показать правую боковую панель",
+    "splitSide": "Разделить панель рядом",
+    "splitBelow": "Разделить панель снизу",
+    "closePane": "Закрыть панель",
+    "resizePaneWidth": "Изменить ширину панели",
+    "resizePaneHeight": "Изменить высоту панели",
     "switchToLightTheme": "Переключить на светлую тему",
     "switchToDarkTheme": "Переключить на тёмную тему"
   },

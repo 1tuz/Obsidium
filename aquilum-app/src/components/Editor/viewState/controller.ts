@@ -8,10 +8,12 @@ import { clamp } from '../../../modules/math';
 
 interface ControllerConfig {
   documentId: string;
+  paneId?: string;
   path: () => string;
   initial: ViewState | null;
   resolved: ResolvedView | null;
   onChange: (state: ViewState) => void;
+  isFocused?: () => boolean;
   revealOffset?: number;
 }
 
@@ -90,16 +92,16 @@ export class ViewStateController {
         selection: { anchor: position },
         effects: EditorView.scrollIntoView(position, { y: 'center' }),
       });
-      view.focus();
+      this.focusIfCurrent(view);
       markOpenStage('scroll');
       return;
     }
     if (!initial || !resolved) {
-      view.focus();
+      this.focusIfCurrent(view);
       markOpenStage('scroll');
       return;
     }
-    view.focus();
+    this.focusIfCurrent(view);
     this.applyScroll(view, resolved.scroll, initial.scrollOffsetPx);
   }
 
@@ -127,6 +129,10 @@ export class ViewStateController {
         markOpenStage('scroll');
       },
     });
+  }
+
+  private focusIfCurrent(view: EditorView): void {
+    if (this.config.isFocused?.() ?? true) view.focus();
   }
 
   private settleRestore(): void {
@@ -162,7 +168,7 @@ export class ViewStateController {
     return {
       path: this.config.path(),
       documentId: this.config.documentId,
-      paneId: 'main',
+      paneId: this.config.paneId ?? 'main',
       cursorAnchor: [],
       cursorHead: [],
       fallbackAnchor: selection.anchor,

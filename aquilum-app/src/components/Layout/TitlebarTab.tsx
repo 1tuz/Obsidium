@@ -19,6 +19,7 @@ export interface TabFileActions extends FileMenuActions {
 }
 
 interface TitlebarTabProps {
+  tabId?: string;
   path: string;
   isActive: boolean;
   renaming?: boolean;
@@ -34,6 +35,7 @@ function getTitle(path: string) {
 }
 
 export const TitlebarTab = memo(function TitlebarTab({
+  tabId,
   path,
   isActive,
   renaming = false,
@@ -49,6 +51,7 @@ export const TitlebarTab = memo(function TitlebarTab({
     <div
       className={`q-titlebar-tab ${isActive ? 'active' : ''}`}
       data-tab-path={path}
+      data-tab-id={tabId}
       data-renaming={renaming ? '' : undefined}
       role="tab"
       tabIndex={0}

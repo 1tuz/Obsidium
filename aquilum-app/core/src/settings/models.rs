@@ -243,6 +243,7 @@ impl Default for McpSettings {
 pub struct BuiltinPluginSettings {
     pub editing_toolbar: bool,
     pub kanban: bool,
+    pub panes: bool,
     pub toolbar_position: String,
     pub highlightr: bool,
     pub outliner: bool,
@@ -263,6 +264,7 @@ impl Default for BuiltinPluginSettings {
         Self {
             editing_toolbar: true,
             kanban: true,
+            panes: true,
             toolbar_position: "top".to_owned(),
             highlightr: true,
             outliner: true,

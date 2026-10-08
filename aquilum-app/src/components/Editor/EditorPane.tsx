@@ -26,13 +26,15 @@ import { PageSearchBar } from './PageSearchBar';
 interface EditorPaneProps {
   canGoBack: boolean; canGoForward: boolean; onNavigate: (delta: -1 | 1) => void;
   tab: SessionTab;
+  paneId: string;
   inactive: boolean;
+  focused: boolean;
   remountNonce: string;
   workspacePath: string | null;
   ensureLinksReady: () => Promise<void>;
   linkRevision: number;
-  loadedView: (documentId: string) => ViewState | null;
-  isViewLoaded: (documentId: string) => boolean;
+  loadedView: (documentId: string, paneId: string) => ViewState | null;
+  isViewLoaded: (documentId: string, paneId: string) => boolean;
   viewRevision: number;
   stateError: StateFailure | null;
   revealOffset?: number;
@@ -47,7 +49,9 @@ interface EditorPaneProps {
 export function EditorPane({
   canGoBack, canGoForward, onNavigate,
   tab,
+  paneId,
   inactive,
+  focused,
   remountNonce,
   workspacePath,
   ensureLinksReady,
@@ -81,7 +85,7 @@ export function EditorPane({
   }, [opened, viewing, tab.tabId]);
 
   useEffect(() => {
-    if (inactive || viewingVersion) return undefined;
+    if (!focused || viewingVersion) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (matchesShortcut(event, SHORTCUTS.PAGE_SEARCH)) {
         event.preventDefault();
@@ -92,7 +96,7 @@ export function EditorPane({
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [inactive, viewingVersion]);
+  }, [focused, viewingVersion]);
   const contextRef = useRef({ workspacePath, ensureLinksReady, path: tab.path });
   useEffect(() => {
     contextRef.current = { workspacePath, ensureLinksReady, path: tab.path };
@@ -111,10 +115,10 @@ export function EditorPane({
   }, [tab.path, workspacePath]);
 
   const documentId = tab.documentId;
-  const viewStateReady = stateError !== null || (documentId ? isViewLoaded(documentId) : false);
+  const viewStateReady = stateError !== null || (documentId ? isViewLoaded(documentId, paneId) : false);
   const initialViewState = useMemo(
-    () => (documentId ? loadedView(documentId) : null),
-    [documentId, loadedView, viewRevision, viewStateReady],
+    () => (documentId ? loadedView(documentId, paneId) : null),
+    [documentId, loadedView, paneId, viewRevision, viewStateReady],
   );
 
   return (
@@ -176,6 +180,8 @@ export function EditorPane({
               key={`${tab.tabId}:${tab.mountKey ?? ''}:${remountNonce}`}
               filePath={tab.path}
               documentId={documentId}
+              paneId={paneId}
+              focused={focused}
               workspacePath={workspacePath}
               initialViewState={initialViewState}
               viewStateReady={viewStateReady}

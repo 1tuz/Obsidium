@@ -1,6 +1,35 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum PaneLayout {
+    Pane {
+        pane_id: String,
+        active_tab_id: Option<Uuid>,
+    },
+    Split {
+        direction: SplitDirection,
+        ratio: f64,
+        children: [Box<PaneLayout>; 2],
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SplitDirection {
+    Horizontal,
+    Vertical,
+}
+
+fn main_pane_id() -> String {
+    "main".to_owned()
+}
+
 pub fn parse_uuid_column(value: String, index: usize) -> rusqlite::Result<Uuid> {
     Uuid::parse_str(&value).map_err(|error| {
         rusqlite::Error::FromSqlConversionFailure(
@@ -70,6 +99,8 @@ pub struct TabState {
     pub document_id: Option<Uuid>,
     pub kind: TabKind,
     pub position: i64,
+    #[serde(default = "main_pane_id")]
+    pub pane_id: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -79,6 +110,7 @@ pub struct LoadedTabState {
     pub document_id: Option<Uuid>,
     pub kind: TabKind,
     pub position: i64,
+    pub pane_id: String,
     pub relative_path: Option<String>,
 }
 
@@ -87,6 +119,8 @@ pub struct LoadedTabState {
 pub struct SessionStateInput {
     pub active_tab_id: Option<Uuid>,
     pub tabs: Option<Vec<TabState>>,
+    #[serde(default)]
+    pub layout: Option<PaneLayout>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -147,6 +181,7 @@ pub struct SaveStateBatchInput {
 #[serde(rename_all = "camelCase")]
 pub struct LoadedSession {
     pub active_tab_id: Option<Uuid>,
+    pub layout: PaneLayout,
     pub tabs: Vec<LoadedTabState>,
     pub views: Vec<LoadedViewState>,
     pub graph_camera: Option<GraphCameraState>,

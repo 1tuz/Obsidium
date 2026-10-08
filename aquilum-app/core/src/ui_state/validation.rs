@@ -1,5 +1,6 @@
 use super::error::UiStateError;
 use super::models::{OpenSessionInput, SaveStateBatchInput, TabKind};
+use super::panes::validate_layout;
 use std::collections::HashSet;
 
 fn invalid(message: impl Into<String>) -> UiStateError {
@@ -28,6 +29,7 @@ pub fn validate_batch(input: &SaveStateBatchInput) -> Result<(), UiStateError> {
         let tabs = session.tabs.as_deref().unwrap_or(&[]);
         let mut tab_ids = HashSet::with_capacity(tabs.len());
         for tab in tabs {
+            validate_label(&tab.pane_id, "pane id")?;
             if !tab_ids.insert(tab.tab_id) {
                 return Err(invalid("duplicate tab id"));
             }
@@ -39,6 +41,9 @@ pub fn validate_batch(input: &SaveStateBatchInput) -> Result<(), UiStateError> {
                 }
                 _ => {}
             }
+        }
+        if let Some(layout) = &session.layout {
+            if session.tabs.is_some() { validate_layout(layout, tabs)?; }
         }
         if session.tabs.is_some()
             && session

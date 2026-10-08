@@ -71,6 +71,13 @@ export function BuiltinsSection({ config, onChange }: SettingsSectionProps) {
             onChange={(kanban) => patch({ kanban })}
           />
         </Row>
+        <Row label={t('settings.builtins.panes')} description={t('settings.builtins.panesHint')}>
+          <Switch
+            checked={builtins.panes}
+            label={t('settings.builtins.panes')}
+            onChange={(panes) => patch({ panes })}
+          />
+        </Row>
       </Section>
       {builtins.highlightr !== false && <Section title={t('settings.builtins.palette')}>
         {colors.map((color, index) => <Row key={`${index}-${color}`}

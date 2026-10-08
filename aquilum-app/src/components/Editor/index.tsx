@@ -27,6 +27,8 @@ import './Editor.css';
 export function Editor({
   filePath,
   documentId,
+  paneId,
+  focused,
   workspacePath,
   initialViewState,
   viewStateReady,
@@ -115,6 +117,8 @@ export function Editor({
     ready,
   } = useEditorViewSetup({
     documentId,
+    paneId,
+    focused,
     viewStateReady,
     initialViewState,
     revealOffset,

@@ -105,6 +105,7 @@ describe('ViewStateController tab lifecycle', () => {
     const view = createView(scrollDOM);
     const controller = new ViewStateController({
       documentId: 'doc',
+      paneId: 'right',
       path: () => 'note.md',
       initial: null,
       resolved: resolvedFor(null),
@@ -119,10 +120,28 @@ describe('ViewStateController tab lifecycle', () => {
     expect(onChange.mock.calls[0][0]).toMatchObject({
       path: 'note.md',
       documentId: 'doc',
+      paneId: 'right',
       cursorAnchor: [],
       fallbackAnchor: 4,
       fallbackScrollAnchor: 2,
     });
+  });
+
+  it('restores a visible pane without stealing focus from the selected pane', () => {
+    const view = createView(element(-100));
+    const controller = new ViewStateController({
+      documentId: 'doc',
+      paneId: 'background',
+      path: () => 'note.md',
+      initial: null,
+      resolved: resolvedFor(null),
+      onChange: vi.fn(),
+      isFocused: () => false,
+    });
+
+    controller.attach(view, element(0));
+
+    expect(view.focus).not.toHaveBeenCalled();
   });
 
   it('does not replace a valid snapshot while the tab is live but hidden', () => {

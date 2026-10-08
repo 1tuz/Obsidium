@@ -13,6 +13,8 @@ import {
 export interface EditorProps {
   filePath: string;
   documentId: string | null;
+  paneId: string;
+  focused: boolean;
   workspacePath: string | null;
   initialViewState: ViewState | null;
   viewStateReady: boolean;

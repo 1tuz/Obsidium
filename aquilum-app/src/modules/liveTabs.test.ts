@@ -29,6 +29,11 @@ describe('nextLiveTabs', () => {
     expect(nextLiveTabs(['a', 'b'], null, all, 3)).toEqual(['a', 'b']);
   });
 
+  it('always keeps the active document in each pane live', () => {
+    expect(nextLiveTabs(['old', 'recent'], 'active', all, 3, ['pinned']))
+      .toEqual(['active', 'pinned', 'old']);
+  });
+
   it('не плодит дублей, если активная уже в списке первой', () => {
     expect(nextLiveTabs(['a', 'b'], 'a', all, 3)).toEqual(['a', 'b']);
   });

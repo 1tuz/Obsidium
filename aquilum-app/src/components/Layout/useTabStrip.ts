@@ -24,22 +24,30 @@ function prefersReducedMotion(): boolean {
 export function useTabStrip(
   strip: RefObject<HTMLElement | null>,
   onReorder: (from: number, to: number) => void,
+  onMoveTab?: (tabId: string, paneId: string, beforeTabId: string | null) => void,
+  enabled = true,
 ) {
   const reorder = useStableCallback(onReorder);
+  const moveTab = useStableCallback(onMoveTab ?? (() => {}));
 
   useEffect(() => {
     const element = strip.current;
-    if (!element) return;
+    if (!element || !enabled) return;
 
     let tabs: HTMLElement[] = [];
     let boxes: TabBox[] = [];
     let from = -1;
     let target = -1;
     let startX = 0;
+    let startY = 0;
     let startScroll = 0;
     let dragging = false;
     let settle: (() => void) | null = null;
     let settleTimer = 0;
+    let sourcePaneId = '';
+    let sourceTabId = '';
+    let dropPaneId = '';
+    let dropTabId: string | null = null;
 
     function clear() {
       element?.removeAttribute('data-reordering');
@@ -54,6 +62,10 @@ export function useTabStrip(
       from = -1;
       target = -1;
       dragging = false;
+      sourcePaneId = '';
+      sourceTabId = '';
+      dropPaneId = '';
+      dropTabId = null;
     }
 
     function scrollAtEdge(clientX: number) {
@@ -65,7 +77,7 @@ export function useTabStrip(
 
     function onMove(event: MouseEvent) {
       if (!dragging) {
-        if (Math.abs(event.clientX - startX) < DRAG_THRESHOLD) return;
+        if (Math.hypot(event.clientX - startX, event.clientY - startY) < DRAG_THRESHOLD) return;
         dragging = true;
         element?.setAttribute('data-reordering', '');
         tabs[from]!.dataset.dragging = '';
@@ -75,6 +87,18 @@ export function useTabStrip(
       const offset = event.clientX - startX + ((element?.scrollLeft ?? 0) - startScroll);
       const layout = reorderLayout(boxes, from, offset);
       target = layout.target;
+      const pointed = document.elementFromPoint(event.clientX, event.clientY);
+      const pane = pointed?.closest<HTMLElement>('[data-pane-drop-target]');
+      dropPaneId = pane?.dataset.paneDropTarget && pane.dataset.paneDropTarget !== sourcePaneId
+        ? pane.dataset.paneDropTarget : '';
+      const dropTarget = dropPaneId ? pointed?.closest<HTMLElement>('[data-tab-id]') ?? null : null;
+      if (dropTarget && event.clientX > dropTarget.getBoundingClientRect().left + dropTarget.offsetWidth / 2) {
+        dropTabId = dropTarget.nextElementSibling instanceof HTMLElement
+          ? dropTarget.nextElementSibling.dataset.tabId ?? null
+          : null;
+      } else {
+        dropTabId = dropTarget?.dataset.tabId ?? null;
+      }
       for (let index = 0; index < tabs.length; index += 1) {
         tabs[index]!.style.transform = `translateX(${layout.shift[index] ?? 0}px)`;
       }
@@ -97,6 +121,11 @@ export function useTabStrip(
       const moved = from;
       const dropped = target;
       const dragged = tabs[from]!;
+      if (dropPaneId && sourceTabId) {
+        moveTab(sourceTabId, dropPaneId, dropTabId);
+        clear();
+        return;
+      }
       const finish = () => {
         window.clearTimeout(settleTimer);
         settle = null;
@@ -128,7 +157,10 @@ export function useTabStrip(
       if (from < 0) return;
       boxes = boxesOf(tabs);
       target = from;
+      sourcePaneId = element.dataset.paneId ?? '';
+      sourceTabId = tab.dataset.tabId ?? '';
       startX = event.clientX;
+      startY = event.clientY;
       startScroll = element.scrollLeft;
       dragging = false;
       document.addEventListener('mousemove', onMove);
@@ -144,5 +176,5 @@ export function useTabStrip(
       settle = null;
       clear();
     };
-  }, [reorder, strip]);
+  }, [enabled, moveTab, reorder, strip]);
 }

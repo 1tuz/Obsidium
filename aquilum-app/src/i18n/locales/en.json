@@ -221,6 +221,8 @@
       "selection": "Next to selected text",
       "kanban": "Kanban",
       "kanbanHint": "Show the Boards panel and Kanban commands",
+      "panes": "Workspace panes",
+      "panesHint": "Split the editor into independent tab panes",
       "highlightr": "Highlightr",
       "highlightrHint": "Colored text highlights, compatible with HTML marks",
       "outliner": "Outliner",
@@ -475,6 +477,11 @@
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",
     "showRightSidebar": "Show the right sidebar",
+    "splitSide": "Split pane side by side",
+    "splitBelow": "Split pane below",
+    "closePane": "Close pane",
+    "resizePaneWidth": "Resize pane width",
+    "resizePaneHeight": "Resize pane height",
     "switchToLightTheme": "Switch to light theme",
     "switchToDarkTheme": "Switch to dark theme"
   },

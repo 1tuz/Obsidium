@@ -21,6 +21,7 @@ pub const SCHEMA: &str = "CREATE TABLE workspaces (
          epoch TEXT NOT NULL,
          last_sequence INTEGER NOT NULL DEFAULT -1,
          active_tab_id TEXT,
+         layout_json TEXT,
          graph_center_x REAL,
          graph_center_y REAL,
          graph_scale REAL,
@@ -35,6 +36,7 @@ pub const SCHEMA: &str = "CREATE TABLE workspaces (
          document_id TEXT,
          kind TEXT NOT NULL,
          position INTEGER NOT NULL,
+         pane_id TEXT NOT NULL DEFAULT 'main',
          PRIMARY KEY(workspace_id, window_id, tab_id),
          FOREIGN KEY(workspace_id, window_id)
              REFERENCES sessions(workspace_id, window_id) ON DELETE CASCADE,

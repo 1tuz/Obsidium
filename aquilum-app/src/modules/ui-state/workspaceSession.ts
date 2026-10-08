@@ -13,6 +13,7 @@ import { emptyTabPath, GRAPH_TAB_PATH, viewKey } from './types';
 import type {
   GraphCameraState,
   LoadedSession,
+  PaneLayout,
   ViewState,
   SessionTab,
   StoredTab,
@@ -88,17 +89,23 @@ export class WorkspaceSession {
     return markDocumentMissing(documentId, Date.now());
   }
 
-  queueTabsSnapshot(tabs: SessionTab[], activeTabId: string | null): void {
+  queueTabsSnapshot(
+    tabs: SessionTab[],
+    activeTabId: string | null,
+    layout: PaneLayout = { kind: 'pane', paneId: 'main', activeTabId },
+  ): void {
     if (this.disabled) return;
     const storedTabs = tabs.map<StoredTab>((tab, position) => ({
       tabId: tab.tabId,
       documentId: tab.documentId,
       kind: tab.kind,
       position,
+      paneId: tab.paneId,
     }));
     this.queue.queueSession({
       activeTabId,
       tabs: storedTabs,
+      layout,
     });
   }
 
@@ -107,6 +114,16 @@ export class WorkspaceSession {
     this.queue.queueSession({
       activeTabId,
       tabs: null,
+      layout: null,
+    });
+  }
+
+  queueLayout(activeTabId: string | null, layout: PaneLayout): void {
+    if (this.disabled) return;
+    this.queue.queueSession({
+      activeTabId,
+      tabs: null,
+      layout,
     });
   }
 

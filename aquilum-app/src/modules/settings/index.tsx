@@ -100,6 +100,7 @@ interface HistorySettings {
 export interface BuiltinPluginSettings {
   editingToolbar: boolean;
   kanban: boolean;
+  panes: boolean;
   toolbarPosition: 'top' | 'selection';
   highlightr: boolean;
   outliner: boolean;
@@ -114,6 +115,7 @@ export interface FileIconAssignment { name: FileIconId; color: string }
 export const DEFAULT_BUILTINS: BuiltinPluginSettings = {
   editingToolbar: true,
   kanban: true,
+  panes: true,
   toolbarPosition: 'top',
   highlightr: true,
   outliner: true,
