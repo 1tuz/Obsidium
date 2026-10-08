@@ -168,3 +168,12 @@ pub struct SaveReaderStateInput {
     pub cfi: Option<String>,
     pub now_ms: i64,
 }
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveBaseViewStateInput {
+    pub workspace_id: Uuid,
+    pub base_file: String,
+    pub view_index: i64,
+    pub now_ms: i64,
+}

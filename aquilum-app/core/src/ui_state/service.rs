@@ -151,6 +151,21 @@ impl UiStateService {
     ) -> Result<(), UiStateError> {
         self.with_database(|database| database.save_reader_state(input))
     }
+
+    pub fn load_base_view(
+        &self,
+        workspace_id: Uuid,
+        base_file: &str,
+    ) -> Result<Option<i64>, UiStateError> {
+        self.with_database(|database| database.load_base_view(workspace_id, base_file))
+    }
+
+    pub fn save_base_view(&self, input: &super::models::SaveBaseViewStateInput) -> Result<(), UiStateError> {
+        if input.base_file.trim().is_empty() {
+            return Err(UiStateError::InvalidInput { message: "base file path must not be empty".to_owned() });
+        }
+        self.with_database(|database| database.save_base_view(input))
+    }
 }
 
 fn open_storage(path: &Path) -> Storage {

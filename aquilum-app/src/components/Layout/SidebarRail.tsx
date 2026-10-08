@@ -1,4 +1,4 @@
-import { House, Network, PanelLeft, Settings } from 'lucide';
+import { Columns3, House, Network, PanelLeft, Settings } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
@@ -10,6 +10,8 @@ interface SidebarRailProps {
   onOpenGraph?: () => void;
   onOpenHome?: () => void;
   onOpenSettings?: () => void;
+  onOpenBoards?: () => void;
+  boardsActive?: boolean;
 }
 
 export function SidebarRail({
@@ -18,6 +20,8 @@ export function SidebarRail({
   onOpenGraph,
   onOpenHome,
   onOpenSettings,
+  onOpenBoards,
+  boardsActive = false,
 }: SidebarRailProps) {
   return (
     <aside className="q-sidebar-rail" aria-label={t('rail.toolbar')}>
@@ -50,6 +54,16 @@ export function SidebarRail({
             onClick={onOpenGraph}
           >
             <Icon icon={Network} />
+          </IconButton>
+        )}
+        {onOpenBoards && (
+          <IconButton
+            label={t('rail.boards')}
+            size="medium"
+            aria-pressed={boardsActive}
+            onClick={onOpenBoards}
+          >
+            <Icon icon={Columns3} />
           </IconButton>
         )}
         {onOpenSettings && (

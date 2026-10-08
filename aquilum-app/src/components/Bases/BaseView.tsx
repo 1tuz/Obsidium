@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
 import { fileName } from '../../modules/paths';
 import { readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { setFrontmatterField } from '../../modules/docs/frontmatter';
+import { loadBaseView, saveBaseView } from '../../modules/ui-state/gateway';
 import {
   baseProperty,
   buildKanbanColumns,
@@ -20,6 +21,7 @@ import {
   type BaseSort,
   type BaseViewDefinition,
 } from '../../modules/bases';
+import { resolveBaseViewIndex } from '../../modules/bases/viewSelection';
 import './BaseView.css';
 
 interface BaseViewProps {
@@ -28,9 +30,12 @@ interface BaseViewProps {
   indexReady: boolean;
   indexRevision: number;
   onOpenNote: (path: string) => void;
+  viewRequest?: { path: string; index: number; id: number } | null;
+  onViewRequestConsumed?: (id: number) => void;
 }
 
 interface LoadedBase {
+  path: string;
   definition: BaseDefinition;
   rows: BaseRow[];
 }
@@ -102,18 +107,55 @@ export function BaseView({
   indexReady,
   indexRevision,
   onOpenNote,
+  viewRequest,
+  onViewRequestConsumed,
 }: BaseViewProps) {
   const [loaded, setLoaded] = useState<LoadedBase | null>(null);
   const [failed, setFailed] = useState(false);
   const [activeView, setActiveView] = useState(0);
   const [sort, setSort] = useState<BaseSort[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
+  const selectedPath = useRef('');
+  const selectionRevision = useRef(0);
+  const saveQueue = useRef(Promise.resolve());
+
+  const persistView = useCallback((index: number) => {
+    saveQueue.current = saveQueue.current
+      .catch(() => undefined)
+      .then(() => saveBaseView(workspacePath, path, index))
+      .catch((error) => console.error('Failed to save active Base view', error));
+  }, [path, workspacePath]);
 
   useEffect(() => {
+    setLoaded(null);
     setActiveView(0);
+    selectedPath.current = '';
+    selectionRevision.current += 1;
     setSort([]);
     setEditing(null);
   }, [path]);
+
+  useEffect(() => {
+    if (!loaded || loaded.path !== path) return;
+    if (viewRequest?.path === path) {
+      const index = resolveBaseViewIndex(viewRequest.index, null, loaded.definition.views.length);
+      selectionRevision.current += 1;
+      selectedPath.current = path;
+      setActiveView(index);
+      persistView(index);
+      onViewRequestConsumed?.(viewRequest.id);
+      return;
+    }
+    if (selectedPath.current === path) return;
+    selectedPath.current = path;
+    const revision = selectionRevision.current;
+    void loadBaseView(workspacePath, path)
+      .then((savedIndex) => {
+        if (selectionRevision.current !== revision) return;
+        setActiveView(resolveBaseViewIndex(undefined, savedIndex, loaded.definition.views.length));
+      })
+      .catch((error) => console.error('Failed to load active Base view', error));
+  }, [loaded, onViewRequestConsumed, path, persistView, viewRequest, workspacePath]);
 
   useEffect(() => {
     if (!indexReady) return;
@@ -121,7 +163,7 @@ export function BaseView({
     setFailed(false);
     void Promise.all([readFileSnapshot(path), getBaseRows(workspacePath)])
       .then(([snapshot, rows]) => {
-        if (!cancelled) setLoaded({ definition: parseBase(snapshot.content), rows });
+        if (!cancelled) setLoaded({ path, definition: parseBase(snapshot.content), rows });
       })
       .catch((error) => {
         console.error('Failed to load base', error);
@@ -202,7 +244,13 @@ export function BaseView({
               type="button"
               role="tab"
               aria-selected={index === activeView}
-              onClick={() => { setActiveView(index); setSort([]); }}
+              onClick={() => {
+                selectionRevision.current += 1;
+                setActiveView(index);
+                selectedPath.current = path;
+                setSort([]);
+                persistView(index);
+              }}
             >
               {candidate.name || t('bases.untitledView')}
             </button>

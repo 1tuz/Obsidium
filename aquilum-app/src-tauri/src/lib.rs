@@ -194,6 +194,8 @@ pub fn run() {
             ui_state::commands::cleanup_ui_state,
             ui_state::commands::load_ui_reader_state,
             ui_state::commands::save_ui_reader_state,
+            ui_state::commands::load_ui_base_view,
+            ui_state::commands::save_ui_base_view,
             mcp::commands::get_mcp_status,
             mcp::commands::apply_mcp_settings,
             mcp::commands::set_active_note,

@@ -414,7 +414,8 @@
     "hideSidebar": "Hide the left sidebar",
     "showSidebar": "Show the left sidebar",
     "home": "Open the home page",
-    "graph": "Open the link graph"
+    "graph": "Open the link graph",
+    "boards": "Open boards"
   },
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",
@@ -436,7 +437,10 @@
     "focus": "Toggle focus mode",
     "leftSidebar": "Toggle left sidebar",
     "rightSidebar": "Toggle right sidebar",
-    "theme": "Toggle light/dark theme"
+    "theme": "Toggle light/dark theme",
+    "boards": "Open boards",
+    "newBoard": "New board",
+    "addCurrentNoteToBoard": "Add current note to a board"
   },
   "localGraph": {
     "tab": "Local graph",
@@ -454,6 +458,37 @@
     "unsupported": "Some Base expressions are not supported yet; unsupported filters stay visible.",
     "untitledView": "View",
     "groupEmpty": "Without value"
+  },
+  "boards": {
+    "title": "Boards",
+    "newBoard": "+ New board",
+    "empty": "No Kanban views found",
+    "loading": "Finding boards…",
+    "loadError": "Could not load boards",
+    "name": "Name",
+    "source": "Card source",
+    "folder": "Folder",
+    "tag": "Tag",
+    "property": "Property",
+    "propertyValue": "Value",
+    "wholeVault": "Whole vault",
+    "customFilter": "Custom filter",
+    "groupBy": "Column property",
+    "columns": "Initial columns",
+    "create": "Create board",
+    "creating": "Creating…",
+    "cancel": "Cancel",
+    "addToBoard": "Add to board",
+    "removeFromBoard": "Remove from board",
+    "selectAdd": "Choose a board for this note",
+    "selectRemove": "Choose a board to remove this note from",
+    "cannotAuto": "Cannot change membership automatically: {{reason}}",
+    "unchangedAdd": "Could not add the note: its existing membership or column value conflicts with this board.",
+    "unchangedRemove": "This note does not have the matching membership property or tag.",
+    "writeError": "Could not update the note: {{reason}}",
+    "createError": "Could not create the board: {{reason}}",
+    "invalidName": "Use a nonempty name without path separators.",
+    "nameExhausted": "Could not find an available filename."
   },
   "fileTree": {
     "renameAria": "New file name",

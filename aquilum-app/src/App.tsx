@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { WindowControls } from "./components/Layout/WindowControls";
@@ -50,6 +50,7 @@ import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
 import { useThemeMode } from "./hooks/useThemeMode";
 import { CommandRegistry } from "./modules/commands/registry";
+import type { BoardActionRequest } from "./components/Layout/BoardsPanel";
 import "./App.css";
 
 const GraphView = lazy(() => import("./components/Graph/GraphView")
@@ -82,6 +83,11 @@ export default function App() {
   } | null>(null);
   const [revealNonceByPath, setRevealNonceByPath] = useState<Record<string, string>>({});
   const [homePagePath, setHomePagePath] = useState<string | null>(null);
+  const [sidebarPanel, setSidebarPanel] = useState<'files' | 'boards'>('files');
+  const [boardActionRequest, setBoardActionRequest] = useState<BoardActionRequest | null>(null);
+  const [createBoardRequest, setCreateBoardRequest] = useState(0);
+  const [baseViewRequest, setBaseViewRequest] = useState<{ path: string; index: number; id: number } | null>(null);
+  const boardRequestId = useRef(0);
   const {
     files,
     directories,
@@ -359,6 +365,42 @@ export default function App() {
     setLeftSidebarOpen((current) => !current);
   }, []);
 
+  const openBoards = useCallback(() => {
+    setSidebarPanel('boards');
+    setLeftSidebarOpen(true);
+  }, [setLeftSidebarOpen]);
+
+  const toggleBoards = useCallback(() => {
+    setSidebarPanel((current) => leftSidebarVisible && current === 'boards' ? 'files' : 'boards');
+    setLeftSidebarOpen(true);
+  }, [leftSidebarVisible, setLeftSidebarOpen]);
+
+  const openNewBoard = useCallback(() => {
+    openBoards();
+    setCreateBoardRequest((current) => current + 1);
+  }, [openBoards]);
+
+  const requestBoardAction = useCallback((path: string, action: BoardActionRequest['action']) => {
+    openBoards();
+    boardRequestId.current += 1;
+    setBoardActionRequest({ path, action, id: boardRequestId.current });
+  }, [openBoards]);
+
+  const openBaseView = useCallback((path: string, index: number) => {
+    boardRequestId.current += 1;
+    setBaseViewRequest({ path, index, id: boardRequestId.current });
+    openNote(path);
+  }, [openNote]);
+
+  const addCurrentNoteToBoard = useCallback(() => {
+    if (activeFile && isMarkdownPath(activeFile)) requestBoardAction(activeFile, 'add');
+    openBoards();
+  }, [activeFile, openBoards, requestBoardAction]);
+
+  const removeNoteFromBoard = useCallback((path: string) => {
+    requestBoardAction(path, 'remove');
+  }, [requestBoardAction]);
+
   const toggleRightSidebar = useCallback(() => {
     setRightSidebarOpen((current) => !current);
   }, []);
@@ -399,6 +441,9 @@ export default function App() {
       run: toggleFocusMode,
     },
     { id: 'view.graph', title: t('commands.graph'), enabled: () => Boolean(workspacePath), run: openGraph },
+    { id: 'boards.open', title: t('commands.boards'), enabled: () => Boolean(workspacePath), run: openBoards },
+    { id: 'boards.new', title: t('commands.newBoard'), enabled: () => Boolean(workspacePath), run: openNewBoard },
+    { id: 'boards.addCurrentNote', title: t('commands.addCurrentNoteToBoard'), enabled: () => Boolean(activeFile && isMarkdownPath(activeFile)), run: addCurrentNoteToBoard },
     { id: 'view.settings', title: t('commands.settings'), run: settings.show },
     { id: 'workspace.switch', title: t('commands.workspaces'), run: workspaces.show },
     { id: 'view.sidebar.left', title: t('commands.leftSidebar'), run: toggleLeftSidebar },
@@ -407,7 +452,7 @@ export default function App() {
   ]), [
     commandPalette.toggle, config, createNewFile, openGraph, search.show, settings.show,
     templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
-    workspaces.show, workspacePath,
+    workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile,
   ]);
 
   useEffect(() => {
@@ -465,6 +510,8 @@ export default function App() {
           onOpenSettings={focusMode
             ? () => { void commandRegistry.execute('view.settings'); }
             : undefined}
+          onOpenBoards={focusMode ? undefined : toggleBoards}
+          boardsActive={sidebarPanel === 'boards' && leftSidebarVisible}
         />
         <Sidebar
           activeFile={activeFile}
@@ -481,6 +528,13 @@ export default function App() {
           onOpenWorkspaces={() => { void commandRegistry.execute('workspace.switch'); }}
           onToggleTheme={toggleTheme}
           onPatchFileInTree={patchFileInTree}
+          panel={sidebarPanel}
+          onOpenBaseView={openBaseView}
+          boardActionRequest={boardActionRequest}
+          onBoardActionRequestComplete={() => setBoardActionRequest(null)}
+          createBoardRequest={createBoardRequest}
+          onAddToBoard={(path) => requestBoardAction(path, 'add')}
+          onRemoveFromBoard={removeNoteFromBoard}
         />
 
         <div className="q-app-main">
@@ -531,6 +585,10 @@ export default function App() {
                         indexReady={linkIndexReady}
                         indexRevision={linkIndexRevision}
                         onOpenNote={openNote}
+                        viewRequest={baseViewRequest}
+                        onViewRequestConsumed={(id) => {
+                          setBaseViewRequest((current) => current?.id === id ? null : current);
+                        }}
                       />
                     </Suspense>
                   )}
