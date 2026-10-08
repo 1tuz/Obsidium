@@ -141,7 +141,7 @@ mod tests {
 
         assert_eq!(config.ui.appearance, "dark");
         assert_eq!(config.ui.palette, "obsidium");
-        assert_eq!(config.ui.motion, "system");
+        assert_eq!(config.ui.motion, "on");
         assert!(config.ui.enabled_snippets.is_empty());
         manager.update_config(config).unwrap();
         let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();

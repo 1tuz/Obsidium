@@ -1,3 +1,26 @@
+:root[data-motion="on"] {
+  /* Avoid a full-window snapshot: only named surfaces participate. */
+  view-transition-name: none;
+}
+
+:root[data-motion="on"] .q-app-content {
+  view-transition-name: q-app-content;
+}
+
+::view-transition-group(q-app-content) {
+  animation-duration: var(--q-duration-normal);
+  animation-timing-function: var(--q-ease-out);
+}
+
+::view-transition-old(q-app-content),
+::view-transition-new(q-app-content) {
+  mix-blend-mode: normal;
+}
+
+[data-motion="off"] .q-app-content {
+  view-transition-name: none;
+}
+
 [data-motion="off"] *,
 [data-motion="off"] *::before,
 [data-motion="off"] *::after {
@@ -10,9 +33,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-motion="system"] *,
-  [data-motion="system"] *::before,
-  [data-motion="system"] *::after {
+  [data-motion="on"] .q-app-content {
+    view-transition-name: none;
+  }
+
+  [data-motion="on"] *,
+  [data-motion="on"] *::before,
+  [data-motion="on"] *::after {
     animation-delay: 0s !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -21,3 +48,5 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* WebGL GraphRenderer keeps its own requestAnimationFrame/FrameClock path. */

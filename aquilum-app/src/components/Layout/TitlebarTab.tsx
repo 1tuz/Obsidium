@@ -10,6 +10,7 @@ import { useContextMenu } from '../Common/useContextMenu';
 import { isMarkdownPath } from '../../modules/documents/fileGateway';
 import { fileStem } from '../../modules/paths';
 import { GRAPH_TAB_PATH, isEmptyTabPath } from '../../modules/ui-state';
+import { runViewTransition } from '../../modules/motion';
 import { fileActionItems, type FileMenuActions } from './fileActionItems';
 import './TitlebarTab.css';
 
@@ -45,6 +46,12 @@ export const TitlebarTab = memo(function TitlebarTab({
   const canFileActions = Boolean(actions) && isMarkdownPath(path);
   const menu = useContextMenu();
 
+  const select = () => {
+    if (renaming || !onSelect) return;
+    if (isActive) onSelect(path);
+    else runViewTransition(() => onSelect(path));
+  };
+
   return (
     <div
       className={`q-titlebar-tab ${isActive ? 'active' : ''}`}
@@ -53,14 +60,12 @@ export const TitlebarTab = memo(function TitlebarTab({
       role="tab"
       tabIndex={0}
       aria-selected={isActive}
-      onClick={() => {
-        if (!renaming) onSelect?.(path);
-      }}
+      onClick={select}
       onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
         if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          onSelect?.(path);
+          select();
         }
       }}
       onAuxClick={(event: MouseEvent<HTMLDivElement>) => {

@@ -187,7 +187,7 @@ impl Default for UiSettings {
             appearance: "system".to_string(),
             palette: "obsidium".to_string(),
             accent_mode: "palette".to_string(),
-            motion: "system".to_string(),
+            motion: "on".to_string(),
             enabled_snippets: HashMap::new(),
             language: String::new(),
             primary_color: "#1471eb".to_string(),

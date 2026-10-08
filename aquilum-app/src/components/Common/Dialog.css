@@ -8,6 +8,7 @@
   background: var(--q-dialog-overlay-bg);
   opacity: 1;
   transition: opacity var(--q-duration-normal) var(--q-ease-out);
+  transition-behavior: allow-discrete;
 }
 
 @starting-style {
@@ -30,6 +31,7 @@
   transition:
     opacity var(--q-duration-normal) var(--q-ease-out),
     transform var(--q-duration-normal) var(--q-ease-out);
+  transition-behavior: allow-discrete;
 }
 
 @starting-style {
