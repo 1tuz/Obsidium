@@ -140,6 +140,7 @@ vi.mock('./components/Settings/SettingsDialog', () => ({
 
 vi.mock('./modules/settings', () => ({
   DEFAULT_LIVE_TABS: 3,
+  DEFAULT_BUILTINS: { editingToolbar: false, kanban: false, toolbarPosition: 'top' },
   useSettingsStore: () => ({
     config: settingsState.config,
     isLoading: false,

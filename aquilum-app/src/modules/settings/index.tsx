@@ -97,7 +97,20 @@ interface HistorySettings {
   retentionDays: number;
 }
 
+export interface BuiltinPluginSettings {
+  editingToolbar: boolean;
+  kanban: boolean;
+  toolbarPosition: 'top' | 'selection';
+}
+
+export const DEFAULT_BUILTINS: BuiltinPluginSettings = {
+  editingToolbar: true,
+  kanban: false,
+  toolbarPosition: 'top',
+};
+
 export interface AppConfig {
+  builtins?: BuiltinPluginSettings;
   analysis: AnalysisSettings;
   mcp: McpSettings;
   trash: TrashSettings;

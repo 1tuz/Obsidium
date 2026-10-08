@@ -1,0 +1,39 @@
+.q-editing-toolbar {
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--q-space-4);
+  max-width: 100%;
+  min-height: var(--q-size-40);
+  padding: var(--q-space-4) var(--q-space-8);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--q-editor-bg);
+  border-bottom: var(--q-border-1) solid var(--q-border-default);
+}
+
+.q-editing-toolbar__group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  padding-right: var(--q-space-4);
+  border-right: var(--q-border-1) solid var(--q-border-default);
+}
+
+.q-editing-toolbar__group:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.q-editing-toolbar--floating {
+  position: fixed;
+  z-index: 120;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  min-height: var(--q-size-40);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-rounded-lg);
+  box-shadow: var(--q-shadow-action);
+}

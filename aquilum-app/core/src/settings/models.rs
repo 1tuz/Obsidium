@@ -238,9 +238,28 @@ impl Default for McpSettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct BuiltinPluginSettings {
+    pub editing_toolbar: bool,
+    pub kanban: bool,
+    pub toolbar_position: String,
+}
+
+impl Default for BuiltinPluginSettings {
+    fn default() -> Self {
+        Self {
+            editing_toolbar: true,
+            kanban: false,
+            toolbar_position: "top".to_owned(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
+    pub builtins: BuiltinPluginSettings,
     pub analysis: AnalysisSettings,
     pub mcp: McpSettings,
     pub trash: TrashSettings,
