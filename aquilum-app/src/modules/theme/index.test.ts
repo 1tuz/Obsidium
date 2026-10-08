@@ -85,6 +85,15 @@ describe('theme engine', () => {
     expect(motionEnabled()).toBe(true);
   });
 
+  it('honors the explicit animation setting when the system prefers reduced motion', () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(() => ({
+      matches: true,
+    }) as MediaQueryList);
+    setTheme('light', 'obsidium', 'on');
+
+    expect(motionEnabled()).toBe(true);
+  });
+
   it('tracks system appearance changes while motion remains binary', () => {
     const query = { matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() };
     vi.spyOn(window, 'matchMedia').mockImplementation((media) => ({

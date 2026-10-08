@@ -10,7 +10,7 @@
 }
 
 @starting-style {
-  .q-book-reader {
+  :root:not([data-motion="on"]) .q-book-reader {
     opacity: 0;
   }
 }
@@ -137,7 +137,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-book-reader-host {
+  :root:not([data-motion="on"]) .q-book-reader-host {
     transition: none;
   }
 }

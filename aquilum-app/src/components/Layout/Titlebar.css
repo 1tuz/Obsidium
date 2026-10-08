@@ -61,7 +61,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-titlebar {
+  :root:not([data-motion="on"]) .q-titlebar {
     transition: none;
   }
 }

@@ -20,7 +20,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-city-pattern__strip { animation: none; }
+  :root:not([data-motion="on"]) .q-city-pattern__strip { animation: none; }
 }
 
 .q-city-pattern__scene {

@@ -29,20 +29,3 @@
   scroll-behavior: auto !important;
   transition: none !important;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  [data-motion="on"] .q-app-content {
-    view-transition-name: none;
-  }
-
-  [data-motion="on"],
-  [data-motion="on"] *,
-  [data-motion="on"] *::before,
-  [data-motion="on"] *::after {
-    animation: none !important;
-    scroll-behavior: auto !important;
-    transition: none !important;
-  }
-}
-
-/* WebGL GraphRenderer keeps its own requestAnimationFrame/FrameClock path. */

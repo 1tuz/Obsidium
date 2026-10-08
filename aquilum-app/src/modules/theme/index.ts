@@ -22,10 +22,7 @@ export interface ThemePalette {
 
 export function motionEnabled(): boolean {
   if (typeof document === 'undefined' || typeof window === 'undefined') return false;
-  const motion = document.documentElement.dataset.motion;
-  if (motion === 'off') return false;
-  return motion === 'on' && (typeof window.matchMedia !== 'function'
-    || !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  return document.documentElement.dataset.motion === 'on';
 }
 
 function palette(id: string, name: string): ThemePalette {

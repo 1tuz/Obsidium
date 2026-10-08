@@ -237,7 +237,7 @@
       "paletteDialogTitle": "Color palette",
       "paletteClose": "Close palettes",
       "animations": "Animations",
-      "motionHint": "Off by default. Turn on to animate theme changes, tab transitions, and menus. Your choice is saved.",
+      "motionHint": "Off by default. Turn on animations for themes, tabs, and menus. System reduced motion is ignored while on. Your choice is saved.",
       "language": "Language",
       "languageAria": "Interface language",
       "homePage": "Home page",

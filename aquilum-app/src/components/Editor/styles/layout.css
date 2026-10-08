@@ -48,7 +48,7 @@
 }
 
 @starting-style {
-    .q-editor-content {
+    :root:not([data-motion="on"]) .q-editor-content {
         opacity: 0;
     }
 }

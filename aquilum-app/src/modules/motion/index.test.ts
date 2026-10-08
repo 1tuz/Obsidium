@@ -54,7 +54,7 @@ describe('motion helpers', () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
-  it('treats Reduce Motion as an accessibility override', () => {
+  it('honors the explicit on setting when the system prefers reduced motion', () => {
     vi.mocked(window.matchMedia).mockImplementation(() => ({
       matches: true,
     }) as MediaQueryList);
@@ -64,7 +64,7 @@ describe('motion helpers', () => {
 
     runViewTransition(update);
 
-    expect(start).not.toHaveBeenCalled();
+    expect(start).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(1);
   });
 });

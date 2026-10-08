@@ -22,7 +22,7 @@
 }
 
 @starting-style {
-  .q-settings-content {
+  :root:not([data-motion="on"]) .q-settings-content {
     opacity: 0;
   }
 }
