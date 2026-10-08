@@ -1,5 +1,6 @@
 use super::database::UiStateDatabase;
 use super::error::UiStateError;
+#[cfg(test)]
 use super::migrations::migrate;
 use super::models::SaveBaseViewStateInput;
 use rusqlite::{params, OptionalExtension};
