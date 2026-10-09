@@ -100,6 +100,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: stable
+          cache: false
 
       - name: Check all workflows with actionlint
         if: steps.changes.outputs.workflow == 'true' || steps.manual.outputs.workflow == 'true'
