@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { EditingToolbar } from './EditingToolbar';
 
@@ -17,6 +19,11 @@ describe('EditingToolbar', () => {
     expect(renderer!.container.querySelector('.q-editing-toolbar')?.classList.contains(
       'q-editing-toolbar--top',
     )).toBe(true);
+  });
+
+  it('stretches the top toolbar across the pane', () => {
+    const styles = readFileSync(resolve(process.cwd(), 'src/components/Editor/EditingToolbar.css'), 'utf8');
+    expect(styles).toMatch(/\.q-editing-toolbar--top\s*\{[^}]*align-self:\s*stretch;[^}]*width:\s*100%;/s);
   });
 
   it('exposes the remaining Markdown heading levels and image insertion', () => {

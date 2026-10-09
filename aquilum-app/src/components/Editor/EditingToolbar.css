@@ -16,8 +16,8 @@
 }
 
 .q-editing-toolbar--top {
-  align-self: center;
-  width: min(100%, calc(var(--q-editor-max-width) + 2 * var(--q-editor-padding-x)));
+  align-self: stretch;
+  width: 100%;
   justify-content: flex-start;
 }
 

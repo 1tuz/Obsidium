@@ -19,8 +19,8 @@ interface EditorToolbarProps {
   focusMode: boolean;
   onToggleFocusMode: () => void;
   readOnly: boolean;
-  onToggleReadMode: () => void;
-  showModeToggle?: boolean;
+  onModeChange: (readOnly: boolean) => void;
+  showModeButtons?: boolean;
 }
 
 export function EditorToolbar({
@@ -33,8 +33,8 @@ export function EditorToolbar({
   focusMode,
   onToggleFocusMode,
   readOnly,
-  onToggleReadMode,
-  showModeToggle = true,
+  onModeChange,
+  showModeButtons = true,
 }: EditorToolbarProps) {
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [position, setPosition] = useState<MenuPosition | null>(null);
@@ -57,17 +57,20 @@ export function EditorToolbar({
     </div>
     {!focusMode && <div className="q-editor-toolbar__name" title={fileName}>{fileName}</div>}
     <div className="q-editor-toolbar__side">
-      {showModeToggle && (
-        <Button
-          variant="ghost"
-          size="xs"
+      {showModeButtons && <>
+        <IconButton
+          label={t('editor.readingMode')}
+          size="medium"
           aria-pressed={readOnly}
-          onClick={onToggleReadMode}
-        >
-          <Icon icon={readOnly ? Pencil : BookOpen} />
-          {t(readOnly ? 'editor.editingMode' : 'editor.readingMode')}
-        </Button>
-      )}
+          onClick={() => onModeChange(true)}
+        ><Icon icon={BookOpen} /></IconButton>
+        <IconButton
+          label={t('editor.editingMode')}
+          size="medium"
+          aria-pressed={!readOnly}
+          onClick={() => onModeChange(false)}
+        ><Icon icon={Pencil} /></IconButton>
+      </>}
       <Button variant="ghost" size="xs" aria-pressed={focusMode} onClick={onToggleFocusMode}>{t('editor.focusMode')}</Button>
       {!focusMode && <IconButton label={t('editor.searchInNote')} size="medium" onClick={onSearch}><Icon icon={Search} /></IconButton>}
       <span ref={triggerRef}><IconButton label={t('editor.noteActions')} size="medium" aria-expanded={Boolean(position)} onClick={openMenu}><Icon icon={MoreHorizontal} /></IconButton></span>

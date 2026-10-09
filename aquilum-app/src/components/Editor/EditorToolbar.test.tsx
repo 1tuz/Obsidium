@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { EditorToolbar } from './EditorToolbar';
 
-describe('EditorToolbar mode toggle', () => {
+describe('EditorToolbar modes', () => {
   let renderer: MountedDom | null = null;
 
   afterEach(() => {
@@ -12,8 +12,8 @@ describe('EditorToolbar mode toggle', () => {
     renderer = null;
   });
 
-  it('offers reading mode while editing and switches on request', () => {
-    const onToggleReadMode = vi.fn();
+  it('offers separate reading and editing mode buttons', () => {
+    const onModeChange = vi.fn();
     act(() => {
       renderer = mountDom(
         <EditorToolbar
@@ -26,18 +26,24 @@ describe('EditorToolbar mode toggle', () => {
           focusMode={false}
           onToggleFocusMode={() => {}}
           readOnly={false}
-          onToggleReadMode={onToggleReadMode}
+          onModeChange={onModeChange}
         />,
       );
     });
-    const button = [...renderer!.container.querySelectorAll('button')]
-      .find((item) => item.textContent === 'Reading mode');
-    expect(button).toBeDefined();
-    act(() => button?.click());
-    expect(onToggleReadMode).toHaveBeenCalledOnce();
+    const reading = renderer!.container.querySelector<HTMLButtonElement>('[aria-label="Reading mode"]');
+    const editing = renderer!.container.querySelector<HTMLButtonElement>('[aria-label="Editing mode"]');
+    expect(reading).not.toBeNull();
+    expect(editing).not.toBeNull();
+    expect(reading?.getAttribute('aria-pressed')).toBe('false');
+    expect(editing?.getAttribute('aria-pressed')).toBe('true');
+    act(() => reading?.click());
+    expect(onModeChange).toHaveBeenLastCalledWith(true);
+    act(() => editing?.click());
+    expect(onModeChange).toHaveBeenLastCalledWith(false);
   });
 
-  it('offers editing mode while reading', () => {
+  it('marks reading mode as selected while reading', () => {
+    const onModeChange = vi.fn();
     act(() => {
       renderer = mountDom(
         <EditorToolbar
@@ -50,12 +56,12 @@ describe('EditorToolbar mode toggle', () => {
           focusMode={false}
           onToggleFocusMode={() => {}}
           readOnly
-          onToggleReadMode={() => {}}
+          onModeChange={onModeChange}
         />,
       );
     });
-    expect([...renderer!.container.querySelectorAll('button')]
-      .some((item) => item.textContent === 'Editing mode')).toBe(true);
+    expect(renderer!.container.querySelector('[aria-label="Reading mode"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(renderer!.container.querySelector('[aria-label="Editing mode"]')?.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('hides the mode toggle while viewing history', () => {
@@ -71,12 +77,12 @@ describe('EditorToolbar mode toggle', () => {
           focusMode={false}
           onToggleFocusMode={() => {}}
           readOnly
-          onToggleReadMode={() => {}}
-          showModeToggle={false}
+          onModeChange={() => {}}
+          showModeButtons={false}
         />,
       );
     });
-    expect([...renderer!.container.querySelectorAll('button')]
-      .some((item) => item.textContent === 'Editing mode' || item.textContent === 'Reading mode')).toBe(false);
+    expect(renderer!.container.querySelector('[aria-label="Reading mode"]')).toBeNull();
+    expect(renderer!.container.querySelector('[aria-label="Editing mode"]')).toBeNull();
   });
 });

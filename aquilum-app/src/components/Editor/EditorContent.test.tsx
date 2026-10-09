@@ -37,6 +37,7 @@ describe('EditorContent reading mode', () => {
 
   it('makes both title and body non-editable in reading mode', () => {
     act(() => { renderer = mountDom(<Harness readOnly />); });
+    expect(renderer!.container.querySelector('.q-editor-content--reading')).not.toBeNull();
     const editors = renderer!.container.querySelectorAll<HTMLElement>('.cm-content');
     expect(editors).toHaveLength(2);
     expect([...editors].every((editor) => editor.getAttribute('contenteditable') === 'false')).toBe(true);

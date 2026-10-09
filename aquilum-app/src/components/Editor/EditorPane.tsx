@@ -140,8 +140,8 @@ export function EditorPane({
           focusMode={focusMode}
           onToggleFocusMode={onToggleFocusMode}
           readOnly={readOnly || viewingVersion}
-          onToggleReadMode={() => setReadOnly((current) => !current)}
-          showModeToggle={!viewingVersion}
+          onModeChange={setReadOnly}
+          showModeButtons={!viewingVersion}
         />
         {!readOnly && (builtins.editingToolbar ?? true) && (
           <EditingToolbar
