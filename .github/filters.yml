@@ -1,0 +1,51 @@
+frontend_types:
+  - 'aquilum-app/src/**/*.{ts,tsx}'
+  - 'aquilum-app/{vite,vitest}.config.*'
+  - 'aquilum-app/tsconfig*.json'
+  - 'aquilum-app/package*.json'
+  - 'aquilum-app/scripts/**'
+frontend_related:
+  - 'aquilum-app/src/**/*.{ts,tsx,js,jsx}'
+frontend_full:
+  - 'aquilum-app/package*.json'
+  - 'aquilum-app/{vite,vitest}.config.*'
+  - 'aquilum-app/tsconfig*.json'
+  - 'aquilum-app/scripts/**'
+  - 'aquilum-app/src/**/*.css'
+  - 'aquilum-app/src/**/*.json'
+  - 'aquilum-app/src/styles/**'
+rust_core:
+  - 'aquilum-app/core/**/*.rs'
+rust_app:
+  - 'aquilum-app/src-tauri/**/*.rs'
+  - 'aquilum-app/src-tauri/build.rs'
+  - 'aquilum-app/src-tauri/tauri*.json'
+  - 'aquilum-app/src-tauri/capabilities/**'
+rust_cli:
+  - 'aquilum-app/cli/**/*.rs'
+rust_workspace:
+  - 'aquilum-app/core/Cargo.toml'
+  - 'aquilum-app/src-tauri/Cargo.toml'
+  - 'aquilum-app/cli/Cargo.toml'
+  - 'aquilum-app/src-tauri/Cargo.lock'
+  - 'aquilum-app/rust-toolchain*'
+  - 'aquilum-app/.cargo/**'
+  - '.cargo/**'
+  - 'rustfmt.toml'
+  - '.rustfmt.toml'
+docs:
+  - '*.md'
+  - '**/*.md'
+workflow:
+  - '.github/workflows/**'
+  - '.github/filters.yml'
+  - 'scripts/ci-routing.mjs'
+  - 'scripts/ci-routing.test.mjs'
+  - 'scripts/check-rust-format.mjs'
+  - 'scripts/test-ci-routing.rb'
+  - 'scripts/check-workflow-yaml.rb'
+release_contract:
+  - 'scripts/release-contract.mjs'
+  - 'scripts/release-contract.test.mjs'
+  - 'scripts/prepare-release-assets.mjs'
+  - 'scripts/validate-release.mjs'

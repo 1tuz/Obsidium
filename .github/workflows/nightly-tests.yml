@@ -1,0 +1,65 @@
+name: Nightly full tests
+
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-full-tests
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: Full frontend, Rust, and installer validation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: aquilum-app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: aquilum-app/src-tauri -> target
+
+      - name: Install Tauri Linux test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+
+      - name: Install frontend dependencies
+        working-directory: aquilum-app
+        run: npm ci
+
+      - name: Check TypeScript
+        working-directory: aquilum-app
+        run: npx tsc --noEmit
+
+      - name: Run complete Vitest suite
+        working-directory: aquilum-app
+        run: npm test
+
+      - name: Build frontend
+        working-directory: aquilum-app
+        run: npm run build
+
+      - name: Run complete Rust workspace tests
+        run: cargo test --locked --manifest-path aquilum-app/src-tauri/Cargo.toml --workspace
+
+      - name: Test installer scripts
+        run: |
+          bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
+          bash scripts/test-install-scripts.sh

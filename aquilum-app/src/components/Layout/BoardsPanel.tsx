@@ -14,6 +14,7 @@ import {
   buildKanbanBase,
   parseBase,
   removeFromBoard,
+  renameFirstKanbanView,
   scanKanbanBoards,
   type KanbanBoard,
   type KanbanBoardCache,
@@ -230,7 +231,11 @@ export function BoardsPanel({
     setBoardActionPending(true);
     setRenameError('');
     try {
-      const nextPath = await renameWorkspaceFile(renameTarget.path, name);
+      const nextPath = await renameWorkspaceFile(
+        renameTarget.path,
+        name,
+        (content, stem) => renameFirstKanbanView(content, stem),
+      );
       if (!nextPath && name.trim() !== renameTarget.name) throw new Error(t('boards.invalidName'));
       setRenameTarget(null);
       await refresh();

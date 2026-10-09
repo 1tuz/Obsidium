@@ -40,7 +40,10 @@ impl SearchService {
         }
         let previous = self.guest.write().map_err(SearchError::task)?.take();
         if let Some(previous) = previous {
-            eprintln!("[aquilum:guest] закрыта {}: агенту нужна другая база", previous.index.root.display());
+            eprintln!(
+                "[aquilum:guest] закрыта {}: агенту нужна другая база",
+                previous.index.root.display()
+            );
             previous.index.stop();
         }
         let started = Instant::now();
@@ -62,7 +65,10 @@ impl SearchService {
 
     pub fn take_guest(&self, root: &Path) -> Result<Option<OpenIndex>, SearchError> {
         let mut guest = self.guest.write().map_err(SearchError::task)?;
-        if guest.as_ref().is_some_and(|guest| same_path(&guest.index.root, root)) {
+        if guest
+            .as_ref()
+            .is_some_and(|guest| same_path(&guest.index.root, root))
+        {
             return Ok(guest.take().map(|guest| guest.index));
         }
         Ok(None)
@@ -156,14 +162,21 @@ mod tests {
         fn workspace(&self, name: &str, note: &str) -> String {
             let path = self.root.join(name);
             fs::create_dir_all(&path).unwrap();
-            fs::write(path.join(format!("{note}.md")), format!("# {note}\n\n{note} текст")).unwrap();
+            fs::write(
+                path.join(format!("{note}.md")),
+                format!("# {note}\n\n{note} текст"),
+            )
+            .unwrap();
             path.to_string_lossy().into_owned()
         }
 
         fn wait_scanned(&self, workspace: &str) {
             let deadline = Instant::now() + Duration::from_secs(20);
             while self.service.status(Some(workspace)).updating {
-                assert!(Instant::now() < deadline, "индекс {workspace} не догнал диск");
+                assert!(
+                    Instant::now() < deadline,
+                    "индекс {workspace} не догнал диск"
+                );
                 std::thread::sleep(Duration::from_millis(10));
             }
         }
@@ -199,7 +212,17 @@ mod tests {
         assert!(same(&fixture.service.active_root().unwrap(), &home));
         assert!(fixture.finds(&home, "домашняя"));
         assert!(fixture.finds(&other, "чужая"));
-        assert!(!fixture.finds(&home, "чужая"), "базы не смешиваются");
+        assert!(
+            fixture
+                .service
+                .with_index(&home, |open| Ok(open
+                    .index
+                    .search("чужая", 10)?
+                    .1
+                    .is_empty()))
+                .unwrap(),
+            "базы не смешиваются"
+        );
         assert!(
             !fixture
                 .announced
@@ -259,10 +282,19 @@ mod tests {
         fixture.service.open_guest(&other).unwrap();
         let generation = fixture.generation();
 
-        assert!(fixture.service.close_if_idle(generation, Duration::from_secs(60)).is_some());
-        assert!(fixture.service.close_if_idle(generation, Duration::ZERO).is_none());
+        assert!(fixture
+            .service
+            .close_if_idle(generation, Duration::from_secs(60))
+            .is_some());
+        assert!(fixture
+            .service
+            .close_if_idle(generation, Duration::ZERO)
+            .is_none());
         assert!(fixture.service.guest.read().unwrap().is_none());
-        assert!(fixture.service.close_if_idle(generation, Duration::ZERO).is_none());
+        assert!(fixture
+            .service
+            .close_if_idle(generation, Duration::ZERO)
+            .is_none());
     }
 
     #[test]
@@ -278,7 +310,10 @@ mod tests {
 
         let deadline = Instant::now() + Duration::from_secs(20);
         while !fixture.finds(&other, "продолжение") {
-            assert!(Instant::now() < deadline, "правка не дошла до гостевого индекса");
+            assert!(
+                Instant::now() < deadline,
+                "правка не дошла до гостевого индекса"
+            );
             std::thread::sleep(Duration::from_millis(20));
         }
     }

@@ -1,19 +1,20 @@
-pub mod analyzer;
 pub mod analysis;
+pub mod analyzer;
+#[cfg(test)]
+mod benches;
 pub mod created;
 pub mod dataview;
 pub mod error;
-pub mod guest;
-pub mod markdown;
 pub mod fields;
 pub mod graph;
+pub mod guest;
 pub mod headings;
+pub mod hybrid;
 pub mod index;
 pub mod index_document;
 #[cfg(test)]
 mod index_tests;
-#[cfg(test)]
-mod benches;
+pub mod markdown;
 pub mod matching;
 pub mod metadata;
 pub mod models;
@@ -22,6 +23,7 @@ pub mod paths;
 pub mod progress;
 pub mod query;
 pub mod schema;
+pub mod semantic;
 pub mod service;
 pub mod suggest;
 pub mod sync;

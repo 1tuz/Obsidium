@@ -1,11 +1,13 @@
 use super::analysis::graph::GraphSnapshot;
 use super::error::SearchError;
 use super::guest::Guest;
+use super::hybrid;
 use super::index::SearchIndex;
 use super::metadata;
-use super::models::{IndexRevision, SearchIndexStatus, SearchResponse};
+use super::models::{IndexRevision, SearchIndexStatus, SearchResponse, SearchResult};
 use super::paths::{canonical_path, canonical_workspace, same_path};
 use super::progress::IndexProgress;
+use super::semantic::SemanticSearch;
 use super::worker::WorkerHandle;
 use super::{ChangeNotifier, IndexNotifier};
 use std::fs;
@@ -28,6 +30,7 @@ pub struct SearchService {
     pub render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
     pub render_lock: Arc<Mutex<()>>,
     pub next_render_epoch: Arc<AtomicU64>,
+    semantic: Arc<SemanticSearch>,
     next_generation: Arc<AtomicU64>,
 }
 
@@ -86,6 +89,7 @@ impl SearchService {
         notifier: ChangeNotifier,
         index_notifier: IndexNotifier,
     ) -> Self {
+        let semantic = Arc::new(SemanticSearch::new(base_directory.clone()));
         Self {
             base_directory,
             active: Arc::new(RwLock::new(None)),
@@ -97,6 +101,7 @@ impl SearchService {
             render_graph: Arc::new(RwLock::new(None)),
             render_lock: Arc::new(Mutex::new(())),
             next_render_epoch: Arc::new(AtomicU64::new(0)),
+            semantic,
             next_generation: Arc::new(AtomicU64::new(0)),
         }
     }
@@ -116,7 +121,11 @@ impl SearchService {
         };
         let progress = Arc::clone(&opened.progress);
         let generation = opened.generation;
-        let previous = self.active.write().map_err(SearchError::task)?.replace(opened);
+        let previous = self
+            .active
+            .write()
+            .map_err(SearchError::task)?
+            .replace(opened);
         if let Some(previous) = previous {
             previous.stop();
         }
@@ -191,15 +200,35 @@ impl SearchService {
         limit: Option<usize>,
     ) -> Result<SearchResponse, SearchError> {
         let found = self.with_index(workspace, |open| {
-            Ok((Arc::clone(&open.index), Arc::clone(&open.progress)))
+            Ok((
+                open.root.clone(),
+                Arc::clone(&open.index),
+                Arc::clone(&open.progress),
+            ))
         });
-        let (index, progress) = match found {
+        let (root, index, progress) = match found {
             Ok(found) => found,
             Err(SearchError::Unavailable { .. }) => return Ok(SearchResponse::idle()),
             Err(error) => return Err(error),
         };
         let limit = limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-        let (query_terms, results) = index.search(query, limit)?;
+        let candidate_limit = (limit * 4).clamp(40, MAX_LIMIT);
+        let (query_terms, lexical) = index.search(query, candidate_limit)?;
+        let semantic = if needs_semantic_search(&query_terms, &lexical) {
+            match self
+                .semantic
+                .search(&root, query, candidate_limit, progress.snapshot().revision)
+            {
+                Ok(results) => results,
+                Err(error) => {
+                    eprintln!("[aquilum:semantic] {error}; falling back to BM25");
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
+        let results = hybrid::rerank(&root, lexical, semantic, limit);
         Ok(SearchResponse {
             query_terms,
             results,
@@ -295,7 +324,10 @@ impl SearchService {
     }
 
     pub fn ingest_watch(&self, paths: Vec<PathBuf>, rescan: bool) {
-        let paths = paths.iter().map(|path| canonical_path(path)).collect::<Vec<_>>();
+        let paths = paths
+            .iter()
+            .map(|path| canonical_path(path))
+            .collect::<Vec<_>>();
         if let Ok(active) = self.active.read() {
             if let Some(active) = active.as_ref() {
                 active.queue(&paths, rescan);
@@ -304,7 +336,10 @@ impl SearchService {
     }
 
     fn queue_paths(&self, paths: Vec<PathBuf>, notify_sidebar: bool) {
-        let canonical = paths.iter().map(|path| canonical_path(path)).collect::<Vec<_>>();
+        let canonical = paths
+            .iter()
+            .map(|path| canonical_path(path))
+            .collect::<Vec<_>>();
         if let Ok(active) = self.active.read() {
             if let Some(active) = active.as_ref() {
                 if notify_sidebar {
@@ -346,6 +381,14 @@ fn clear_if<T>(cache: &RwLock<Option<T>>, stale: impl Fn(&T) -> bool) {
     }
 }
 
+fn needs_semantic_search(query_terms: &[String], lexical: &[SearchResult]) -> bool {
+    !lexical.first().is_some_and(|result| {
+        query_terms
+            .iter()
+            .all(|term| result.matched_terms.contains(term))
+    })
+}
+
 fn remove_stale_indexes(storage: &Path, current: &Path) {
     let Ok(entries) = fs::read_dir(storage) else {
         return;
@@ -359,8 +402,14 @@ fn remove_stale_indexes(storage: &Path, current: &Path) {
             continue;
         }
         match fs::remove_dir_all(&path) {
-            Ok(()) => eprintln!("[aquilum:index] удалён индекс старой версии {}", path.display()),
-            Err(error) => eprintln!("[aquilum:index] индекс старой версии не удалён {}: {error}", path.display()),
+            Ok(()) => eprintln!(
+                "[aquilum:index] удалён индекс старой версии {}",
+                path.display()
+            ),
+            Err(error) => eprintln!(
+                "[aquilum:index] индекс старой версии не удалён {}: {error}",
+                path.display()
+            ),
         }
     }
 }
@@ -377,8 +426,42 @@ pub fn workspace_root(workspace: &str) -> Result<PathBuf, SearchError> {
 
 #[cfg(test)]
 mod tests {
-    use super::remove_stale_indexes;
+    use super::{needs_semantic_search, remove_stale_indexes};
+    use crate::search::models::SearchResult;
     use std::fs;
+
+    fn result(matched_terms: &[&str]) -> SearchResult {
+        SearchResult {
+            path: String::new(),
+            title: String::new(),
+            extension: "md".to_owned(),
+            snippet: String::new(),
+            match_count: matched_terms.len(),
+            match_offset: 0,
+            heading: None,
+            matched_terms: matched_terms
+                .iter()
+                .map(|term| (*term).to_owned())
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn semantic_search_is_skipped_when_best_lexical_result_covers_query() {
+        assert!(!needs_semantic_search(
+            &["rust".to_owned(), "async".to_owned()],
+            &[result(&["rust", "async"])],
+        ));
+    }
+
+    #[test]
+    fn semantic_search_fills_a_query_that_lexical_results_miss() {
+        assert!(needs_semantic_search(
+            &["rust".to_owned(), "async".to_owned()],
+            &[result(&["rust"])],
+        ));
+        assert!(needs_semantic_search(&["rust".to_owned()], &[]));
+    }
 
     #[test]
     fn only_the_current_index_version_stays_on_disk() {

@@ -1,159 +1,216 @@
-name: Fast checks and owner auto-merge
+name: CI
 
 on:
   push:
     branches-ignore: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Lightweight checks
+  route:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      frontend: ${{ steps.changes.outputs.frontend }}
-      frontend_all: ${{ steps.changes.outputs.frontend_all }}
-      rust_core: ${{ steps.changes.outputs.rust_core }}
-      rust_code: ${{ steps.changes.outputs.rust_code }}
+      run_checks: ${{ steps.route.outputs.runChecks }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Find an open pull request for this branch
+        id: pull_request
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_SHA: ${{ github.sha }}
+        run: |
+          open_pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${BRANCH_SHA}/pulls" \
+            --jq 'any(.[]; .state == "open" and .base.ref == "main")')"
+          echo "open_pr=$open_pr" >> "$GITHUB_OUTPUT"
+      - id: route
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          OPEN_PR: ${{ steps.pull_request.outputs.open_pr || 'false' }}
+        run: node scripts/ci-routing.mjs "$EVENT_NAME" "$OPEN_PR"
+
+  quality:
+    name: Quality gate
+    needs: route
+    if: needs.route.outputs.run_checks != 'false'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+          submodules: recursive
 
-      - id: changes
-        name: Detect changed code
-        env:
-          BEFORE_SHA: ${{ github.event.before }}
-          EVENT_NAME: ${{ github.event_name }}
+      - uses: dorny/paths-filter@v4
+        if: github.event_name != 'workflow_dispatch'
+        id: changes
+        with:
+          base: main
+          list-files: json
+          filters: .github/filters.yml
+
+      - name: Route manual checks through every lightweight test
+        if: github.event_name == 'workflow_dispatch'
+        id: manual
         run: |
-          base_sha="$BEFORE_SHA"
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            base_sha="$(git rev-parse "$GITHUB_SHA^" 2>/dev/null || true)"
-          fi
-          if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
-            git fetch --no-tags --depth=1 origin main
-            base_sha="$(git rev-parse FETCH_HEAD)"
+          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace docs workflow release_contract; do
+            echo "$name=true" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Validate workflow YAML and routing
+        if: steps.changes.outputs.workflow == 'true' || steps.manual.outputs.workflow == 'true'
+        run: |
+          ruby scripts/check-workflow-yaml.rb
+          ruby scripts/test-ci-routing.rb
+          node --test scripts/ci-routing.test.mjs
+
+      - name: Validate release contract
+        if: steps.changes.outputs.release_contract == 'true' || steps.manual.outputs.release_contract == 'true'
+        run: node --test scripts/release-contract.test.mjs
+
+      - name: Validate Rust source formatting
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE_REF: origin/main
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          RUST_CORE_FILES: ${{ steps.changes.outputs.rust_core_files }}
+          RUST_APP_FILES: ${{ steps.changes.outputs.rust_app_files }}
+          RUST_CLI_FILES: ${{ steps.changes.outputs.rust_cli_files }}
+        run: node scripts/check-rust-format.mjs
+
+      - name: Install actionlint
+        if: steps.changes.outputs.workflow == 'true' || steps.manual.outputs.workflow == 'true'
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Check all workflows with actionlint
+        if: steps.changes.outputs.workflow == 'true' || steps.manual.outputs.workflow == 'true'
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          "$(go env GOPATH)/bin/actionlint"
+
+      - name: Check diff formatting
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+            git diff --check HEAD^ HEAD
           else
-            git fetch --no-tags --depth=1 origin "$base_sha"
+            git diff --check "origin/${BASE_REF}...HEAD"
           fi
-
-          git diff --check "$base_sha" "$GITHUB_SHA"
-          changed_files="$(git diff --no-renames --name-only "$base_sha" "$GITHUB_SHA")"
-          frontend=false
-          frontend_all=false
-          rust_core=false
-          rust_code=false
-
-          while IFS= read -r path; do
-            case "$path" in
-              aquilum-app/src/*|aquilum-app/vite.config.*|aquilum-app/tsconfig*.json)
-                frontend=true
-                ;;
-              aquilum-app/package.json|aquilum-app/package-lock.json)
-                frontend=true
-                frontend_all=true
-                ;;
-              aquilum-app/core/src/*|aquilum-app/core/Cargo.toml|aquilum-app/src-tauri/Cargo.lock)
-                rust_core=true
-                rust_code=true
-                ;;
-              aquilum-app/src-tauri/src/*|aquilum-app/src-tauri/build.rs|aquilum-app/src-tauri/Cargo.toml|aquilum-app/cli/src/*|aquilum-app/cli/Cargo.toml)
-                rust_code=true
-                ;;
-            esac
-          done <<< "$changed_files"
-
-          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
-          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
-          echo "frontend_all=$frontend_all" >> "$GITHUB_OUTPUT"
-          echo "rust_core=$rust_core" >> "$GITHUB_OUTPUT"
-          echo "rust_code=$rust_code" >> "$GITHUB_OUTPUT"
-          printf 'Detected changes: frontend=%s frontend_all=%s rust_core=%s rust_code=%s\n' "$frontend" "$frontend_all" "$rust_core" "$rust_code"
-
-      - run: ruby scripts/check-workflow-yaml.rb
 
       - uses: actions/setup-node@v7
-        if: steps.changes.outputs.frontend == 'true'
+        if: steps.changes.outputs.frontend_types == 'true' || steps.changes.outputs.frontend_related == 'true' || steps.changes.outputs.frontend_full == 'true' || steps.manual.outputs.frontend_types == 'true'
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: aquilum-app/package-lock.json
 
       - name: Install frontend dependencies
-        if: steps.changes.outputs.frontend == 'true'
+        if: steps.changes.outputs.frontend_types == 'true' || steps.changes.outputs.frontend_related == 'true' || steps.changes.outputs.frontend_full == 'true' || steps.manual.outputs.frontend_types == 'true'
         working-directory: aquilum-app
         run: npm ci
 
-      - name: Check frontend types
-        if: steps.changes.outputs.frontend == 'true'
+      - name: Check TypeScript
+        if: steps.changes.outputs.frontend_types == 'true' || steps.manual.outputs.frontend_types == 'true'
         working-directory: aquilum-app
         run: npx tsc --noEmit
 
-      - name: Run frontend tests
-        if: steps.changes.outputs.frontend == 'true'
+      - name: Run full Vitest suite
+        if: steps.changes.outputs.frontend_full == 'true' || steps.manual.outputs.frontend_full == 'true'
+        working-directory: aquilum-app
+        run: npm test
+
+      - name: Run tests related to changed frontend files
+        if: steps.changes.outputs.frontend_related == 'true' && steps.changes.outputs.frontend_full != 'true' && steps.manual.outputs.frontend_full != 'true'
         working-directory: aquilum-app
         env:
-          BASE_SHA: ${{ steps.changes.outputs.base_sha }}
-          RUN_ALL: ${{ steps.changes.outputs.frontend_all }}
-        run: |
-          if [[ "$RUN_ALL" == "true" ]]; then
-            npm test
-          else
-            npm test -- --changed "$BASE_SHA" --passWithNoTests
-          fi
+          CHANGED_FILES: ${{ steps.changes.outputs.frontend_related_files }}
+        run: node ../scripts/run-related-vitest.mjs
 
       - uses: dtolnay/rust-toolchain@stable
-        if: steps.changes.outputs.rust_code == 'true'
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
         with:
           components: rustfmt
 
-      - name: Check Rust formatting
-        if: steps.changes.outputs.rust_code == 'true'
-        run: cargo fmt --manifest-path aquilum-app/src-tauri/Cargo.toml --all -- --check
-
-      - uses: actions/cache@v6
-        if: steps.changes.outputs.rust_core == 'true'
+      - uses: Swatinem/rust-cache@v2
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
         with:
-          path: aquilum-app/src-tauri/target
-          key: ${{ runner.os }}-cargo-core-${{ hashFiles('aquilum-app/src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-core-
+          workspaces: aquilum-app/src-tauri -> target
 
-      - name: Run core tests
-        if: steps.changes.outputs.rust_core == 'true'
-        run: cargo test --manifest-path aquilum-app/src-tauri/Cargo.toml --locked -p aquilum-core --lib
+      - name: Install Tauri Linux test dependencies
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+
+      - name: Test changed Rust packages
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
+        env:
+          CORE_CHANGED: ${{ steps.changes.outputs.rust_core || steps.manual.outputs.rust_core }}
+          APP_CHANGED: ${{ steps.changes.outputs.rust_app || steps.manual.outputs.rust_app }}
+          CLI_CHANGED: ${{ steps.changes.outputs.rust_cli || steps.manual.outputs.rust_cli }}
+          WORKSPACE_CHANGED: ${{ steps.changes.outputs.rust_core || steps.changes.outputs.rust_workspace || steps.manual.outputs.rust_core || steps.manual.outputs.rust_workspace }}
+        run: |
+          manifest=aquilum-app/src-tauri/Cargo.toml
+          if [[ "$WORKSPACE_CHANGED" == "true" ]]; then
+            cargo test --locked --manifest-path "$manifest" --workspace
+          else
+            [[ "$CORE_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p aquilum-core
+            [[ "$APP_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p aquilum-app
+            [[ "$CLI_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-cli
+          fi
 
   auto-merge:
     name: Merge owner changes after checks
-    needs: checks
-    if: ${{ github.event_name == 'push' && github.actor == github.repository_owner && github.ref != 'refs/heads/main' }}
+    needs: [route, quality]
+    if: >-
+      success() &&
+      ((github.event_name == 'pull_request' && github.event.pull_request.user.login == github.repository_owner) ||
+      (github.event_name == 'push' && github.actor == github.repository_owner && needs.route.outputs.run_checks == 'true'))
     runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Open or merge pull request
+      - name: Open or merge the owner's pull request
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          BRANCH_NAME: ${{ github.ref_name }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number // empty')"
+          pr_number="$PR_NUMBER"
           if [[ -z "$pr_number" ]]; then
-            gh pr create \
-              --repo "$GH_REPO" \
-              --base main \
-              --head "$BRANCH_NAME" \
-              --title "Merge $BRANCH_NAME into main" \
-              --body "Opened by CI after lightweight checks passed for ${GITHUB_SHA}."
-            pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number')"
+            pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number // empty')"
+            if [[ -z "$pr_number" ]]; then
+              gh pr create --repo "$GH_REPO" --base main --head "$BRANCH_NAME" \
+                --title "Merge $BRANCH_NAME into main" \
+                --body "Opened by CI after the full diff passed the required checks for ${GITHUB_SHA}."
+              pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number')"
+            fi
           fi
-          gh pr merge "$pr_number" --repo "$GH_REPO" --merge
+          gh pr merge "$pr_number" --repo "$GH_REPO" --auto --merge

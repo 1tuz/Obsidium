@@ -299,3 +299,69 @@ export function parseBase(raw: string): BaseDefinition {
 export function serializeBase(definition: BaseDefinition): string {
   return definition.raw;
 }
+
+export function renameFirstKanbanView(raw: string, name: string): string {
+  const lines = raw.split(/\r\n|\n/u);
+  const separator = raw.includes('\r\n') ? '\r\n' : '\n';
+  const viewsIndex = lines.findIndex((line) => /^views\s*:/u.test(line));
+  if (viewsIndex < 0) return raw;
+  const sequenceIndent = lines.slice(viewsIndex + 1).map((line) => {
+    const match = /^(\s*)-/u.exec(line);
+    return match ? match[1].length : null;
+  }).find((indent) => indent !== null);
+  if (sequenceIndent === undefined || sequenceIndent === null) return raw;
+
+  let inKanban = false;
+  let fieldIndent: number | null = null;
+  let typeLineIndex: number | null = null;
+  for (let index = viewsIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const indent = indentation(line);
+    if (line.trim() && indent <= 0) break;
+    if (indent === sequenceIndent && line.trimStart().startsWith('-')) {
+      if (inKanban && typeLineIndex !== null) {
+        lines.splice(typeLineIndex + 1, 0, `${' '.repeat(fieldIndent ?? sequenceIndent + 2)}name: ${JSON.stringify(name)}`);
+        return lines.join(separator);
+      }
+      inKanban = /^-\s*type\s*:\s*kanban(?:\s|$)/u.test(line.trimStart())
+        || /^-\s*$/u.test(line.trimStart());
+      fieldIndent = inKanban && line.includes('type:') ? indent + 2 : null;
+      typeLineIndex = inKanban && line.includes('type:') ? index : null;
+      continue;
+    }
+    if (!inKanban) continue;
+    const typeMatch = /^(\s*)type\s*:\s*kanban\s*$/u.exec(line);
+    if (typeMatch) {
+      fieldIndent = typeMatch[1].length;
+      typeLineIndex = index;
+    }
+    const nameMatch = /^(\s*name\s*:\s*).*$/u.exec(line);
+    if (nameMatch && indentation(line) === fieldIndent) {
+      let quote = '';
+      let commentIndex = -1;
+      for (let character = 0; character < line.length - 1; character += 1) {
+        const current = line[character];
+        if (quote) {
+          if (quote === "'" && current === "'" && line[character + 1] === "'") {
+            character += 1;
+          } else if (current === quote && line[character - 1] !== '\\') {
+            quote = '';
+          }
+        } else if (current === '"' || current === "'") {
+          quote = current;
+        } else if (current === ' ' && line[character + 1] === '#') {
+          commentIndex = character;
+          break;
+        }
+      }
+      const comment = commentIndex < 0 ? '' : line.slice(commentIndex);
+      lines[index] = `${nameMatch[1]}${JSON.stringify(name)}${comment}`;
+      return lines.join(separator);
+    }
+  }
+  if (inKanban && typeLineIndex !== null) {
+    lines.splice(typeLineIndex + 1, 0, `${' '.repeat(fieldIndent ?? sequenceIndent + 2)}name: ${JSON.stringify(name)}`);
+    return lines.join(separator);
+  }
+  return raw;
+}

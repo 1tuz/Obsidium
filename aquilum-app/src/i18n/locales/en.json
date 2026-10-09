@@ -23,8 +23,6 @@
     "embeddedNoteEmpty": "The note is empty",
     "embeddedNoteCycle": "A note cannot embed itself",
     "focusMode": "Focus mode",
-    "readingMode": "Reading mode",
-    "editingMode": "Editing mode",
     "noteActions": "Note actions",
     "formatting": {
       "toolbar": "Formatting toolbar",
@@ -33,9 +31,6 @@
       "h1": "Heading 1",
       "h2": "Heading 2",
       "h3": "Heading 3",
-      "h4": "Heading 4",
-      "h5": "Heading 5",
-      "h6": "Heading 6",
       "bold": "Bold",
       "italic": "Italic",
       "strike": "Strikethrough",
@@ -43,7 +38,6 @@
       "inlineCode": "Inline code",
       "codeBlock": "Code block",
       "link": "Link",
-      "image": "Image",
       "table": "Table",
       "rule": "Horizontal rule",
       "bullet": "Bulleted list",
@@ -51,7 +45,11 @@
       "task": "Task list",
       "quote": "Blockquote",
       "indent": "Indent",
-      "outdent": "Outdent"
+      "outdent": "Outdent",
+      "h4": "Heading 4",
+      "h5": "Heading 5",
+      "h6": "Heading 6",
+      "image": "Image"
     },
     "metadata": "Metadata",
     "createNote": "Create a note",
@@ -81,7 +79,9 @@
       "cellAria": "Table cell",
       "addColumn": "Add column",
       "addRow": "Add row"
-    }
+    },
+    "readingMode": "Reading mode",
+    "editingMode": "Editing mode"
   },
   "tabs": {
     "graph": "Graph",
@@ -256,8 +256,7 @@
       "paletteDialogTitle": "Color palette",
       "paletteClose": "Close palettes",
       "animations": "Animations",
-      "motionAuto": "Auto",
-      "motionHint": "Off by default. Your choice is saved.",
+      "motionHint": "Off by default. Turn on animations for themes, tabs, and menus. System reduced motion is ignored while on. Your choice is saved.",
       "language": "Language",
       "languageAria": "Interface language",
       "homePage": "Home page",
@@ -266,7 +265,8 @@
       "primaryColor": "Accent color",
       "accentMode": "Accent source",
       "paletteAccent": "Palette",
-      "customAccent": "Custom"
+      "customAccent": "Custom",
+      "motionAuto": "Auto"
     },
     "editor": {
       "lineHeight": "Line height",
@@ -477,13 +477,13 @@
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",
     "showRightSidebar": "Show the right sidebar",
+    "switchToLightTheme": "Switch to light theme",
+    "switchToDarkTheme": "Switch to dark theme",
     "splitSide": "Split pane side by side",
     "splitBelow": "Split pane below",
     "closePane": "Close pane",
     "resizePaneWidth": "Resize pane width",
-    "resizePaneHeight": "Resize pane height",
-    "switchToLightTheme": "Switch to light theme",
-    "switchToDarkTheme": "Switch to dark theme"
+    "resizePaneHeight": "Resize pane height"
   },
   "commands": {
     "title": "Command palette",
@@ -492,6 +492,7 @@
     "empty": "No matching commands",
     "newNote": "New note",
     "newFromTemplate": "New note from template",
+    "newCanvas": "New canvas",
     "search": "Search knowledge base",
     "graph": "Open graph",
     "settings": "Open settings",
@@ -522,6 +523,26 @@
     "groupEmpty": "Without value",
     "kanbanUnassigned": "Unassigned"
   },
+  "canvas": {
+    "toolbar": "Canvas tools",
+    "select": "Select",
+    "pan": "Pan",
+    "text": "Text",
+    "file": "File / note",
+    "connect": "Connect nodes",
+    "rectangle": "Rectangle",
+    "ellipse": "Ellipse",
+    "arrow": "Arrow",
+    "draw": "Draw",
+    "highlight": "Highlight",
+    "delete": "Delete",
+    "saving": "Saving…",
+    "saveFailed": "Save failed",
+    "openError": "Could not open canvas",
+    "filePlaceholder": "Projects/Note.md",
+    "filePath": "Vault file path",
+    "add": "Add"
+  },
   "boards": {
     "title": "Boards",
     "newBoard": "+ New board",
@@ -543,10 +564,10 @@
     "creating": "Creating…",
     "renameTitle": "Rename board",
     "renaming": "Renaming…",
-    "renameError": "Could not rename the board: {{reason}}",
+    "renameError": "Could not rename board: {{reason}}",
     "deleteTitle": "Delete board?",
     "deleteDescription": "Board file “{{name}}” and all its views will be moved to the vault trash.",
-    "deleteError": "Could not move the board to trash: {{reason}}",
+    "deleteError": "Could not move board to trash: {{reason}}",
     "cancel": "Cancel",
     "addToBoard": "Add to board",
     "removeFromBoard": "Remove from board",
@@ -564,15 +585,15 @@
     "renameAria": "New file name",
     "fileActions": "File actions",
     "folderActions": "Folder actions",
-    "iconize": "Change icon or color",
-    "iconColor": "Icon color",
-    "iconReset": "Reset icon",
     "empty": "No notes yet",
     "noFolder": "No folder open",
     "dragCount": {
       "one": "{{count}} note",
       "other": "{{count}} notes"
-    }
+    },
+    "iconize": "Change icon or color",
+    "iconColor": "Icon color",
+    "iconReset": "Reset icon"
   },
   "workspace": {
     "switch": "Switch the knowledge base",

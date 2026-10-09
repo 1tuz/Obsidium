@@ -1,7 +1,7 @@
 {
   "name": "aquilum-app",
   "private": true,
-  "version": "0.2.9",
+  "version": "0.3.7",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:search-benchmark": "node scripts/benchmark-hybrid-search.mjs",
     "check:colors": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/find-hardcoded-colors.ps1",
     "check:colors:strict": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/find-hardcoded-colors.ps1 -Strict",
     "migrate:created": "node scripts/migrate-created.mjs",
@@ -44,7 +45,9 @@
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
+    "konva": "^10.7.0",
     "lucide": "^1.24.0",
+    "motion": "12.42.2",
     "preact": "^11.0.0"
   },
   "devDependencies": {

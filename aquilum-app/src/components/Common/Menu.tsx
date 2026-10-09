@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, type IconNode } from 'lucide';
 import { Icon } from './Icon';
+import { animateMenuEntrance } from '../../modules/motion';
 import './Menu.css';
 
 export interface MenuItem {
@@ -45,6 +46,12 @@ export function Menu({
   excludeRef,
 }: MenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const menu = menuRef.current;
+    if (!open || !position || !menu) return;
+    return animateMenuEntrance(menu);
+  }, [open, position]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;

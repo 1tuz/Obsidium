@@ -36,7 +36,7 @@ import { DEFAULT_BUILTINS, DEFAULT_LIVE_TABS, useSettingsStore } from "./modules
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isBasePath, isMarkdownPath } from "./modules/documents/fileGateway";
+import { isBasePath, isCanvasPath, isMarkdownPath } from "./modules/documents/fileGateway";
 import { fileStem } from "./modules/paths";
 import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
@@ -63,6 +63,8 @@ const CommandPalette = lazy(() => import("./components/Commands/CommandPalette")
   .then((module) => ({ default: module.CommandPalette })));
 const BaseView = lazy(() => import("./components/Bases/BaseView")
   .then((module) => ({ default: module.BaseView })));
+const CanvasView = lazy(() => import("./components/Canvas/CanvasView")
+  .then((module) => ({ default: module.CanvasView })));
 
 export default function App() {
   const search = useOverlay();
@@ -137,6 +139,7 @@ export default function App() {
     onGraphCameraChange,
     createNewFile,
     createFromTemplate,
+    createCanvas,
     createLinkedFile,
     handleExternalRename
   } = useTabs(workspacePath, workspaceReady);
@@ -462,6 +465,12 @@ export default function App() {
       run: templates.show,
     },
     {
+      id: 'canvas.new',
+      title: t('commands.newCanvas'),
+      enabled: () => Boolean(workspacePath),
+      run: createCanvas,
+    },
+    {
       id: 'search.global',
       title: t('commands.search'),
       shortcut: SHORTCUTS.GLOBAL_SEARCH,
@@ -484,7 +493,7 @@ export default function App() {
     { id: 'view.sidebar.right', title: t('commands.rightSidebar'), run: toggleRightSidebar },
     { id: 'theme.toggle', title: t('commands.theme'), run: toggleTheme },
   ]), [
-    commandPalette.toggle, config, createNewFile, openGraph, search.show, settings.show,
+    commandPalette.toggle, config, createCanvas, createNewFile, openGraph, search.show, settings.show,
     templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
     workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile, kanbanEnabled,
   ]);
@@ -535,6 +544,8 @@ export default function App() {
     const graphTab = paneTabs.find((tab) => tab.kind === 'graph') ?? null;
     const graphActive = graphTab?.tabId === paneActiveTab?.tabId;
     const activeBasePath = paneActiveTab?.kind === 'document' && isBasePath(paneActiveTab.path)
+      ? paneActiveTab.path : null;
+    const activeCanvasPath = paneActiveTab?.kind === 'document' && isCanvasPath(paneActiveTab.path)
       ? paneActiveTab.path : null;
 
     return (
@@ -594,7 +605,7 @@ export default function App() {
                   />
                 </Suspense>
               )}
-              <main className={graphActive ? 'q-app-editor q-offstage' : 'q-app-editor'}>
+              <main className={graphActive || activeCanvasPath ? 'q-app-editor q-offstage' : 'q-app-editor'}>
                 {activeBasePath && (
                   <Suspense fallback={null}>
                     <BaseView
@@ -610,7 +621,17 @@ export default function App() {
                     />
                   </Suspense>
                 )}
-                {!activeBasePath && paneActiveTab?.kind === 'empty' ? (
+                {activeCanvasPath && (
+                  <Suspense fallback={null}>
+                    <CanvasView
+                      key={`${paneId}:${activeCanvasPath}`}
+                      path={activeCanvasPath}
+                      workspacePath={workspacePath}
+                      onOpenFile={(path) => openNote(path, { paneId })}
+                    />
+                  </Suspense>
+                )}
+                {!activeBasePath && !activeCanvasPath && paneActiveTab?.kind === 'empty' ? (
                   <NewTab
                     key={paneActiveTab.tabId}
                     onCreate={createNewFile}

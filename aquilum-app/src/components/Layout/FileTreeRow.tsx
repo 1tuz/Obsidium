@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, LoaderCircle, Palette } from 'lucide';
 import { IconizePicker } from './IconizePicker';
 import { fileIcon, type FileIconAssignment } from './iconize';
 import { Icon } from '../Common/Icon';
-import { isBasePath, isMarkdownPath, type WorkspaceItem } from '../../modules/documents/fileGateway';
+import { isBasePath, isCanvasPath, isMarkdownPath, type WorkspaceItem } from '../../modules/documents/fileGateway';
 import { fileActionItems } from './fileActionItems';
 import { parseGuideDepths, type FileTreeActions } from './fileTreeModel';
 import { FileTreeRename } from './FileTreeRename';
@@ -40,7 +40,7 @@ export const FileTreeRow = memo(function FileTreeRow({
   onIconChange,
 }: FileTreeRowProps) {
   const isFolder = item.type === 'folder';
-  const canRowActions = isFolder || isMarkdownPath(item.id) || isBasePath(item.id);
+  const canRowActions = isFolder || isMarkdownPath(item.id) || isBasePath(item.id) || isCanvasPath(item.id);
   const menu = useContextMenu();
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
