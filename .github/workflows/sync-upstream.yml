@@ -2,15 +2,16 @@ name: Sync upstream fork
 
 on:
   schedule:
-    - cron: "23 6 * * *"
+    - cron: '23 6 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
   actions: write
 
 concurrency:
-  group: upstream-sync-main
+  group: upstream-sync
   cancel-in-progress: false
 
 jobs:
@@ -21,7 +22,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply upstream source changes and keep fork-owned files
+      - name: Prepare upstream change branch
+        id: changes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -56,20 +58,38 @@ jobs:
             ':(exclude,top)aquilum-app/src-tauri/icons/**' > "$patch_file"
 
           if [[ ! -s "$patch_file" ]]; then
-            if [[ "$upstream_sha" != "$last_synced" ]]; then
-              git commit --allow-empty \
-                -m "sync: record upstream checkpoint" \
-                -m "Upstream-Sync: $upstream_sha"
-              git push origin HEAD:main
-              echo "Recorded upstream checkpoint $upstream_sha; no source changes needed."
-            else
-              echo "No upstream source changes to apply; already current through $upstream_sha."
-            fi
+            echo 'No upstream source changes to apply.'
             exit 0
           fi
 
+          branch="sync/upstream-${upstream_sha:0:12}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --base main --state open --json number --jq '.[0].number // empty')"
+            if [[ -z "$pr_number" ]]; then
+              echo "Branch $branch exists without an open upstream PR; refusing to overwrite it." >&2
+              exit 1
+            fi
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+            echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git switch --create "$branch"
           git apply --3way "$patch_file"
           git add -A
-          git commit -m "sync: apply upstream source changes" -m "Upstream-Sync: $upstream_sha"
-          git push origin HEAD:main
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" -f ref=main
+          git commit -m 'sync: apply upstream source changes' -m "Upstream-Sync: $upstream_sha"
+          git push origin "$branch"
+          pr_number="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --title "Sync upstream through ${upstream_sha:0:12}" \
+            --body "Upstream source changes through https://github.com/Freaction/Aquilum/commit/${upstream_sha} are ready for the required CI checks.")"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${pr_number##*/}" >> "$GITHUB_OUTPUT"
+          echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch full-diff CI for the upstream pull request
+        if: steps.changes.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: ${{ steps.changes.outputs.branch }}
+        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH_NAME"

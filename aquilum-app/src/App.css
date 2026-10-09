@@ -7,6 +7,7 @@
   overflow: hidden;
   background-color: var(--q-bg-canvas);
   font-family: var(--q-font-family-ui);
+  transition: background-color var(--q-duration-normal) var(--q-ease-out);
 }
 
 .q-app-workspace {

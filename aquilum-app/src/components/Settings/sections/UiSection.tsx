@@ -84,7 +84,6 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
             value={config.ui.motion}
             onChange={(motion) => patchUi({ motion: motion as AppConfig['ui']['motion'] })}
             options={[
-              { value: 'system', label: t('settings.ui.motionAuto') },
               { value: 'on', label: t('theme.on') },
               { value: 'off', label: t('theme.off') },
             ]}

@@ -50,8 +50,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-cover-pattern--tunnel::before,
-  .q-cover-pattern--tunnel::after {
+  :root:not([data-motion="on"]) .q-cover-pattern--tunnel::before,
+  :root:not([data-motion="on"]) .q-cover-pattern--tunnel::after {
     animation: none;
   }
 }

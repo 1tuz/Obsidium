@@ -43,6 +43,9 @@
   padding: var(--q-space-6) var(--q-space-8);
   border-radius: var(--q-radius-lg);
   color: var(--q-text-tertiary);
+  transition:
+    background-color var(--q-duration-fast) var(--q-ease-out),
+    color var(--q-duration-fast) var(--q-ease-out);
   white-space: nowrap;
 }
 

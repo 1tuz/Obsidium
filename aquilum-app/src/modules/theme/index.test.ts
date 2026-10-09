@@ -132,8 +132,16 @@ describe('theme engine', () => {
       appearance: 'light', palette: 'dracula', motion: 'off', theme: 'light',
     });
     expect(document.documentElement.classList.contains('theme-light')).toBe(true);
+    expect(document.documentElement.style.getPropertyValue('--q-editor-bg'))
+      .toBe(paletteColors('dracula', 'light').background);
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main'))
       .toBe(paletteColors('dracula', 'light').accent);
+  });
+
+  it('applies the selected dark palette background to the editor canvas', () => {
+    setTheme('dark', 'dracula', 'off');
+    expect(document.documentElement.style.getPropertyValue('--q-editor-bg'))
+      .toBe(paletteColors('dracula', 'dark').background);
   });
 
   it('disables CSS animation and transition when motion is off', () => {

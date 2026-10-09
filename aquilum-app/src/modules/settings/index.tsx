@@ -76,7 +76,7 @@ interface UiSettings extends FontSettings {
   appearance: 'system' | 'light' | 'dark';
   palette: string;
   accentMode: 'palette' | 'custom';
-  motion: 'system' | 'on' | 'off';
+  motion: 'on' | 'off';
   enabledSnippets: Record<string, string[]>;
   language: string;
   primaryColor: string;
@@ -167,11 +167,15 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
   root.style.setProperty('--q-editor-font-size', pxToRem(font.fontSizeBase));
 }
 
+function normalizeMotion(value: unknown): UiSettings['motion'] {
+  return value === 'on' ? 'on' : 'off';
+}
+
 function withKnownFonts(config: AppConfig): AppConfig {
   return {
     ...config,
     builtins: { ...DEFAULT_BUILTINS, ...config.builtins },
-    ui: knownFont('ui', config.ui),
+    ui: { ...knownFont('ui', config.ui), motion: normalizeMotion(config.ui.motion) },
     editor: knownFont('editor', config.editor),
     reader: knownFont('reader', config.reader),
   };
