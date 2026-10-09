@@ -25,6 +25,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflow-yaml:
+    name: Workflow YAML
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: ruby scripts/check-workflow-yaml.rb
+
   frontend:
     name: Frontend build, tests, and installer scripts
     runs-on: ubuntu-24.04

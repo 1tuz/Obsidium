@@ -32,7 +32,6 @@ jobs:
             name: Linux
             args: '--bundles deb --target x86_64-unknown-linux-gnu'
             rust-targets: x86_64-unknown-linux-gnu
-    name: Build ${{ matrix.name }} Package
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v7
