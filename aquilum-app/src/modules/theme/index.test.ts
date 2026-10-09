@@ -5,10 +5,40 @@ import { resolve } from 'node:path';
 import { motionEnabled, setTheme, themeMode, themePalettes } from './index';
 
 const paletteStyles = readFileSync(resolve(process.cwd(), 'src/styles/themes/palettes.css'), 'utf8');
+const semanticPaletteStyles = readFileSync(resolve(process.cwd(), 'src/styles/themes/palette-semantic.css'), 'utf8');
 const motionStyles = readFileSync(resolve(process.cwd(), 'src/styles/themes/motion.css'), 'utf8');
+
+function contrastRatio(first: string, second: string): number {
+  const luminance = (color: string) => {
+    const channels = color.match(/[\da-f]{2}/giu)?.map((channel) => Number.parseInt(channel, 16) / 255) ?? [];
+    const [red, green, blue] = channels.map((channel) => (
+      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    ));
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
+function paletteColors(id: string, mode: 'light' | 'dark'): Record<string, string> {
+  const declarations = [...paletteStyles.matchAll(/(--q-palette-[\w-]+):\s*([^;]+);/gu)];
+  const values = new Map(declarations.map(([, name, value]) => [name, value.trim()]));
+  const resolveColor = (value: string | undefined) => {
+    if (value && /^#[\da-f]{6}$/iu.test(value)) return value;
+    throw new Error(`Non-static palette color ${id} ${mode}: ${value}`);
+  };
+  const colors = Object.fromEntries(['background', 'text', 'accent'].map((kind) => {
+    return [kind, resolveColor(values.get(`--q-palette-${id}-${mode}-${kind}`))];
+  }));
+  return colors;
+}
 
 describe('theme engine', () => {
   beforeEach(() => {
+    document.head.innerHTML = '';
+    const paletteSheet = document.createElement('style');
+    paletteSheet.textContent = paletteStyles;
+    document.head.append(paletteSheet);
     document.documentElement.removeAttribute('data-appearance');
     document.documentElement.removeAttribute('data-palette');
     document.documentElement.removeAttribute('data-motion');
@@ -52,13 +82,58 @@ describe('theme engine', () => {
     }
   });
 
+  it('keeps text and accent-button labels at WCAG AA across all palette modes', () => {
+    expect(themePalettes).toHaveLength(58);
+    let checked = 0;
+    for (const { id } of themePalettes) {
+      for (const mode of ['light', 'dark'] as const) {
+        const { background, text: sourceText, accent } = paletteColors(id, mode);
+        expect(contrastRatio(sourceText, background), `${id} ${mode} source text`).toBeGreaterThanOrEqual(4.5);
+        setTheme(mode, id);
+        expect(document.documentElement.style.getPropertyValue('--q-palette-current-background')).toBe(background);
+        expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toBe(accent);
+        const text = document.documentElement.style.getPropertyValue('--q-text-primary');
+        const link = document.documentElement.style.getPropertyValue('--q-text-accent');
+        const linkHover = document.documentElement.style.getPropertyValue('--q-text-link-hover');
+        const onAccent = document.documentElement.style.getPropertyValue('--q-text-on-accent');
+        expect(contrastRatio(text, background), `${id} ${mode} body text`).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(link, background), `${id} ${mode} link text`).toBeGreaterThanOrEqual(4.5);
+        expect(linkHover).toBe(link);
+        expect(onAccent, `${id} ${mode} accent button text`).toMatch(/^#[\da-f]{6}$/iu);
+        expect(contrastRatio(onAccent, accent), `${id} ${mode} accent button text`).toBeGreaterThanOrEqual(4.5);
+        checked += 1;
+      }
+    }
+    expect(checked).toBe(116);
+  });
+
+  it('binds component states to the active palette semantic tokens', () => {
+    for (const token of [
+      '--q-bg-surface-hover', '--q-bg-surface-active', '--q-border-focus-ring',
+      '--q-sidebar-item-active-bg', '--q-tab-bg-active', '--q-editor-code-keyword',
+      '--q-dialog-bg', '--q-graph-node', '--q-text-on-accent',
+    ]) {
+      expect(semanticPaletteStyles).toContain(token);
+    }
+    expect(semanticPaletteStyles).toContain(':root[data-palette][data-theme]');
+    expect(semanticPaletteStyles).toContain('var(--q-bg-accent)');
+    expect(semanticPaletteStyles).not.toMatch(/#[\da-f]{3,8}/iu);
+  });
+
+  it('falls back to Obsidium for an unknown palette id', () => {
+    setTheme('light', 'missing-palette');
+    expect(document.documentElement.dataset.palette).toBe('obsidium');
+    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas')).toBe('#ffffff');
+  });
+
   it('applies appearance and palette immediately and preserves Obsidian root classes', () => {
     setTheme('light', 'dracula', 'off');
     expect(document.documentElement.dataset).toMatchObject({
       appearance: 'light', palette: 'dracula', motion: 'off', theme: 'light',
     });
     expect(document.documentElement.classList.contains('theme-light')).toBe(true);
-    expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toContain('dracula-light-accent');
+    expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main'))
+      .toBe(paletteColors('dracula', 'light').accent);
   });
 
   it('disables CSS animation and transition when motion is off', () => {
@@ -92,21 +167,24 @@ describe('theme engine', () => {
     setTheme('dark', 'nord', 'on');
     expect(document.documentElement.classList.contains('theme-dark')).toBe(true);
     expect(document.documentElement.classList.contains('theme-light')).toBe(false);
-    expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toContain('nord-dark-accent');
+    expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main'))
+      .toBe(paletteColors('nord', 'dark').accent);
   });
 
   it('switches the selected palette independently between light and dark modes', () => {
     setTheme('dark', 'dracula');
-    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas')).toContain('dracula-dark-background');
+    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas'))
+      .toBe(paletteColors('dracula', 'dark').background);
     setTheme('light', 'dracula');
-    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas')).toContain('dracula-light-background');
+    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas'))
+      .toBe(paletteColors('dracula', 'light').background);
     expect(document.documentElement.dataset.palette).toBe('dracula');
   });
 
   it('uses palette accent by default and only replaces it in custom mode', () => {
     setTheme('light', 'graphite');
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main'))
-      .toContain('graphite-light-accent');
+      .toBe(paletteColors('graphite', 'light').accent);
 
     setTheme('light', 'graphite', 'system', 'custom', '#ff00aa');
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toBe('#ff00aa');

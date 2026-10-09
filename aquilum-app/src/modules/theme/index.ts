@@ -120,6 +120,56 @@ function resolveAppearance(appearance: Theme): ThemeMode {
     : appearance;
 }
 
+function hexChannels(color: string): [number, number, number] | null {
+  const match = color.match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/iu);
+  return match
+    ? [Number.parseInt(match[1], 16), Number.parseInt(match[2], 16), Number.parseInt(match[3], 16)]
+    : null;
+}
+
+function relativeLuminance(color: string): number {
+  const channels = hexChannels(color);
+  if (!channels) return 0;
+  const [red, green, blue] = channels.map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastRatio(first: string, second: string): number {
+  const values = [relativeLuminance(first), relativeLuminance(second)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
+function mixHex(first: string, second: string, ratio: number): string {
+  const firstChannels = hexChannels(first);
+  const secondChannels = hexChannels(second);
+  if (!firstChannels || !secondChannels) return first;
+  return `#${firstChannels.map((channel, index) => (
+    Math.round(channel * (1 - ratio) + secondChannels[index] * ratio).toString(16).padStart(2, '0')
+  )).join('')}`;
+}
+
+function accessibleForeground(foreground: string, background: string): string {
+  if (contrastRatio(foreground, background) >= 4.5) return foreground;
+  const target = contrastRatio('#000000', background) > contrastRatio('#ffffff', background)
+    ? '#000000'
+    : '#ffffff';
+  let low = 0;
+  let high = 1;
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const middle = (low + high) / 2;
+    if (contrastRatio(mixHex(foreground, target, middle), background) >= 4.5) high = middle;
+    else low = middle;
+  }
+  return mixHex(foreground, target, high);
+}
+
+function paletteColor(root: HTMLElement, id: string, mode: ThemeMode, role: string): string {
+  return getComputedStyle(root).getPropertyValue(`--q-palette-${id}-${mode}-${role}`).trim();
+}
+
 function applyTheme(
   appearance: Theme,
   paletteId: string,
@@ -129,27 +179,40 @@ function applyTheme(
 ): void {
   const root = document.documentElement;
   const mode = resolveAppearance(appearance);
-  const selected = themePalettes.find(({ id }) => id === paletteId) ?? themePalettes[0];
-  const tokens = selected[mode];
-  const accent = accentMode === 'custom' ? primaryColor : tokens.accent;
+  const selected = themePalettes.find(({ id }) => id === paletteId)
+    ?? themePalettes.find(({ id }) => id === 'obsidium')!;
+  const background = paletteColor(root, selected.id, mode, 'background');
+  const paletteText = paletteColor(root, selected.id, mode, 'text');
+  const paletteAccent = paletteColor(root, selected.id, mode, 'accent');
+  const readableText = accessibleForeground(paletteText, background);
+  const accent = accentMode === 'custom' ? primaryColor : paletteAccent;
+  const readableAccent = accessibleForeground(accent, background);
+  const onAccent = contrastRatio('#000000', accent) >= contrastRatio('#ffffff', accent)
+    ? '#000000'
+    : '#ffffff';
   root.dataset.appearance = mode;
   root.dataset.theme = mode;
   root.dataset.palette = selected.id;
   root.dataset.motion = motion;
   root.classList.toggle('theme-light', mode === 'light');
   root.classList.toggle('theme-dark', mode === 'dark');
-  root.style.setProperty('--q-bg-canvas', tokens.background);
-  root.style.setProperty('--q-bg-surface', tokens.surface);
-  root.style.setProperty('--q-bg-surface-raised', tokens.raised);
-  root.style.setProperty('--q-text-primary', tokens.text);
-  root.style.setProperty('--q-text-secondary', tokens.secondaryText);
-  root.style.setProperty('--q-border-solid', tokens.border);
+  root.style.setProperty('--q-palette-current-background', background);
+  root.style.setProperty('--q-palette-current-text', readableText);
+  root.style.setProperty('--q-palette-current-text-accent', readableAccent);
+  root.style.setProperty('--q-palette-current-text-on-accent', onAccent);
+  root.style.setProperty('--q-bg-canvas', background);
+  root.style.setProperty('--q-text-primary', readableText);
+  root.style.setProperty('--q-text-secondary', readableText);
+  root.style.setProperty('--q-text-muted', readableText);
+  root.style.setProperty('--q-text-tertiary', readableText);
+  root.style.setProperty('--q-text-disabled', readableText);
+  root.style.setProperty('--q-text-accent', readableAccent);
+  root.style.setProperty('--q-text-link-hover', readableAccent);
+  root.style.setProperty('--q-text-on-accent', onAccent);
   root.dataset.accentMode = accentMode;
   root.style.setProperty('--q-blue-alpha-main', accent);
   root.style.setProperty('--q-blue-500', accent);
-  root.style.setProperty('--q-blue-600', accentMode === 'custom'
-    ? `color-mix(in srgb, ${accent} 78%, black)`
-    : accent);
+  root.style.setProperty('--q-blue-600', readableAccent);
   root.style.setProperty('--background-primary', 'var(--q-bg-canvas)');
   root.style.setProperty('--background-secondary', 'var(--q-bg-surface)');
   root.style.setProperty('--background-modifier-hover', 'var(--q-bg-surface-hover)');

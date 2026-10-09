@@ -14,4 +14,14 @@ describe('observePaletteChanges', () => {
     expect(refresh).toHaveBeenCalledOnce();
     observer.disconnect();
   });
+
+  it('refreshes graph colors when the active accent token changes', async () => {
+    const refresh = vi.fn();
+    const observer = observePaletteChanges(document.documentElement, refresh);
+    document.documentElement.style.setProperty('--q-blue-alpha-main', '#1471eb');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(refresh).toHaveBeenCalledOnce();
+    observer.disconnect();
+  });
 });
