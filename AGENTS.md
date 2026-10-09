@@ -1,6 +1,6 @@
 # Инструкции и правила проекта для AI-агента
 
-Aquilum — локальный (local-first) Tauri v2 редактор базы знаний. Rust-бэкенд (`aquilum-app/src-tauri`),
+Obsidium — локальный (local-first) Tauri v2 редактор базы знаний, форк Freaction/Aquilum. Rust-бэкенд (`aquilum-app/src-tauri`),
 React + TypeScript фронтенд (`aquilum-app/src`), редактор на CodeMirror 6, документ — Yjs `Y.Doc`,
 источник правды на диске — обычный `.md`. Данные приложения (настройки, `ui-state.sqlite3`, индекс
 поиска, состояние окна) лежат в `%APPDATA%\com.dmitriy.aquilum-app`.
