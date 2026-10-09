@@ -23,4 +23,11 @@ describe('renameWorkspaceFile', () => {
 
     expect(renamed).toBe('C:/vault/con note.md');
   });
+
+  it('keeps a Base file extension when renaming a board', async () => {
+    const renamed = await renameWorkspaceFile('C:/vault/Old.base', 'Roadmap');
+
+    expect(renamed).toBe('C:/vault/Roadmap.base');
+    expect(renameFile).toHaveBeenCalledWith('C:/vault/Old.base', 'C:/vault/Roadmap.base');
+  });
 });

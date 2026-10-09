@@ -25,9 +25,12 @@ impl SettingsManager {
             Ok(content) => {
                 match serde_json::from_str::<AppConfig>(&content) {
                     Ok(mut config) => {
-                        if config.ui.accent_mode == "legacy" {
+                        if config.ui.accent_mode == "legacy"
+                            || (config.ui.accent_mode == "custom"
+                                && is_legacy_default_accent(&config.ui.primary_color))
+                        {
                             config.ui.accent_mode =
-                                if config.ui.primary_color.eq_ignore_ascii_case("#1471eb") {
+                                if is_legacy_default_accent(&config.ui.primary_color) {
                                     "palette"
                                 } else {
                                     "custom"
@@ -64,6 +67,10 @@ impl SettingsManager {
         *self.current_config.write().unwrap() = new_config;
         Ok(())
     }
+}
+
+fn is_legacy_default_accent(color: &str) -> bool {
+    color.eq_ignore_ascii_case("#1471eb") || color.eq_ignore_ascii_case("#d357fe")
 }
 
 fn write_config(path: &Path, config: &AppConfig) -> Result<(), String> {
@@ -105,6 +112,28 @@ mod tests {
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
         assert_eq!(config.editor.save_debounce_ms, 1000);
         assert!(config.analysis.enable_bm25f);
+        assert!(config.builtins.editing_toolbar);
+        assert!(config.builtins.kanban);
+    }
+
+    #[test]
+    fn builtin_plugin_settings_survive_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        assert!(config.builtins.editing_toolbar);
+        assert!(config.builtins.kanban);
+        assert_eq!(config.builtins.toolbar_position, "top");
+        config.builtins.editing_toolbar = false;
+        config.builtins.toolbar_position = "selection".to_owned();
+        manager.update_config(config).unwrap();
+        let stored = SettingsManager::new(dir.path()).get_config();
+        assert!(!stored.builtins.editing_toolbar);
+        assert!(stored.builtins.highlightr);
+        assert!(stored.builtins.outliner);
+        assert!(stored.builtins.iconize);
+        assert_eq!(stored.builtins.highlight_colors.len(), 6);
+        assert_eq!(stored.builtins.toolbar_position, "selection");
     }
 
     #[test]
@@ -134,12 +163,26 @@ mod tests {
 
         assert_eq!(config.ui.appearance, "dark");
         assert_eq!(config.ui.palette, "obsidium");
-        assert_eq!(config.ui.motion, "system");
+        assert_eq!(config.ui.motion, "off");
         assert!(config.ui.enabled_snippets.is_empty());
         manager.update_config(config).unwrap();
         let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
         assert!(stored.contains("\"appearance\": \"dark\""));
         assert!(!stored.contains("\"theme\""));
+    }
+
+    #[test]
+    fn explicit_motion_preference_is_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{"ui":{"motion":"on"}}"#,
+        )
+        .unwrap();
+
+        let config = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!(config.ui.motion, "on");
     }
 
     #[test]
@@ -158,6 +201,21 @@ mod tests {
         assert_eq!(config.ui.primary_color, "#ff00aa");
         let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
         assert!(stored.contains("\"accentMode\": \"custom\""));
+    }
+
+    #[test]
+    fn migrated_default_accent_uses_palette_and_keeps_the_legacy_color() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r##"{"ui":{"accentMode":"custom","primaryColor":"#D357FE"}}"##,
+        )
+        .unwrap();
+
+        let config = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!(config.ui.accent_mode, "palette");
+        assert_eq!(config.ui.primary_color, "#D357FE");
     }
 
     #[test]

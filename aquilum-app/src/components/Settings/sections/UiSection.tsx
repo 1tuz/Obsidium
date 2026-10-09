@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SegmentedControl } from '../../Common/SegmentedControl';
 import { resolveLocale, t } from '../../../i18n';
 import type { AppConfig } from '../../../modules/settings';
@@ -12,6 +13,10 @@ import { ColorControl } from '../controls/ColorControl';
 import { Dropdown } from '../../Common/Dropdown';
 import type { SettingsSectionProps } from '../types';
 import { Input } from '../../Common/Input';
+import { useThemeMode } from '../../../hooks/useThemeMode';
+import { Button } from '../../Common/Button';
+import { ThemePaletteDialog } from './ThemePaletteDialog';
+import './UiSection.css';
 
 interface UiSectionProps extends SettingsSectionProps {
   workspacePath: string | null;
@@ -21,6 +26,8 @@ interface UiSectionProps extends SettingsSectionProps {
 
 export function UiSection({ config, workspacePath, homePage, onHomePageChange, onChange }: UiSectionProps) {
   const scale = useInterfaceScale();
+  const activeMode = useThemeMode();
+  const [paletteDialogOpen, setPaletteDialogOpen] = useState(false);
   const patchUi = (partial: Partial<AppConfig['ui']>) => onChange({
     ...config,
     ui: { ...config.ui, ...partial },
@@ -55,12 +62,9 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
           />
         </Row>
         <Row label={t('settings.ui.palette')}>
-          <Dropdown
-            ariaLabel={t('settings.ui.palette')}
-            value={config.ui.palette}
-            options={themePalettes.map(({ id, name }) => ({ value: id, label: name }))}
-            onChange={(palette) => patchUi({ palette })}
-          />
+          <Button data-testid="open-palette-chooser" onClick={() => setPaletteDialogOpen(true)}>
+            {themePalettes.find(({ id }) => id === config.ui.palette)?.name ?? t('settings.ui.paletteChoose')}
+          </Button>
         </Row>
         <Row label={t('settings.ui.accentMode')}>
           <SegmentedControl
@@ -72,12 +76,15 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
             ]}
           />
         </Row>
-        <Row label={t('settings.ui.animations')}>
+        <Row
+          label={t('settings.ui.animations')}
+          description={t('settings.ui.motionHint')}
+        >
           <SegmentedControl
             value={config.ui.motion}
             onChange={(motion) => patchUi({ motion: motion as AppConfig['ui']['motion'] })}
             options={[
-              { value: 'system', label: t('theme.system') },
+              { value: 'system', label: t('settings.ui.motionAuto') },
               { value: 'on', label: t('theme.on') },
               { value: 'off', label: t('theme.off') },
             ]}
@@ -115,6 +122,16 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
           </Row>
         ) : null}
       </Section>
+      <ThemePaletteDialog
+        open={paletteDialogOpen}
+        activeMode={activeMode}
+        selectedPalette={config.ui.palette}
+        onSelect={(palette) => {
+          patchUi({ palette });
+          setPaletteDialogOpen(false);
+        }}
+        onClose={() => setPaletteDialogOpen(false)}
+      />
       <Section title={t('settings.font.section')}>
         <FontSettingsRows
           scope="ui"

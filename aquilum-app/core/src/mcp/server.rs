@@ -361,7 +361,7 @@ mod tests {
         assert_eq!(response.status(), 200);
         assert!(response.header("Content-Type").unwrap().contains("application/json"));
         let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-        assert_eq!(body["result"]["serverInfo"]["name"], "aquilum");
+        assert_eq!(body["result"]["serverInfo"]["name"], "obsidium");
         server.stop();
     }
 

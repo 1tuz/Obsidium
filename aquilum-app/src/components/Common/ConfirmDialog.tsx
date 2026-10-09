@@ -8,6 +8,7 @@ interface ConfirmDialogProps {
   open: boolean;
   title: string;
   description: string;
+  error?: string;
   confirmLabel: string;
   pendingLabel?: string;
   pending?: boolean;
@@ -15,7 +16,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
 }
 
-export function ConfirmDialog({ open, title, description, confirmLabel, pendingLabel = t('confirm.deleting'), pending = false, onCancel, onConfirm }: ConfirmDialogProps) {
+export function ConfirmDialog({ open, title, description, error, confirmLabel, pendingLabel = t('confirm.deleting'), pending = false, onCancel, onConfirm }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
   const descriptionId = useId();
 
@@ -32,6 +33,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, pendingL
     >
       <div className="q-confirm-dialog__content">
         <p id={descriptionId}>{description}</p>
+        {error ? <p role="alert">{error}</p> : null}
       </div>
       <DialogFooter>
         <Button variant="ghost" disabled={pending} onClick={onCancel}>{t('common.cancel')}</Button>

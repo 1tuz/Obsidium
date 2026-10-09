@@ -61,6 +61,10 @@ pub fn run_mcp_stdio_bridge() -> i32 {
     mcp::run_stdio_bridge(env!("AQUILUM_APP_IDENTIFIER"))
 }
 
+pub fn run_mcp_stdio_headless() -> i32 {
+    mcp::run_stdio_headless(env!("AQUILUM_APP_IDENTIFIER"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
@@ -91,7 +95,7 @@ pub fn run() {
         }
     });
 
-    builder
+    let app = builder
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
@@ -169,6 +173,7 @@ pub fn run() {
             search::commands::resolve_wiki_links,
             search::commands::suggest_notes,
             search::commands::get_note_fields,
+            search::commands::get_base_rows,
             search::commands::run_dataview_query,
             search::analysis::commands::analyze_document,
             search::graph::commands::get_graph_snapshot,
@@ -189,6 +194,8 @@ pub fn run() {
             ui_state::commands::cleanup_ui_state,
             ui_state::commands::load_ui_reader_state,
             ui_state::commands::save_ui_reader_state,
+            ui_state::commands::load_ui_base_view,
+            ui_state::commands::save_ui_base_view,
             mcp::commands::get_mcp_status,
             mcp::commands::apply_mcp_settings,
             mcp::commands::set_active_note,
@@ -209,8 +216,25 @@ pub fn run() {
                 _ => {}
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+    app.run(|app, event| match event {
+        tauri::RunEvent::Exit => {
+            if let Some(window) = app.get_webview_window("main") {
+                app.state::<window_state::WindowStateManager>()
+                    .capture_and_persist(&window.as_ref().window());
+            }
+            app.state::<Arc<app_core::Core>>().shutdown();
+        }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+        _ => {}
+    });
 }
 
 const DARK_CANVAS: Color = Color(0x09, 0x0b, 0x11, 0xff);

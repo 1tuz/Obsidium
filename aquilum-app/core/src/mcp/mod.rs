@@ -5,9 +5,9 @@ mod protocol;
 mod server;
 mod stdio;
 mod tools;
-mod vault;
+pub mod vault;
 
-pub use stdio::run_stdio_bridge;
+pub use stdio::{open_headless_core, run_stdio_bridge, run_stdio_core, run_stdio_headless};
 
 use crate::settings::models::McpSettings;
 use serde::Serialize;

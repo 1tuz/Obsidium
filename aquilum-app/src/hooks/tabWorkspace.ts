@@ -2,13 +2,14 @@ import { createFile, isFileCommandError } from '../modules/documents/fileGateway
 import { linkedFilePath } from '../modules/documents/documentFactory';
 import { emptyTabPath, GRAPH_TAB_PATH, type SessionTab } from '../modules/ui-state';
 
-export function createEmptySessionTab(): SessionTab {
+export function createEmptySessionTab(paneId = 'main'): SessionTab {
   const tabId = crypto.randomUUID();
   return {
     tabId,
     documentId: null,
     kind: 'empty',
     path: emptyTabPath(tabId),
+    paneId,
   };
 }
 
@@ -18,6 +19,7 @@ export function createGraphSessionTab(): SessionTab {
     documentId: null,
     kind: 'graph',
     path: GRAPH_TAB_PATH,
+    paneId: 'main',
   };
 }
 

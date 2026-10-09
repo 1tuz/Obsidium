@@ -101,12 +101,14 @@ pub fn batch(
         sequence,
         now_ms: sequence + 10,
         session: Some(SessionStateInput {
+            layout: None,
             active_tab_id: Some(tab_id),
             tabs: Some(vec![TabState {
                 tab_id,
                 document_id: Some(document_id),
                 kind: TabKind::Document,
                 position: 0,
+                pane_id: "main".to_owned(),
             }]),
         }),
         views: vec![view(document_id, position)],

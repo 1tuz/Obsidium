@@ -11,6 +11,12 @@ fn is_attachment(extension: &str) -> bool {
     MEDIA_EXTENSIONS.contains(&extension) || DOCUMENT_EXTENSIONS.contains(&extension)
 }
 
+fn is_base(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
+}
+
 pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandError> {
     let mut items = Vec::new();
 
@@ -53,7 +59,8 @@ pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandErro
         };
 
         let is_markdown = extension == "md";
-        if !is_markdown && !is_attachment(extension.as_str()) {
+        let is_base = extension == "base";
+        if !is_markdown && !is_base && !is_attachment(extension.as_str()) {
             continue;
         }
 
@@ -127,7 +134,7 @@ pub fn existing_files_impl(paths: Vec<String>) -> Vec<String> {
         .into_iter()
         .filter(|value| {
             let path = Path::new(value);
-            path.is_file() && is_markdown(path)
+            path.is_file() && (is_markdown(path) || is_base(path))
         })
         .collect()
 }

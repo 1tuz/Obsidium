@@ -12,3 +12,4 @@ export const outlineExtension = [
 
 export { listCalloutsExtension } from './listCallouts';
 export { outlineMarkdownConfig } from './constructs';
+export { advancedOutlineExtension } from './advanced';

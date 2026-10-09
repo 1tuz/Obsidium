@@ -96,6 +96,15 @@ pub async fn get_note_fields(
 }
 
 #[tauri::command]
+pub async fn get_base_rows(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+) -> Result<Vec<NoteFields>, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.base_rows(&workspace_path)).await
+}
+
+#[tauri::command]
 pub async fn resolve_wiki_links(
     core: State<'_, Arc<Core>>,
     workspace_path: String,

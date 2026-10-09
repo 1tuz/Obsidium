@@ -5,6 +5,7 @@ import {
   Keyboard,
   Monitor,
   Plug,
+  Puzzle,
   Power,
   Search,
   Trash2,
@@ -21,6 +22,7 @@ export function settingsSections(): { id: SettingsSectionId; label: string }[] {
   return [
     { id: 'ui', label: t('settings.nav.ui') },
     { id: 'editor', label: t('settings.nav.editor') },
+    { id: 'builtins', label: t('settings.nav.builtins') },
     { id: 'reader', label: t('settings.nav.reader') },
     { id: 'search', label: t('settings.nav.search') },
     { id: 'templates', label: t('settings.nav.templates') },
@@ -37,6 +39,7 @@ export function settingsSections(): { id: SettingsSectionId; label: string }[] {
 export const SETTINGS_SECTION_ICONS: Record<SettingsSectionId, ReactNode> = {
   ui: <Icon icon={Monitor} />,
   editor: <Icon icon={Type} />,
+  builtins: <Icon icon={Puzzle} />,
   reader: <Icon icon={BookOpen} />,
   search: <Icon icon={Search} />,
   templates: <Icon icon={FileText} />,

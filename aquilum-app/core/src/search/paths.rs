@@ -109,10 +109,13 @@ pub fn is_hidden(root: &Path, path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        canonical_workspace, is_hidden, is_markdown, relative_slash_path, same_path,
-        same_workspace, strip_markdown_extension, strip_root,
+        canonical_workspace, is_hidden, is_markdown, relative_slash_path, same_workspace,
+        strip_markdown_extension,
     };
     use std::path::Path;
+
+    #[cfg(windows)]
+    use super::{same_path, strip_root};
 
     #[test]
     fn accepts_markdown_case_insensitively() {

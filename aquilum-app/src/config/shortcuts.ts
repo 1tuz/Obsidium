@@ -18,6 +18,11 @@ export const SHORTCUTS = {
     key: 'O',
     primary: true,
   },
+  COMMAND_PALETTE: {
+    code: 'KeyK',
+    key: 'K',
+    primary: true,
+  },
   NEW_FROM_TEMPLATE: {
     code: 'KeyU',
     key: 'U',

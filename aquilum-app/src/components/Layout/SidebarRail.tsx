@@ -1,4 +1,4 @@
-import { House, Network, PanelLeft, Settings } from 'lucide';
+import { Columns3, FolderTree, House, Network, PanelLeft, Settings } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
@@ -10,6 +10,10 @@ interface SidebarRailProps {
   onOpenGraph?: () => void;
   onOpenHome?: () => void;
   onOpenSettings?: () => void;
+  onOpenBoards?: () => void;
+  onOpenFiles?: () => void;
+  boardsActive?: boolean;
+  filesActive?: boolean;
 }
 
 export function SidebarRail({
@@ -18,6 +22,10 @@ export function SidebarRail({
   onOpenGraph,
   onOpenHome,
   onOpenSettings,
+  onOpenBoards,
+  onOpenFiles,
+  boardsActive = false,
+  filesActive = false,
 }: SidebarRailProps) {
   return (
     <aside className="q-sidebar-rail" aria-label={t('rail.toolbar')}>
@@ -50,6 +58,26 @@ export function SidebarRail({
             onClick={onOpenGraph}
           >
             <Icon icon={Network} />
+          </IconButton>
+        )}
+        {onOpenBoards && (
+          <IconButton
+            label={t('rail.boards')}
+            size="medium"
+            aria-pressed={boardsActive}
+            onClick={onOpenBoards}
+          >
+            <Icon icon={Columns3} />
+          </IconButton>
+        )}
+        {onOpenFiles && (
+          <IconButton
+            label={t('rail.fileManager')}
+            size="medium"
+            aria-pressed={filesActive}
+            onClick={onOpenFiles}
+          >
+            <Icon icon={FolderTree} />
           </IconButton>
         )}
         {onOpenSettings && (

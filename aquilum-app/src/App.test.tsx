@@ -16,6 +16,7 @@ const uiStateMocks = vi.hoisted(() => ({
   markDocumentMissing: vi.fn(),
   open: vi.fn(),
   queueActiveTab: vi.fn(),
+  queueLayout: vi.fn(),
   queueTabsSnapshot: vi.fn(),
 }));
 const settingsState = vi.hoisted(() => ({
@@ -66,14 +67,11 @@ vi.mock('./modules/ui-state', async (importOriginal) => {
 vi.mock('./components/Layout/Titlebar', () => ({
   Titlebar: ({
     onToggleRightSidebar,
-    onToggleTheme,
   }: {
     onToggleRightSidebar: () => void;
-    onToggleTheme?: () => void;
   }) => (
     <>
       <button id="toggle-right-sidebar" onClick={onToggleRightSidebar} />
-      {onToggleTheme && <button id="toggle-theme" onClick={onToggleTheme} />}
     </>
   ),
 }));
@@ -86,13 +84,16 @@ vi.mock('./components/Layout/SidebarRail', () => ({
   SidebarRail: ({
     onToggleSidebar,
     onOpenGraph,
+    onOpenBoards,
   }: {
     onToggleSidebar: () => void;
     onOpenGraph: () => void;
+    onOpenBoards?: () => void;
   }) => (
     <>
       <button id="hide-left-sidebar" onClick={onToggleSidebar} />
       <button id="open-graph" onClick={onOpenGraph} />
+      {onOpenBoards ? <button id="open-boards" onClick={onOpenBoards} /> : null}
     </>
   ),
 }));
@@ -112,12 +113,15 @@ vi.mock('./components/Graph/GraphView', () => ({
 vi.mock('./components/Layout/Sidebar', () => ({
   Sidebar: ({
     onFileSelect,
+    onToggleTheme,
     isOpen,
   }: {
     onFileSelect: (path: string) => void;
+    onToggleTheme: () => void;
     isOpen: boolean;
   }) => isOpen ? (
     <div id="left-sidebar">
+      <button id="toggle-theme" onClick={onToggleTheme} />
       <button id="open-a" onClick={() => onFileSelect('C:\\notes\\a.md')} />
       <button id="open-b" onClick={() => onFileSelect('C:\\notes\\b.md')} />
     </div>
@@ -140,6 +144,7 @@ vi.mock('./components/Settings/SettingsDialog', () => ({
 
 vi.mock('./modules/settings', () => ({
   DEFAULT_LIVE_TABS: 3,
+  DEFAULT_BUILTINS: { editingToolbar: false, kanban: true, panes: false, toolbarPosition: 'top' },
   useSettingsStore: () => ({
     config: settingsState.config,
     isLoading: false,
@@ -175,6 +180,7 @@ function sessionStub(overrides: Record<string, unknown> = {}) {
     restoredTabs: () => [],
     markDocumentMissing: uiStateMocks.markDocumentMissing,
     queueActiveTab: uiStateMocks.queueActiveTab,
+    queueLayout: uiStateMocks.queueLayout,
     queueTabsSnapshot: uiStateMocks.queueTabsSnapshot,
     queueView: vi.fn(),
     loadedView: vi.fn(() => null),
@@ -230,12 +236,33 @@ describe('App editor lifecycle', () => {
     expect(editorLifecycle).toHaveLength(0);
   });
 
-  it('keeps the quick theme switch visible while settings are loading', () => {
+  it('keeps the quick theme switch in the sidebar while settings are loading', () => {
     act(() => {
       renderer = mountDom(<App />);
     });
 
     expect(find('toggle-theme')).toHaveLength(1);
+  });
+
+  it('shows the Boards entry only when the Kanban built-in is enabled', async () => {
+    settingsState.config = {
+      editor: { liveTabs: 3 },
+      updates: { auto: false },
+      trash: { retentionDays: 30 },
+      history: { retentionDays: 30 },
+      templates: { folder: '' },
+      ui: { appearance: 'system', palette: 'obsidium', motion: 'system', language: 'ru', enabledSnippets: {} },
+      builtins: { editingToolbar: true, kanban: false, toolbarPosition: 'top' },
+    };
+    await renderWithSession();
+    expect(find('open-boards')).toHaveLength(0);
+
+    settingsState.config = {
+      ...settingsState.config,
+      builtins: { editingToolbar: true, kanban: true, toolbarPosition: 'top' },
+    };
+    await actAndSettle(() => renderer!.update(<App />));
+    expect(find('open-boards')).toHaveLength(1);
   });
 
   it('loads settings and switches theme when clicked before config is ready', async () => {
@@ -337,7 +364,7 @@ describe('App editor lifecycle', () => {
     expect(find('right-sidebar')).toHaveLength(1);
   });
 
-  it('switches the stored appearance directly from the titlebar', async () => {
+  it('switches the stored appearance from the sidebar footer', async () => {
     setTheme('light', 'obsidium');
     settingsState.config = {
       editor: { liveTabs: 3 },
@@ -362,13 +389,17 @@ describe('App editor lifecycle', () => {
     workspaceState.files = [{ id: 'C:\\notes\\kept.md', name: 'kept.md', type: 'file' }];
     uiStateMocks.markDocumentMissing.mockResolvedValue(undefined);
     uiStateMocks.open.mockResolvedValue({
-      loaded: { activeTabId: 'missing-tab' },
+      loaded: {
+        activeTabId: 'missing-tab',
+        layout: { kind: 'pane', paneId: 'main', activeTabId: 'missing-tab' },
+      },
       restoredTabs: () => [
-        { tabId: 'kept-tab', documentId: 'kept-doc', kind: 'document', path: 'C:\\notes\\kept.md' },
-        { tabId: 'missing-tab', documentId: 'missing-doc', kind: 'document', path: 'C:\\notes\\missing.md' },
+        { tabId: 'kept-tab', documentId: 'kept-doc', kind: 'document', path: 'C:\\notes\\kept.md', paneId: 'main' },
+        { tabId: 'missing-tab', documentId: 'missing-doc', kind: 'document', path: 'C:\\notes\\missing.md', paneId: 'main' },
       ],
       markDocumentMissing: uiStateMocks.markDocumentMissing,
       queueActiveTab: uiStateMocks.queueActiveTab,
+      queueLayout: uiStateMocks.queueLayout,
       queueTabsSnapshot: uiStateMocks.queueTabsSnapshot,
       queueView: vi.fn(),
       loadedView: vi.fn(() => null),
@@ -390,6 +421,7 @@ describe('App editor lifecycle', () => {
     expect(uiStateMocks.queueTabsSnapshot).toHaveBeenLastCalledWith(
       [expect.objectContaining({ tabId: 'kept-tab' })],
       'kept-tab',
+      expect.objectContaining({ kind: 'pane', paneId: 'main' }),
     );
   });
 });

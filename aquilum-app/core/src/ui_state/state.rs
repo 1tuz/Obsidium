@@ -1,6 +1,8 @@
 use super::database::UiStateDatabase;
 use super::error::UiStateError;
 use super::models::{LoadedSession, OpenSessionInput, SaveStateBatchInput};
+use super::session::save_session;
+use super::validation::validate_batch;
 use rusqlite::{params, OptionalExtension};
 
 impl UiStateDatabase {
@@ -24,6 +26,7 @@ impl UiStateDatabase {
     }
 
     pub fn save_batch(&mut self, input: &SaveStateBatchInput) -> Result<bool, UiStateError> {
+        validate_batch(input)?;
         let transaction = self.connection.transaction()?;
         let current = transaction
             .query_row(
@@ -39,56 +42,7 @@ impl UiStateDatabase {
         if !accepted {
             return Ok(false);
         }
-        if let Some(session) = &input.session {
-            if session.tabs.is_none() {
-                if let Some(active_tab_id) = session.active_tab_id {
-                    let exists = transaction.query_row(
-                        "SELECT EXISTS(SELECT 1 FROM tabs
-                         WHERE workspace_id = ?1 AND window_id = ?2 AND tab_id = ?3)",
-                        params![
-                            input.workspace_id.to_string(),
-                            input.window_id,
-                            active_tab_id.to_string()
-                        ],
-                        |row| row.get::<_, bool>(0),
-                    )?;
-                    if !exists {
-                        return Err(UiStateError::InvalidInput {
-                            message: "active tab is not present".to_owned(),
-                        });
-                    }
-                }
-            }
-            if let Some(tabs) = &session.tabs {
-                transaction.execute(
-                    "DELETE FROM tabs WHERE workspace_id = ?1 AND window_id = ?2",
-                    params![input.workspace_id.to_string(), input.window_id],
-                )?;
-                for tab in tabs {
-                    transaction.execute(
-                        "INSERT INTO tabs(workspace_id, window_id, tab_id, document_id, kind, position)
-                         VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
-                        params![
-                            input.workspace_id.to_string(),
-                            input.window_id,
-                            tab.tab_id.to_string(),
-                            tab.document_id.map(|id| id.to_string()),
-                            tab.kind.as_str(),
-                            tab.position
-                        ],
-                    )?;
-                }
-            }
-            transaction.execute(
-                "UPDATE sessions SET active_tab_id = ?3
-                 WHERE workspace_id = ?1 AND window_id = ?2",
-                params![
-                    input.workspace_id.to_string(),
-                    input.window_id,
-                    session.active_tab_id.map(|id| id.to_string())
-                ],
-            )?;
-        }
+        save_session(&transaction, input)?;
         for view in &input.views {
             transaction.execute(
                 "INSERT INTO view_states(

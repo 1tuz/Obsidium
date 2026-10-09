@@ -5,7 +5,8 @@ import { sanitizeFileName } from './documentFactory';
 export async function renameWorkspaceFile(oldPath: string, newStem: string): Promise<string | null> {
   const stem = sanitizeFileName(newStem);
   if (!stem || stem === fileStem(oldPath)) return null;
-  const newPath = siblingPath(oldPath, `${stem}.md`);
+  const extension = oldPath.toLowerCase().endsWith('.base') ? '.base' : '.md';
+  const newPath = siblingPath(oldPath, `${stem}${extension}`);
   await renameFile(oldPath, newPath);
   return newPath;
 }

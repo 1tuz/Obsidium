@@ -13,6 +13,7 @@ import {
 import { loadTabSessionCache, saveTabSessionCache } from '../modules/workspace/uiPersist';
 import { comparablePath } from '../modules/paths';
 import { createEmptySessionTab } from './tabWorkspace';
+import { paneLeaves } from '../modules/panes/layout';
 
 interface UseTabSessionInput {
   workspacePath: string | null;
@@ -53,7 +54,7 @@ export function useTabSession({
     setSessionReady(false);
     const cached = workspacePath ? loadTabSessionCache(workspacePath) : null;
     if (cached) {
-      dispatch({ type: 'restore', tabs: cached.tabs, activeTabId: cached.activeTabId });
+      dispatch({ type: 'restore', tabs: cached.tabs, activeTabId: cached.activeTabId, layout: cached.layout });
       return;
     }
     dispatch({ type: 'reset', tab: createEmptySessionTab() });
@@ -80,17 +81,27 @@ export function useTabSession({
         loaded,
         (path) => available.has(comparablePath(path)),
       );
+      const restoredPanes = new Set(restored.map((tab) => tab.paneId));
+      const fallbackTabs = paneLeaves(session.loaded.layout)
+        .filter((pane) => !restoredPanes.has(pane.paneId))
+        .map((pane) => createEmptySessionTab(pane.paneId));
       for (const tab of loaded) {
         if (isMissingDocument(tab, available)) {
           void session.markDocumentMissing(tab.documentId!)
             .catch((error) => console.error('Failed to mark missing document', error));
         }
       }
-      if (!touchedRef.current && restored.length > 0) {
+      if (!touchedRef.current && (restored.length > 0 || fallbackTabs.length > 0)) {
         const activeTabId = restored.some((tab) => tab.tabId === session.loaded.activeTabId)
           ? session.loaded.activeTabId!
-          : restored[0].tabId;
-        dispatch({ type: 'restore', tabs: restored, activeTabId });
+          : restored[0]?.tabId ?? fallbackTabs[0].tabId;
+        dispatch({
+          type: 'restore',
+          tabs: restored,
+          activeTabId,
+          layout: session.loaded.layout,
+          fallbackTabs,
+        });
       }
       setRevision((value) => value + 1);
       setSessionReady(true);
@@ -133,19 +144,21 @@ export function useTabSession({
     [state.tabs],
   );
 
-  const activeDocumentId = useMemo(
-    () => state.tabs.find((tab) => tab.tabId === state.activeTabId)?.documentId ?? null,
-    [state.activeTabId, state.tabs],
-  );
+  const activeDocuments = useMemo(() => paneLeaves(state.layout).flatMap((pane) => {
+    const tab = state.tabs.find((candidate) => candidate.tabId === pane.activeTabId);
+    return tab?.kind === 'document' && tab.documentId
+      ? [{ documentId: tab.documentId, paneId: pane.paneId }]
+      : [];
+  }), [state.layout, state.tabs]);
 
   useEffect(() => {
     const session = sessionRef.current;
-    if (!session || !activeDocumentId || stateError !== null) return;
+    if (!session || activeDocuments.length === 0 || stateError !== null) return;
     let cancelled = false;
-    void session.ensureViewLoaded(activeDocumentId).then(() => {
-      if (!cancelled && sessionRef.current === session) {
-        setViewRevision((value) => value + 1);
-      }
+    void Promise.all(activeDocuments.map(({ documentId, paneId }) => (
+      session.ensureViewLoaded(documentId, paneId)
+    ))).then(() => {
+      if (!cancelled && sessionRef.current === session) setViewRevision((value) => value + 1);
     }).catch((error) => {
       console.error('Failed to load document view', error);
       if (!cancelled && sessionRef.current === session) degrade(error);
@@ -153,11 +166,12 @@ export function useTabSession({
     return () => {
       cancelled = true;
     };
-  }, [activeDocumentId, degrade, revision, stateError]);
+  }, [activeDocuments, degrade, revision, stateError]);
 
   useEffect(() => {
     if (unresolved) return;
-    sessionRef.current?.queueTabsSnapshot(state.tabs, state.activeTabId);
+    sessionRef.current?.queueTabsSnapshot(state.tabs, state.activeTabId, state.layout);
+    previousTabsRef.current = state.tabs;
   }, [revision, state.tabs, unresolved]);
 
   useEffect(() => {
@@ -165,10 +179,30 @@ export function useTabSession({
     sessionRef.current?.queueActiveTab(state.activeTabId);
   }, [revision, state.activeTabId, unresolved]);
 
+  const layoutGeometry = useMemo(() => {
+    const shape = (layout: TabsState['layout']): unknown => layout.kind === 'pane'
+      ? ['pane', layout.paneId]
+      : ['split', layout.direction, layout.ratio, shape(layout.children[0]), shape(layout.children[1])];
+    return JSON.stringify(shape(state.layout));
+  }, [state.layout]);
+  const previousTabsRef = useRef(state.tabs);
+  const currentLayoutRef = useRef(state.layout);
+  const currentActiveTabIdRef = useRef(state.activeTabId);
+  const currentTabsRef = useRef(state.tabs);
+  currentLayoutRef.current = state.layout;
+  currentActiveTabIdRef.current = state.activeTabId;
+  currentTabsRef.current = state.tabs;
+
+  useEffect(() => {
+    const tabsChanged = previousTabsRef.current !== currentTabsRef.current;
+    if (unresolved || tabsChanged) return;
+    sessionRef.current?.queueLayout(currentActiveTabIdRef.current, currentLayoutRef.current);
+  }, [layoutGeometry, revision, unresolved]);
+
   useEffect(() => {
     if (unresolved || !workspacePath || !sessionReady) return;
-    saveTabSessionCache(workspacePath, state.tabs, state.activeTabId);
-  }, [revision, sessionReady, state.activeTabId, state.tabs, unresolved, workspacePath]);
+    saveTabSessionCache(workspacePath, state.tabs, state.activeTabId, state.layout);
+  }, [revision, sessionReady, state.activeTabId, state.layout, state.tabs, unresolved, workspacePath]);
 
   const touch = useCallback(() => {
     touchedRef.current = true;
@@ -180,12 +214,12 @@ export function useTabSession({
       .catch((error) => console.error('Failed to track document rename', error));
   }, []);
 
-  const loadedView = useCallback((documentId: string) => {
-    return sessionRef.current?.loadedView(documentId) ?? null;
+  const loadedView = useCallback((documentId: string, paneId: string) => {
+    return sessionRef.current?.loadedView(documentId, paneId) ?? null;
   }, []);
 
-  const isViewLoaded = useCallback((documentId: string) => {
-    return sessionRef.current?.isViewLoaded(documentId) ?? false;
+  const isViewLoaded = useCallback((documentId: string, paneId: string) => {
+    return sessionRef.current?.isViewLoaded(documentId, paneId) ?? false;
   }, []);
 
   const queueView = useCallback((view: ViewState) => {

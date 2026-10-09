@@ -118,9 +118,9 @@ export function collectCollapseRanges(
         ) {
           return;
         }
-        if (shouldRevealEditablePreviewMarker(editableSpans, head, node.from, node.name)) return;
+        if (!state.readOnly && shouldRevealEditablePreviewMarker(editableSpans, head, node.from, node.name)) return;
         const hit = revealTarget(node.node, charAt);
-        if (shouldRevealSyntax(state.doc, head, hit.from, hit.to)) return;
+        if (!state.readOnly && shouldRevealSyntax(state.doc, head, hit.from, hit.to)) return;
         if (hit.hideTo > node.from) collapse.push({ from: node.from, to: hit.hideTo });
       },
     });
@@ -134,8 +134,8 @@ export function collectCollapseRanges(
         const target = node.node.getChild('WikiLinkTarget');
         const alias = node.node.getChild('WikiLinkAlias');
         if (!target || !alias || target.to >= alias.from) return;
-        if (shouldRevealEditablePreviewMarker(editableSpans, head, node.from)) return;
-        if (shouldRevealSyntax(state.doc, head, node.from, node.to)) return;
+        if (!state.readOnly && shouldRevealEditablePreviewMarker(editableSpans, head, node.from)) return;
+        if (!state.readOnly && shouldRevealSyntax(state.doc, head, node.from, node.to)) return;
         collapse.push({ from: target.from, to: alias.from });
       },
     });
@@ -173,7 +173,7 @@ function buildLivePreviewDecorations(
       targets.add(text);
       if (resolutions.get(text) === false) {
         const alias = node.node.getChild('WikiLinkAlias');
-        const revealed = shouldRevealSyntax(state.doc, head, node.from, node.to);
+        const revealed = !state.readOnly && shouldRevealSyntax(state.doc, head, node.from, node.to);
         if (revealed || !alias) {
           decs.push({ from: target.from, to: target.to, dec: unresolved });
         }
@@ -187,10 +187,10 @@ function buildLivePreviewDecorations(
     const presentation = syntaxMarkerPresentation(node.name);
     if (!presentation || presentation === 'collapsed') return;
     if (isFenceMark(node)) return;
-    if (shouldRevealEditablePreviewMarker(editableSpans, head, node.from, node.name)) return;
+    if (!state.readOnly && shouldRevealEditablePreviewMarker(editableSpans, head, node.from, node.name)) return;
 
     const hit = revealTarget(node.node, charAt);
-    if (shouldRevealSyntax(state.doc, head, hit.from, hit.to)) return;
+    if (!state.readOnly && shouldRevealSyntax(state.doc, head, hit.from, hit.to)) return;
 
     if (presentation === 'horizontal-rule') {
       decs.push({ from: node.from, to: node.from, dec: hrLineDecoration });
@@ -257,6 +257,7 @@ function livePreviewPlugin(config: LivePreviewConfig) {
       const fmToggled = update.transactions.some((transaction) =>
         transaction.effects.some((effect) => effect.is(setFrontmatterExpanded)),
       );
+      const readOnlyChanged = update.startState.readOnly !== update.state.readOnly;
       const treeChanged = syntaxTree(update.state) !== syntaxTree(update.startState);
       if (
         update.docChanged
@@ -264,6 +265,7 @@ function livePreviewPlugin(config: LivePreviewConfig) {
         || update.viewportChanged
         || refreshed
         || fmToggled
+        || readOnlyChanged
         || treeChanged
       ) {
         this.rebuild(update.view, update.docChanged || treeChanged || refreshed || fmToggled);

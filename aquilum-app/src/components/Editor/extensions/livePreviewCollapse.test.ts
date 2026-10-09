@@ -10,11 +10,12 @@ import {
   mergeCollapseRanges,
 } from './livePreviewPlugin';
 
-function createState(doc: string, head: number) {
+function createState(doc: string, head: number, readOnly = false) {
   return EditorState.create({
     doc,
     selection: EditorSelection.cursor(head),
     extensions: [
+      EditorState.readOnly.of(readOnly),
       markdown({
         base: markdownLanguage,
         extensions: [outlineMarkdownConfig, wikiLinkMarkdownConfig],
@@ -56,6 +57,14 @@ describe('collectCollapseRanges', () => {
   it('does not collapse when caret is inside the link', () => {
     const state = createState(doc, label);
     expect(collectCollapseRanges(state, syntaxTree(state))).toEqual([]);
+  });
+
+  it('collapses link syntax at the caret in reading mode', () => {
+    const state = createState(doc, label, true);
+    expect(collectCollapseRanges(state, syntaxTree(state))).toEqual([
+      { from: open, to: open + 1 },
+      { from: close, to: afterUrl },
+    ]);
   });
 
   it('collapses wiki target and marks when alias exists and caret is off the wiki', () => {

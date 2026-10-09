@@ -10,6 +10,8 @@ import type { ViewState } from '../../../modules/ui-state';
 
 export function useEditorViewSetup(options: {
   documentId: string | null;
+  paneId: string;
+  focused: boolean;
   viewStateReady: boolean;
   initialViewState: ViewState | null;
   revealOffset?: number;
@@ -23,6 +25,8 @@ export function useEditorViewSetup(options: {
   const containerRef = useRef<HTMLDivElement>(null);
   const {
     documentId,
+    paneId,
+    focused,
     viewStateReady,
     initialViewState,
     revealOffset,
@@ -35,6 +39,8 @@ export function useEditorViewSetup(options: {
   } = options;
   const onViewStateChangeRef = useRef(onViewStateChange);
   onViewStateChangeRef.current = onViewStateChange;
+  const focusedRef = useRef(focused);
+  focusedRef.current = focused;
   const handleViewStateChange = useCallback((state: ViewState) => {
     onViewStateChangeRef.current(state);
   }, []);
@@ -53,14 +59,16 @@ export function useEditorViewSetup(options: {
     () => (isReady && documentId && viewStateReady && resolved !== undefined
       ? new ViewStateController({
         documentId,
+        paneId,
         path: currentPath,
         initial: initialViewStateRef.current,
         resolved,
         onChange: handleViewStateChange,
+        isFocused: () => focusedRef.current,
         revealOffset,
       })
       : null),
-    [currentPath, documentId, handleViewStateChange, isReady, resolved, revealOffset, viewStateReady],
+    [currentPath, documentId, handleViewStateChange, isReady, paneId, resolved, revealOffset, viewStateReady],
   );
 
   const selection = useMemo(
@@ -91,19 +99,28 @@ export function useEditorViewSetup(options: {
   useEffect(attachWhenReady, [attachWhenReady, controller]);
 
   const wasInactive = useRef(inactive);
+  const wasFocused = useRef(focused);
   useEffect(() => {
     const shown = wasInactive.current && !inactive;
+    const focusedNow = !wasFocused.current && focused;
     wasInactive.current = inactive;
-    if (!shown) return;
+    wasFocused.current = focused;
+    if ((!shown && !focusedNow) || !focused || inactive) return;
     const view = viewRef.current;
     if (!view) return;
     controllerRef.current?.restoreNow();
+    if (focusedNow && containerRef.current?.closest('.q-editor-pane')?.contains(document.activeElement)) {
+      markOpenStage('mount');
+      return;
+    }
     // Focusing the pane before the browser has shown it lets the browser drop the caret at the start
     // of the note, and CodeMirror adopts that as its selection.
-    const frame = requestAnimationFrame(() => view.focus());
+    const frame = requestAnimationFrame(() => {
+      if (!containerRef.current?.closest('.q-editor-pane')?.contains(document.activeElement)) view.focus();
+    });
     markOpenStage('mount');
     return () => cancelAnimationFrame(frame);
-  }, [inactive]);
+  }, [focused, inactive]);
 
 
   const handleCreate = useCallback((view: EditorView) => {

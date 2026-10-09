@@ -2,6 +2,7 @@ mod frontmatter;
 mod history;
 mod notes;
 mod search;
+mod transaction;
 mod trash;
 mod workspace;
 mod workspace_locator;
@@ -18,7 +19,7 @@ use crate::app_core::Core;
 const WRITE_CONFLICT_RETRIES: usize = 1;
 
 pub const INSTRUCTIONS: &str = concat!(
-    "Aquilum — локальная база знаний из markdown-файлов. ",
+    "Obsidium — локальная база знаний из markdown-файлов. ",
     "Заметки адресуются относительным путём от корня базы (например «Проекты/Aquilum.md») ",
     "или точным названием. Абсолютные пути не нужны. ",
     "Если пользователь говорит «текущая заметка» или «эта заметка», сначала вызовите ",
@@ -29,6 +30,8 @@ pub const INSTRUCTIONS: &str = concat!(
     "на которые ссылается больше всего заметок; дальше ищите, а не перебирайте наугад; ",
     "длинную заметку читайте не целиком, а через note_outline и нужный раздел; правьте ",
     "разделом, а не всей заметкой.\n",
+    "Для согласованной правки нескольких заметок используйте preview_transaction → apply_transaction; ",
+    "сохраняйте transactionId, чтобы при необходимости вызвать rollback_transaction.\n",
     "Фоновая работа с другой базой знаний: передайте её address из list_workspaces аргументом workspace — ",
     "поиск, чтение и правка пойдут в фоновом гостевом индексе, а у пользователя на экране ничего не переключится. ",
     "Запрещено вызывать switch_workspace и open_note для чтения или записи — они переключают видимое окно пользователя! ",
@@ -39,6 +42,7 @@ pub fn definitions() -> Vec<Value> {
     let mut all = search::definitions();
     all.extend(notes::definitions());
     all.extend(frontmatter::definitions());
+    all.extend(transaction::definitions());
     all.extend(trash::definitions());
     all.extend(history::definitions());
     all.extend(workspace::definitions());
@@ -49,6 +53,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Result<Value, String>
     search::call(core, name, arguments)
         .or_else(|| notes::call(core, name, arguments))
         .or_else(|| frontmatter::call(core, name, arguments))
+        .or_else(|| transaction::call(core, name, arguments))
         .or_else(|| trash::call(core, name, arguments))
         .or_else(|| history::call(core, name, arguments))
         .or_else(|| workspace::call(core, name, arguments))

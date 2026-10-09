@@ -23,6 +23,7 @@ export class StateBatchQueue {
     this.pendingSession = {
       activeTabId: session.activeTabId,
       tabs: session.tabs ?? this.pendingSession?.tabs ?? null,
+      layout: session.layout ?? this.pendingSession?.layout ?? null,
     };
     void this.drain();
   }
@@ -106,8 +107,12 @@ export class StateBatchQueue {
     if (!this.pendingGraphCamera) this.pendingGraphCamera = graphCamera;
     const newer = this.pendingSession;
     if (!newer) this.pendingSession = session;
-    else if (!newer.tabs && session?.tabs) {
-      this.pendingSession = { ...newer, tabs: session.tabs };
+    else {
+      this.pendingSession = {
+        ...newer,
+        tabs: newer.tabs ?? session?.tabs ?? null,
+        layout: newer.layout ?? session?.layout ?? null,
+      };
     }
     for (const view of views) {
       const key = viewKey(view.documentId, view.paneId);

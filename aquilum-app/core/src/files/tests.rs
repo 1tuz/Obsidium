@@ -164,6 +164,7 @@ fn workspace_filters_and_sorts_entries() {
     fs::write(directory.path().join("Beta.md"), "").expect("beta fixture");
     fs::write(directory.path().join("alpha.md"), "").expect("alpha fixture");
     fs::write(directory.path().join("Gamma.MD"), "").expect("gamma fixture");
+    fs::write(directory.path().join("Projects.base"), "views: []").expect("base fixture");
     fs::write(directory.path().join("photo.png"), "").expect("image fixture");
     fs::write(directory.path().join("doc.pdf"), "").expect("pdf fixture");
     fs::write(directory.path().join("novel.epub"), "").expect("epub fixture");
@@ -182,7 +183,8 @@ fn workspace_filters_and_sorts_entries() {
             "doc.pdf",
             "Gamma",
             "novel.epub",
-            "photo.png"
+            "photo.png",
+            "Projects.base"
         ]
     );
     assert_eq!(items[0].item_type, FileItemType::Folder);

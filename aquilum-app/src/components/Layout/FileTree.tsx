@@ -9,6 +9,8 @@ interface FileTreeProps {
   selectedFiles: ReadonlySet<string>;
   renamingPath: string | null;
   actions: FileTreeActions;
+  icons?: Record<string, import('./iconize').FileIconAssignment>;
+  onIconChange?: (path: string, icon: import('./iconize').FileIconAssignment | null) => void;
 }
 
 export const FileTree = memo(function FileTree({
@@ -17,6 +19,8 @@ export const FileTree = memo(function FileTree({
   selectedFiles,
   renamingPath,
   actions,
+  icons,
+  onIconChange,
 }: FileTreeProps) {
   const activePath = comparablePath(activeFile);
 
@@ -36,6 +40,8 @@ export const FileTree = memo(function FileTree({
             guideDepths={row.guideDepths}
             renaming={renamingPath === row.item.id}
             actions={actions}
+            icon={icons?.[row.item.id]}
+            onIconChange={onIconChange}
           />
         );
       })}

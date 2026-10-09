@@ -76,7 +76,7 @@
   --q-button-shine-ring-default: 0.24;
   --q-button-shine-ring-hover: 0.32;
 
-  --q-editor-bg: var(--q-bg-primary);
+  --q-editor-bg: var(--q-bg-canvas);
   --q-editor-text: color-mix(in srgb, var(--q-text-primary) calc(var(--q-editor-text-opacity) * 100%), transparent);
   --q-editor-text-opacity: var(--q-opacity-90);
   --q-editor-font-family: var(--q-font-family-editor);
@@ -234,6 +234,7 @@
 }
 
 [data-theme="dark"] {
+  --q-editor-bg: color-mix(in srgb, var(--q-bg-canvas) 84%, var(--q-text-primary));
   --q-editor-code-bg: var(--q-bg-sunken);
   --q-block-bg: var(--q-white-alpha-03);
   --q-block-border: var(--q-border-subtle);

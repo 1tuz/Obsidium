@@ -104,6 +104,7 @@ describe('BacklinksPanel', () => {
           onOpenBacklink={onOpenBacklink}
           onOpenOutgoing={onOpenOutgoing}
           onOpenAnalysis={onOpenAnalysis}
+          onOpenLocalGraph={vi.fn()}
         />,
       );
     });
@@ -111,13 +112,13 @@ describe('BacklinksPanel', () => {
     const panel = renderer!.container;
     const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('.q-backlinks__mode-button')];
     const pressed = () => modeButtons.map((button) => button.getAttribute('aria-pressed'));
-    expect(pressed()).toEqual(['true', 'false', 'false', 'false']);
+    expect(pressed()).toEqual(['true', 'false', 'false', 'false', 'false']);
     expect(panel.querySelector('h2')?.textContent).toBe('backlinks.mentionsTitle');
     expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Source');
 
     act(() => modeButtons[1].click());
 
-    expect(pressed()).toEqual(['false', 'true', 'false', 'false']);
+    expect(pressed()).toEqual(['false', 'true', 'false', 'false', 'false']);
     expect(panel.querySelector('h2')?.textContent).toBe('backlinks.outgoingTitle');
     const outgoingButton = panel.querySelector<HTMLElement>('.q-sidebar-document-item')!;
     expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Target');

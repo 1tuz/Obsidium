@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import { ArrowLeft, ArrowRight, MoreHorizontal, Search } from 'lucide';
+import { ArrowLeft, ArrowRight, BookOpen, MoreHorizontal, Pencil, Search } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { IconButton } from '../Common/IconButton';
@@ -18,9 +18,24 @@ interface EditorToolbarProps {
   onExportPdf: () => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
+  readOnly: boolean;
+  onModeChange: (readOnly: boolean) => void;
+  showModeButtons?: boolean;
 }
 
-export function EditorToolbar({ fileName, canGoBack, canGoForward, onNavigate, onSearch, onExportPdf, focusMode, onToggleFocusMode }: EditorToolbarProps) {
+export function EditorToolbar({
+  fileName,
+  canGoBack,
+  canGoForward,
+  onNavigate,
+  onSearch,
+  onExportPdf,
+  focusMode,
+  onToggleFocusMode,
+  readOnly,
+  onModeChange,
+  showModeButtons = true,
+}: EditorToolbarProps) {
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const close = useCallback(() => setPosition(null), []);
@@ -42,6 +57,20 @@ export function EditorToolbar({ fileName, canGoBack, canGoForward, onNavigate, o
     </div>
     {!focusMode && <div className="q-editor-toolbar__name" title={fileName}>{fileName}</div>}
     <div className="q-editor-toolbar__side">
+      {showModeButtons && <>
+        <IconButton
+          label={t('editor.readingMode')}
+          size="medium"
+          aria-pressed={readOnly}
+          onClick={() => onModeChange(true)}
+        ><Icon icon={BookOpen} /></IconButton>
+        <IconButton
+          label={t('editor.editingMode')}
+          size="medium"
+          aria-pressed={!readOnly}
+          onClick={() => onModeChange(false)}
+        ><Icon icon={Pencil} /></IconButton>
+      </>}
       <Button variant="ghost" size="xs" aria-pressed={focusMode} onClick={onToggleFocusMode}>{t('editor.focusMode')}</Button>
       {!focusMode && <IconButton label={t('editor.searchInNote')} size="medium" onClick={onSearch}><Icon icon={Search} /></IconButton>}
       <span ref={triggerRef}><IconButton label={t('editor.noteActions')} size="medium" aria-expanded={Boolean(position)} onClick={openMenu}><Icon icon={MoreHorizontal} /></IconButton></span>

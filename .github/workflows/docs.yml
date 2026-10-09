@@ -1,7 +1,8 @@
-name: Docs checks
+name: Documentation whitespace check
 
 on:
   push:
+    branches: ["**"]
     paths:
       - "*.md"
       - "**/*.md"
@@ -19,6 +20,7 @@ permissions:
 
 jobs:
   docs:
+    name: Markdown and asset whitespace
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
