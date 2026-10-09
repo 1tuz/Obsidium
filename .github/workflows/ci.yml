@@ -3,8 +3,6 @@ name: Fast checks and auto-merge
 on:
   push:
     branches-ignore: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
