@@ -32,10 +32,13 @@ jobs:
         name: Detect changed code
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           base_sha="$PR_BASE_SHA"
-          if [[ -z "$base_sha" ]]; then
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            base_sha="$(git rev-parse "$GITHUB_SHA^" 2>/dev/null || true)"
+          elif [[ -z "$base_sha" ]]; then
             base_sha="$BEFORE_SHA"
           fi
           if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
@@ -46,7 +49,7 @@ jobs:
           fi
 
           git diff --check "$base_sha" "$GITHUB_SHA"
-          changed_files="$(git diff --name-only "$base_sha" "$GITHUB_SHA")"
+          changed_files="$(git diff --no-renames --name-only "$base_sha" "$GITHUB_SHA")"
           frontend=false
           frontend_all=false
           rust_core=false
