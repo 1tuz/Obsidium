@@ -39,6 +39,7 @@ test('repeated pushes cancel the previous CI run for the same branch', () => {
   const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
   assert.match(ci, /cancel-in-progress:\s*true/u);
   assert.match(ci, /group:\s*ci-\$\{\{[^\n]+ref_name/u);
+  assert.match(ci, /group:\s*ci-\$\{\{\s*github\.event_name/u);
 });
 
 test('nightly runs full checks at 02:00 UTC+3 and has no release publication', () => {

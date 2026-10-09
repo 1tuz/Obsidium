@@ -13,7 +13,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -60,7 +60,6 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         id: changes
         with:
-          token: ${{ github.token }}
           base: main
           list-files: json
           filters: .github/filters.yml
