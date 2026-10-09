@@ -83,12 +83,10 @@
 ### Запуск
 
 ```powershell
-aquilum-app
-ativeun.bat
+aquilum-app\native\run.bat
 ```
 
-Собирает release и открывает окно. Пересборка на лету при правке кода: `aquilum-app
-ative\scripts\watch.ps1`.
+Собирает release и открывает окно. Пересборка на лету при правке кода: `aquilum-app\native\scripts\watch.ps1`.
 
 ---
 
