@@ -193,7 +193,7 @@ jobs:
             assert.equal(manifest.version, process.env.RELEASE_TAG.slice(1));
             for (const platform of ["linux-x86_64", "darwin-aarch64", "windows-x86_64"]) {
               assert.ok(manifest.platforms[platform].signature);
-              assert.ok(files.some((file) => manifest.platforms[platform].url.endsWith(`/${file}`)));
+              assert.ok(files.some((file) => manifest.platforms[platform].url.endsWith("/" + file)));
             }
           '
 
