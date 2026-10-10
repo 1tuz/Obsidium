@@ -428,7 +428,7 @@
     "history": {
       "section": "История заметок",
       "retention": "Хранить версии",
-      "retentionHint": "Версии лежат в папке .aquilum/history внутри базы",
+      "retentionHint": "Версии хранятся вместе с базой и управляются автоматически",
       "forever": "Всегда",
       "days": "{{count}} дней",
       "year": "Год"
