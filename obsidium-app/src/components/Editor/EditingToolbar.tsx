@@ -109,7 +109,7 @@ export function EditingToolbar({
     };
   }, [position, view]);
 
-  if (position === 'selection' && (!view || !point)) return null;
+  if (!view || view.state.readOnly || (position === 'selection' && !point)) return null;
 
   return (
     <div
@@ -129,9 +129,7 @@ export function EditingToolbar({
                 key={action}
                 size="small"
                 label={label}
-                disabled={!view || view.state.readOnly}
                 onClick={() => {
-                  if (!view) return;
                   if (action === 'highlight' && highlightrEnabled) setPaletteOpen((open) => !open);
                   else runEditingAction(view, action);
                 }}
