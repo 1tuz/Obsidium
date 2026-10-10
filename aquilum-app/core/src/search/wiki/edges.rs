@@ -32,6 +32,20 @@ pub fn for_each_link<'a, D>(
 where
     D: IntoIterator<Item = (&'a str, &'a str, &'a str)>,
 {
+    for_each_typed_link(connection, root, documents, |source, target, _| {
+        visit(source, target)
+    })
+}
+
+pub fn for_each_typed_link<'a, D>(
+    connection: &Connection,
+    root: &Path,
+    documents: D,
+    mut visit: impl FnMut(&str, &str, &str),
+) -> Result<(), SearchError>
+where
+    D: IntoIterator<Item = (&'a str, &'a str, &'a str)>,
+{
     let mut by_title = HashMap::<&str, Vec<&str>>::new();
     let mut by_relative = HashMap::<&str, Vec<&str>>::new();
     for (path, relative_key, title_key) in documents {
@@ -39,17 +53,18 @@ where
         by_title.entry(title_key).or_default().push(path);
     }
 
-    let mut statement =
-        connection.prepare("SELECT source_path, target_key, target_kind FROM wiki_links")?;
+    let mut statement = connection
+        .prepare("SELECT source_path, target_key, target_kind, link_type FROM wiki_links")?;
     let rows = statement.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,
             row.get::<_, String>(1)?,
             row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
         ))
     })?;
     for row in rows {
-        let (source, key, kind) = row?;
+        let (source, key, kind, link_type) = row?;
         let candidates = if kind == "path" {
             by_relative.get(key.as_str())
         } else {
@@ -60,7 +75,7 @@ where
         else {
             continue;
         };
-        visit(&source, target);
+        visit(&source, target, &link_type);
     }
     Ok(())
 }

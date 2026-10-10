@@ -17,9 +17,27 @@ export interface Palette {
   labelHalo: Color;
 }
 
+export function customEdgeColor(value: string | null | undefined, fallback: Color): Color {
+  const match = value?.match(/^#([\da-f]{6})$/i);
+  if (!match) return fallback;
+  const hex = match[1];
+  return [
+    Number.parseInt(hex.slice(0, 2), 16) / 255,
+    Number.parseInt(hex.slice(2, 4), 16) / 255,
+    Number.parseInt(hex.slice(4, 6), 16) / 255,
+    1,
+  ];
+}
+
+export function colorInputValue(color: Color): string {
+  return `#${color.slice(0, 3).map((channel) =>
+    Math.round(clamp(channel, 0, 1) * 255).toString(16).padStart(2, '0'),
+  ).join('')}`;
+}
+
 export function observePaletteChanges(element: HTMLElement, onChange: () => void): MutationObserver {
   const observer = new MutationObserver(onChange);
-  observer.observe(element, { attributeFilter: ['data-theme', 'data-palette', 'style'] });
+  observer.observe(element, { attributeFilter: ['data-theme', 'data-palette', 'data-motion', 'style'] });
   return observer;
 }
 

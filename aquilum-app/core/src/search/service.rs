@@ -1,13 +1,11 @@
 use super::analysis::graph::GraphSnapshot;
 use super::error::SearchError;
 use super::guest::Guest;
-use super::hybrid;
 use super::index::SearchIndex;
 use super::metadata;
-use super::models::{IndexRevision, SearchIndexStatus, SearchResponse, SearchResult};
+use super::models::{IndexRevision, SearchIndexStatus, SearchResponse};
 use super::paths::{canonical_path, canonical_workspace, same_path};
 use super::progress::IndexProgress;
-use super::semantic::SemanticSearch;
 use super::worker::WorkerHandle;
 use super::{ChangeNotifier, IndexNotifier};
 use std::fs;
@@ -28,9 +26,9 @@ pub struct SearchService {
     index_notifier: IndexNotifier,
     pub analysis_graph: Arc<RwLock<Option<CachedGraph>>>,
     pub render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
+    pub historical_render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
     pub render_lock: Arc<Mutex<()>>,
     pub next_render_epoch: Arc<AtomicU64>,
-    semantic: Arc<SemanticSearch>,
     next_generation: Arc<AtomicU64>,
 }
 
@@ -45,9 +43,29 @@ pub struct CachedRenderGraph {
     pub root: PathBuf,
     pub generation: u64,
     pub revision: u64,
+    pub(crate) model_revision: u64,
+    pub layout_key: String,
     pub epoch: u64,
     pub paths: Arc<Vec<String>>,
     pub bytes: Arc<Vec<u8>>,
+    pub timeline_cursor: i64,
+    pub timeline_rescan_epoch: i64,
+    pub model: Option<super::graph::model::GraphModel>,
+    pub(crate) path_indices: std::collections::HashMap<String, u32>,
+    pub(crate) modified_newest: f32,
+    pub(crate) date_delta_floor_revision: u64,
+    pub(crate) date_delta_journal:
+        std::collections::VecDeque<super::graph::service::GraphModifiedDateDeltaRevision>,
+    pub(crate) edge_slots: Vec<(u32, u32)>,
+    pub(crate) edge_masks: Vec<(u32, u32)>,
+    pub(crate) edge_slot_indices: std::collections::HashMap<(u32, u32), u32>,
+    pub(crate) edge_count: u32,
+    pub(crate) degrees: Vec<u32>,
+    pub(crate) topology_delta_floor_revision: u64,
+    pub(crate) topology_delta_journal:
+        std::collections::VecDeque<super::graph::service::GraphTopologyDeltaRevision>,
+    pub current: bool,
+    pub analysis_stale: bool,
 }
 
 pub struct OpenIndex {
@@ -89,7 +107,6 @@ impl SearchService {
         notifier: ChangeNotifier,
         index_notifier: IndexNotifier,
     ) -> Self {
-        let semantic = Arc::new(SemanticSearch::new(base_directory.clone()));
         Self {
             base_directory,
             active: Arc::new(RwLock::new(None)),
@@ -99,9 +116,9 @@ impl SearchService {
             index_notifier,
             analysis_graph: Arc::new(RwLock::new(None)),
             render_graph: Arc::new(RwLock::new(None)),
+            historical_render_graph: Arc::new(RwLock::new(None)),
             render_lock: Arc::new(Mutex::new(())),
             next_render_epoch: Arc::new(AtomicU64::new(0)),
-            semantic,
             next_generation: Arc::new(AtomicU64::new(0)),
         }
     }
@@ -131,6 +148,7 @@ impl SearchService {
         }
         clear_if(&self.analysis_graph, |_| true);
         clear_if(&self.render_graph, |_| true);
+        clear_if(&self.historical_render_graph, |_| true);
         let snapshot = progress.snapshot();
         (self.index_notifier)(IndexRevision {
             workspace_path: workspace.to_owned(),
@@ -184,9 +202,7 @@ impl SearchService {
             clear_if(&analysis_graph, |cached| {
                 cached.root == root && cached.generation == generation
             });
-            clear_if(&render_graph, |cached| {
-                cached.root == root && cached.generation == generation
-            });
+            mark_render_graph_stale(&render_graph, &root, generation);
             if visible.load(Ordering::Relaxed) {
                 (index_notifier)(event);
             }
@@ -200,35 +216,15 @@ impl SearchService {
         limit: Option<usize>,
     ) -> Result<SearchResponse, SearchError> {
         let found = self.with_index(workspace, |open| {
-            Ok((
-                open.root.clone(),
-                Arc::clone(&open.index),
-                Arc::clone(&open.progress),
-            ))
+            Ok((Arc::clone(&open.index), Arc::clone(&open.progress)))
         });
-        let (root, index, progress) = match found {
+        let (index, progress) = match found {
             Ok(found) => found,
             Err(SearchError::Unavailable { .. }) => return Ok(SearchResponse::idle()),
             Err(error) => return Err(error),
         };
         let limit = limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-        let candidate_limit = (limit * 4).clamp(40, MAX_LIMIT);
-        let (query_terms, lexical) = index.search(query, candidate_limit)?;
-        let semantic = if needs_semantic_search(&query_terms, &lexical) {
-            match self
-                .semantic
-                .search(&root, query, candidate_limit, progress.snapshot().revision)
-            {
-                Ok(results) => results,
-                Err(error) => {
-                    eprintln!("[aquilum:semantic] {error}; falling back to BM25");
-                    Vec::new()
-                }
-            }
-        } else {
-            Vec::new()
-        };
-        let results = hybrid::rerank(&root, lexical, semantic, limit);
+        let (query_terms, results) = index.search(query, limit)?;
         Ok(SearchResponse {
             query_terms,
             results,
@@ -381,12 +377,20 @@ fn clear_if<T>(cache: &RwLock<Option<T>>, stale: impl Fn(&T) -> bool) {
     }
 }
 
-fn needs_semantic_search(query_terms: &[String], lexical: &[SearchResult]) -> bool {
-    !lexical.first().is_some_and(|result| {
-        query_terms
-            .iter()
-            .all(|term| result.matched_terms.contains(term))
-    })
+fn mark_render_graph_stale(
+    cache: &RwLock<Option<CachedRenderGraph>>,
+    root: &Path,
+    generation: u64,
+) {
+    if let Ok(mut cached) = cache.write() {
+        if let Some(cached) = cached
+            .as_mut()
+            .filter(|cached| cached.root == root && cached.generation == generation)
+        {
+            cached.current = false;
+            cached.analysis_stale = true;
+        }
+    }
 }
 
 fn remove_stale_indexes(storage: &Path, current: &Path) {
@@ -403,11 +407,11 @@ fn remove_stale_indexes(storage: &Path, current: &Path) {
         }
         match fs::remove_dir_all(&path) {
             Ok(()) => eprintln!(
-                "[aquilum:index] удалён индекс старой версии {}",
+                "[obsidium:index] удалён индекс старой версии {}",
                 path.display()
             ),
             Err(error) => eprintln!(
-                "[aquilum:index] индекс старой версии не удалён {}: {error}",
+                "[obsidium:index] индекс старой версии не удалён {}: {error}",
                 path.display()
             ),
         }
@@ -426,42 +430,8 @@ pub fn workspace_root(workspace: &str) -> Result<PathBuf, SearchError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{needs_semantic_search, remove_stale_indexes};
-    use crate::search::models::SearchResult;
+    use super::remove_stale_indexes;
     use std::fs;
-
-    fn result(matched_terms: &[&str]) -> SearchResult {
-        SearchResult {
-            path: String::new(),
-            title: String::new(),
-            extension: "md".to_owned(),
-            snippet: String::new(),
-            match_count: matched_terms.len(),
-            match_offset: 0,
-            heading: None,
-            matched_terms: matched_terms
-                .iter()
-                .map(|term| (*term).to_owned())
-                .collect(),
-        }
-    }
-
-    #[test]
-    fn semantic_search_is_skipped_when_best_lexical_result_covers_query() {
-        assert!(!needs_semantic_search(
-            &["rust".to_owned(), "async".to_owned()],
-            &[result(&["rust", "async"])],
-        ));
-    }
-
-    #[test]
-    fn semantic_search_fills_a_query_that_lexical_results_miss() {
-        assert!(needs_semantic_search(
-            &["rust".to_owned(), "async".to_owned()],
-            &[result(&["rust"])],
-        ));
-        assert!(needs_semantic_search(&["rust".to_owned()], &[]));
-    }
 
     #[test]
     fn only_the_current_index_version_stays_on_disk() {

@@ -295,6 +295,14 @@ pub struct AppConfig {
     pub templates: TemplateSettings,
     pub files: FilesSettings,
     pub updates: UpdateSettings,
+    pub graph: GraphSettings,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GraphSettings {
+    pub preferences: Option<serde_json::Value>,
+    pub presets: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
