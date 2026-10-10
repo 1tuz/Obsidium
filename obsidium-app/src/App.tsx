@@ -47,6 +47,7 @@ import { flushDocuments } from "./modules/documents/documentGateway";
 import { useWindowDocumentSync } from "./modules/documents/useWindowDocumentSync";
 import { applyTemplateToDocument } from "./components/Editor/docMutations";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isMacOs } from "./modules/platform";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
 import { useThemeMode } from "./hooks/useThemeMode";
@@ -163,6 +164,13 @@ export default function App() {
       ui: { ...currentConfig.ui, appearance: themeMode === 'dark' ? 'light' : 'dark' },
     }).catch((error) => console.error('Failed to switch theme', error));
   }, [config, loadConfig, themeMode, updateConfig]);
+
+  useEffect(() => {
+    if (!isMacOs() || !config) return;
+    const appearance = config.ui.appearance;
+    void getCurrentWindow().setTheme(appearance === 'system' ? null : appearance)
+      .catch((error) => console.error('Failed to sync native window theme', error));
+  }, [config?.ui.appearance]);
 
   useEffect(() => {
     void applyVaultSnippets(workspacePath, config?.ui.enabledSnippets ?? {});
@@ -711,6 +719,7 @@ export default function App() {
           onPatchFileInTree={patchFileInTree}
           panel={sidebarPanel}
           onOpenBaseView={openBaseView}
+          onBoardRenamed={handleFileRenamed}
           boardActionRequest={boardActionRequest}
           onBoardActionRequestComplete={() => setBoardActionRequest(null)}
           createBoardRequest={createBoardRequest}

@@ -11,12 +11,22 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('../../modules/documents/fileGateway', () => ({
+  createAtFreeName: vi.fn(async (pathFor: (attempt: number) => string, create: (path: string) => Promise<unknown>) => {
+    const path = pathFor(0);
+    await create(path);
+    return path;
+  }),
+  createFile: vi.fn(async () => ({ hash: 'new' })),
+  ensureDirectory: vi.fn(async () => undefined),
   readFileSnapshot: vi.fn(async () => ({ content: [
     'views:',
     '  - type: table',
     '    name: Overview',
     '  - type: kanban',
     '    name: By status',
+    '    groupBy:',
+    '      property: status',
+    '    groupOrder: [todo, doing, done]',
     '  - type: kanban',
     '    name: By owner',
   ].join('\n'), hash: 'hash', textHash: 'hash' })),
@@ -32,7 +42,7 @@ vi.mock('../../modules/ui-state/gateway', () => ({
 
 const { BaseView } = await import('./BaseView');
 const { saveBaseView } = await import('../../modules/ui-state/gateway');
-const { writeFileAtomic } = await import('../../modules/documents/fileGateway');
+const { createFile, writeFileAtomic } = await import('../../modules/documents/fileGateway');
 
 describe('BaseView view selection', () => {
   let renderer: MountedDom | null = null;
@@ -99,7 +109,7 @@ describe('BaseView view selection', () => {
     state.loadDeferred = null;
   });
 
-  it('drags a kanban note to another value and saves that value', async () => {
+  it('moves a kanban note to another value and saves that value', async () => {
     state.rows = [
       { path: '/vault/Task.md', fields: { status: 'todo' } },
       { path: '/vault/Done.md', fields: { status: 'done' } },
@@ -117,24 +127,11 @@ describe('BaseView view selection', () => {
 
     const card = [...renderer!.container.querySelectorAll<HTMLElement>('.q-base-kanban__card')]
       .find((candidate) => candidate.textContent?.includes('Task'))!;
-    expect(card.getAttribute('draggable')).toBe('true');
-    const values: Record<string, string> = {};
-    const dataTransfer = {
-      setData: vi.fn((type: string, value: string) => { values[type] = value; }),
-      getData: (type: string) => values[type] ?? '',
-      effectAllowed: '',
-    };
-    const dragStart = new Event('dragstart', { bubbles: true });
-    Object.defineProperty(dragStart, 'dataTransfer', { value: dataTransfer });
-    act(() => { card.dispatchEvent(dragStart); });
-    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '/vault/Task.md');
-    expect(dataTransfer.effectAllowed).toBe('move');
-
-    const columns = renderer!.container.querySelectorAll<HTMLElement>('.q-base-kanban__column');
-    const drop = new Event('drop', { bubbles: true, cancelable: true });
-    Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
-    const doneColumn = [...columns].find((column) => column.textContent?.includes('done'))!;
-    act(() => { doneColumn.dispatchEvent(drop); });
+    const select = card.querySelector<HTMLSelectElement>('.q-base-kanban__move')!;
+    act(() => {
+      select.value = 'done';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     await actAndSettle();
     expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
       '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
@@ -156,5 +153,53 @@ describe('BaseView view selection', () => {
 
     expect(renderer!.container.textContent).toContain(t('bases.kanbanUnassigned'));
     expect(renderer!.container.textContent).toContain('Unsorted');
+  });
+
+  it('adds a Markdown card in the selected Kanban column using the footer plus', async () => {
+    const props = {
+      path: '/vault/Project.base', workspacePath: '/vault', indexReady: true, indexRevision: 0,
+      onOpenNote: vi.fn(), viewRequest: { path: '/vault/Project.base', index: 1, id: 2 },
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    const addButton = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-base-kanban__add')]
+      .find((button) => button.getAttribute('aria-label') === t('bases.kanbanAddTo', { column: 'todo' }));
+    expect(addButton).toBeDefined();
+    act(() => addButton!.click());
+    await actAndSettle();
+    const input = renderer!.container.querySelector<HTMLInputElement>('.q-base-kanban__composer input')!;
+    input.value = 'Ship patch';
+    act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle();
+    const createButton = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-base-kanban__composer button')]
+      .find((button) => button.textContent === t('bases.kanbanCreate'))!;
+    act(() => createButton.click());
+    await actAndSettle();
+
+    expect(createFile).toHaveBeenCalledWith(
+      '/vault/Ship patch.md', '---\nstatus: "todo"\n---\n\n# Ship patch\n',
+    );
+    expect(renderer!.container.textContent).toContain('Ship patch');
+  });
+
+  it('moves an unassigned card using the keyboard-accessible column selector', async () => {
+    state.rows = [{ path: '/vault/Unsorted.md', fields: {} }];
+    act(() => { renderer = mountDom(<BaseView
+      path="/vault/Project.base" workspacePath="/vault" indexReady indexRevision={0}
+      onOpenNote={vi.fn()} viewRequest={{ path: '/vault/Project.base', index: 1, id: 3 }}
+    />); });
+    await actAndSettle();
+    const unassigned = [...renderer!.container.querySelectorAll<HTMLElement>('.q-base-kanban__column')]
+      .find((column) => column.querySelector('.q-base-kanban__card')?.textContent?.includes('Unsorted'))!;
+    const select = unassigned.querySelector<HTMLSelectElement>('.q-base-kanban__move')!;
+    act(() => {
+      select.value = 'todo';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await actAndSettle();
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Unsorted.md', expect.stringContaining('status: todo'), 'hash',
+    );
   });
 });

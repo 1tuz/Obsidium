@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide';
+import { ChevronDown, ChevronUp, ExternalLink, Plus } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
-import { fileName } from '../../modules/paths';
-import { readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
+import { childPath, fileName } from '../../modules/paths';
+import { createAtFreeName, createFile, ensureDirectory, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
+import { sanitizeFileName } from '../../modules/documents/documentFactory';
 import { setFrontmatterField } from '../../modules/docs/frontmatter';
 import { loadBaseView, saveBaseView } from '../../modules/ui-state/gateway';
 import {
   baseProperty,
+  boardMembership,
   buildKanbanColumns,
   evaluateBaseFilter,
   getBaseRows,
@@ -21,6 +23,7 @@ import {
   type BaseSort,
   type BaseViewDefinition,
 } from '../../modules/bases';
+import { planKanbanCard } from '../../modules/bases/cardCreation';
 import { resolveBaseViewIndex } from '../../modules/bases/viewSelection';
 import './BaseView.css';
 
@@ -225,6 +228,24 @@ export function BaseView({
     } : current);
   };
 
+  const createCard = async (title: string, groupValue: string) => {
+    if (!loaded) return;
+    const viewIndex = Math.min(activeView, loaded.definition.views.length - 1);
+    const draft = planKanbanCard(loaded.definition, viewIndex, path, workspacePath, title, groupValue);
+    const safeName = sanitizeFileName(title);
+    if (!safeName) throw new Error(t('bases.kanbanInvalidTitle'));
+    await ensureDirectory(draft.directory);
+    const created = await createAtFreeName(
+      (attempt) => childPath(draft.directory, `${safeName}${attempt ? ` ${attempt}` : ''}.md`),
+      (candidate) => createFile(candidate, draft.content),
+    );
+    if (!created) throw new Error(t('bases.kanbanNameExhausted'));
+    setLoaded((current) => current && current.path === path ? {
+      ...current,
+      rows: [...current.rows.filter((row) => row.path !== created), { path: created, fields: draft.fields }],
+    } : current);
+  };
+
   const toggleSort = (property: string) => {
     setSort((current) => current[0]?.property === property
       ? [{ property, direction: current[0].direction === 'ASC' ? 'DESC' : 'ASC' }]
@@ -272,8 +293,10 @@ export function BaseView({
             columns={columns}
             definition={loaded.definition}
             view={view}
+            viewIndex={Math.min(activeView, loaded.definition.views.length - 1)}
             workspacePath={workspacePath}
             onCommit={commitProperty}
+            onCreate={createCard}
             onOpen={onOpenNote}
           />
         ) : grouped.map((group) => (
@@ -471,18 +494,27 @@ function BaseKanban({
   columns,
   definition,
   view,
+  viewIndex,
   workspacePath,
   onCommit,
+  onCreate,
   onOpen,
 }: {
   rows: BaseRow[];
   columns: string[];
   definition: BaseDefinition;
   view: BaseViewDefinition;
+  viewIndex: number;
   workspacePath: string;
   onCommit: (row: BaseRow, property: string, value: string) => Promise<void>;
+  onCreate: (title: string, group: string) => Promise<void>;
   onOpen: (path: string) => void;
 }) {
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+  const [dragOver, setDragOver] = useState<string | null>(null);
   const groupProperty = kanbanProperty(view);
   const writable = kanbanWritableProperty(groupProperty);
   const board = buildKanbanColumns(rows, view, workspacePath);
@@ -490,56 +522,158 @@ function BaseKanban({
     .filter((property) => property !== 'file.name' && property !== groupProperty)
     .slice(0, 4);
 
-  const move = (event: DragEvent, value: string) => {
-    if (!writable) return;
-    event.preventDefault();
-    const path = event.dataTransfer?.getData('text/plain');
-    const row = rows.find((candidate) => candidate.path === path);
-    if (!row) return;
+  const move = async (row: BaseRow, value: string) => {
+    if (!writable || Array.isArray(baseProperty(row, groupProperty, workspacePath))) {
+      setError(t('bases.kanbanNotWritable'));
+      return;
+    }
+    const membership = boardMembership(definition, viewIndex);
+    if (membership.kind === 'property'
+      && membership.property === groupProperty.replace(/^note\./, '')
+      && value !== membership.value) {
+      setError(t('bases.kanbanExcluded'));
+      return;
+    }
     const current = displayValue(baseProperty(row, groupProperty, workspacePath));
     if (current === value) return;
-    void onCommit(row, groupProperty, value)
-      .catch((error) => console.error('Failed to move base kanban card', error));
+    try {
+      await onCommit(row, groupProperty, value);
+      setError('');
+    } catch (cause) {
+      setError(t('bases.kanbanMoveError', { reason: String(cause) }));
+    }
+  };
+
+  const drop = (event: DragEvent, value: string) => {
+    if (!writable) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDragOver(null);
+    const path = event.dataTransfer?.getData('text/plain');
+    const row = rows.find((candidate) => candidate.path === path);
+    if (row) void move(row, value);
+  };
+
+  const create = async (value: string) => {
+    if (!draft.trim() || creating) return;
+    setCreating(true);
+    setError('');
+    try {
+      await onCreate(draft.trim(), value);
+      setDraft('');
+      setAddingTo(null);
+    } catch (cause) {
+      setError(t('bases.kanbanCreateError', { reason: String(cause) }));
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
-    <div className="q-base-kanban" role="list">
-      {board.map((column) => (
-        <section
-          key={column.key}
-          className="q-base-kanban__column"
-          onDragOver={(event) => { if (writable) event.preventDefault(); }}
-          onDrop={(event) => move(event, column.value)}
-        >
-          <header className="q-base-kanban__header">
-            <span>{column.value || t('bases.kanbanUnassigned')}</span>
-            <strong>{column.rows.length}</strong>
-          </header>
-          <div className="q-base-kanban__cards">
-            {column.rows.map((row) => (
-              <article
-                key={row.path}
-                className="q-base-kanban__card"
-                draggable={writable}
-                onDragStart={(event) => {
-                  event.dataTransfer?.setData('text/plain', row.path);
-                  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-                }}
-              >
-                <button type="button" className="q-base-card__title" onClick={() => onOpen(row.path)}>
-                  {rowTitle(row, workspacePath)}
-                </button>
-                {cardFields.map((property) => (
-                  <div className="q-base-card__property" key={property}>
-                    <span>{propertyLabel(definition, property)}</span>
-                    <strong>{displayValue(baseProperty(row, property, workspacePath)) || '—'}</strong>
+    <div className="q-base-kanban-wrapper">
+      {error && <p className="q-base-kanban__error" role="alert">{error}</p>}
+      <div className="q-base-kanban" role="list">
+        {board.map((column) => (
+          <section
+            key={column.key}
+            className={`q-base-kanban__column${dragOver === column.key ? ' q-base-kanban__column--drop' : ''}`}
+            onDragEnter={(event) => {
+              if (writable) { event.preventDefault(); setDragOver(column.key); }
+            }}
+            onDragOver={(event) => {
+              if (writable) {
+                event.preventDefault();
+                if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+              }
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(null);
+            }}
+            onDrop={(event) => drop(event, column.value)}
+          >
+            <header className="q-base-kanban__header">
+              <span title={!column.value ? t('bases.kanbanUnassignedHint') : undefined}>
+                {column.value || t('bases.kanbanUnassigned')}
+              </span>
+              <strong>{column.rows.length}</strong>
+            </header>
+            <div className="q-base-kanban__cards">
+              {column.rows.map((row) => (
+                <article
+                  key={row.path}
+                  className="q-base-kanban__card"
+                  draggable={writable}
+                  onDragStart={(event) => {
+                    event.dataTransfer?.setData('text/plain', row.path);
+                    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnd={() => setDragOver(null)}
+                >
+                  <button type="button" className="q-base-card__title" onClick={() => onOpen(row.path)}>
+                    {rowTitle(row, workspacePath)}
+                  </button>
+                  {cardFields.map((property) => (
+                    <div className="q-base-card__property" key={property}>
+                      <span>{propertyLabel(definition, property)}</span>
+                      <strong>{displayValue(baseProperty(row, property, workspacePath)) || '—'}</strong>
+                    </div>
+                  ))}
+                  {writable && (
+                    <select
+                      className="q-base-kanban__move"
+                      draggable={false}
+                      aria-label={t('bases.kanbanMoveTo', { title: rowTitle(row, workspacePath) })}
+                      value={column.value}
+                      onChange={(event) => void move(row, event.currentTarget.value)}
+                    >
+                      {board.map((target) => (
+                        <option value={target.value} key={target.key}>
+                          {target.value || t('bases.kanbanUnassigned')}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </article>
+              ))}
+            </div>
+            <div className="q-base-kanban__footer">
+              {addingTo === column.key ? (
+                <div className="q-base-kanban__composer">
+                  <input
+                    autoFocus
+                    value={draft}
+                    placeholder={t('bases.kanbanCardTitle')}
+                    aria-label={t('bases.kanbanCardTitle')}
+                    disabled={creating}
+                    onChange={(event) => setDraft(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') { event.preventDefault(); void create(column.value); }
+                      if (event.key === 'Escape') { setAddingTo(null); setDraft(''); setError(''); }
+                    }}
+                  />
+                  <div className="q-base-kanban__composer-actions">
+                    <button type="button" disabled={creating || !draft.trim()} onClick={() => void create(column.value)}>
+                      {creating ? t('bases.kanbanCreating') : t('bases.kanbanCreate')}
+                    </button>
+                    <button type="button" disabled={creating} onClick={() => { setAddingTo(null); setDraft(''); }}>
+                      {t('common.cancel')}
+                    </button>
                   </div>
-                ))}
-              </article>
-            ))}
-          </div>
-        </section>
-      ))}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="q-base-kanban__add"
+                  aria-label={t('bases.kanbanAddTo', { column: column.value || t('bases.kanbanUnassigned') })}
+                  onClick={() => { setDraft(''); setError(''); setAddingTo(column.key); }}
+                >
+                  <Icon icon={Plus} /> {t('bases.kanbanAdd')}
+                </button>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

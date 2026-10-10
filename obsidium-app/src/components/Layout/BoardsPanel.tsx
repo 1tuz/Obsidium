@@ -31,7 +31,7 @@ import {
   type FileSnapshot,
 } from '../../modules/documents/fileGateway';
 import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile';
-import { childPath } from '../../modules/paths';
+import { childPath, fileStem } from '../../modules/paths';
 import { boardTree, type BoardFolder } from '../../modules/bases/boardTree';
 import './BoardsPanel.css';
 
@@ -45,6 +45,7 @@ interface BoardsPanelProps {
   active: boolean;
   workspacePath: string | null;
   onOpenView: (path: string, viewIndex: number) => void;
+  onBoardRenamed?: (oldPath: string, newPath: string) => void;
   actionRequest: BoardActionRequest | null;
   onActionRequestComplete: () => void;
   createRequest: number;
@@ -139,6 +140,7 @@ export function BoardsPanel({
   active,
   workspacePath,
   onOpenView,
+  onBoardRenamed,
   actionRequest,
   onActionRequestComplete,
   createRequest,
@@ -228,15 +230,35 @@ export function BoardsPanel({
 
   const saveBoardName = async (name: string) => {
     if (!renameTarget || boardActionPending) return;
+    const nextName = name.trim().replace(/\.base$/i, '');
+    if (!nextName) { setRenameError(t('boards.invalidName')); return; }
     setBoardActionPending(true);
     setRenameError('');
     try {
       const nextPath = await renameWorkspaceFile(
         renameTarget.path,
-        name,
+        nextName,
         (content, stem) => renameFirstKanbanView(content, stem),
       );
-      if (!nextPath && name.trim() !== renameTarget.name) throw new Error(t('boards.invalidName'));
+      if (!nextPath && nextName !== renameTarget.name) throw new Error(t('boards.invalidName'));
+      if (nextPath) {
+        const actualName = nextPath.replace(/.*[\\/]/u, '').replace(/\.base$/i, '');
+        cache.current.delete(renameTarget.path);
+        cache.current.delete(nextPath);
+        setBoards((current) => current.map((board) => {
+          if (board.path !== renameTarget.path) return board;
+          const firstKanban = board.views[0]?.index;
+          return {
+            ...board,
+            path: nextPath,
+            name: actualName,
+            views: board.views.map((view) => (
+              view.index === firstKanban ? { ...view, name: actualName } : view
+            )),
+          };
+        }));
+        onBoardRenamed?.(renameTarget.path, nextPath);
+      }
       setRenameTarget(null);
       await refresh();
     } catch (error) {
@@ -313,7 +335,7 @@ export function BoardsPanel({
         open={newOpen}
         workspacePath={workspacePath}
         onClose={() => setNewOpen(false)}
-        onCreated={() => { void refresh(); }}
+        onCreated={(createdPath) => { void refresh(); onOpenView(createdPath, 0); }}
       />
       <BoardActionDialog
         request={actionRequest}
@@ -395,10 +417,10 @@ function NewBoardDialog({
   open: boolean;
   workspacePath: string | null;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (createdPath: string) => void;
 }) {
   const [name, setName] = useState('');
-  const [sourceKind, setSourceKind] = useState<KanbanBoardSource['kind']>('wholeVault');
+  const [sourceKind, setSourceKind] = useState<KanbanBoardSource['kind']>('tag');
   const [folder, setFolder] = useState('');
   const [tag, setTag] = useState('');
   const [property, setProperty] = useState('project');
@@ -416,23 +438,25 @@ function NewBoardDialog({
       setError(t('boards.invalidName'));
       return;
     }
+    const autoTag = (stem: string) => `board/${stem.replace(/\s+/g, '-').toLowerCase()}`;
     const source: KanbanBoardSource = sourceKind === 'folder'
       ? { kind: 'folder', folder }
       : sourceKind === 'tag'
-        ? { kind: 'tag', tag }
+        ? { kind: 'tag', tag: tag.trim() || autoTag(fileName) }
         : sourceKind === 'property'
           ? { kind: 'property', property, value: propertyValue }
           : sourceKind === 'custom'
             ? { kind: 'custom', filter: custom }
             : { kind: 'wholeVault' };
+    const definition = {
+      name: fileName,
+      source,
+      groupBy,
+      columns: columns.split(',').map((column) => column.trim()),
+    };
     let content: string;
     try {
-      content = buildKanbanBase({
-        name: fileName,
-        source,
-        groupBy,
-        columns: columns.split(',').map((column) => column.trim()),
-      });
+      content = buildKanbanBase(definition);
     } catch (cause) {
       setError(String(cause));
       return;
@@ -443,10 +467,12 @@ function NewBoardDialog({
       const path = childPath(workspacePath, `${fileName}.base`);
       const created = await createAtFreeName(
         (attempt) => attempt === 0 ? path : childPath(workspacePath, `${fileName} (${attempt}).base`),
-        (candidate) => createFile(candidate, content),
+        (candidate) => createFile(candidate, sourceKind === 'tag' && !tag.trim()
+          ? buildKanbanBase({ ...definition, source: { kind: 'tag', tag: autoTag(fileStem(candidate)) } })
+          : content),
       );
       if (!created) throw new Error(t('boards.nameExhausted'));
-      onCreated();
+      onCreated(created);
       onClose();
       setName('');
     } catch (cause) {
@@ -472,7 +498,7 @@ function NewBoardDialog({
           <option value="custom">{t('boards.customFilter')}</option>
         </select>)}
         {sourceKind === 'folder' && label(t('boards.folder'), <input value={folder} onChange={(event: ChangeEvent<HTMLInputElement>) => setFolder(event.currentTarget.value)} />)}
-        {sourceKind === 'tag' && label(t('boards.tag'), <input value={tag} onChange={(event: ChangeEvent<HTMLInputElement>) => setTag(event.currentTarget.value)} />)}
+        {sourceKind === 'tag' && label(t('boards.tag'), <input value={tag} placeholder={t('boards.autoTagHint')} onChange={(event: ChangeEvent<HTMLInputElement>) => setTag(event.currentTarget.value)} />)}
         {sourceKind === 'property' && <>
           {label(t('boards.property'), <input value={property} onChange={(event: ChangeEvent<HTMLInputElement>) => setProperty(event.currentTarget.value)} />)}
           {label(t('boards.propertyValue'), <input value={propertyValue} onChange={(event: ChangeEvent<HTMLInputElement>) => setPropertyValue(event.currentTarget.value)} />)}
