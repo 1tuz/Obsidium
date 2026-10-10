@@ -1,23 +1,30 @@
 # Релиз и автообновление
 
-## Установка и удаление на macOS через curl
+## Установка и удаление одной командой
 
-После публикации релиза macOS приложение можно установить без клонирования репозитория:
+После публикации релиза приложение можно установить без клонирования репозитория. На Apple Silicon macOS и Ubuntu 24 x64 Bash-скрипт выбирает подходящий пакет:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.sh | bash
 ```
 
-Скрипт выбирает DMG Apple Silicon (`arm64`) через GitHub Releases API и устанавливает `Obsidium.app`
-в `~/Applications`. При обновлении удаляет старый `Aquilum.app`. Удаление:
+На macOS скрипт устанавливает `Obsidium.app` в `~/Applications`, на Ubuntu устанавливает `.deb`
+через `dpkg`. Удаление:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.sh | bash
 ```
 
-Удаление затрагивает только `~/Applications/Obsidium.app` и старый `~/Applications/Aquilum.app`.
-Vault, Markdown-файлы, вложения и каталог данных приложения не удаляются. Скрипты работают с
-опубликованным GitHub Release, не с черновиком.
+На Windows x64 используйте PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.ps1 | iex
+```
+
+Windows-скрипты скачивают точный x64 NSIS asset последнего опубликованного релиза и используют
+запись удаления Obsidium текущего пользователя. Все три варианта работают с опубликованным GitHub
+Release, не с черновиком; они не удаляют vault, Markdown-файлы, вложения или данные приложения.
 
 ## Статус: обязательно соблюдать
 

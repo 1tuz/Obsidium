@@ -25,13 +25,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: aquilum-app/package-lock.json
+          cache-dependency-path: obsidium-app/package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: aquilum-app/src-tauri -> target
+          workspaces: obsidium-app/src-tauri -> target
 
       - name: Install Tauri Linux test dependencies
         run: |
@@ -41,25 +41,26 @@ jobs:
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
 
       - name: Install frontend dependencies
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         run: npm ci
 
       - name: Check TypeScript
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         run: npx tsc --noEmit
 
       - name: Run complete Vitest suite
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         run: npm test
 
       - name: Build frontend
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         run: npm run build
 
       - name: Run complete Rust workspace tests
-        run: cargo test --locked --manifest-path aquilum-app/src-tauri/Cargo.toml --workspace
+        run: cargo test --locked --manifest-path obsidium-app/src-tauri/Cargo.toml --workspace
 
       - name: Test installer scripts
         run: |
           bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
           bash scripts/test-install-scripts.sh
+          pwsh -NoProfile -File scripts/test-install-windows.ps1

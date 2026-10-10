@@ -50,7 +50,7 @@ label двигает блок.
 ## Архитектура исходников
 
 ```text
-aquilum-app/src/components/Editor/extensions/tables/
+obsidium-app/src/components/Editor/extensions/tables/
 ├── model.ts                  данные, инварианты, merge, moveRows/Columns
 ├── markdown.ts               Markdown ⇄ TableModel
 ├── constructs.ts             поиск таблиц и safe serialize

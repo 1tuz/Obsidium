@@ -1,6 +1,6 @@
 # Frontend Bundle Size
 
-Measured with `npm run build` in `aquilum-app`; values are emitted asset sizes, followed by gzip sizes.
+Measured with `npm run build` in `obsidium-app`; values are emitted asset sizes, followed by gzip sizes.
 
 | Asset | Before Theme Engine follow-up | After Theme Engine follow-up | Change |
 | --- | ---: | ---: | ---: |

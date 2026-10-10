@@ -13,17 +13,17 @@ Aquilum читает EPUB/MOBI/AZW3/FB2 из vault (`Files/…`), хранит *
 ## Файлы
 
 ```text
-aquilum-app/src/components/Reader/
+obsidium-app/src/components/Reader/
 ├── BookReader.tsx      overlay UI, selection → цитата
 ├── BookReader.css      оверлей, панель, навигация, поповер настроек
 ├── ReaderSettingsPopover.tsx  поповер «Настройки чтения» в шапке
 └── ReaderEngine.ts     обёртка foliate-js (vendor submodule)
 
-aquilum-app/src/components/Editor/hooks/
+obsidium-app/src/components/Editor/hooks/
 ├── useEditorReader.ts  сессия читалки, progressPagePath
 └── useEditorBookPage.ts страница книги, FM, загрузка файла
 
-aquilum-app/src/modules/docs/
+obsidium-app/src/modules/docs/
 ├── books.ts            import EPUB → Files/, pick dialog
 ├── bookProgress.ts     synthetic pages N/M (bytes / 1024)
 ├── bookQuotes.ts       aquilum-reader: ссылки и blockquote-цитаты
@@ -35,7 +35,7 @@ aquilum-app/src/modules/docs/
 ├── docPath.ts          нормализация путей вкладка ↔ wiki
 └── ydocContent.ts      patch FM в Y.Doc без remount редактора
 
-aquilum-app/vendor/foliate-js   git submodule
+obsidium-app/vendor/foliate-js   git submodule
 src-tauri/src/ui_state/reader.rs  SQLite reader_state
 ```
 
@@ -133,7 +133,7 @@ highlight, **без** записи прогресса (`highlightCfi` → не �
 ## Submodule foliate-js
 
 ```text
-.gitmodules → aquilum-app/vendor/foliate-js
+.gitmodules → obsidium-app/vendor/foliate-js
 ```
 
 Сборка: Vite alias `foliate-js` в `vite.config.ts`. Prefetch при attach книги /

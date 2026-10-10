@@ -1,11 +1,11 @@
-# Структура проекта Aquilum
+# Структура проекта Obsidium
 
 ## Статус: ✅ Фаза 1 — Базовый сетап завершён
 
 ## Расположение
 
 ```
-D:\My programs\Aquilum\
+D:\My programs\Obsidium\
 ├── knowledge base\        ← документация проекта
 ├── .artifacts\            ← ВСЕ сборки (gitignore); dev ≠ release
 │   ├── cargo-dev\         ← только debug (tauri dev / cargo test)
@@ -13,7 +13,7 @@ D:\My programs\Aquilum\
 │   ├── dist\              ← production-фронт Vite
 │   └── releases\          ← setup.exe + latest.json по версиям → GitHub Release
 │
-└── aquilum-app\           ← исходный код приложения
+└── obsidium-app\          ← исходный код приложения
     ├── index.html
     ├── package.json
     ├── vite.config.ts     ← outDir → ../.artifacts/dist

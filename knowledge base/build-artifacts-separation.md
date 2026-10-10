@@ -14,7 +14,7 @@ Dev и Release **изолированы**. Локальная разработк
 
 `npm run release` запускает только локальную Windows-сборку; общий источник пакетов — GitHub Actions.
 
-Рабочая папка: `aquilum-app/`.
+Рабочая папка: `obsidium-app/`.
 
 Подробнее про заливку в GitHub: [[release-and-updates]]
 
@@ -69,7 +69,7 @@ GitHub Actions кэширует Cargo напрямую в `.artifacts/cargo-rele
 если одна сборка падает.
 
 ```
-Исходники (aquilum-app/)
+Исходники (obsidium-app/)
         │
         ├─ npm run tauri dev ──► cargo-dev/     (debug)
         │
@@ -118,6 +118,6 @@ Junction `src-tauri/target` и кэши cargo хранят абсолютные 
 
 - [[release-and-updates]] — локальный релиз + updater
 - [[cross-platform-build]] — на будущее (macOS/Linux)
-- `aquilum-app/scripts/tauri.mjs` — единая точка входа для Tauri CLI
-- `aquilum-app/scripts/lib/cargo-junction.mjs` — логика разделения dev/release
-- `aquilum-app/scripts/build-release.mjs` — локальная сборка Windows
+- `obsidium-app/scripts/tauri.mjs` — единая точка входа для Tauri CLI
+- `obsidium-app/scripts/lib/cargo-junction.mjs` — логика разделения dev/release
+- `obsidium-app/scripts/build-release.mjs` — локальная сборка Windows

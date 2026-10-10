@@ -6,12 +6,12 @@ Ctrl+F ищет только внутри открытого документа 
 
 Ключевые файлы:
 
-- `aquilum-app/src/components/Editor/EditorPane.tsx` — перехватывает Ctrl/Cmd+F и открывает панель;
-- `aquilum-app/src/components/Editor/PageSearchBar.tsx` — ввод, счётчик, навигация и закрытие;
-- `aquilum-app/src/components/Common/Input.tsx` — единое поле с кареткой CodeMirror;
-- `aquilum-app/src/components/Editor/extensions/pageSearch.ts` — поиск диапазонов и decorations CodeMirror;
-- `aquilum-app/src/components/Editor/PageSearchBar.css` — компоновка панели и вид совпадений;
-- `aquilum-app/src/styles/tokens/semantic.css` и `components.css` — цепочка цветового токена.
+- `obsidium-app/src/components/Editor/EditorPane.tsx` — перехватывает Ctrl/Cmd+F и открывает панель;
+- `obsidium-app/src/components/Editor/PageSearchBar.tsx` — ввод, счётчик, навигация и закрытие;
+- `obsidium-app/src/components/Common/Input.tsx` — единое поле с кареткой CodeMirror;
+- `obsidium-app/src/components/Editor/extensions/pageSearch.ts` — поиск диапазонов и decorations CodeMirror;
+- `obsidium-app/src/components/Editor/PageSearchBar.css` — компоновка панели и вид совпадений;
+- `obsidium-app/src/styles/tokens/semantic.css` и `components.css` — цепочка цветового токена.
 
 ## Почему раньше возникала двойная подсветка
 

@@ -9,7 +9,7 @@
 
 ## CLI
 
-Workspace Cargo включает `aquilum-app/cli`: бинарник `obsidium` открывает `Core` без Tauri и
+Workspace Cargo включает `obsidium-app/cli`: бинарник `obsidium` открывает `Core` без Tauri и
 WebView. Он поддерживает список баз, поиск, чтение и запись заметок, backlinks и историю. Базу
 можно указать через `--workspace PATH` или `OBSIDIUM_WORKSPACE`; большинство команд принимает
 `--json`.

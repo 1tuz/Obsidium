@@ -68,7 +68,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: manual
         run: |
-          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace docs workflow release_contract; do
+          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace docs workflow release_contract installer_scripts; do
             echo "$name=true" >> "$GITHUB_OUTPUT"
           done
 
@@ -82,6 +82,13 @@ jobs:
       - name: Validate release contract
         if: steps.changes.outputs.release_contract == 'true' || steps.manual.outputs.release_contract == 'true'
         run: node --test scripts/release-contract.test.mjs
+
+      - name: Test cross-platform installers
+        if: steps.changes.outputs.installer_scripts == 'true' || steps.manual.outputs.installer_scripts == 'true'
+        run: |
+          bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
+          bash scripts/test-install-scripts.sh
+          pwsh -NoProfile -File scripts/test-install-windows.ps1
 
       - name: Validate Rust source formatting
         if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
@@ -125,26 +132,26 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: aquilum-app/package-lock.json
+          cache-dependency-path: obsidium-app/package-lock.json
 
       - name: Install frontend dependencies
         if: steps.changes.outputs.frontend_types == 'true' || steps.changes.outputs.frontend_related == 'true' || steps.changes.outputs.frontend_full == 'true' || steps.manual.outputs.frontend_types == 'true'
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         run: npm ci
 
       - name: Check TypeScript
         if: steps.changes.outputs.frontend_types == 'true' || steps.manual.outputs.frontend_types == 'true'
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         run: npx tsc --noEmit
 
       - name: Run full Vitest suite
         if: steps.changes.outputs.frontend_full == 'true' || steps.manual.outputs.frontend_full == 'true'
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         run: npm test
 
       - name: Run tests related to changed frontend files
         if: steps.changes.outputs.frontend_related == 'true' && steps.changes.outputs.frontend_full != 'true' && steps.manual.outputs.frontend_full != 'true'
-        working-directory: aquilum-app
+        working-directory: obsidium-app
         env:
           CHANGED_FILES: ${{ steps.changes.outputs.frontend_related_files }}
         run: node ../scripts/run-related-vitest.mjs
@@ -157,7 +164,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
         with:
-          workspaces: aquilum-app/src-tauri -> target
+          workspaces: obsidium-app/src-tauri -> target
 
       - name: Install Tauri Linux test dependencies
         if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
@@ -175,7 +182,7 @@ jobs:
           CLI_CHANGED: ${{ steps.changes.outputs.rust_cli || steps.manual.outputs.rust_cli }}
           WORKSPACE_CHANGED: ${{ steps.changes.outputs.rust_core || steps.changes.outputs.rust_workspace || steps.manual.outputs.rust_core || steps.manual.outputs.rust_workspace }}
         run: |
-          manifest=aquilum-app/src-tauri/Cargo.toml
+          manifest=obsidium-app/src-tauri/Cargo.toml
           if [[ "$WORKSPACE_CHANGED" == "true" ]]; then
             cargo test --locked --manifest-path "$manifest" --workspace
           else

@@ -96,7 +96,7 @@ Markdown / Y.Text / .md
 ## Файлы
 
 ```text
-aquilum-app/src/components/Editor/extensions/bookCallout/
+obsidium-app/src/components/Editor/extensions/bookCallout/
 ├── constructs.ts   span блока, пересечение с кареткой, reveal маркеров
 ├── model.ts        parse `> [!book]` + поля тела
 ├── linkedCache.ts  resolve wiki → read FM целевой страницы

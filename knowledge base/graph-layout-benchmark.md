@@ -5,7 +5,7 @@ The ignored core test benchmarks complete graph layout and incremental coordinat
 Run the benchmark from the repository root:
 
 ```sh
-cargo test --release --manifest-path aquilum-app/core/Cargo.toml -p aquilum-core --lib benchmark_graph_layout -- --ignored --nocapture
+cargo test --release --manifest-path obsidium-app/core/Cargo.toml -p aquilum-core --lib benchmark_graph_layout -- --ignored --nocapture
 ```
 
 Set `OBSIDIUM_GRAPH_BENCH_SIZES=100,1000` to select sizes. Results print as `BENCH-GRAPH` lines and append to `.artifacts/benchmarks/graph_layout.log` when the directory is writable.
