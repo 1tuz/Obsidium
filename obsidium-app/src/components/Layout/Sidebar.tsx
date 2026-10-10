@@ -37,6 +37,7 @@ interface SidebarProps {
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
   panel?: 'files' | 'boards';
   onOpenBaseView: (path: string, viewIndex: number) => void;
+  onBoardRenamed?: (oldPath: string, newPath: string) => void;
   boardActionRequest?: BoardActionRequest | null;
   onBoardActionRequestComplete: () => void;
   createBoardRequest: number;
@@ -61,6 +62,7 @@ export const Sidebar = memo(function Sidebar({
   onPatchFileInTree,
   panel = 'files',
   onOpenBaseView,
+  onBoardRenamed,
   boardActionRequest,
   onBoardActionRequestComplete,
   createBoardRequest,
@@ -223,6 +225,7 @@ export const Sidebar = memo(function Sidebar({
             active={isOpen && panel === 'boards'}
             workspacePath={workspacePath}
             onOpenView={onOpenBaseView}
+            onBoardRenamed={onBoardRenamed}
             actionRequest={boardActionRequest ?? null}
             onActionRequestComplete={onBoardActionRequestComplete}
             createRequest={createBoardRequest}

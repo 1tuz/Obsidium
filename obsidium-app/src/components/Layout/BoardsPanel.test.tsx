@@ -36,11 +36,23 @@ vi.mock('../../modules/documents/fileGateway', () => ({
 }));
 
 vi.mock('../../modules/documents/renameWorkspaceFile', () => ({
-  renameWorkspaceFile: vi.fn(async () => '/vault/Work/Roadmap.base'),
+  renameWorkspaceFile: vi.fn(async (
+    oldPath: string, name: string, transform?: (content: string, stem: string) => string,
+  ) => {
+    const path = oldPath.replace(/[^/]+\.base$/u, `${name}.base`);
+    const content = state.sources[oldPath];
+    state.sources[path] = transform?.(content, name) ?? content;
+    delete state.sources[oldPath];
+    for (const entries of Object.values(state.directories)) {
+      const file = entries.find((entry) => entry.id === oldPath);
+      if (file) { file.id = path; file.name = `${name}.base`; }
+    }
+    return path;
+  }),
 }));
 
 const { BoardsPanel } = await import('./BoardsPanel');
-const { readDirectory, trashFile } = await import('../../modules/documents/fileGateway');
+const { createAtFreeName, createFile, readDirectory, trashFile } = await import('../../modules/documents/fileGateway');
 const { renameWorkspaceFile } = await import('../../modules/documents/renameWorkspaceFile');
 
 describe('BoardsPanel', () => {
@@ -97,6 +109,7 @@ describe('BoardsPanel', () => {
       active: true,
       workspacePath: '/vault',
       onOpenView: vi.fn(),
+      onBoardRenamed: vi.fn(),
       actionRequest: null,
       onActionRequestComplete: vi.fn(),
       createRequest: 0,
@@ -132,19 +145,56 @@ describe('BoardsPanel', () => {
     const renameContent = renameCalls[renameCalls.length - 1]?.[2];
     expect(renameContent?.('views:\n  - type: kanban\n    name: Open\n', 'Roadmap'))
       .toBe('views:\n  - type: kanban\n    name: "Roadmap"\n');
+    expect(props.onBoardRenamed).toHaveBeenCalledWith('/vault/Work/Bugs.base', '/vault/Work/Roadmap.base');
+    expect(renderer!.container.textContent).toContain('Roadmap');
+    expect(renderer!.container.textContent).not.toContain('Bugs');
+    act(() => state.listener?.({ payload: ['/vault/Work/Roadmap.base'] }));
+    await actAndSettle(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect(renderer!.container.textContent).toContain('Roadmap');
 
     act(() => renderer!.container.querySelector<HTMLButtonElement>(
-      `[aria-label="${t('boards.actions', { name: 'Bugs' })}"]`,
+      `[aria-label="${t('boards.actions', { name: 'Roadmap' })}"]`,
     )!.click());
     await actAndSettle();
     act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
       .find((item) => item.textContent === t('common.delete'))!.click());
     await actAndSettle();
     const deleteDialog = document.querySelector<HTMLElement>('[role="alertdialog"]');
-    expect(deleteDialog?.textContent).toContain('Bugs');
+    expect(deleteDialog?.textContent).toContain('Roadmap');
     act(() => [...deleteDialog!.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent === t('common.delete'))!.click());
     await actAndSettle();
-    expect(trashFile).toHaveBeenCalledWith('/vault', '/vault/Work/Bugs.base');
+    expect(trashFile).toHaveBeenCalledWith('/vault', '/vault/Work/Roadmap.base');
+  });
+
+  it('creates a new board with a dedicated tag by default and opens it', async () => {
+    const onOpenView = vi.fn();
+    const props = {
+      active: true, workspacePath: '/vault', onOpenView,
+      actionRequest: null, onActionRequestComplete: vi.fn(), createRequest: 0,
+    };
+    act(() => { renderer = mountDom(<BoardsPanel {...props} />); });
+    await actAndSettle();
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-boards-panel__header button')!.click());
+    await actAndSettle();
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+    const nameInput = dialog.querySelector<HTMLInputElement>('input')!;
+    expect(dialog.querySelector<HTMLSelectElement>('select')?.value).toBe('tag');
+    nameInput.value = 'Sprint';
+    act(() => { nameInput.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle();
+    vi.mocked(createAtFreeName).mockImplementationOnce(async (pathFor, create) => {
+      const candidate = pathFor(0);
+      await create(candidate);
+      return candidate;
+    });
+    const submit = [...dialog.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === t('boards.create'))!;
+    act(() => submit.click());
+    await actAndSettle();
+    expect(createFile).toHaveBeenCalledWith(
+      '/vault/Sprint.base', expect.stringContaining('board/sprint'),
+    );
+    expect(onOpenView).toHaveBeenCalledWith('/vault/Sprint.base', 0);
   });
 });

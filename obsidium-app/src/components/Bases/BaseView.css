@@ -294,3 +294,76 @@
 .q-base-kanban__card[draggable="true"]:active {
   cursor: grabbing;
 }
+
+.q-base-kanban-wrapper { min-width: max-content; }
+
+.q-base-kanban__column--drop {
+  border-color: var(--q-border-focus);
+  background: var(--q-bg-surface-hover);
+}
+
+.q-base-kanban__error {
+  max-width: 60rem;
+  margin: 0 0 var(--q-space-8);
+  color: var(--q-text-danger);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-base-kanban__move {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: var(--q-space-2) var(--q-space-4);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-secondary);
+  font: inherit;
+  font-size: var(--q-font-size-ui-xs);
+  cursor: pointer;
+}
+
+.q-base-kanban__footer {
+  padding: var(--q-space-8);
+  border-top: var(--q-border-1) solid var(--q-border-default);
+}
+
+.q-base-kanban__add {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--q-space-6);
+  padding: var(--q-space-6) var(--q-space-8);
+  border: 0;
+  border-radius: var(--q-radius-md);
+  background: transparent;
+  color: var(--q-text-secondary);
+  text-align: start;
+  cursor: pointer;
+}
+
+.q-base-kanban__add:hover { background: var(--q-bg-surface-hover); }
+.q-base-kanban__add svg { width: var(--q-size-16); height: var(--q-size-16); }
+
+.q-base-kanban__composer { display: grid; gap: var(--q-space-8); }
+.q-base-kanban__composer input {
+  min-width: 0;
+  width: 100%;
+  padding: var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-border-focus);
+  border-radius: var(--q-radius-md);
+  outline: none;
+  background: var(--q-bg-primary);
+  color: var(--q-text-primary);
+  font: inherit;
+}
+
+.q-base-kanban__composer-actions { display: flex; gap: var(--q-space-4); }
+.q-base-kanban__composer-actions button {
+  padding: var(--q-space-4) var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+  cursor: pointer;
+}
+.q-base-kanban__composer-actions button:disabled { cursor: default; opacity: .55; }
