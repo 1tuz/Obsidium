@@ -8,19 +8,19 @@ mod workspace;
 mod workspace_locator;
 
 use super::vault::Vault;
+use crate::app_core::Core;
 use crate::files::document::read_file_snapshot_impl;
 use crate::files::error::FileCommandError;
 use crate::files::gate;
 use crate::history::Source;
-use std::path::Path;
 use serde_json::{json, Value};
-use crate::app_core::Core;
+use std::path::Path;
 
 const WRITE_CONFLICT_RETRIES: usize = 1;
 
 pub const INSTRUCTIONS: &str = concat!(
     "Obsidium — локальная база знаний из markdown-файлов. ",
-    "Заметки адресуются относительным путём от корня базы (например «Проекты/Aquilum.md») ",
+    "Заметки адресуются относительным путём от корня базы (например «Проекты/Obsidium.md») ",
     "или точным названием. Абсолютные пути не нужны. ",
     "Если пользователь говорит «текущая заметка» или «эта заметка», сначала вызовите ",
     "get_workspace и возьмите путь из поля activeNote. ",
@@ -91,7 +91,14 @@ pub fn write_retrying(
         if content == snapshot.content {
             return Ok((false, content));
         }
-        match gate::write(core, note, &content, Some(&snapshot.hash), source, version_name) {
+        match gate::write(
+            core,
+            note,
+            &content,
+            Some(&snapshot.hash),
+            source,
+            version_name,
+        ) {
             Ok(_) => return Ok((true, content)),
             Err(FileCommandError::Conflict { .. }) if conflicts < WRITE_CONFLICT_RETRIES => {
                 conflicts += 1;
@@ -160,10 +167,7 @@ fn missing(arguments: &Value, key: &str) -> String {
     )
 }
 
-pub fn optional_names(
-    arguments: &Value,
-    key: &str,
-) -> Result<Option<Vec<String>>, String> {
+pub fn optional_names(arguments: &Value, key: &str) -> Result<Option<Vec<String>>, String> {
     let Some(value) = arguments.get(key) else {
         return Ok(None);
     };
@@ -189,7 +193,10 @@ pub fn optional_names(
 }
 
 pub fn flag(arguments: &Value, key: &str, fallback: bool) -> bool {
-    arguments.get(key).and_then(Value::as_bool).unwrap_or(fallback)
+    arguments
+        .get(key)
+        .and_then(Value::as_bool)
+        .unwrap_or(fallback)
 }
 
 pub fn offset(arguments: &Value) -> usize {
@@ -219,19 +226,24 @@ pub fn require_write(core: &Core) -> Result<(), String> {
     if core.settings.get_config().mcp.allow_write {
         return Ok(());
     }
-    Err("Изменение заметок запрещено в настройках Aquilum".to_owned())
+    Err("Изменение заметок запрещено в настройках Obsidium".to_owned())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{optional_names, text};
+    use super::{optional_names, require_write, text, INSTRUCTIONS};
+    use crate::app_core::{Core, EventSink};
     use serde_json::json;
+    use std::sync::Arc;
 
     #[test]
     fn path_from_a_search_result_works_as_note() {
         let found = json!({ "path": "Base/Заметка.md" });
         assert_eq!(text(&found, "note").unwrap(), "Base/Заметка.md");
-        assert_eq!(text(&json!({ "note": "Заметка" }), "path").unwrap(), "Заметка");
+        assert_eq!(
+            text(&json!({ "note": "Заметка" }), "path").unwrap(),
+            "Заметка"
+        );
     }
 
     #[test]
@@ -244,14 +256,21 @@ mod tests {
     fn the_error_lists_the_arguments_that_did_arrive() {
         let error = text(&json!({ "heading": "Раздел" }), "note").unwrap_err();
         assert!(error.contains("note"), "названо недостающее поле: {error}");
-        assert!(error.contains("heading"), "названо переданное поле: {error}");
-        assert!(text(&json!({}), "note").unwrap_err().contains("не передано"));
+        assert!(
+            error.contains("heading"),
+            "названо переданное поле: {error}"
+        );
+        assert!(text(&json!({}), "note")
+            .unwrap_err()
+            .contains("не передано"));
     }
 
     #[test]
     fn a_list_argument_is_absent_empty_or_valid() {
         assert!(optional_names(&json!({}), "notes").unwrap().is_none());
-        assert!(optional_names(&json!({ "notes": null }), "notes").unwrap().is_none());
+        assert!(optional_names(&json!({ "notes": null }), "notes")
+            .unwrap()
+            .is_none());
         assert!(optional_names(&json!({ "notes": [] }), "notes").is_err());
         assert!(optional_names(&json!({ "notes": "одна" }), "notes").is_err());
         assert!(optional_names(&json!({ "notes": ["a", " "] }), "notes").is_err());
@@ -259,5 +278,24 @@ mod tests {
             optional_names(&json!({ "notes": ["a", " b "] }), "notes").unwrap(),
             Some(vec!["a".to_owned(), "b".to_owned()])
         );
+    }
+
+    #[test]
+    fn mcp_user_messages_use_the_obsidium_name() {
+        assert!(INSTRUCTIONS.contains("Проекты/Obsidium.md"));
+        assert!(!INSTRUCTIONS.to_lowercase().contains("aquilum"));
+
+        let directory = tempfile::tempdir().unwrap();
+        let events: Arc<dyn EventSink> = Arc::new(|_| {});
+        let data = directory.path().join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        let core = Core::open(&data, events);
+        let mut config = core.settings.get_config();
+        config.mcp.allow_write = false;
+        core.settings.update_config(config).unwrap();
+        let error = require_write(&core).unwrap_err();
+        core.shutdown();
+        assert!(error.contains("Obsidium"), "{error}");
+        assert!(!error.to_lowercase().contains("aquilum"), "{error}");
     }
 }

@@ -1,6 +1,6 @@
-use std::path::{Component, Path, PathBuf};
 use crate::app_core::Core;
 use crate::search::paths::{markdown_files, relative_slash_path, strip_root};
+use std::path::{Component, Path, PathBuf};
 
 const SIMILAR_LIMIT: usize = 5;
 
@@ -46,7 +46,10 @@ impl Vault {
         if similar.is_empty() {
             return format!("Заметка не найдена: {input}");
         }
-        format!("Заметка не найдена: {input}. Похожие: {}", similar.join(", "))
+        format!(
+            "Заметка не найдена: {input}. Похожие: {}",
+            similar.join(", ")
+        )
     }
 
     fn similar_titles(&self, input: &str) -> Vec<String> {
@@ -70,7 +73,11 @@ impl Vault {
             })
             .collect::<Vec<_>>();
         scored.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
-        scored.into_iter().take(SIMILAR_LIMIT).map(|(_, path)| path).collect()
+        scored
+            .into_iter()
+            .take(SIMILAR_LIMIT)
+            .map(|(_, path)| path)
+            .collect()
     }
 
     pub fn note_path(&self, input: &str) -> Result<PathBuf, String> {
@@ -112,8 +119,8 @@ impl Vault {
             return Err("Пустой путь".to_owned());
         }
         let bytes = trimmed.as_bytes();
-        let windows_drive_path = bytes.get(1) == Some(&b':')
-            && bytes.first().is_some_and(u8::is_ascii_alphabetic);
+        let windows_drive_path =
+            bytes.get(1) == Some(&b':') && bytes.first().is_some_and(u8::is_ascii_alphabetic);
         if Path::new(trimmed).is_absolute() || windows_drive_path || trimmed.starts_with(r"\\") {
             let path = crate::search::paths::canonical_path(Path::new(trimmed));
             return self.ensure_inside(path);
@@ -136,10 +143,7 @@ impl Vault {
         if strip_root(&self.root, &path).is_some() {
             Ok(path)
         } else {
-            Err(format!(
-                "Путь вне базы знаний: {}",
-                path.to_string_lossy()
-            ))
+            Err(format!("Путь вне базы знаний: {}", path.to_string_lossy()))
         }
     }
 
@@ -163,28 +167,37 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let root = crate::search::paths::canonical_path(directory.path());
         fs::create_dir_all(root.join("Проекты")).unwrap();
-        fs::write(root.join("Проекты/Aquilum.md"), "заметка").unwrap();
+        fs::write(root.join("Проекты/Obsidium.md"), "заметка").unwrap();
         fs::write(root.join("Идея.md"), "другая").unwrap();
-        (directory, Vault { root, visible: true })
+        (
+            directory,
+            Vault {
+                root,
+                visible: true,
+            },
+        )
     }
 
     #[test]
     fn resolves_relative_path_with_and_without_extension() {
         let (_guard, vault) = vault();
         assert_eq!(
-            vault.relative(&vault.note("Проекты/Aquilum.md").unwrap()),
-            "Проекты/Aquilum.md"
+            vault.relative(&vault.note("Проекты/Obsidium.md").unwrap()),
+            "Проекты/Obsidium.md"
         );
         assert_eq!(
-            vault.relative(&vault.note("Проекты\\Aquilum").unwrap()),
-            "Проекты/Aquilum.md"
+            vault.relative(&vault.note("Проекты\\Obsidium").unwrap()),
+            "Проекты/Obsidium.md"
         );
     }
 
     #[test]
     fn resolves_note_by_title() {
         let (_guard, vault) = vault();
-        assert_eq!(vault.relative(&vault.note("aquilum").unwrap()), "Проекты/Aquilum.md");
+        assert_eq!(
+            vault.relative(&vault.note("obsidium").unwrap()),
+            "Проекты/Obsidium.md"
+        );
     }
 
     #[test]
@@ -221,13 +234,12 @@ mod tests {
         };
 
         assert!(
-            foreign.note_path(&vault.root.join("Идея.md").to_string_lossy()).is_err(),
+            foreign
+                .note_path(&vault.root.join("Идея.md").to_string_lossy())
+                .is_err(),
             "чужая база не пускает пути из другой базы"
         );
-        assert_eq!(
-            foreign.relative(&foreign.root.join("Новая.md")),
-            "Новая.md"
-        );
+        assert_eq!(foreign.relative(&foreign.root.join("Новая.md")), "Новая.md");
     }
 
     #[test]
@@ -238,12 +250,12 @@ mod tests {
         assert!(similar.contains("Похожие: Идея.md"), "{similar}");
 
         fs::create_dir_all(vault.root.join("Архив")).unwrap();
-        fs::write(vault.root.join("Архив/Aquilum.md"), "копия").unwrap();
+        fs::write(vault.root.join("Архив/Obsidium.md"), "копия").unwrap();
         assert!(
-            vault.note("Проекты/Aquilum.md").is_ok(),
+            vault.note("Проекты/Obsidium.md").is_ok(),
             "точный путь остаётся однозначным"
         );
-        assert!(vault.note("Aquilum").is_err(), "по названию два кандидата");
+        assert!(vault.note("Obsidium").is_err(), "по названию два кандидата");
     }
 
     #[test]

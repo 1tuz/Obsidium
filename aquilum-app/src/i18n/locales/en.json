@@ -424,7 +424,7 @@
     "history": {
       "section": "Note history",
       "retention": "Keep versions",
-      "retentionHint": "Versions live in the .aquilum/history folder of the knowledge base",
+      "retentionHint": "Versions are stored with the knowledge base and managed automatically",
       "forever": "Forever",
       "days": "{{count}} days",
       "year": "A year"
