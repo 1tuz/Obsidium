@@ -152,3 +152,27 @@ fn compare_values(left: &Value, right: &Value) -> Ordering {
 #[cfg(test)]
 #[path = "query_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod scalar_validation_tests {
+    use super::{BaseDefinition, BaseRow, BaseRows};
+    use serde_json::json;
+
+    #[test]
+    fn rejects_complex_sort_values_with_context_neutral_error() {
+        let definition =
+            BaseDefinition::parse("views: [{type: kanban, sort: [{property: rank}]}]").unwrap();
+        for value in [json!([1, 2]), json!({"value": 1})] {
+            let row = BaseRow {
+                path: "a.md".to_owned(),
+                file_tags: Vec::new(),
+                fields: json!({"rank": value}).as_object().unwrap().clone(),
+            };
+            let error = BaseRows::evaluate(&definition, 0, &[row]).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "Base property requires a scalar value: rank"
+            );
+        }
+    }
+}

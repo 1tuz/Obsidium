@@ -4,6 +4,15 @@ use serde_json::{json, Value};
 fn row(path: &str, fields: Value) -> BaseRow {
     BaseRow {
         path: path.to_owned(),
+        file_tags: match fields.get("tags") {
+            Some(Value::Array(tags)) => tags
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect(),
+            Some(Value::String(tag)) => vec![tag.clone()],
+            _ => Vec::new(),
+        },
         fields: fields.as_object().unwrap().clone(),
     }
 }

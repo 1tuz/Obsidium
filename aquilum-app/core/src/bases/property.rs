@@ -46,7 +46,11 @@ impl Property {
                     "name" => path.file_stem().and_then(|s| s.to_str()).unwrap_or(""),
                     "ext" => path.extension().and_then(|s| s.to_str()).unwrap_or(""),
                     "folder" => path.parent().and_then(|s| s.to_str()).unwrap_or(""),
-                    "tags" => return row.fields.get("tags").cloned().unwrap_or(Value::Null),
+                    "tags" => {
+                        return Value::Array(
+                            row.file_tags.iter().cloned().map(Value::String).collect(),
+                        )
+                    }
                     _ => unreachable!(),
                 };
                 Value::String(text.to_owned())

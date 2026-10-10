@@ -43,7 +43,7 @@ impl Filter {
             .and_then(|raw| raw.strip_suffix(')'))
         {
             let tag = string_literal(argument).ok_or_else(invalid)?;
-            let tag = tag.trim_start_matches('#').to_lowercase();
+            let tag = tag.trim_start_matches('#').to_owned();
             return if tag.is_empty() {
                 Err(invalid())
             } else {
@@ -69,20 +69,15 @@ impl Filter {
         match self {
             Self::Equal(property, value) => values_equal(&property.value(row), value),
             Self::Tag(wanted) => {
-                let carries = |value: &Value| {
-                    value.as_str().is_some_and(|tag| {
-                        let tag = tag.trim_start_matches('#').to_lowercase();
-                        tag == *wanted
-                            || tag
-                                .strip_prefix(wanted.as_str())
-                                .is_some_and(|suffix| suffix.starts_with('/'))
-                    })
+                let wanted = wanted.to_lowercase();
+                let carries = |tag: &String| {
+                    let tag = tag.trim_start_matches('#').to_lowercase();
+                    tag == wanted
+                        || tag
+                            .strip_prefix(wanted.as_str())
+                            .is_some_and(|suffix| suffix.starts_with('/'))
                 };
-                match row.fields.get("tags") {
-                    Some(Value::Array(tags)) => tags.iter().any(carries),
-                    Some(tag) => carries(tag),
-                    None => false,
-                }
+                row.file_tags.iter().any(carries)
             }
             Self::And(filters) => filters.iter().all(|filter| filter.matches(row)),
             Self::Or(filters) => filters.iter().any(|filter| filter.matches(row)),

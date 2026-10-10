@@ -1,19 +1,28 @@
+mod card_membership;
+mod card_metadata;
+mod cards;
 mod filter;
+pub(crate) mod note;
 mod parse;
 mod property;
 mod query;
+
+#[cfg(test)]
+mod cards_tests;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::fmt;
 
+pub use cards::BaseCardError;
 pub use query::BaseRows;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct BaseRow {
     pub path: String,
     pub fields: Map<String, Value>,
+    pub file_tags: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -100,7 +109,7 @@ impl fmt::Display for BaseError {
             Self::InvalidGrouping(property) => {
                 write!(
                     formatter,
-                    "Base grouping requires a scalar property: {property}"
+                    "Base property requires a scalar value: {property}"
                 )
             }
         }
