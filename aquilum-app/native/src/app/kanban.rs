@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::mpsc::{Receiver, Sender, channel};
 
 use aquilum_core::bases::{BaseColumn, BaseDefinition, BaseRows};
 use masonry::app::RenderRoot;
@@ -284,8 +284,9 @@ impl App {
             crate::ui::widgets::Slot::set_child(&mut page, widget)
         });
         if let Some(id) = focus {
-            root.edit_widget(id, |mut field| {
-                let len = field.text().len();
+            root.edit_widget(id, |mut widget| {
+                let mut field = widget.downcast::<TextEditor>();
+                let len = field.widget.text().len();
                 TextEditor::select_byte_range(&mut field, 0, len);
             });
             root.focus_on(Some(id));
@@ -393,6 +394,54 @@ impl App {
                 self.confirm_delete(root, vec![resolve_path(&workspace, path)]);
             }
             KanbanAction::CommitRenameCard(_) => return false,
+            KanbanAction::DragCard { path, source } => {
+                let Some(crate::ui::kanban::CardDragAction::Drop(at)) =
+                    action.downcast_ref::<crate::ui::kanban::CardDragAction>()
+                else {
+                    return true;
+                };
+                let target = self.kanban.actions.iter().find_map(|(column_id, action)| {
+                    let KanbanAction::DropColumn(value) = action else {
+                        return None;
+                    };
+                    root.get_widget(*column_id).and_then(|column| {
+                        let local = column.ctx().border_box();
+                        let transform = column.ctx().window_transform();
+                        let first = transform * masonry::kurbo::Point::new(local.x0, local.y0);
+                        let second = transform * masonry::kurbo::Point::new(local.x1, local.y1);
+                        let bounds = masonry::kurbo::Rect::new(
+                            first.x.min(second.x),
+                            first.y.min(second.y),
+                            first.x.max(second.x),
+                            first.y.max(second.y),
+                        );
+                        bounds.contains(*at).then(|| value.clone())
+                    })
+                });
+                if let Some(target) = target.filter(|target| target != &source) {
+                    let Some(workspace) = self.tree.root().map(PathBuf::from) else {
+                        return true;
+                    };
+                    let Some(definition) = self.kanban.definition.clone() else {
+                        return true;
+                    };
+                    let path = resolve_path(&workspace, path);
+                    let view_index = self.kanban.selected_view;
+                    self.mutate_kanban(move |core| {
+                        core.move_base_card(
+                            &workspace,
+                            &definition,
+                            view_index,
+                            &path,
+                            &source,
+                            &target,
+                        )
+                        .map(|_| ())
+                        .map_err(|error| error.to_string())
+                    });
+                }
+            }
+            KanbanAction::DropColumn(_) => return true,
             KanbanAction::OpenNote(path) => {
                 let Some(workspace) = self.tree.root().map(PathBuf::from) else {
                     return false;

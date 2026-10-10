@@ -1,11 +1,17 @@
 use std::path::{Path, PathBuf};
 
 use aquilum_core::bases::BaseColumn;
-use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
-use masonry::kurbo::Axis;
+use masonry::accesskit::{Node, Role};
+use masonry::core::{
+    AccessCtx, ChildrenIds, EventCtx, LayoutCtx, MeasureCtx, NewWidget, PaintCtx, PointerButton,
+    PointerEvent, PointerUpdate, PropertiesMut, PropertiesRef, PropertySet, RegisterCtx, Widget,
+    WidgetId, WidgetPod,
+};
+use masonry::imaging::Painter;
+use masonry::kurbo::{Axis, Point, Size};
 use masonry::layout::Length;
-use masonry::parley::style::StyleProperty;
 use masonry::parley::LineHeight;
+use masonry::parley::style::StyleProperty;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Background, Gap, Padding};
 use masonry::properties::{CaretColor, ContentColor, SelectionColor};
@@ -44,7 +50,151 @@ pub enum KanbanAction {
     RenameCard(PathBuf),
     CommitRenameCard(PathBuf),
     DeleteCard(PathBuf),
+    DragCard {
+        path: PathBuf,
+        source: Value,
+    },
+    DropColumn(Value),
     SelectView(usize),
+}
+
+#[derive(Debug)]
+pub enum CardDragAction {
+    Drop(Point),
+}
+
+const CARD_DRAG_THRESHOLD: f64 = 5.0;
+
+fn crossed_drag_threshold(start: Point, at: Point) -> bool {
+    (at.x - start.x).abs() >= CARD_DRAG_THRESHOLD || (at.y - start.y).abs() >= CARD_DRAG_THRESHOLD
+}
+
+struct DraggableCard {
+    child: WidgetPod<dyn Widget>,
+    down_at: Option<Point>,
+    dragging: bool,
+}
+
+impl DraggableCard {
+    fn new(child: NewWidget<dyn Widget>) -> NewWidget<Self> {
+        NewWidget::new(Self {
+            child: child.to_pod(),
+            down_at: None,
+            dragging: false,
+        })
+    }
+
+    fn point(ctx: &EventCtx<'_>, position: masonry::dpi::PhysicalPosition<f64>) -> Point {
+        ctx.to_window(ctx.local_position(position))
+    }
+}
+
+impl Widget for DraggableCard {
+    type Action = CardDragAction;
+
+    fn on_pointer_event(
+        &mut self,
+        ctx: &mut EventCtx<'_>,
+        _props: &mut PropertiesMut<'_>,
+        event: &PointerEvent,
+    ) {
+        match event {
+            PointerEvent::Down(event) if event.button == Some(PointerButton::Primary) => {
+                self.down_at = Some(Self::point(ctx, event.state.position));
+                self.dragging = false;
+            }
+            PointerEvent::Move(PointerUpdate { current, .. }) if self.down_at.is_some() => {
+                let at = Self::point(ctx, current.position);
+                if !self.dragging
+                    && self
+                        .down_at
+                        .is_some_and(|start| crossed_drag_threshold(start, at))
+                {
+                    self.dragging = true;
+                    ctx.capture_pointer();
+                }
+            }
+            PointerEvent::Up(event) if event.button == Some(PointerButton::Primary) => {
+                if self.dragging {
+                    ctx.submit_action::<CardDragAction>(CardDragAction::Drop(Self::point(
+                        ctx,
+                        event.state.position,
+                    )));
+                }
+                self.down_at = None;
+                self.dragging = false;
+            }
+            PointerEvent::Cancel(_) => {
+                self.down_at = None;
+                self.dragging = false;
+            }
+            _ => {}
+        }
+    }
+
+    fn register_children(&mut self, ctx: &mut RegisterCtx<'_>) {
+        ctx.register_child(&mut self.child);
+    }
+
+    fn measure(
+        &mut self,
+        ctx: &mut MeasureCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        axis: Axis,
+        len_req: masonry::layout::LenReq,
+        cross: Option<Length>,
+    ) -> Length {
+        ctx.compute_length(
+            &mut self.child,
+            len_req.into(),
+            masonry::layout::LayoutSize::maybe(axis.cross(), cross),
+            axis,
+            cross,
+        )
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx<'_>, _props: &PropertiesRef<'_>, size: Size) {
+        ctx.run_layout(&mut self.child, size);
+        ctx.place_child(&mut self.child, Point::ZERO);
+    }
+
+    fn paint(
+        &mut self,
+        _ctx: &mut PaintCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        _painter: &mut Painter<'_>,
+    ) {
+    }
+
+    fn get_cursor(
+        &self,
+        ctx: &masonry::core::QueryCtx<'_>,
+        _pos: Point,
+    ) -> masonry::core::CursorIcon {
+        if self.dragging {
+            masonry::core::CursorIcon::Grabbing
+        } else if ctx.is_hovered() {
+            masonry::core::CursorIcon::Grab
+        } else {
+            masonry::core::CursorIcon::Default
+        }
+    }
+
+    fn accessibility_role(&self) -> Role {
+        Role::GenericContainer
+    }
+
+    fn accessibility(
+        &mut self,
+        _ctx: &mut AccessCtx<'_>,
+        _props: &PropertiesRef<'_>,
+        _node: &mut Node,
+    ) {
+    }
+
+    fn children_ids(&self) -> ChildrenIds {
+        ChildrenIds::from_slice(&[self.child.id()])
+    }
 }
 
 pub struct KanbanView;
@@ -253,8 +403,21 @@ fn board(
                 card = card.with(field, 1.0);
             } else {
                 let item = DocumentItem::new(&title, None);
-                actions.push((item.id(), KanbanAction::OpenNote(path.clone())));
-                card = card.with(item, 1.0);
+                let item_id = item.id();
+                actions.push((item_id, KanbanAction::OpenNote(path.clone())));
+                if editable {
+                    let drag = DraggableCard::new(item.erased());
+                    actions.push((
+                        drag.id(),
+                        KanbanAction::DragCard {
+                            path: path.clone(),
+                            source: value.clone(),
+                        },
+                    ));
+                    card = card.with(drag, 1.0);
+                } else {
+                    card = card.with(item, 1.0);
+                }
                 let rename = NewWidget::new(IconButton::new(icons::PENCIL, t("common.rename")));
                 actions.push((rename.id(), KanbanAction::RenameCard(path.clone())));
                 card = card.with_fixed(rename);
@@ -305,7 +468,12 @@ fn board(
             .with(list, 1.0);
         let column_widget = if editable {
             let create = NewWidget::new(TextButton::new(t("kanban.addCard"), Variant::Ghost));
-            actions.push((create.id(), KanbanAction::CreateCard { column: value }));
+            actions.push((
+                create.id(),
+                KanbanAction::CreateCard {
+                    column: value.clone(),
+                },
+            ));
             column_widget.with_fixed(create)
         } else {
             column_widget
@@ -318,6 +486,9 @@ fn board(
                 .with(Background::Color(tm.sidebar_bg))
                 .with(Padding::all(Length::px(size::SPACE_12))),
         );
+        if editable {
+            actions.push((column_widget.id(), KanbanAction::DropColumn(value)));
+        }
         widgets.push(column_widget.erased());
     }
     let layout = Wrap::new(widgets, size::SPACE_12);
@@ -334,7 +505,8 @@ fn group_title(value: &Value) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::group_title;
+    use super::{crossed_drag_threshold, group_title};
+    use masonry::kurbo::Point;
     use serde_json::json;
 
     #[test]
@@ -343,5 +515,12 @@ mod tests {
         assert_eq!(group_title(&json!("Doing")), "Doing");
         assert_eq!(group_title(&json!(3)), "3");
         assert_eq!(group_title(&json!(true)), "true");
+    }
+
+    #[test]
+    fn card_drag_threshold_preserves_clicks_and_starts_pointer_drag() {
+        assert!(!crossed_drag_threshold(Point::ZERO, Point::new(4.9, 0.0)));
+        assert!(crossed_drag_threshold(Point::ZERO, Point::new(5.0, 0.0)));
+        assert!(crossed_drag_threshold(Point::ZERO, Point::new(0.0, -5.0)));
     }
 }
