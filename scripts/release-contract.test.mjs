@@ -29,6 +29,27 @@ test('collects exact platform installers and updater signatures', () => {
   }
 });
 
+test('renames macOS updater outputs to the versioned manifest names', () => {
+  const root = mkdtempSync(join(tmpdir(), 'obsidium-macos-release-test-'));
+  const source = join(root, 'bundle');
+  const destination = join(root, 'assets');
+  mkdirSync(source);
+  for (const name of ['Obsidium_0.3.7_aarch64.dmg', 'Obsidium.app.tar.gz', 'Obsidium.app.tar.gz.sig']) {
+    writeFileSync(join(source, name), 'signed');
+  }
+  try {
+    assert.deepEqual(collectPlatformAssets('macos', '0.3.7', source, destination).sort(), [
+      'Obsidium_0.3.7_aarch64.app.tar.gz',
+      'Obsidium_0.3.7_aarch64.app.tar.gz.sig',
+      'Obsidium_0.3.7_aarch64.dmg',
+    ]);
+    assert.equal(readFileSync(join(destination, 'Obsidium_0.3.7_aarch64.app.tar.gz'), 'utf8'), 'signed');
+    assert.equal(readFileSync(join(destination, 'Obsidium_0.3.7_aarch64.app.tar.gz.sig'), 'utf8'), 'signed');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('updater manifest includes the three signed platform targets and compatibility aliases', () => {
   const root = mkdtempSync(join(tmpdir(), 'obsidium-manifest-test-'));
   const names = [

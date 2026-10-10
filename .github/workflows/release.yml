@@ -139,8 +139,9 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           RELEASE_VERSION: ${{ github.ref_name }}
         run: |
+          platform="$(printf '%s' "$PLATFORM" | tr '[:upper:]' '[:lower:]')"
           node scripts/prepare-release-assets.mjs collect \
-            "${PLATFORM,,}" "${RELEASE_VERSION#v}" \
+            "$platform" "${RELEASE_VERSION#v}" \
             .artifacts/cargo-release/release/bundle \
             .artifacts/release-assets
 
