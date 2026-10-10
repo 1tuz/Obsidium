@@ -12,11 +12,33 @@ pub struct Tab {
 
 impl Tab {
     pub fn empty() -> Self {
-        Tab { id: Uuid::new_v4(), path: None, document_id: None, graph: false }
+        Tab {
+            id: Uuid::new_v4(),
+            path: None,
+            document_id: None,
+            graph: false,
+        }
+    }
+
+    pub fn base(path: PathBuf) -> Self {
+        Tab {
+            path: Some(path),
+            ..Tab::empty()
+        }
+    }
+
+    pub fn is_base(&self) -> bool {
+        self.path
+            .as_deref()
+            .and_then(Path::extension)
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
     }
 
     pub fn title(&self) -> Option<String> {
-        self.path.as_deref().and_then(Path::file_stem).map(|s| s.to_string_lossy().into_owned())
+        self.path
+            .as_deref()
+            .and_then(Path::file_stem)
+            .map(|s| s.to_string_lossy().into_owned())
     }
 }
 
@@ -29,7 +51,10 @@ pub struct Tabs {
 impl Default for Tabs {
     fn default() -> Self {
         let tab = Tab::empty();
-        Tabs { active: tab.id, tabs: vec![tab] }
+        Tabs {
+            active: tab.id,
+            tabs: vec![tab],
+        }
     }
 }
 
@@ -38,7 +63,9 @@ impl Tabs {
         if tabs.is_empty() {
             return Tabs::default();
         }
-        let active = active.filter(|id| tabs.iter().any(|t| t.id == *id)).unwrap_or(tabs[0].id);
+        let active = active
+            .filter(|id| tabs.iter().any(|t| t.id == *id))
+            .unwrap_or(tabs[0].id);
         Tabs { tabs, active }
     }
 
@@ -51,7 +78,10 @@ impl Tabs {
     }
 
     pub fn active(&self) -> &Tab {
-        self.tabs.iter().find(|t| t.id == self.active).unwrap_or(&self.tabs[0])
+        self.tabs
+            .iter()
+            .find(|t| t.id == self.active)
+            .unwrap_or(&self.tabs[0])
     }
 
     pub fn tab_mut(&mut self, id: Uuid) -> Option<&mut Tab> {
@@ -59,7 +89,10 @@ impl Tabs {
     }
 
     fn find_path(&self, path: &Path) -> Option<Uuid> {
-        self.tabs.iter().find(|t| t.path.as_deref() == Some(path)).map(|t| t.id)
+        self.tabs
+            .iter()
+            .find(|t| t.path.as_deref() == Some(path))
+            .map(|t| t.id)
     }
 
     pub fn select(&mut self, id: Uuid) -> bool {
@@ -76,7 +109,11 @@ impl Tabs {
             return;
         }
         let index = self.tabs.iter().position(|t| t.id == self.active);
-        let tab = Tab { id: index.map_or_else(Uuid::new_v4, |i| self.tabs[i].id), path: Some(path), document_id: None, graph: false };
+        let tab = Tab {
+            id: index.map_or_else(Uuid::new_v4, |i| self.tabs[i].id),
+            path: Some(path),
+            ..Tab::empty()
+        };
         self.active = tab.id;
         match index {
             Some(i) => self.tabs[i] = tab,
@@ -89,7 +126,10 @@ impl Tabs {
             self.active = id;
             return;
         }
-        let tab = Tab { id: Uuid::new_v4(), path: Some(path), document_id: None, graph: false };
+        let tab = Tab {
+            path: Some(path),
+            ..Tab::empty()
+        };
         self.active = tab.id;
         self.tabs.push(tab);
     }
@@ -99,7 +139,10 @@ impl Tabs {
             self.active = tab.id;
             return;
         }
-        let tab = Tab { graph: true, ..Tab::empty() };
+        let tab = Tab {
+            graph: true,
+            ..Tab::empty()
+        };
         self.active = tab.id;
         self.tabs.push(tab);
     }
@@ -115,7 +158,9 @@ impl Tabs {
     }
 
     pub fn close(&mut self, id: Uuid) {
-        let Some(index) = self.tabs.iter().position(|t| t.id == id) else { return };
+        let Some(index) = self.tabs.iter().position(|t| t.id == id) else {
+            return;
+        };
         self.tabs.remove(index);
         if self.tabs.is_empty() {
             self.tabs.push(Tab::empty());
@@ -151,7 +196,10 @@ mod tests {
     use super::*;
 
     fn paths(tabs: &Tabs) -> Vec<Option<&str>> {
-        tabs.tabs().iter().map(|t| t.path.as_deref().and_then(Path::to_str)).collect()
+        tabs.tabs()
+            .iter()
+            .map(|t| t.path.as_deref().and_then(Path::to_str))
+            .collect()
     }
 
     #[test]
@@ -224,5 +272,31 @@ mod tests {
         tabs.open("b.md".into());
         assert!(tabs.rename(Path::new("a.md"), Path::new("c.md")));
         assert_eq!(paths(&tabs), [Some("c.md"), Some("b.md")]);
+    }
+
+    #[test]
+    fn base_tabs_reuse_replace_close_and_follow_renames_without_documents() {
+        let base = Tab::base("board.BASE".into());
+        assert!(base.is_base());
+        assert!(base.document_id.is_none());
+        assert!(!base.graph);
+        let mut tabs = Tabs::restore(vec![base], None);
+        let first = tabs.active_id();
+        tabs.open_new("next.base".into());
+        let second = tabs.active_id();
+        tabs.open("board.BASE".into());
+        assert_eq!(tabs.active_id(), first);
+        tabs.open_new("next.base".into());
+        assert_eq!(tabs.active_id(), second);
+        assert_eq!(tabs.tabs().len(), 2);
+        assert!(tabs.rename(Path::new("next.base"), Path::new("moved.base")));
+        assert_eq!(tabs.active().path.as_deref(), Some(Path::new("moved.base")));
+        tabs.open("note.md".into());
+        assert!(!tabs.active().is_base());
+        tabs.close(second);
+        assert_eq!(tabs.active_id(), first);
+        tabs.close(first);
+        assert!(tabs.active().path.is_none());
+        assert!(tabs.active().document_id.is_none());
     }
 }
