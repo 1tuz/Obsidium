@@ -3,17 +3,13 @@ name: CI
 on:
   push:
     branches-ignore: [main]
-  pull_request:
-    branches: [main]
-    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: read
 
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,26 +17,14 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      pull-requests: read
     outputs:
       run_checks: ${{ steps.route.outputs.runChecks }}
     steps:
       - uses: actions/checkout@v7
-      - name: Find an open pull request for this branch
-        id: pull_request
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH_SHA: ${{ github.sha }}
-        run: |
-          open_pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${BRANCH_SHA}/pulls" \
-            --jq 'any(.[]; .state == "open" and .base.ref == "main")')"
-          echo "open_pr=$open_pr" >> "$GITHUB_OUTPUT"
       - id: route
         env:
           EVENT_NAME: ${{ github.event_name }}
-          OPEN_PR: ${{ steps.pull_request.outputs.open_pr || 'false' }}
-        run: node scripts/ci-routing.mjs "$EVENT_NAME" "$OPEN_PR"
+        run: node scripts/ci-routing.mjs "$EVENT_NAME"
 
   quality:
     name: Quality gate
@@ -49,7 +33,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -196,8 +179,7 @@ jobs:
     needs: [route, quality]
     if: >-
       success() &&
-      ((github.event_name == 'pull_request' && github.event.pull_request.user.login == github.repository_owner) ||
-      (github.event_name == 'push' && github.actor == github.repository_owner && needs.route.outputs.run_checks == 'true'))
+      github.event_name == 'push' && github.actor == github.repository_owner && needs.route.outputs.run_checks == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -207,17 +189,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          BRANCH_NAME: ${{ github.event.pull_request.head.ref || github.ref_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
-          pr_number="$PR_NUMBER"
+          pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number // empty')"
           if [[ -z "$pr_number" ]]; then
-            pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number // empty')"
-            if [[ -z "$pr_number" ]]; then
-              gh pr create --repo "$GH_REPO" --base main --head "$BRANCH_NAME" \
-                --title "Merge $BRANCH_NAME into main" \
-                --body "Opened by CI after the full diff passed the required checks for ${GITHUB_SHA}."
-              pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number')"
-            fi
+            gh pr create --repo "$GH_REPO" --base main --head "$BRANCH_NAME" \
+              --title "Merge $BRANCH_NAME into main" \
+              --body "Opened by CI after the full diff passed the required checks for ${GITHUB_SHA}."
+            pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number')"
           fi
           gh pr merge "$pr_number" --repo "$GH_REPO" --auto --merge

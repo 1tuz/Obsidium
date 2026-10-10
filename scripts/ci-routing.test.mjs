@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { route } from './ci-routing.mjs';
 
-test('a push without an open PR runs scoped checks and owner auto-merge', () => {
+test('every owner push runs scoped checks and owner auto-merge', () => {
   assert.deepEqual(route('push'), {
     runChecks: true,
     runAutoMerge: true,
@@ -11,20 +11,14 @@ test('a push without an open PR runs scoped checks and owner auto-merge', () => 
   });
 });
 
-test('a push with an open PR delegates checks to the full PR diff', () => {
-  assert.deepEqual(route('push', true), {
-    runChecks: false,
-    runAutoMerge: false,
-    fullChecks: false,
-  });
-});
-
-test('pull requests run full-diff checks and owner PRs may merge after the gate', () => {
-  assert.deepEqual(route('pull_request'), {
-    runChecks: true,
-    runAutoMerge: true,
-    fullChecks: false,
-  });
+test('CI has no pull request trigger that can require a second approval', () => {
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /  push:/u);
+  assert.match(ci, /  workflow_dispatch:/u);
+  assert.doesNotMatch(ci, /^  pull_request:/mu);
+  assert.doesNotMatch(ci, /Find an open pull request for this branch/u);
+  assert.match(ci, /github\.event_name == 'push' && github\.actor == github\.repository_owner/u);
+  assert.doesNotMatch(ci, /github\.event_name == 'pull_request'/u);
 });
 
 test('manual CI runs every lightweight check and does not auto-merge', () => {
@@ -38,8 +32,7 @@ test('manual CI runs every lightweight check and does not auto-merge', () => {
 test('repeated pushes cancel the previous CI run for the same branch', () => {
   const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
   assert.match(ci, /cancel-in-progress:\s*true/u);
-  assert.match(ci, /group:\s*ci-\$\{\{[^\n]+ref_name/u);
-  assert.match(ci, /group:\s*ci-\$\{\{\s*github\.event_name/u);
+  assert.match(ci, /group:\s*ci-\$\{\{\s*github\.ref\s*\}\}/u);
 });
 
 test('nightly runs full checks at 02:00 UTC+3 and has no release publication', () => {
