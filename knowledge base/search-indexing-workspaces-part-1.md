@@ -27,7 +27,7 @@ Markdown files
 
 ## 2. Основные модули
 
-Backend находится в `aquilum-app/src-tauri/src/search/`.
+Backend находится в `obsidium-app/src-tauri/src/search/`.
 
 | Файл | Ответственность |
 |---|---|

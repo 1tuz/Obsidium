@@ -54,8 +54,9 @@ jobs:
             ':(exclude,top)knowledge base/**' \
             ':(exclude,top)assets/screenshots/**' \
             ':(exclude,top)assets/readme/**' \
+            ':(exclude,top)obsidian-crystal-belt-icon.png' \
             ':(exclude,top)assets/logo.png' \
-            ':(exclude,top)aquilum-app/src-tauri/icons/**' > "$patch_file"
+            ':(exclude,top)obsidium-app/src-tauri/icons/**' > "$patch_file"
 
           if [[ ! -s "$patch_file" ]]; then
             echo 'No upstream source changes to apply.'

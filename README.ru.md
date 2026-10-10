@@ -163,21 +163,30 @@ Obsidium предоставляет опциональный локальный 
 
 Obsidium устанавливается для текущего пользователя и не требует прав администратора. Сейчас установщик не подписан сертификатом подписи кода Windows, поэтому SmartScreen может показать предупреждение. Если файл скачан из этого репозитория, выберите **Подробнее → Выполнить в любом случае**.
 
-### macOS Apple Silicon: установка и удаление одной командой
+### Установка и удаление одной командой
 
-Установить последний релиз скриптом [`scripts/install.sh`](scripts/install.sh):
+На macOS Apple Silicon и Ubuntu 24 x64 Bash-скрипт сам определит операционную систему:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.sh | bash
 ```
 
-Удалить приложение скриптом [`scripts/uninstall.sh`](scripts/uninstall.sh):
+Удалить приложение на macOS или Ubuntu скриптом [`scripts/uninstall.sh`](scripts/uninstall.sh):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.sh | bash
 ```
 
 Удаляется только приложение. Папки vault, Markdown-файлы и настройки Obsidium остаются на диске.
+
+На Windows x64 выполните команды в PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.ps1 | iex
+```
+
+Скрипты устанавливают или удаляют Obsidium для текущего пользователя. Папки vault, Markdown-файлы и данные приложения остаются нетронутыми.
 
 ## Обновления
 
@@ -209,9 +218,9 @@ Obsidium не требует облачного аккаунта. Сеть ис�
 Obsidium основан на [исходном проекте](https://github.com/Freaction/Aquilum) Дмитрия Чаплинского (© 2026). Форк добавляет:
 
 - Проверки и сборки установщиков для Windows, Apple Silicon macOS и Ubuntu 24 через GitHub Actions.
-- Скрипты установки и удаления macOS-приложения через `curl`, не затрагивающие файлы vault.
+- Установка и удаление одной командой в macOS, Ubuntu и Windows без удаления пользовательских данных.
 - Автоматическую синхронизацию с оригиналом и исправление пустого окна при запуске.
 
-Как собрать — в [DEVELOPMENT.md](DEVELOPMENT.md) и [README приложения](aquilum-app/README.md), устройство приложения — в [базе знаний](knowledge%20base).
+Как собрать — в [DEVELOPMENT.md](DEVELOPMENT.md) и [README приложения](obsidium-app/README.md), устройство приложения — в [базе знаний](knowledge%20base).
 
 Obsidium — свободная программа под лицензией [GNU Affero General Public License v3.0 only](LICENSE). Её можно использовать, изучать, изменять и распространять, но любая распространяемая версия, а также изменённая версия, доступная пользователям по сети, должна выходить под той же лицензией вместе с полным исходным кодом. Для использования на других условиях, например по коммерческой лицензии, свяжитесь с автором.

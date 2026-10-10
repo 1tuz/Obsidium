@@ -45,7 +45,7 @@ WikiLinkAliasMark
 WikiLinkAlias
 ```
 
-Скрытие обычного Markdown и wikilink выполняет один [livePreviewPlugin.ts](../aquilum-app/src/components/Editor/extensions/livePreviewPlugin.ts). Видимое синтаксическое дерево обходится один раз на изменение документа, selection или viewport.
+Скрытие обычного Markdown и wikilink выполняет один [livePreviewPlugin.ts](../obsidium-app/src/components/Editor/extensions/livePreviewPlugin.ts). Видимое синтаксическое дерево обходится один раз на изменение документа, selection или viewport.
 
 Плагин одновременно:
 

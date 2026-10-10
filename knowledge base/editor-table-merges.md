@@ -8,7 +8,7 @@
 
 ## Модель
 
-`TableModel` / `MergeRange` — `aquilum-app/src/components/Editor/extensions/tables/model.ts`.
+`TableModel` / `MergeRange` — `obsidium-app/src/components/Editor/extensions/tables/model.ts`.
 
 ```ts
 interface TableModel {

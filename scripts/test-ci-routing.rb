@@ -3,17 +3,21 @@ require 'psych'
 filters = Psych.safe_load(File.read('.github/filters.yml'))
 flags = File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH
 
+raise 'Obsidium application source directory is missing' unless Dir.exist?('obsidium-app')
+raise 'legacy application source directory still exists' if Dir.exist?('aquilum-app')
+
 cases = {
   'documentation' => ['knowledge base/theme-engine.md'],
-  'CSS' => ['aquilum-app/src/styles/themes/palettes.css'],
-  'TypeScript' => ['aquilum-app/src/modules/theme/index.ts'],
-  'frontend configuration' => ['aquilum-app/vite.config.ts'],
-  'shared frontend module' => ['aquilum-app/src/modules/documents/fileGateway.ts'],
-  'Rust core' => ['aquilum-app/core/src/search/service.rs'],
-  'frontend dependency' => ['aquilum-app/package-lock.json'],
-  'Rust dependency' => ['aquilum-app/src-tauri/Cargo.lock'],
-  'multiple areas' => ['aquilum-app/src/App.tsx', 'aquilum-app/core/src/lib.rs'],
+  'CSS' => ['obsidium-app/src/styles/themes/palettes.css'],
+  'TypeScript' => ['obsidium-app/src/modules/theme/index.ts'],
+  'frontend configuration' => ['obsidium-app/vite.config.ts'],
+  'shared frontend module' => ['obsidium-app/src/modules/documents/fileGateway.ts'],
+  'Rust core' => ['obsidium-app/core/src/search/service.rs'],
+  'frontend dependency' => ['obsidium-app/package-lock.json'],
+  'Rust dependency' => ['obsidium-app/src-tauri/Cargo.lock'],
+  'multiple areas' => ['obsidium-app/src/App.tsx', 'obsidium-app/core/src/lib.rs'],
   'workflow only' => ['.github/workflows/ci.yml'],
+  'installer scripts' => ['scripts/install.ps1', 'scripts/uninstall.sh'],
 }
 
 matches = lambda do |filter, path|
@@ -31,6 +35,7 @@ expected = {
   'Rust dependency' => { 'rust_workspace' => true },
   'multiple areas' => { 'frontend_types' => true, 'frontend_related' => true, 'rust_core' => true },
   'workflow only' => { 'workflow' => true },
+  'installer scripts' => { 'installer_scripts' => true },
 }
 
 cases.each do |name, paths|

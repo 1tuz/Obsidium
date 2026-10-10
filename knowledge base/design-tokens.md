@@ -45,10 +45,10 @@ src/styles/
 
 ## Figma → frontend
 
-Единственный источник токенов — `aquilum-app/variables.json`, экспортированный из Figma. CSS генерируется командой:
+Единственный источник токенов — `obsidium-app/variables.json`, экспортированный из Figma. CSS генерируется командой:
 
 ```powershell
-cd aquilum-app
+cd obsidium-app
 npm run tokens:sync
 ```
 
@@ -58,7 +58,7 @@ npm run tokens:sync
 npm run tokens:diff
 ```
 
-После нового экспорта из Figma замени `aquilum-app/variables.json` и выполни полный pipeline:
+После нового экспорта из Figma замени `obsidium-app/variables.json` и выполни полный pipeline:
 
 ```powershell
 npm run tokens:sync
@@ -69,7 +69,7 @@ npm run check:colors
 
 Автоматического watcher-а Figma нет: CSS обновляется только после запуска `tokens:sync`. Сгенерированные CSS-файлы не редактировать вручную.
 
-Для запуска полного pipeline двойным кликом используй `aquilum-app/scripts/sync-figma-tokens.bat`. Скрипт оставляет окно открытым и показывает логи даже при ошибке.
+Для запуска полного pipeline двойным кликом используй `obsidium-app/scripts/sync-figma-tokens.bat`. Скрипт оставляет окно открытым и показывает логи даже при ошибке.
 
 Не редактировать вручную сгенерированные `unit.css`, `dimension.css`, `typography.css`, `colors.css`, `semantic.css` и `themes/dark.css`. Компонентные алиасы остаются в `components.css`.
 

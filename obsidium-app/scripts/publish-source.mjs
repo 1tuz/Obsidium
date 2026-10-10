@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const publicRoot = join(repoRoot, 'release-repo-update');
-const PUBLISHED_PATHS = ['aquilum-app', 'LICENSE', '.gitattributes', '.gitignore', '.gitmodules'];
+const PUBLISHED_PATHS = ['obsidium-app', 'LICENSE', '.gitattributes', '.gitignore', '.gitmodules'];
 const SNAPSHOT_OWNED_PATHS = [...PUBLISHED_PATHS, 'DEVELOPMENT.md'];
-const SUBMODULE_PATH = 'aquilum-app/vendor/foliate-js';
+const SUBMODULE_PATH = 'obsidium-app/vendor/foliate-js';
 const NOTE_DIRECTORIES = ['knowledge base/', 'research_notes/', 'reports/', '.aquilum/'];
-const PUBLISHED_MARKDOWN = ['aquilum-app/README.md', 'aquilum-app/src/fonts/LICENSE-iA-Writer.md'];
+const PUBLISHED_MARKDOWN = ['obsidium-app/README.md', 'obsidium-app/src/fonts/LICENSE-iA-Writer.md'];
 const PUBLIC_ONLY_MARKDOWN = ['README.md', 'README.ru.md', 'DEVELOPMENT.md'];
 const publish = process.argv.includes('--publish');
 
@@ -112,7 +112,7 @@ if (!publish) {
   process.exit(0);
 }
 
-const { version } = JSON.parse(readFileSync(join(repoRoot, 'aquilum-app', 'package.json'), 'utf8'));
+const { version } = JSON.parse(readFileSync(join(repoRoot, 'obsidium-app', 'package.json'), 'utf8'));
 const privateCommit = git(repoRoot, ['rev-parse', '--short', 'HEAD']);
 git(publicRoot, ['commit', '--quiet', '-m', `исходники ${version} (${privateCommit})`]);
 git(publicRoot, ['push', '--quiet', 'origin', 'HEAD']);

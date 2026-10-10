@@ -15,13 +15,13 @@ node_modules/
 /.artifacts/
 
 # Safety net: old locations before .artifacts layout (must never return to git)
-/aquilum-app/dist/
-/aquilum-app/dist-ssr/
-/aquilum-app/.build/
-/aquilum-app/releases/
-/aquilum-app/src-tauri/target/
-/aquilum-app/core/target/
-/aquilum-app/core/Cargo.lock
+/obsidium-app/dist/
+/obsidium-app/dist-ssr/
+/obsidium-app/.build/
+/obsidium-app/releases/
+/obsidium-app/src-tauri/target/
+/obsidium-app/core/target/
+/obsidium-app/core/Cargo.lock
 
 coverage/
 *.tsbuildinfo
@@ -38,7 +38,7 @@ coverage/
 /dataview/
 
 # Отладочные черновики разбора frontmatter
-aquilum-app/tmp-fm.*
+obsidium-app/tmp-fm.*
 
 # История заметок Aquilum: локальная, в git не идёт
 .aquilum/

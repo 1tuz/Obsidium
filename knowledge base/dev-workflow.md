@@ -4,7 +4,7 @@
 
 ### 1. `npm run dev` — только фронтенд (браузер)
 ```bash
-cd aquilum-app
+cd obsidium-app
 npm run dev
 ```
 - Открывает **http://localhost:1420/** в браузере
@@ -14,7 +14,7 @@ npm run dev
 
 ### 2. `npm run tauri dev` — полное приложение (окно)
 ```bash
-cd aquilum-app
+cd obsidium-app
 npm run tauri dev
 ```
 - Открывает **нативное окно приложения**

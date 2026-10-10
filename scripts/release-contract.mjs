@@ -9,23 +9,23 @@ export function versionFromTag(tag) {
 
 export function validateVersions(root, tag) {
   const version = versionFromTag(tag);
-  const packageJson = JSON.parse(readFileSync(join(root, 'aquilum-app/package.json'), 'utf8'));
-  const packageLock = JSON.parse(readFileSync(join(root, 'aquilum-app/package-lock.json'), 'utf8'));
-  const tauri = JSON.parse(readFileSync(join(root, 'aquilum-app/src-tauri/tauri.conf.json'), 'utf8'));
-  const cargoLock = readFileSync(join(root, 'aquilum-app/src-tauri/Cargo.lock'), 'utf8');
-  const cargoManifest = 'aquilum-app/src-tauri/Cargo.toml';
+  const packageJson = JSON.parse(readFileSync(join(root, 'obsidium-app/package.json'), 'utf8'));
+  const packageLock = JSON.parse(readFileSync(join(root, 'obsidium-app/package-lock.json'), 'utf8'));
+  const tauri = JSON.parse(readFileSync(join(root, 'obsidium-app/src-tauri/tauri.conf.json'), 'utf8'));
+  const cargoLock = readFileSync(join(root, 'obsidium-app/src-tauri/Cargo.lock'), 'utf8');
+  const cargoManifest = 'obsidium-app/src-tauri/Cargo.toml';
   const cargoContent = readFileSync(join(root, cargoManifest), 'utf8');
   const cargoVersion = /^version\s*=\s*"([^"]+)"/mu.exec(cargoContent)?.[1];
   const lockVersion = /^name\s*=\s*"aquilum-app"\nversion\s*=\s*"([^"]+)"/mu.exec(cargoLock)?.[1];
   if (!cargoVersion) throw new Error(`${cargoManifest} has no package version`);
-  if (!lockVersion) throw new Error('aquilum-app/src-tauri/Cargo.lock has no aquilum-app package');
+  if (!lockVersion) throw new Error('obsidium-app/src-tauri/Cargo.lock has no aquilum-app package');
   const versions = [
-    ['aquilum-app/package.json', packageJson.version],
-    ['aquilum-app/package-lock.json', packageLock.version],
-    ['aquilum-app/package-lock.json packages root', packageLock.packages?.['']?.version],
-    ['aquilum-app/src-tauri/tauri.conf.json', tauri.version],
+    ['obsidium-app/package.json', packageJson.version],
+    ['obsidium-app/package-lock.json', packageLock.version],
+    ['obsidium-app/package-lock.json packages root', packageLock.packages?.['']?.version],
+    ['obsidium-app/src-tauri/tauri.conf.json', tauri.version],
     [cargoManifest, cargoVersion],
-    ['aquilum-app/src-tauri/Cargo.lock aquilum-app', lockVersion],
+    ['obsidium-app/src-tauri/Cargo.lock aquilum-app', lockVersion],
   ];
   for (const [path, found] of versions) {
     if (found !== version) throw new Error(`${path} version ${found} does not match ${tag}`);

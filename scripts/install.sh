@@ -24,14 +24,23 @@ EOF
 
 print_banner
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-  printf 'Obsidium curl installer currently supports macOS only.\n' >&2
-  exit 1
-fi
-
-case "$(uname -m)" in
-  arm64) target="aarch64" ;;
-  *) printf 'Obsidium DMG installer supports Apple Silicon Macs only (arm64).\n' >&2; exit 1 ;;
+system="$(uname -s)"
+architecture="$(uname -m)"
+case "$system:$architecture" in
+  Darwin:arm64) platform="macos"; target="aarch64" ;;
+  Linux:x86_64)
+    os_release="${OS_RELEASE_FILE:-/etc/os-release}"
+    if [[ ! -r "$os_release" ]]; then
+      printf 'Obsidium Linux installer requires Ubuntu 24.04.\n' >&2
+      exit 1
+    fi
+    . "$os_release"
+    if [[ "${ID:-}" != ubuntu || "${VERSION_ID:-}" != 24.04 ]]; then
+      printf 'Obsidium Linux installer supports Ubuntu 24.04 x64 only.\n' >&2
+      exit 1
+    fi
+    platform="linux" ;;
+  *) printf 'Obsidium installer supports Apple Silicon macOS and Ubuntu 24.04 x64 only.\n' >&2; exit 1 ;;
 esac
 
 work_dir="$(mktemp -d)"
@@ -47,10 +56,22 @@ cleanup() {
 trap cleanup EXIT
 
 curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" -o "$work_dir/release.json"
-download_url="$(sed -n 's/^[[:space:]]*"browser_download_url":[[:space:]]*"\(.*\)",\{0,1\}$/\1/p' "$work_dir/release.json" | grep "_${target}\.dmg$" | head -n 1 || true)"
+if [[ "$platform" == macos ]]; then
+  asset_pattern="_${target}\.dmg$"
+else
+  asset_pattern="_amd64\.deb$"
+fi
+download_url="$(sed -n 's/^[[:space:]]*"browser_download_url":[[:space:]]*"\(.*\)",\{0,1\}$/\1/p' "$work_dir/release.json" | grep "$asset_pattern" | head -n 1 || true)"
 if [[ -z "$download_url" ]]; then
-  printf 'Latest GitHub release has no macOS %s DMG.\n' "$target" >&2
+  printf 'Latest GitHub release has no installer for %s.\n' "$platform" >&2
   exit 1
+fi
+
+if [[ "$platform" == linux ]]; then
+  curl -fL --proto '=https' --tlsv1.2 --progress-bar --show-error "$download_url" -o "$work_dir/Obsidium.deb"
+  sudo dpkg -i "$work_dir/Obsidium.deb"
+  printf 'Installed Obsidium for all users. Vaults, Markdown files, and application data were left untouched.\n'
+  exit 0
 fi
 
 curl -fL --proto '=https' --tlsv1.2 --progress-bar --show-error "$download_url" -o "$work_dir/Obsidium.dmg"

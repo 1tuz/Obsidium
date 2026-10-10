@@ -157,21 +157,30 @@ Obsidium exposes an optional local MCP server. Compatible AI tools can search an
 
 Obsidium installs for the current user and does not require administrator rights. The installer is not currently signed with a Windows code-signing certificate, so SmartScreen may show a warning. Choose **More info → Run anyway** if you downloaded it from this repository.
 
-### macOS Apple Silicon: one-line install and uninstall
+### One-line install and uninstall
 
-Install the latest release with [`scripts/install.sh`](scripts/install.sh):
+macOS Apple Silicon and Ubuntu 24 x64 use the Bash installer, which detects the operating system:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.sh | bash
 ```
 
-Remove the application with [`scripts/uninstall.sh`](scripts/uninstall.sh):
+Remove the application on macOS or Ubuntu with [`scripts/uninstall.sh`](scripts/uninstall.sh):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.sh | bash
 ```
 
 Uninstall removes the app only. Vault folders, Markdown files, and Obsidium settings remain on disk.
+
+On Windows x64, run these commands in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.ps1 | iex
+```
+
+The Windows scripts install or remove Obsidium for the current user. They leave vaults, Markdown files, and application data untouched.
 
 ## Updates
 
@@ -203,9 +212,9 @@ Report bugs and suggest improvements in [Issues](https://github.com/1tuz/Obsidiu
 Obsidium is based on the [upstream project](https://github.com/Freaction/Aquilum) by Dmitriy Chaplinskiy (© 2026). This fork adds:
 
 - GitHub Actions checks and installer builds for Windows, Apple Silicon macOS, and Ubuntu 24.
-- macOS `curl` install and uninstall scripts that leave vault files untouched.
+- One-line install and uninstall scripts for macOS, Ubuntu, and Windows that leave user data untouched.
 - Scheduled upstream sync and a fix for the blank startup window.
 
-Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [application README](aquilum-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
+Build instructions are in [DEVELOPMENT.md](DEVELOPMENT.md) (Russian) and [application README](obsidium-app/README.md); architecture notes live in [knowledge base](knowledge%20base).
 
 Obsidium is free software licensed under the [GNU Affero General Public License v3.0 only](LICENSE). You may use, study, modify, and share it, but any distributed version — and any modified version offered to users over a network — must be released under the same license with its complete source code. For use under other terms, such as a commercial license, contact the author.
