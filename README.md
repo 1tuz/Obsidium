@@ -29,13 +29,13 @@ Obsidium restores the working context around your notes, not just the last open 
 
 The history panel shown on the right records how a note changed and where each edit came from. You can inspect a visual diff, create named versions at meaningful milestones, restore a complete earlier version, or reverse one selected change. This history complements the files on disk: the current document is still an ordinary `.md` file that remains usable outside Obsidium.
 
-![Obsidium home workspace with note history](screenshots/overview-history.jpg)
+![Obsidium home workspace with note history](assets/screenshots/overview-history.jpg)
 
 ### 2. Search the entire vault while you type
 
 Global search is backed by a local full-text index and returns matching notes as you type. Every result includes surrounding text, so you can judge a match before opening it; keyboard navigation makes it practical to move through a long result list quickly. Search indexes are maintained separately for each vault and updated when files change, including changes made by another editor.
 
-![Full-text search across an Obsidium vault](screenshots/global-search.jpg)
+![Full-text search across an Obsidium vault](assets/screenshots/global-search.jpg)
 
 For a narrower task, search inside the current note highlights matches without leaving the editor. Obsidium also indexes typed frontmatter fields, which lets live queries filter and organize notes by structured metadata rather than text alone.
 
@@ -45,7 +45,7 @@ The graph turns wiki links between notes into a navigable map. Pan and zoom acro
 
 The graph is part of the same navigation system as backlinks, outgoing links, and related-note suggestions. It therefore works both as a broad overview and as a way to answer a focused question: what supports this note, where does it lead, and which nearby ideas have not yet been connected explicitly?
 
-![Interactive knowledge graph in Obsidium](screenshots/graph-overview.jpg)
+![Interactive knowledge graph in Obsidium](assets/screenshots/graph-overview.jpg)
 
 ### 4. Write with live Markdown preview
 
@@ -53,7 +53,7 @@ The CodeMirror editor renders headings, emphasis, links, lists, callouts, code, 
 
 The result remains portable Markdown on disk. Nested lists, both numbered-list styles, empty list items, tasks, fenced blocks, frontmatter, and wiki links are preserved as text rather than converted into a private document format. Page covers and book callouts add richer presentation without changing that ownership model.
 
-![Rich Markdown editing with lists, callouts, and embedded content](screenshots/rich-editor.jpg)
+![Rich Markdown editing with lists, callouts, and embedded content](assets/screenshots/rich-editor.jpg)
 
 ### 5. Manage tasks without a separate task database
 
@@ -61,7 +61,7 @@ Tasks remain ordinary Markdown checkboxes in the notes where they belong, but be
 
 A live `TASK` query can collect matching items from many notes into one dashboard. Completing an item in the query result updates the original source note, so the rollup and the underlying project page cannot silently drift apart.
 
-![Interactive tasks and project rollups in Obsidium](screenshots/tasks.jpg)
+![Interactive tasks and project rollups in Obsidium](assets/screenshots/tasks.jpg)
 
 ### 6. Edit structured tables visually
 
@@ -69,7 +69,7 @@ Tables stay readable as Markdown but gain spreadsheet-like interaction where it 
 
 The editor keeps the visual grid and Markdown source synchronized. That means the table can still be read and versioned as text, while Obsidium handles the error-prone structural edits for you.
 
-![A structured Markdown table in Obsidium](screenshots/tables.jpg)
+![A structured Markdown table in Obsidium](assets/screenshots/tables.jpg)
 
 ### 7. Keep media, references, and context together
 
@@ -77,13 +77,13 @@ Paste an image from the clipboard or import an image or video file and Obsidium 
 
 The link panels below the document show both directions of context: outgoing links reveal what the note cites, while backlinks reveal which other notes depend on it. Related-note suggestions help surface nearby material even before you add an explicit link. Together, media and links make a note a working research surface rather than an isolated page.
 
-![Image editing and backlinks in an Obsidium note](screenshots/media-backlinks.jpg)
+![Image editing and backlinks in an Obsidium note](assets/screenshots/media-backlinks.jpg)
 
 ### 8. Build a local book library
 
 Add EPUB, MOBI, AZW3, and FB2 books without moving reading into a separate cloud service. The library presents covers, authors, formats, and reading progress in one place, while the original book files remain in the vault. Opening a title resumes the saved position, making the library useful for both reference works and long-form reading.
 
-![Book library with reading progress](screenshots/book-library.jpg)
+![Book library with reading progress](assets/screenshots/book-library.jpg)
 
 ### 9. Read and collect passages without leaving the vault
 
@@ -91,7 +91,7 @@ The built-in reader provides a focused two-column layout and controls for typefa
 
 Selected passages can be saved as quotes in the corresponding book note. From there they become ordinary knowledge-base material: you can annotate them, link them to ideas and projects, find them through search, and include them in queries.
 
-![Two-column book reader in Obsidium](screenshots/book-reader.jpg)
+![Two-column book reader in Obsidium](assets/screenshots/book-reader.jpg)
 
 ### 10. Reuse structure with templates and metadata
 
@@ -99,13 +99,13 @@ Templates turn recurring note structures into a repeatable workflow. Search for 
 
 The book example shows YAML frontmatter as editable fields rather than an opaque block: cover, author, status, dates, rating, tags, and source file remain structured and searchable. Because the metadata is still stored in the Markdown file, other tools can read it and Obsidium's queries can use it immediately.
 
-![Book note template with structured metadata](screenshots/book-template.jpg)
+![Book note template with structured metadata](assets/screenshots/book-template.jpg)
 
 ### 11. Adapt the interface to your way of working
 
 Appearance settings cover the whole working environment rather than a single editor theme. Choose light or dark mode, the interface language, accent color, UI scale, editor and reader fonts, line height, and content width. You can also choose the home note and tune reading separately from writing, so a dense research workspace and a calm book layout do not have to share the same typography.
 
-![Obsidium interface and appearance settings](screenshots/appearance-settings.jpg)
+![Obsidium interface and appearance settings](assets/screenshots/appearance-settings.jpg)
 
 ### 12. Recover deleted notes and folders
 
@@ -113,7 +113,7 @@ Deleting content does not immediately erase it. Notes and whole folders move to 
 
 Trash is one layer of a broader recovery model. Note history handles edits inside a document, while external-change detection protects work made by another editor or an AI agent; if competing changes cannot be merged safely, Obsidium preserves the disputed material in a conflict copy instead of silently discarding it.
 
-![Trash with restorable notes and folders](screenshots/trash-restore.jpg)
+![Trash with restorable notes and folders](assets/screenshots/trash-restore.jpg)
 
 ## Feature overview
 
