@@ -1,8 +1,8 @@
 use super::super::vault::Vault;
+use crate::app_core::Core;
 use crate::search::paths::{canonical_path, same_path};
 use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant};
-use crate::app_core::Core;
 
 const GUEST_SCAN_TIMEOUT: Duration = Duration::from_secs(5);
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
@@ -22,7 +22,9 @@ pub fn open_guest(core: &Core, root: &Path) -> Result<(), String> {
     service
         .open_guest(&workspace)
         .map_err(|error| error.to_string())?;
-    if wait_until(GUEST_SCAN_TIMEOUT, || !service.status(Some(&workspace)).updating) {
+    if wait_until(GUEST_SCAN_TIMEOUT, || {
+        !service.status(Some(&workspace)).updating
+    }) {
         Ok(())
     } else {
         Err(format!(
@@ -43,7 +45,10 @@ pub fn known_workspace(core: &Core, input: &str) -> Result<PathBuf, String> {
         workspace_by_tail(&known, input)?
     };
     if !root.is_dir() {
-        return Err(format!("Папка базы знаний не найдена: {}", root.to_string_lossy()));
+        return Err(format!(
+            "Папка базы знаний не найдена: {}",
+            root.to_string_lossy()
+        ));
     }
     Ok(root)
 }
@@ -58,8 +63,16 @@ pub fn address(known: &[PathBuf], root: &Path) -> String {
     let parts = root_parts(root);
     for length in 1..=parts.len() {
         let tail = &parts[parts.len() - length..];
-        let lowered = tail.iter().map(|part| part.to_lowercase()).collect::<Vec<_>>();
-        if known.iter().filter(|other| ends_with(other, &lowered)).count() == 1 {
+        let lowered = tail
+            .iter()
+            .map(|part| part.to_lowercase())
+            .collect::<Vec<_>>();
+        if known
+            .iter()
+            .filter(|other| ends_with(other, &lowered))
+            .count()
+            == 1
+        {
             return tail.join("/");
         }
     }
@@ -123,7 +136,9 @@ fn root_parts(root: &Path) -> Vec<String> {
 }
 
 fn unknown_workspace(input: &str) -> String {
-    format!("База знаний «{input}» не открывалась в Aquilum — доступные базы покажет list_workspaces")
+    format!(
+        "База знаний «{input}» не открывалась в Obsidium — доступные базы покажет list_workspaces"
+    )
 }
 
 #[cfg(test)]
@@ -134,7 +149,7 @@ mod tests {
     fn known() -> Vec<PathBuf> {
         [
             "D:/Games/zombie voxel/Knowledge base",
-            "D:/My programs/Aquilum/knowledge base",
+            "D:/My programs/Obsidium/knowledge base",
             "D:/База знаний копия/NeuroNet",
             "C:/Users/Dmitriy/OneDrive/Документы/NeuroNet",
             "C:/Users/Dmitriy/Desktop/Solo",
@@ -147,12 +162,15 @@ mod tests {
     #[test]
     fn the_address_is_the_shortest_unique_tail() {
         let known = known();
-        let addresses = known.iter().map(|root| address(&known, root)).collect::<Vec<_>>();
+        let addresses = known
+            .iter()
+            .map(|root| address(&known, root))
+            .collect::<Vec<_>>();
         assert_eq!(
             addresses,
             [
                 "zombie voxel/Knowledge base",
-                "Aquilum/knowledge base",
+                "Obsidium/knowledge base",
                 "База знаний копия/NeuroNet",
                 "Документы/NeuroNet",
                 "Solo",
@@ -163,11 +181,15 @@ mod tests {
     #[test]
     fn a_tail_selects_one_workspace_or_names_the_candidates() {
         let known = known();
-        assert_eq!(workspace_by_tail(&known, "zombie voxel/knowledge base").unwrap(), known[0]);
+        assert_eq!(
+            workspace_by_tail(&known, "zombie voxel/knowledge base").unwrap(),
+            known[0]
+        );
         assert_eq!(workspace_by_tail(&known, "solo").unwrap(), known[4]);
         let ambiguous = workspace_by_tail(&known, "NeuroNet").unwrap_err();
         assert!(
-            ambiguous.contains("База знаний копия/NeuroNet") && ambiguous.contains("Документы/NeuroNet"),
+            ambiguous.contains("База знаний копия/NeuroNet")
+                && ambiguous.contains("Документы/NeuroNet"),
             "{ambiguous}"
         );
         assert!(workspace_by_tail(&known, "Нет такой").is_err());
@@ -175,5 +197,12 @@ mod tests {
             workspace_by_tail(&known, "voxel/Knowledge").is_err(),
             "хвост сравнивается целыми папками"
         );
+    }
+
+    #[test]
+    fn unknown_workspace_error_uses_the_obsidium_name() {
+        let error = super::unknown_workspace("Новая");
+        assert!(error.contains("в Obsidium"), "{error}");
+        assert!(!error.to_lowercase().contains("aquilum"), "{error}");
     }
 }

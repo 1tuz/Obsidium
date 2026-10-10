@@ -231,4 +231,29 @@ mod tests {
 
         assert_eq!(config.ui.enabled_snippets["__legacy__"], ["foo.css"]);
     }
+
+    #[test]
+    fn graph_preferences_and_presets_survive_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        config.graph.preferences = Some(serde_json::json!({ "nodeSize": 1.7 }));
+        config.graph.presets = Some(serde_json::json!({
+            "Research": { "nodeSize": 1.7 }
+        }));
+
+        manager.update_config(config).unwrap();
+
+        let stored = SettingsManager::new(dir.path()).get_config();
+        assert_eq!(
+            stored.graph.preferences,
+            Some(serde_json::json!({ "nodeSize": 1.7 }))
+        );
+        assert_eq!(
+            stored.graph.presets,
+            Some(serde_json::json!({
+                "Research": { "nodeSize": 1.7 }
+            }))
+        );
+    }
 }

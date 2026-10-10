@@ -20,6 +20,7 @@ export class LabelLayer {
   private width = 0;
   private height = 0;
   private ratio = 1;
+  private density = 1;
 
   constructor(
     private readonly sprites: LabelSprites,
@@ -30,7 +31,12 @@ export class LabelLayer {
     this.ratio = ratio;
     this.sprites.atlas.configure(typography.font, ratio, typography.lineHeight);
     this.sprites.reserve(this.sprites.atlas.capacity);
-    this.picker.setLimit(this.sprites.atlas.capacity);
+    this.picker.setLimit(Math.round(this.sprites.atlas.capacity * this.density));
+  }
+
+  setDensity(density: number): void {
+    this.density = Number.isFinite(density) ? clamp(density, 0.25, 1) : 1;
+    this.picker.setLimit(Math.round(this.sprites.atlas.capacity * this.density));
   }
 
   resize(width: number, height: number): void {
@@ -48,7 +54,7 @@ export class LabelLayer {
     this.sprites.begin();
   }
 
-  draw(scene: LabelScene, seconds: number, dimOf: (node: number) => number): boolean {
+  draw(scene: LabelScene, seconds: number, dimOf: (node: number) => number, animate = true): boolean {
     this.sprites.begin();
     const readable = readableAt(scene.scale * scene.spread);
     if (readable === 0 && scene.hovered < 0 && this.fades.size === 0) return false;
@@ -59,7 +65,7 @@ export class LabelLayer {
     this.view.width = this.width;
     this.view.height = this.height;
     const entries = this.picker.collect(scene, this.view, this.fades, readable);
-    const step = approachStep(seconds, FADE_SECONDS);
+    const step = animate ? approachStep(seconds, FADE_SECONDS) : 1;
     let animating = false;
     for (const entry of entries) {
       if (this.paint(entry, scene, readable, step, dimOf)) animating = true;

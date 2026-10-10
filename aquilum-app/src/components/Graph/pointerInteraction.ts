@@ -4,6 +4,9 @@ interface InteractionPort {
   viewportWidth(): number;
   viewportHeight(): number;
   panBy(dx: number, dy: number): void;
+  panToBy(dx: number, dy: number): void;
+  moveNode(node: number, centeredX: number, centeredY: number): void;
+  finishNodeDrag(): void;
   zoomBy(factor: number, centeredX: number, centeredY: number): void;
   nodeAt(centeredX: number, centeredY: number): number;
   hoverSettled(): boolean;
@@ -30,9 +33,22 @@ export class PointerInteraction {
         port.panBy(dx, dy);
         port.invalidate();
       },
+      panToBy: (dx, dy) => {
+        port.panToBy(dx, dy);
+        port.invalidate();
+      },
       dragging: (active) => {
         this.panning = active;
+        if (!active) port.finishNodeDrag();
         this.applyCursor();
+      },
+      nodeAt: (paddingBoxX, paddingBoxY) => port.nodeAt(
+        this.centeredX(paddingBoxX),
+        this.centeredY(paddingBoxY),
+      ),
+      moveNode: (node, paddingBoxX, paddingBoxY) => {
+        port.moveNode(node, this.centeredX(paddingBoxX), this.centeredY(paddingBoxY));
+        port.invalidate();
       },
       zoomBy: (factor, paddingBoxX, paddingBoxY) => {
         this.aimAt(paddingBoxX, paddingBoxY);

@@ -57,6 +57,6 @@ export function installUpdateOnStartup(auto: boolean): void {
   startupInstallRequested = true;
   if (!auto) return;
   installUpdate().catch((reason) => {
-    console.warn('[aquilum:updater] автообновление пропущено:', reason);
+    console.warn('[obsidium:updater] автообновление пропущено:', reason);
   });
 }

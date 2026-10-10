@@ -53,3 +53,191 @@
   gap: var(--q-space-8);
   color: var(--q-text-secondary);
 }
+
+.q-graph-settings-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-8);
+}
+
+.q-graph-settings-color input {
+  width: var(--q-size-32);
+  height: var(--q-size-24);
+  padding: 0;
+  border: var(--q-border-1) solid var(--q-sidebar-border);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-bg-surface);
+}
+
+.q-graph-settings-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-8);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-graph-settings-communities,
+.q-graph-settings-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-6);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-graph-settings-communities > .q-graph-settings-community,
+.q-graph-settings-groups > div {
+  display: flex;
+  gap: var(--q-space-8);
+  min-width: 0;
+}
+
+.q-graph-settings-communities label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-4);
+  min-width: 0;
+  width: 100%;
+}
+
+.q-graph-settings-communities [role="switch"] {
+  align-self: center;
+  flex: 0 0 auto;
+}
+
+.q-graph-settings-communities input {
+  min-width: 0;
+  padding: var(--q-space-6) var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-sidebar-border);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+}
+
+.q-graph-settings-community-pages {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-8);
+}
+
+.q-graph-settings-groups > div {
+  flex-direction: column;
+}
+
+.q-graph-settings-groups input {
+  min-width: 0;
+  padding: var(--q-space-6) var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-sidebar-border);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+}
+
+.q-graph-settings-groups .q-graph-settings-color input {
+  padding: 0;
+}
+
+
+.q-graph-settings-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-4);
+}
+
+.q-graph-settings-filters input {
+  min-width: 0;
+  padding: var(--q-space-6) var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-sidebar-border);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+}
+
+.q-graph-settings-path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-8);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-graph-settings-suggestions,
+.q-graph-settings-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-6);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-graph-settings-suggestion {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--q-space-4) 0;
+  border-bottom: var(--q-border-1) solid var(--q-sidebar-border);
+}
+
+.q-graph-settings-suggestion > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-graph-settings-presets,
+.q-graph-settings-preset-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-8);
+}
+
+.q-graph-settings-preset-form,
+.q-graph-settings-preset-form label,
+.q-graph-settings-preset {
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-graph-settings-preset-form input {
+  min-width: 0;
+  padding: var(--q-space-6) var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-sidebar-border);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+}
+
+.q-graph-settings-preset-form button,
+.q-graph-settings-preset > button {
+  min-width: 0;
+  padding: var(--q-space-6) var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-sidebar-border);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+  text-align: left;
+}
+
+.q-graph-settings-preset-form button:disabled {
+  opacity: 0.5;
+}
+
+.q-graph-settings-preset {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-4);
+}
+
+.q-graph-settings-preset > button {
+  flex: 1;
+}

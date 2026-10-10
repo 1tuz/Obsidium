@@ -54,12 +54,17 @@ pub fn open_headless_core(
         .list_workspaces()
         .unwrap_or_default();
     for item in &known {
-        let _ = core.ui_state.resolve_workspace(&item.path, item.last_seen_ms);
+        let _ = core
+            .ui_state
+            .resolve_workspace(&item.path, item.last_seen_ms);
     }
 
-    let selected = workspace
-        .map(Path::to_path_buf)
-        .or_else(|| known.iter().max_by_key(|item| item.last_seen_ms).map(|item| PathBuf::from(&item.path)));
+    let selected = workspace.map(Path::to_path_buf).or_else(|| {
+        known
+            .iter()
+            .max_by_key(|item| item.last_seen_ms)
+            .map(|item| PathBuf::from(&item.path))
+    });
     if let Some(path) = selected {
         if !path.is_dir() {
             return Err(format!("база знаний не найдена: {}", path.display()));
@@ -67,8 +72,12 @@ pub fn open_headless_core(
         let root = crate::search::paths::canonical_path(&path);
         core.watcher.watch(&root)?;
         let path = root.to_string_lossy().into_owned();
-        core.ui_state.resolve_workspace(&path, now_ms()).map_err(|error| format!("{error:?}"))?;
-        core.search.prepare(&path).map_err(|error| error.to_string())?;
+        core.ui_state
+            .resolve_workspace(&path, now_ms())
+            .map_err(|error| format!("{error:?}"))?;
+        core.search
+            .prepare(&path)
+            .map_err(|error| error.to_string())?;
     }
     Ok(core)
 }
@@ -122,7 +131,7 @@ fn forward(message: &str, app_identifier: &str) -> Option<String> {
         }
         Err(error) => transport_error(
             message,
-            &format!("приложение Aquilum не запущено или MCP выключен ({error})"),
+            &format!("приложение Obsidium не запущено или MCP выключен ({error})"),
         ),
     }
 }
@@ -136,7 +145,7 @@ fn transport_error(message: &str, reason: &str) -> Option<String> {
         serde_json::json!({
             "jsonrpc": "2.0",
             "id": id,
-            "error": { "code": -32000, "message": format!("Aquilum MCP: {reason}") },
+            "error": { "code": -32000, "message": format!("Obsidium MCP: {reason}") },
         })
         .to_string(),
     )
@@ -154,7 +163,10 @@ fn endpoint(app_identifier: &str) -> Option<Endpoint> {
     }
 
     let settings = std::fs::read_to_string(settings_path(app_identifier)?).ok()?;
-    let mcp = serde_json::from_str::<Value>(&settings).ok()?.get("mcp")?.clone();
+    let mcp = serde_json::from_str::<Value>(&settings)
+        .ok()?
+        .get("mcp")?
+        .clone();
     Some(Endpoint {
         port: u16::try_from(mcp.get("port").and_then(Value::as_u64)?).ok()?,
         token: mcp.get("token").and_then(Value::as_str)?.to_owned(),
@@ -186,8 +198,11 @@ fn data_directory() -> Option<PathBuf> {
     }
     #[cfg(target_os = "macos")]
     {
-        std::env::var_os("HOME")
-            .map(|home| PathBuf::from(home).join("Library").join("Application Support"))
+        std::env::var_os("HOME").map(|home| {
+            PathBuf::from(home)
+                .join("Library")
+                .join("Application Support")
+        })
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
@@ -197,5 +212,21 @@ fn data_directory() -> Option<PathBuf> {
                 std::env::var_os("HOME")
                     .map(|home| PathBuf::from(home).join(".local").join("share"))
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::transport_error;
+    use serde_json::Value;
+
+    #[test]
+    fn transport_errors_use_the_obsidium_name() {
+        let response =
+            transport_error(r#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#, "причина").unwrap();
+        let parsed = serde_json::from_str::<Value>(&response).unwrap();
+        let message = parsed["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with("Obsidium MCP:"), "{message}");
+        assert!(!message.to_lowercase().contains("aquilum"), "{message}");
     }
 }

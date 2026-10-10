@@ -14,13 +14,13 @@ describe('UiSection', () => {
     renderer = null;
   });
 
-  it('turns animations off by default', () => {
+  it('shows a binary animation control without an automatic mode', () => {
     const config = {
       ui: {
         appearance: 'system',
         palette: 'obsidium',
         accentMode: 'palette',
-        motion: 'off',
+        motion: 'on',
         enabledSnippets: {},
         language: 'ru',
         primaryColor: '#D357FE',
@@ -28,7 +28,7 @@ describe('UiSection', () => {
         fontWeight: 400,
         fontSizeBase: 14,
       },
-    } as AppConfig;
+    } as unknown as AppConfig;
 
     act(() => {
       renderer = mountDom(
@@ -44,18 +44,21 @@ describe('UiSection', () => {
 
     const motionRow = [...renderer!.container.querySelectorAll('.q-settings-row')]
       .find((row) => row.textContent?.includes(t('settings.ui.animations')));
-    expect(motionRow?.querySelector('[aria-pressed="true"]')?.textContent).toBe(t('theme.off'));
+    expect(motionRow?.textContent).toContain(t('theme.on'));
+    expect(motionRow?.textContent).toContain(t('theme.off'));
+    expect(motionRow?.textContent).toContain(t('settings.ui.motionHint'));
+    expect(motionRow?.textContent).not.toContain('Авто');
     expect(renderer!.container.textContent).not.toContain(t('settings.ui.primaryColor'));
   });
 
   it('opens the palette chooser in a separate dialog and selects a palette', () => {
     const config = {
       ui: {
-        appearance: 'dark', palette: 'dracula', accentMode: 'palette', motion: 'system',
+        appearance: 'dark', palette: 'dracula', accentMode: 'palette', motion: 'off',
         enabledSnippets: {}, language: 'ru', primaryColor: '#D357FE',
         fontFamily: 'Inter', fontWeight: 400, fontSizeBase: 14,
       },
-    } as AppConfig;
+    } as unknown as AppConfig;
     const onChange = vi.fn();
 
     act(() => {
@@ -66,6 +69,7 @@ describe('UiSection', () => {
 
     expect(renderer!.container.querySelector('.q-theme-card')).toBeNull();
     act(() => renderer!.container.querySelector<HTMLButtonElement>('[data-testid="open-palette-chooser"]')?.click());
+    expect(renderer!.container.querySelector('.q-theme-palette-dialog')).not.toBeNull();
     const cards = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-theme-card')];
     expect(cards.length).toBeGreaterThan(31);
     expect(cards.find((card) => card.textContent?.includes('Dracula'))?.getAttribute('aria-pressed')).toBe('true');

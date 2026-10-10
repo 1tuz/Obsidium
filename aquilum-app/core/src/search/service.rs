@@ -26,6 +26,7 @@ pub struct SearchService {
     index_notifier: IndexNotifier,
     pub analysis_graph: Arc<RwLock<Option<CachedGraph>>>,
     pub render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
+    pub historical_render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
     pub render_lock: Arc<Mutex<()>>,
     pub next_render_epoch: Arc<AtomicU64>,
     next_generation: Arc<AtomicU64>,
@@ -42,9 +43,29 @@ pub struct CachedRenderGraph {
     pub root: PathBuf,
     pub generation: u64,
     pub revision: u64,
+    pub(crate) model_revision: u64,
+    pub layout_key: String,
     pub epoch: u64,
     pub paths: Arc<Vec<String>>,
     pub bytes: Arc<Vec<u8>>,
+    pub timeline_cursor: i64,
+    pub timeline_rescan_epoch: i64,
+    pub model: Option<super::graph::model::GraphModel>,
+    pub(crate) path_indices: std::collections::HashMap<String, u32>,
+    pub(crate) modified_newest: f32,
+    pub(crate) date_delta_floor_revision: u64,
+    pub(crate) date_delta_journal:
+        std::collections::VecDeque<super::graph::service::GraphModifiedDateDeltaRevision>,
+    pub(crate) edge_slots: Vec<(u32, u32)>,
+    pub(crate) edge_masks: Vec<(u32, u32)>,
+    pub(crate) edge_slot_indices: std::collections::HashMap<(u32, u32), u32>,
+    pub(crate) edge_count: u32,
+    pub(crate) degrees: Vec<u32>,
+    pub(crate) topology_delta_floor_revision: u64,
+    pub(crate) topology_delta_journal:
+        std::collections::VecDeque<super::graph::service::GraphTopologyDeltaRevision>,
+    pub current: bool,
+    pub analysis_stale: bool,
 }
 
 pub struct OpenIndex {
@@ -95,6 +116,7 @@ impl SearchService {
             index_notifier,
             analysis_graph: Arc::new(RwLock::new(None)),
             render_graph: Arc::new(RwLock::new(None)),
+            historical_render_graph: Arc::new(RwLock::new(None)),
             render_lock: Arc::new(Mutex::new(())),
             next_render_epoch: Arc::new(AtomicU64::new(0)),
             next_generation: Arc::new(AtomicU64::new(0)),
@@ -116,12 +138,17 @@ impl SearchService {
         };
         let progress = Arc::clone(&opened.progress);
         let generation = opened.generation;
-        let previous = self.active.write().map_err(SearchError::task)?.replace(opened);
+        let previous = self
+            .active
+            .write()
+            .map_err(SearchError::task)?
+            .replace(opened);
         if let Some(previous) = previous {
             previous.stop();
         }
         clear_if(&self.analysis_graph, |_| true);
         clear_if(&self.render_graph, |_| true);
+        clear_if(&self.historical_render_graph, |_| true);
         let snapshot = progress.snapshot();
         (self.index_notifier)(IndexRevision {
             workspace_path: workspace.to_owned(),
@@ -175,9 +202,7 @@ impl SearchService {
             clear_if(&analysis_graph, |cached| {
                 cached.root == root && cached.generation == generation
             });
-            clear_if(&render_graph, |cached| {
-                cached.root == root && cached.generation == generation
-            });
+            mark_render_graph_stale(&render_graph, &root, generation);
             if visible.load(Ordering::Relaxed) {
                 (index_notifier)(event);
             }
@@ -295,7 +320,10 @@ impl SearchService {
     }
 
     pub fn ingest_watch(&self, paths: Vec<PathBuf>, rescan: bool) {
-        let paths = paths.iter().map(|path| canonical_path(path)).collect::<Vec<_>>();
+        let paths = paths
+            .iter()
+            .map(|path| canonical_path(path))
+            .collect::<Vec<_>>();
         if let Ok(active) = self.active.read() {
             if let Some(active) = active.as_ref() {
                 active.queue(&paths, rescan);
@@ -304,7 +332,10 @@ impl SearchService {
     }
 
     fn queue_paths(&self, paths: Vec<PathBuf>, notify_sidebar: bool) {
-        let canonical = paths.iter().map(|path| canonical_path(path)).collect::<Vec<_>>();
+        let canonical = paths
+            .iter()
+            .map(|path| canonical_path(path))
+            .collect::<Vec<_>>();
         if let Ok(active) = self.active.read() {
             if let Some(active) = active.as_ref() {
                 if notify_sidebar {
@@ -346,6 +377,22 @@ fn clear_if<T>(cache: &RwLock<Option<T>>, stale: impl Fn(&T) -> bool) {
     }
 }
 
+fn mark_render_graph_stale(
+    cache: &RwLock<Option<CachedRenderGraph>>,
+    root: &Path,
+    generation: u64,
+) {
+    if let Ok(mut cached) = cache.write() {
+        if let Some(cached) = cached
+            .as_mut()
+            .filter(|cached| cached.root == root && cached.generation == generation)
+        {
+            cached.current = false;
+            cached.analysis_stale = true;
+        }
+    }
+}
+
 fn remove_stale_indexes(storage: &Path, current: &Path) {
     let Ok(entries) = fs::read_dir(storage) else {
         return;
@@ -359,8 +406,14 @@ fn remove_stale_indexes(storage: &Path, current: &Path) {
             continue;
         }
         match fs::remove_dir_all(&path) {
-            Ok(()) => eprintln!("[aquilum:index] удалён индекс старой версии {}", path.display()),
-            Err(error) => eprintln!("[aquilum:index] индекс старой версии не удалён {}: {error}", path.display()),
+            Ok(()) => eprintln!(
+                "[obsidium:index] удалён индекс старой версии {}",
+                path.display()
+            ),
+            Err(error) => eprintln!(
+                "[obsidium:index] индекс старой версии не удалён {}: {error}",
+                path.display()
+            ),
         }
     }
 }

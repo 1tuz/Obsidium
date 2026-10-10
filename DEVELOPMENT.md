@@ -123,7 +123,7 @@ cargo test
 Каждый push запускает лёгкие проверки и сборки Windows x64 NSIS, macOS arm64 DMG для Apple Silicon и
 Ubuntu 24 x64 `.deb`. Установщики доступны в Actions artifacts 7 дней, npm- и Cargo-зависимости
 кэшируются. Тег `v*` запускает сборку всех платформ в черновик релиза. `Sync upstream fork` ежедневно
-подтягивает `Freaction/Aquilum` в `main` и запускает CI при обновлении исходников. Actions используют
+подтягивает [исходный проект](https://github.com/Freaction/Aquilum) в `main` и запускает CI при обновлении исходников. Actions используют
 Node.js 24 и runner `ubuntu-24.04`.
 
 ---
@@ -131,4 +131,4 @@ Node.js 24 и runner `ubuntu-24.04`.
 ## Автор
 - **Разработчик**: Dmitriy Chaplinskiy
 - **Telegram**: [@dmitriy_yiu](https://t.me/dmitriy_yiu)
-- **Лицензия**: [GNU AGPL-3.0-only](LICENSE). © 2026 Dmitriy Chaplinskiy. Исходники и релизы форка: [1tuz/Obsidium](https://github.com/1tuz/Obsidium). Исходный проект: [Freaction/Aquilum](https://github.com/Freaction/Aquilum).
+- **Лицензия**: [GNU AGPL-3.0-only](LICENSE). © 2026 Dmitriy Chaplinskiy. Исходники и релизы форка: [1tuz/Obsidium](https://github.com/1tuz/Obsidium). Исходный проект: [upstream repository](https://github.com/Freaction/Aquilum).

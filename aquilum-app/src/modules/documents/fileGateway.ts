@@ -50,6 +50,10 @@ export function isBasePath(path: string): boolean {
   return path.toLowerCase().endsWith('.base');
 }
 
+export function isCanvasPath(path: string): boolean {
+  return path.toLowerCase().endsWith('.canvas');
+}
+
 export function readDirectory(path: string): Promise<WorkspaceItem[]> {
   return invoke<WorkspaceItem[]>('read_directory', { path });
 }

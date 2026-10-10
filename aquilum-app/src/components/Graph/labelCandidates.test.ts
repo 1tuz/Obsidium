@@ -15,7 +15,11 @@ function grid(positions: number[]) {
     createdDays: new Float32Array(nodeCount),
     modifiedDays: new Float32Array(nodeCount),
     degrees: new Uint32Array(nodeCount),
+    nodeIds: new Uint32Array(nodeCount * 2),
+    clusterIds: new Uint32Array(nodeCount),
     edges: new Uint32Array(0),
+    edgeDirections: new Uint32Array(0),
+    edgeTypes: new Uint32Array(0),
   };
   return buildPickGrid(snapshot)!;
 }
@@ -31,6 +35,7 @@ function reader(
     y: (node) => positions[node * 2 + 1],
     degree: (node) => degrees[node] ?? 0,
     createdDay: (node) => createdDays[node] ?? 0,
+    modifiedDay: () => 0,
   };
 }
 
@@ -44,6 +49,7 @@ function scene(positions: number[], overrides: Partial<LabelScene> = {}): LabelS
     sizeScale: 1,
     spread: 1,
     createdFrom: Number.NEGATIVE_INFINITY,
+    modifiedFrom: Number.NEGATIVE_INFINITY,
     hovered: -1,
     ...overrides,
   };
@@ -166,6 +172,47 @@ describe('CandidatePicker', () => {
     const entries = new CandidatePicker().collect(world, WHOLE_VIEW, new Map(), 1);
 
     expect(entries.map((entry) => entry.node)).toEqual([2]);
+  });
+
+  it('leaves out notes older than the modification threshold', () => {
+    const positions = [0, 0, 1, 0, 2, 0];
+    const world = scene(positions, {
+      nodes: {
+        ...reader(positions),
+        modifiedDay: (node) => [10, 20, 30][node],
+      },
+      modifiedFrom: 25,
+    });
+
+    const entries = new CandidatePicker().collect(world, WHOLE_VIEW, new Map(), 1);
+
+    expect(entries.map((entry) => entry.node)).toEqual([2]);
+  });
+
+  it('leaves out notes beyond creation and modification upper bounds', () => {
+    const positions = [0, 0, 1, 0, 2, 0];
+    const world = scene(positions, {
+      nodes: {
+        ...reader(positions, [], [10, 20, 30]),
+        modifiedDay: (node) => [30, 10, 10][node],
+      },
+      createdTo: 20,
+      modifiedTo: 20,
+    });
+
+    const entries = new CandidatePicker().collect(world, WHOLE_VIEW, new Map(), 1);
+
+    expect(entries.map((entry) => entry.node)).toEqual([1]);
+  });
+
+  it('leaves out notes excluded by metadata filters', () => {
+    const world = scene([0, 0, 1, 0, 2, 0], {
+      includedNodes: new Uint8Array([0, 1, 0]),
+    });
+
+    const entries = new CandidatePicker().collect(world, WHOLE_VIEW, new Map(), 1);
+
+    expect(entries.map((entry) => entry.node)).toEqual([1]);
   });
 
   it('collects only the hovered note below the readable threshold', () => {

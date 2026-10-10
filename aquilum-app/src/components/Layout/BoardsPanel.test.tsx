@@ -125,7 +125,13 @@ describe('BoardsPanel', () => {
     act(() => [...renameDialog!.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent === t('common.rename'))!.click());
     await actAndSettle();
-    expect(renameWorkspaceFile).toHaveBeenCalledWith('/vault/Work/Bugs.base', 'Roadmap');
+    expect(renameWorkspaceFile).toHaveBeenCalledWith(
+      '/vault/Work/Bugs.base', 'Roadmap', expect.any(Function),
+    );
+    const renameCalls = vi.mocked(renameWorkspaceFile).mock.calls;
+    const renameContent = renameCalls[renameCalls.length - 1]?.[2];
+    expect(renameContent?.('views:\n  - type: kanban\n    name: Open\n', 'Roadmap'))
+      .toBe('views:\n  - type: kanban\n    name: "Roadmap"\n');
 
     act(() => renderer!.container.querySelector<HTMLButtonElement>(
       `[aria-label="${t('boards.actions', { name: 'Bugs' })}"]`,

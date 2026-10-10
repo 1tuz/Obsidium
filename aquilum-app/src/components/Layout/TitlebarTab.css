@@ -15,6 +15,9 @@
   color: var(--q-tab-text);
   cursor: default;
   border-right: var(--q-border-1) solid var(--q-tab-border);
+  transition:
+    background-color var(--q-duration-fast) var(--q-ease-out),
+    color var(--q-duration-fast) var(--q-ease-out);
   -webkit-app-region: no-drag;
 }
 
@@ -107,7 +110,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-titlebar-tabs[data-reordering] .q-titlebar-tab {
+  :root:not([data-motion="on"]) .q-titlebar-tabs[data-reordering] .q-titlebar-tab {
     transition: none;
   }
 }

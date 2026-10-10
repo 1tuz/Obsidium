@@ -17,7 +17,7 @@ pub struct FileState {
 pub type Fingerprint = (i64, i64);
 pub type PathKey = [u8; 16];
 
-const SCHEMA_VERSION: i64 = 12;
+const SCHEMA_VERSION: i64 = 13;
 
 const DOCUMENTS_DDL: &str = "CREATE TABLE IF NOT EXISTS documents (
            path TEXT PRIMARY KEY,
@@ -36,10 +36,10 @@ const ADD_CREATED_COLUMNS: &str =
     "ALTER TABLE documents ADD COLUMN created_ns INTEGER NOT NULL DEFAULT 0;
      ALTER TABLE documents ADD COLUMN created_source INTEGER NOT NULL DEFAULT 0";
 
-const REINDEX_FOR_FIELDS: &str = "UPDATE documents SET analyzer_version=0";
+const REINDEX_DOCUMENTS: &str = "UPDATE documents SET analyzer_version=0";
 
 pub fn open(path: &Path) -> Result<Connection, SearchError> {
-    let connection = Connection::open(path)?;
+    let mut connection = Connection::open(path)?;
     let version = connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
     let auto_vacuum = connection.query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))?;
     if auto_vacuum != 2 {
@@ -71,14 +71,16 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
         if version < 11 {
             connection.execute_batch(ADD_CREATED_COLUMNS)?;
         }
-        if version < 12 {
-            connection.execute_batch(REINDEX_FOR_FIELDS)?;
+        if version < 13 {
+            connection.execute_batch(REINDEX_DOCUMENTS)?;
         }
         connection.execute_batch(&format!("PRAGMA user_version={SCHEMA_VERSION};"))?;
     }
     super::wiki::open_schema(&connection)?;
     super::fields::open_schema(&connection)?;
     super::tasks::open_schema(&connection)?;
+    super::graph::timeline::open_schema(&connection)?;
+    super::graph::timeline::ensure_baseline(&mut connection)?;
     Ok(connection)
 }
 
@@ -134,8 +136,9 @@ pub fn current(
     transaction: &Transaction<'_>,
     path: &str,
 ) -> Result<Option<FileState>, SearchError> {
-    let mut statement = transaction
-        .prepare(&format!("SELECT {FILE_STATE_COLUMNS} FROM documents WHERE path=?1"))?;
+    let mut statement = transaction.prepare(&format!(
+        "SELECT {FILE_STATE_COLUMNS} FROM documents WHERE path=?1"
+    ))?;
     let mut rows = statement.query([path])?;
     match rows.next()? {
         Some(row) => Ok(Some(file_state(row, 0)?)),
@@ -177,6 +180,20 @@ mod tests {
          PRAGMA user_version=10;";
 
     #[test]
+    fn open_creates_graph_timeline_schema_for_new_databases() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let connection =
+            open(&directory.path().join("documents.sqlite3")).expect("initialized database");
+
+        let timeline = crate::search::graph::timeline::range(&connection).expect("timeline schema");
+        assert_eq!(timeline.baseline_event, 0);
+        assert_eq!(
+            crate::search::graph::timeline::rescan_epoch(&connection).expect("rescan epoch"),
+            0
+        );
+    }
+
+    #[test]
     fn upgrade_keeps_documents_and_queues_them_for_reindexing() {
         let directory = tempfile::tempdir().expect("temporary directory");
         let path = directory.path().join("documents.sqlite3");
@@ -207,5 +224,8 @@ mod tests {
         );
         assert_eq!(state.created.nanos, 0);
         assert_eq!(state.created.source, CreatedSource::ModifiedTime);
+        let timeline = crate::search::graph::timeline::range(&connection)
+            .expect("timeline schema and baseline survive migration");
+        assert_eq!(timeline.baseline_event, 0);
     }
 }

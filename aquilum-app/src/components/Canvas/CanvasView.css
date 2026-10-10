@@ -1,0 +1,113 @@
+.q-canvas-view {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--q-bg-canvas);
+}
+
+.q-canvas-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.q-canvas-toolbar {
+  position: absolute;
+  z-index: 4;
+  top: var(--q-space-12);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-4);
+  min-height: var(--q-space-40);
+  padding: var(--q-space-4);
+  border: 1px solid var(--q-border-default);
+  border-radius: var(--q-rounded-xl);
+  background: var(--q-bg-elevated);
+  box-shadow: 0 var(--q-space-8) var(--q-space-24) var(--q-bg-overlay-subtle);
+  transform: translateX(-50%);
+}
+
+.q-canvas-toolbar button {
+  display: grid;
+  width: var(--q-space-32);
+  height: var(--q-space-32);
+  place-items: center;
+  border: 0;
+  border-radius: var(--q-rounded-md);
+  background: transparent;
+  color: var(--q-text-secondary);
+}
+
+.q-canvas-toolbar button:hover:not(:disabled) {
+  background: var(--q-bg-surface-hover);
+  color: var(--q-text-primary);
+}
+
+.q-canvas-toolbar button.active {
+  background: var(--q-bg-accent-subtle);
+  color: var(--q-text-accent);
+}
+
+.q-canvas-toolbar button:disabled {
+  color: var(--q-text-disabled);
+}
+
+.q-canvas-toolbar svg {
+  width: var(--q-space-16);
+  height: var(--q-space-16);
+}
+
+.q-canvas-toolbar__divider {
+  width: 1px;
+  height: var(--q-space-20);
+  margin-inline: var(--q-space-2);
+  background: var(--q-border-default);
+}
+
+.q-canvas-toolbar__status {
+  min-width: var(--q-space-48);
+  padding-inline: var(--q-space-4);
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-canvas-note-picker {
+  position: absolute;
+  z-index: 5;
+  top: var(--q-space-60);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-8);
+  width: min(28rem, calc(100% - var(--q-space-32)));
+  padding: var(--q-space-8);
+  border: 1px solid var(--q-border-default);
+  border-radius: var(--q-rounded-lg);
+  background: var(--q-bg-elevated);
+  box-shadow: 0 var(--q-space-8) var(--q-space-24) var(--q-bg-overlay-subtle);
+  transform: translateX(-50%);
+}
+
+.q-canvas-note-picker input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--q-text-primary);
+}
+
+.q-canvas-note-picker button {
+  border: 0;
+  border-radius: var(--q-rounded-md);
+  padding: var(--q-space-6) var(--q-space-12);
+  background: var(--q-bg-accent);
+  color: var(--q-text-on-accent);
+}
+
+.q-canvas-state {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--q-text-tertiary);
+}

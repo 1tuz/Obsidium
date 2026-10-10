@@ -5,6 +5,7 @@ import { setLanguage } from '../../i18n';
 import { setFilesFolder } from '../docs/vaultFiles';
 import { pxToRem } from '../scaling';
 import { fontStack, IA_WRITER_QUATTRO, knownFont, type FontFamily } from '../../fonts/catalog';
+import type { GraphPreferences, GraphPresets } from '../../components/Graph/graphDisplay';
 
 export interface FontSettings {
   fontFamily: FontFamily;
@@ -76,7 +77,7 @@ interface UiSettings extends FontSettings {
   appearance: 'system' | 'light' | 'dark';
   palette: string;
   accentMode: 'palette' | 'custom';
-  motion: 'system' | 'on' | 'off';
+  motion: 'on' | 'off';
   enabledSnippets: Record<string, string[]>;
   language: string;
   primaryColor: string;
@@ -137,6 +138,10 @@ export interface AppConfig {
   templates: { folder: string };
   files: { folder: string };
   updates: { auto: boolean };
+  graph?: {
+    preferences: GraphPreferences | null;
+    presets: GraphPresets | null;
+  };
 }
 
 interface SettingsContextValue {
@@ -167,11 +172,15 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
   root.style.setProperty('--q-editor-font-size', pxToRem(font.fontSizeBase));
 }
 
+function normalizeMotion(value: unknown): UiSettings['motion'] {
+  return value === 'on' ? 'on' : 'off';
+}
+
 function withKnownFonts(config: AppConfig): AppConfig {
   return {
     ...config,
     builtins: { ...DEFAULT_BUILTINS, ...config.builtins },
-    ui: knownFont('ui', config.ui),
+    ui: { ...knownFont('ui', config.ui), motion: normalizeMotion(config.ui.motion) },
     editor: knownFont('editor', config.editor),
     reader: knownFont('reader', config.reader),
   };

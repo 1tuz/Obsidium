@@ -29,13 +29,13 @@ function snippets(settings: McpSettings, executable: string): Snippet[] {
     {
       title: 'Claude Code',
       hint: t('settings.mcp.claudeHint'),
-      code: `claude mcp add --transport http aquilum ${url} --header "Authorization: ${bearer}"`,
+      code: `claude mcp add --transport http obsidium ${url} --header "Authorization: ${bearer}"`,
     },
     {
       title: 'Codex CLI',
       hint: t('settings.mcp.codexHint'),
       code: [
-        '[mcp_servers.aquilum]',
+        '[mcp_servers.obsidium]',
         `command = "${executable.replace(/\\/g, '\\\\')}"`,
         'args = ["--mcp-stdio"]',
       ].join('\n'),
@@ -46,7 +46,7 @@ function snippets(settings: McpSettings, executable: string): Snippet[] {
       code: JSON.stringify(
         {
           mcpServers: {
-            aquilum: { httpUrl: url, headers: { Authorization: bearer } },
+            obsidium: { httpUrl: url, headers: { Authorization: bearer } },
           },
         },
         null,

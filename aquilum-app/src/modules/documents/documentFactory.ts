@@ -2,6 +2,7 @@ import { absolutePath, childPath } from '../paths';
 import { createAtFreeName, createFile, isMarkdownPath } from './fileGateway';
 
 const UNTITLED_NOTE = 'Без названия';
+const UNTITLED_CANVAS = 'Canvas';
 
 export async function createUniqueFile(
   workspacePath: string,
@@ -16,6 +17,22 @@ export async function createUniqueFile(
     );
   } catch (error) {
     console.error('Failed to create document', error);
+    return null;
+  }
+}
+
+export async function createUniqueCanvas(
+  workspacePath: string,
+  preferredTitle?: string,
+): Promise<string | null> {
+  const baseName = sanitizeFileName(preferredTitle) || UNTITLED_CANVAS;
+  try {
+    return await createAtFreeName(
+      (attempt) => childPath(workspacePath, `${attempt === 0 ? baseName : `${baseName} ${attempt}`}.canvas`),
+      (path) => createFile(path, '{\n  "nodes": [],\n  "edges": []\n}\n'),
+    );
+  } catch (error) {
+    console.error('Failed to create canvas', error);
     return null;
   }
 }

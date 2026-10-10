@@ -111,7 +111,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-workspace-row__forget {
+  :root:not([data-motion="on"]) .q-workspace-row__forget {
     transition: none;
   }
 }

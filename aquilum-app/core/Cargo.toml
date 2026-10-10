@@ -23,6 +23,7 @@ pulldown-cmark = "0.13.4"
 ureq = "2.12"
 httparse = "1"
 yrs = "0.28"
+fastembed = "7.1.1"
 
 [dev-dependencies]
 tempfile = "3"

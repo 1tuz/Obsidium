@@ -209,6 +209,10 @@ function applyTheme(
   root.style.setProperty('--q-text-accent', readableAccent);
   root.style.setProperty('--q-text-link-hover', readableAccent);
   root.style.setProperty('--q-text-on-accent', onAccent);
+  root.style.setProperty('--q-editor-bg', background);
+  root.style.setProperty('--q-bg-surface', selected[mode].surface);
+  root.style.setProperty('--q-bg-surface-raised', selected[mode].raised);
+  root.style.setProperty('--q-border-solid', selected[mode].border);
   root.dataset.accentMode = accentMode;
   root.style.setProperty('--q-blue-alpha-main', accent);
   root.style.setProperty('--q-blue-500', accent);

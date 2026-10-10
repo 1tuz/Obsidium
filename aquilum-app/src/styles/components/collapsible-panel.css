@@ -28,8 +28,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-collapsible-panel,
-  .q-collapsible-panel > * {
+  :root:not([data-motion="on"]) .q-collapsible-panel,
+  :root:not([data-motion="on"]) .q-collapsible-panel > * {
     transition: none;
   }
 }

@@ -5,8 +5,11 @@ import { renameWorkspaceFile } from './renameWorkspaceFile';
 vi.mock('./fileGateway', () => ({
   isFileCommandError: vi.fn(() => false),
   isMarkdownPath: (path: string) => path.endsWith('.md'),
-  renameFile: vi.fn(async () => ({ updatedPaths: [], content: '', hash: 'h', textHash: 't' })),
+  renameFile: vi.fn(async () => ({ updatedPaths: [], content: 'views: []', hash: 'h', textHash: 't' })),
+  writeFileAtomic: vi.fn(async () => ({ hash: 'next' })),
 }));
+
+const { writeFileAtomic } = await import('./fileGateway');
 
 describe('renameWorkspaceFile', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -29,5 +32,17 @@ describe('renameWorkspaceFile', () => {
 
     expect(renamed).toBe('C:/vault/Roadmap.base');
     expect(renameFile).toHaveBeenCalledWith('C:/vault/Old.base', 'C:/vault/Roadmap.base');
+  });
+
+  it('transforms the renamed Base with the hash returned by the rename command', async () => {
+    const transform = vi.fn((content: string, stem: string) => `${content}\nname: ${stem}`);
+
+    const renamed = await renameWorkspaceFile('C:/vault/Old.base', 'Roadmap', transform);
+
+    expect(renamed).toBe('C:/vault/Roadmap.base');
+    expect(transform).toHaveBeenCalledWith('views: []', 'Roadmap');
+    expect(writeFileAtomic).toHaveBeenCalledWith(
+      'C:/vault/Roadmap.base', 'views: []\nname: Roadmap', 'h',
+    );
   });
 });

@@ -17,6 +17,7 @@ pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
            source_path TEXT NOT NULL,
            target_key TEXT NOT NULL,
            target_kind TEXT NOT NULL,
+           link_type TEXT NOT NULL,
            byte_offset INTEGER NOT NULL,
            offset_utf16 INTEGER NOT NULL,
            FOREIGN KEY(source_path) REFERENCES wiki_documents(path) ON DELETE CASCADE,
@@ -24,6 +25,17 @@ pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
          ) WITHOUT ROWID;
          CREATE INDEX IF NOT EXISTS wiki_links_target ON wiki_links(target_kind, target_key);",
     )?;
+    let has_link_type = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('wiki_links') WHERE name='link_type')",
+        [],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if !has_link_type {
+        connection.execute(
+            "ALTER TABLE wiki_links ADD COLUMN link_type TEXT NOT NULL DEFAULT 'wiki'",
+            [],
+        )?;
+    }
     Ok(())
 }
 
@@ -44,8 +56,8 @@ pub fn index_document(
         [path_text.as_ref()],
     )?;
     let mut statement = transaction.prepare(
-        "INSERT INTO wiki_links(source_path, target_key, target_kind, byte_offset, offset_utf16)
-         VALUES(?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO wiki_links(source_path, target_key, target_kind, link_type, byte_offset, offset_utf16)
+         VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
     )?;
     for link in extract(body) {
         let (target_key, target_kind) = target_key(&link.target);
@@ -53,6 +65,7 @@ pub fn index_document(
             path_text,
             target_key,
             target_kind,
+            "wiki",
             link.target_range.start as i64,
             link.offset_utf16 as i64,
         ])?;
@@ -65,6 +78,7 @@ pub fn index_document(
             path_text,
             target_key,
             "path",
+            "markdown",
             link.target_range.start as i64,
             link.offset_utf16 as i64,
         ])?;

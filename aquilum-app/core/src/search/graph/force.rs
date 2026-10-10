@@ -10,6 +10,7 @@ pub struct Settings {
     pub ticks: usize,
     pub spacing: f64,
     pub repulsion: f64,
+    pub attraction: f64,
 }
 
 pub fn refine(coordinates: &mut [f64], edges: &[(u32, u32)], settings: &Settings) {
@@ -27,7 +28,14 @@ pub fn refine(coordinates: &mut [f64], edges: &[(u32, u32)], settings: &Settings
         displacement.fill(0.0);
         let tree = Quadtree::build(coordinates);
         for node in 0..count {
-            tree.repel(node, coordinates, spacing, strength, &mut displacement, &mut stack);
+            tree.repel(
+                node,
+                coordinates,
+                spacing,
+                strength,
+                &mut displacement,
+                &mut stack,
+            );
         }
         for (left, right) in edges {
             attract(
@@ -35,6 +43,7 @@ pub fn refine(coordinates: &mut [f64], edges: &[(u32, u32)], settings: &Settings
                 *right as usize,
                 coordinates,
                 spacing,
+                settings.attraction,
                 &mut displacement,
             );
         }
@@ -72,12 +81,13 @@ fn attract(
     right: usize,
     coordinates: &[f64],
     spacing: f64,
+    strength: f64,
     displacement: &mut [f64],
 ) {
     let dx = coordinates[left * 2] - coordinates[right * 2];
     let dy = coordinates[left * 2 + 1] - coordinates[right * 2 + 1];
     let distance = dx.hypot(dy).max(1e-9);
-    let force = STIFFNESS * (distance - spacing);
+    let force = STIFFNESS * strength * (distance - spacing);
     let (ux, uy) = (dx / distance, dy / distance);
     displacement[left * 2] -= ux * force;
     displacement[left * 2 + 1] -= uy * force;
@@ -252,6 +262,7 @@ mod tests {
             ticks,
             spacing: 1.0,
             repulsion: 1.0,
+            attraction: 1.0,
         }
     }
 
