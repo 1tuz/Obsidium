@@ -28,6 +28,14 @@ fn base_note_types_and_tags_are_distinct() {
 }
 
 #[test]
+fn frontmatter_detection_requires_an_exact_delimiter_line() {
+    for text in ["---abc\nbody\n", "----\nbody\n"] {
+        assert!(note::fields(text).unwrap().is_empty(), "{text:?}");
+    }
+    assert!(note::fields(" ---\r\nstatus: todo\r\n").is_err());
+}
+
+#[test]
 fn file_tag_filters_include_body_and_nested_tags_while_note_tags_stay_yaml_only() {
     let text = "---\ntags: yaml\n---\n#work/nested #other\n";
     let fields = note::fields(text).unwrap();

@@ -5,7 +5,12 @@ use serde_json::{Map, Value};
 
 pub(crate) fn fields(text: &str) -> Result<Map<String, Value>, BaseError> {
     let Some(yaml) = frontmatter_yaml(text) else {
-        return if text.trim_start().starts_with("---") {
+        return if text
+            .trim_start()
+            .lines()
+            .next()
+            .is_some_and(|line| line.trim() == "---")
+        {
             Err(BaseError::InvalidYaml("Unclosed frontmatter".into()))
         } else {
             Ok(Map::new())
