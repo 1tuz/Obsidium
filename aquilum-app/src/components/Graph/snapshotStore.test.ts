@@ -202,6 +202,10 @@ describe('SnapshotStore community collapse', () => {
 
     expect([...store.renderEdges]).toEqual([]);
     expect([...store.collapsedNodeMask!]).toEqual([0, 1, 1]);
+
+    store.setCollapsedCommunities([0], new Uint8Array([1, 1, 1]));
+
+    expect([...store.renderEdges]).toEqual([1, 2]);
   });
 
   it('uses an eligible community member when its highest-degree hub is filtered out', () => {
@@ -369,7 +373,7 @@ describe('SnapshotStore topology deltas', () => {
       undefined,
       undefined,
       [0, 1, 1, 2, 2, 3],
-      new Uint32Array([65, 65, 65]),
+      new Uint32Array([1, 1, 1]),
       new Uint32Array([1, 1, 2]),
     );
     const store = new SnapshotStore();
@@ -386,7 +390,7 @@ describe('SnapshotStore topology deltas', () => {
       nodeUpdates: [],
       edgeUpdates: [
         { slot: 0, source: 0, target: 1, directionMask: 0, typeMask: 0 },
-        { slot: 3, source: 0, target: 3, directionMask: 65, typeMask: 1 },
+        { slot: 3, source: 0, target: 3, directionMask: 1, typeMask: 1 },
       ],
     }, 0)).toBe(true);
 
@@ -394,6 +398,21 @@ describe('SnapshotStore topology deltas', () => {
     expect([...store.renderEdges]).toEqual([1, 2, 0, 3]);
     expect([...store.renderEdgeDirections]).toEqual([1, 1]);
     expect([...store.renderArrowEdges]).toEqual([1, 2, 0, 3]);
+
+    expect(store.applyTopologyDelta({
+      baseEpochLow: 1,
+      baseEpochHigh: 0,
+      revision: 2,
+      edgeSlotCount: 4,
+      edgeCount: 2,
+      metricsStale: false,
+      nodeUpdates: [],
+      edgeUpdates: [{ slot: 3, source: 0, target: 3, directionMask: 0, typeMask: 0 }],
+    }, 1)).toBe(true);
+    expect([...store.renderEdges]).toEqual([1, 2]);
+    expect([...store.renderArrowEdges]).toEqual([1, 2]);
+    store.setEdgeType('all');
+    expect([...store.renderEdges]).toEqual([1, 2, 2, 3]);
   });
 
   it('retains projected mask bits until every raw contributor is removed', () => {
@@ -402,7 +421,7 @@ describe('SnapshotStore topology deltas', () => {
       [1, 1, 1, 1],
       undefined,
       undefined,
-      [0, 1, 2, 3],
+      [0, 2, 1, 3],
       new Uint32Array([1, 1]),
       new Uint32Array([1, 1]),
     );
@@ -421,13 +440,69 @@ describe('SnapshotStore topology deltas', () => {
       edgeCount: 1,
       metricsStale: false,
       nodeUpdates: [],
-      edgeUpdates: [{ slot: 0, source: 0, target: 1, directionMask: 0, typeMask: 0 }],
+      edgeUpdates: [{ slot: 0, source: 0, target: 2, directionMask: 0, typeMask: 0 }],
     }, 0)).toBe(true);
 
     expect(store.sparseEdgeUpdate).toBe(true);
     expect([...store.renderEdges]).toEqual([1, 3]);
     expect([...store.renderEdgeTypes]).toEqual([1]);
     expect([...store.renderEdgeDirections]).toEqual([1]);
+    expect([...neighbours(store.adjacency!, 1)]).toEqual([3]);
+    expect([...neighbours(store.adjacency!, 3)]).toEqual([1]);
+
+    expect(store.applyTopologyDelta({
+      baseEpochLow: 1,
+      baseEpochHigh: 0,
+      revision: 2,
+      edgeSlotCount: 2,
+      edgeCount: 0,
+      metricsStale: false,
+      nodeUpdates: [],
+      edgeUpdates: [{ slot: 1, source: 1, target: 3, directionMask: 0, typeMask: 0 }],
+    }, 1)).toBe(true);
+    expect(store.renderEdges).toHaveLength(0);
+    expect([...neighbours(store.adjacency!, 1)]).toEqual([]);
+    expect([...snapshot.edgeTypes]).toEqual([0, 0]);
+
+    const freshStore = new SnapshotStore();
+    freshStore.adopt(structuredClone(snapshot), false);
+    expect([...freshStore.snapshot!.edgeTypes]).toEqual([0, 0]);
+    freshStore.setCollapsedCommunities([0, 1], null);
+    expect(Array.from({ length: snapshot.nodeCount }, (_, node) => [...neighbours(store.adjacency!, node)]))
+      .toEqual(Array.from({ length: snapshot.nodeCount }, (_, node) => [...neighbours(freshStore.adjacency!, node)]));
+  });
+
+  it('adds and removes raw slots as their types cross the active filter', () => {
+    const snapshot = fakeSnapshot(
+      [1, 1, 1],
+      [1, 1, 1],
+      undefined,
+      undefined,
+      [0, 1, 1, 2],
+      new Uint32Array([1, 1]),
+      new Uint32Array([1, 2]),
+    );
+    const store = new SnapshotStore();
+    store.adopt(snapshot, false);
+    store.setEdgeType('wiki');
+    expect([...store.renderEdges]).toEqual([0, 1]);
+
+    expect(store.applyTopologyDelta({
+      baseEpochLow: 1,
+      baseEpochHigh: 0,
+      revision: 1,
+      edgeSlotCount: 2,
+      edgeCount: 2,
+      metricsStale: false,
+      nodeUpdates: [],
+      edgeUpdates: [
+        { slot: 0, source: 0, target: 1, directionMask: 1, typeMask: 2 },
+        { slot: 1, source: 1, target: 2, directionMask: 1, typeMask: 1 },
+      ],
+    }, 0)).toBe(true);
+
+    expect([...store.renderEdges]).toEqual([1, 2]);
+    expect([...store.renderArrowEdges]).toEqual([1, 2]);
   });
 
   it('incrementally changes collapsed direction and arrow orientation masks', () => {
@@ -437,8 +512,8 @@ describe('SnapshotStore topology deltas', () => {
       undefined,
       undefined,
       [0, 2, 1, 3],
+      new Uint32Array([1, 128]),
       new Uint32Array([1, 2]),
-      new Uint32Array([1, 1]),
     );
     snapshot.clusterIds.set([0, 0, 1, 1]);
     snapshot.degrees.set([1, 5, 1, 5]);
@@ -460,7 +535,99 @@ describe('SnapshotStore topology deltas', () => {
     expect(store.sparseEdgeUpdate).toBe(true);
     expect([...store.renderEdges]).toEqual([1, 3]);
     expect([...store.renderEdgeDirections]).toEqual([2]);
+    expect([...store.renderEdgeTypes]).toEqual([2]);
     expect([...store.renderArrowEdges]).toEqual([3, 1]);
+  });
+
+  it('drops a newly appended raw edge that becomes a self-edge after collapse', () => {
+    const snapshot = fakeSnapshot(
+      [1, 1, 1],
+      [1, 1, 1],
+      undefined,
+      undefined,
+      [1, 2],
+      new Uint32Array([1]),
+      new Uint32Array([1]),
+    );
+    snapshot.clusterIds.set([0, 0, 1]);
+    snapshot.degrees.set([1, 5, 1]);
+    const store = new SnapshotStore();
+    store.adopt(snapshot, false);
+    store.setCollapsedCommunities([0], null);
+
+    expect(store.applyTopologyDelta({
+      baseEpochLow: 1,
+      baseEpochHigh: 0,
+      revision: 1,
+      edgeSlotCount: 2,
+      edgeCount: 2,
+      metricsStale: false,
+      nodeUpdates: [],
+      edgeUpdates: [{ slot: 1, source: 0, target: 1, directionMask: 1, typeMask: 1 }],
+    }, 0)).toBe(true);
+
+    expect([...store.renderEdges]).toEqual([1, 2]);
+    expect([...neighbours(store.adjacency!, 1)]).toEqual([2]);
+  });
+
+  it('rejects a collapsed delta before a changed degree can select a different representative', () => {
+    const snapshot = fakeSnapshot(
+      [1, 1, 1],
+      [1, 1, 1],
+      undefined,
+      undefined,
+      [0, 2],
+    );
+    snapshot.clusterIds.set([0, 0, 1]);
+    snapshot.degrees.set([1, 5, 1]);
+    const store = new SnapshotStore();
+    store.adopt(snapshot, false);
+    store.setCollapsedCommunities([0], null);
+
+    expect(store.applyTopologyDelta({
+      baseEpochLow: 1,
+      baseEpochHigh: 0,
+      revision: 1,
+      edgeSlotCount: 1,
+      edgeCount: 1,
+      metricsStale: false,
+      nodeUpdates: [{ index: 0, degree: 6 }],
+      edgeUpdates: [{ slot: 0, source: 0, target: 2, directionMask: 0, typeMask: 1 }],
+    }, 0)).toBe(false);
+
+    expect(snapshot.degrees[0]).toBe(1);
+    expect([...store.renderEdges]).toEqual([1, 2]);
+  });
+
+  it('rejects collapsed deltas when global metrics invalidate the projection', () => {
+    const snapshot = fakeSnapshot(
+      [1, 1, 1],
+      [1, 1, 1],
+      undefined,
+      undefined,
+      [0, 2],
+    );
+    snapshot.clusterIds.set([0, 0, 1]);
+    snapshot.degrees.set([1, 5, 1]);
+    const store = new SnapshotStore();
+    store.adopt(snapshot, false);
+    store.setCollapsedCommunities([0], null);
+
+    expect(store.applyTopologyDelta({
+      baseEpochLow: 1,
+      baseEpochHigh: 0,
+      revision: 1,
+      edgeSlotCount: 2,
+      edgeCount: 2,
+      metricsStale: true,
+      nodeUpdates: [],
+      edgeUpdates: [{ slot: 1, source: 0, target: 1, directionMask: 1, typeMask: 1 }],
+    }, 0)).toBe(false);
+
+    expect(snapshot.edgeSlotCount).toBeUndefined();
+    expect(snapshot.edgeTypes[0]).toBe(1);
+    expect(snapshot.metricsStale).toBeUndefined();
+    expect([...store.renderEdges]).toEqual([1, 2]);
   });
 
   it('rebuilds CSR on overlay overflow without losing dense edge updates', () => {
@@ -706,6 +873,7 @@ describe('SnapshotStore transitions', () => {
     expect([...store.renderTransitionEdgeTarget]).toEqual([1]);
     expect(store.x(2)).toBe(12);
     expect(store.y(2)).toBe(6);
+    store.setEdgeType('wiki');
     store.finishMorph();
     store.dropGhosts();
     expect(store.renderNodeCount).toBe(2);

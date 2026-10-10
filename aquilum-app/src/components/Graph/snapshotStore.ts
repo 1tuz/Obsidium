@@ -13,7 +13,8 @@ import {
 import { freshnessTexels, nodeTexels, nodeTextureRows } from './nodeMetrics';
 import { buildPickGrid, type PickGrid } from './pickGrid';
 import type { GraphEdgeDirection, GraphEdgeType } from './graphDisplay';
-import { communityProjection, projectCommunityEdges } from './communityCollapse';
+import { communityProjection } from './communityCollapse';
+import { FilteredEdgeIndex } from './filteredEdgeIndex';
 
 const ANIMATED_NODE_LIMIT = 100_000;
 const MORPH_SECONDS = 0.45;
@@ -81,6 +82,10 @@ export class SnapshotStore implements NodeReader {
   private readonly changedRenderEdges: number[] = [];
   private readonly changedRenderArrows: number[] = [];
   private readonly adjacencyUpdates: AdjacencyEdgeUpdate[] = [];
+  private readonly filteredEdgeIndex = new FilteredEdgeIndex();
+  private readonly adjacencyEdgeIndex = new FilteredEdgeIndex(true);
+  private filteredEdgeIndexActive = false;
+  private allEdgesDirty = false;
   sparseEdgeUpdate = false;
   private transitionEdges = new Uint32Array(0);
   private transitionDirections = new Uint32Array(0);
@@ -123,11 +128,11 @@ export class SnapshotStore implements NodeReader {
   }
 
   get changedRenderEdgeIndices(): number[] {
-    return this.changedRenderEdges;
+    return this.filteredEdgeIndexActive ? this.filteredEdgeIndex.changedEdges : this.changedRenderEdges;
   }
 
   get changedRenderArrowIndices(): number[] {
-    return this.changedRenderArrows;
+    return this.filteredEdgeIndexActive ? this.filteredEdgeIndex.changedArrows : this.changedRenderArrows;
   }
 
   get transitionProgress(): number {
@@ -173,7 +178,7 @@ export class SnapshotStore implements NodeReader {
     const snapshot = this.current;
     const oldSlotCount = snapshot ? edgeSlotCount(snapshot) : 0;
     if (!delta || typeof delta !== 'object' || !snapshot
-      || this.isMorphing() || this.hasGhosts || this.nodeRepresentatives !== null
+      || this.isMorphing() || this.hasGhosts
       || !Number.isSafeInteger(sinceRevision) || sinceRevision < 0
       || !Number.isSafeInteger(delta.revision) || delta.revision <= sinceRevision
       || !isUint32(delta.baseEpochLow) || !isUint32(delta.baseEpochHigh)
@@ -197,6 +202,7 @@ export class SnapshotStore implements NodeReader {
         || (update.modifiedDay !== undefined && !Number.isFinite(update.modifiedDay))) return false;
       updatedNodes.add(update.index);
     }
+    if (!this.collapseProjectionStable(snapshot, delta.nodeUpdates, delta.metricsStale)) return false;
 
     const updatedSlots = new Set<number>();
     let liveEdgeCount = snapshot.edgeCount;
@@ -233,21 +239,17 @@ export class SnapshotStore implements NodeReader {
       return true;
     }
 
-    for (let index = 0; index < delta.edgeUpdates.length; index += 1) {
-      const update = delta.edgeUpdates[index];
-      const adjacencyUpdate = this.adjacencyUpdates[index] ?? {
-        source: 0,
-        target: 0,
-        previousTypeMask: 0,
-        typeMask: 0,
-      };
-      adjacencyUpdate.source = update.source;
-      adjacencyUpdate.target = update.target;
-      adjacencyUpdate.previousTypeMask = update.slot < oldSlotCount ? snapshot.edgeTypes[update.slot] : 0;
-      adjacencyUpdate.typeMask = update.typeMask;
-      this.adjacencyUpdates[index] = adjacencyUpdate;
+    this.adjacencyUpdates.length = 0;
+    if (!this.nodeRepresentatives) {
+      for (const update of delta.edgeUpdates) {
+        this.adjacencyUpdates.push({
+          source: update.source,
+          target: update.target,
+          previousTypeMask: update.slot < oldSlotCount ? snapshot.edgeTypes[update.slot] : 0,
+          typeMask: update.typeMask,
+        });
+      }
     }
-    this.adjacencyUpdates.length = delta.edgeUpdates.length;
     const canUpdateDenseEdges = this.edgeType === 'all'
       && this.edgeDirection === 'all'
       && this.nodeRepresentatives === null;
@@ -278,23 +280,24 @@ export class SnapshotStore implements NodeReader {
     snapshot.metricsStale = snapshot.metricsStale === true || delta.metricsStale;
     this.applyNodeUpdates(snapshot, delta.nodeUpdates);
     if (canUpdateDenseEdges) {
+      this.filteredEdgeIndexActive = false;
+      this.allEdgesDirty = false;
       this.applyDenseEdgeUpdates(delta.edgeUpdates, delta.edgeSlotCount);
       this.sparseEdgeUpdate = true;
     } else {
-      const compact = compactEdgeSlots(snapshot);
-      this.allEdges = compact.pairs;
-      this.allEdgeDirections = compact.directions;
-      this.allEdgeTypes = compact.types;
-      this.allEdgeStorage = compact.pairs;
-      this.allDirectionStorage = compact.directions;
-      this.allTypeStorage = compact.types;
-      this.allEdgeCount = compact.types.length;
-      this.applyEdgeFilters(false);
+      this.filteredEdgeIndex.applyUpdates(snapshot, delta.edgeUpdates);
+      this.assignFilteredEdges();
+      this.allEdgesDirty = true;
+      this.sparseEdgeUpdate = true;
+    }
+    if (this.nodeRepresentatives) {
+      this.adjacencyEdgeIndex.applyUpdates(snapshot, delta.edgeUpdates);
+      for (const update of this.adjacencyEdgeIndex.adjacencyUpdates()) this.adjacencyUpdates.push(update);
     }
     if (!this.adjacency || !applyAdjacencyEdgeUpdates(this.adjacency, this.adjacencyUpdates)) {
-      this.adjacency = buildAdjacency(snapshot, this.edgeType);
+      this.rebuildAdjacency(snapshot);
     }
-    this.islandNodes = this.adjacency.islandNodes;
+    this.islandNodes = this.adjacency!.islandNodes;
     return true;
   }
 
@@ -518,6 +521,7 @@ export class SnapshotStore implements NodeReader {
     this.previousPositions = transition?.positions ?? null;
     this.transition = morphs ? 0 : 1;
     this.current = snapshot;
+    this.allEdgesDirty = false;
     this.collapsedCommunities = [];
     this.nodeRepresentatives = null;
     this.collapsedNodeMask = null;
@@ -538,6 +542,7 @@ export class SnapshotStore implements NodeReader {
     this.allEdges = edges.pairs;
     this.allEdgeDirections = edges.directions;
     this.allEdgeTypes = edges.types;
+    this.allEdgesDirty = false;
     this.transitionEdges = edges.transitionPairs;
     this.transitionDirections = edges.transitionDirections;
     this.transitionTypes = edges.transitionTypes;
@@ -626,6 +631,19 @@ export class SnapshotStore implements NodeReader {
     const snapshot = this.current;
     if (!snapshot) return;
     if (!this.nodeRepresentatives && this.edgeType === 'all' && this.edgeDirection === 'all') {
+      this.filteredEdgeIndex.clear();
+      this.filteredEdgeIndexActive = false;
+      if (this.allEdgesDirty) {
+        const compact = compactEdgeSlots(snapshot);
+        this.allEdges = compact.pairs;
+        this.allEdgeDirections = compact.directions;
+        this.allEdgeTypes = compact.types;
+        this.allEdgeStorage = compact.pairs;
+        this.allDirectionStorage = compact.directions;
+        this.allTypeStorage = compact.types;
+        this.allEdgeCount = compact.types.length;
+        this.allEdgesDirty = false;
+      }
       this.renderEdges = this.allEdges;
       this.renderEdgeDirections = genericDirections(this.allEdgeDirections);
       this.renderEdgeTypes = this.allEdgeTypes;
@@ -644,61 +662,21 @@ export class SnapshotStore implements NodeReader {
       );
       this.updateRenderedTransitionTargets();
       if (rebuildAdjacency) {
-        this.adjacency = buildAdjacency(snapshot);
-        this.islandNodes = this.adjacency.islandNodes;
+        this.rebuildAdjacency(snapshot);
       }
       return;
     }
-    const pairs: number[] = [];
-    const directions: number[] = [];
-    const types: number[] = [];
+    this.filteredEdgeIndex.rebuild(
+      snapshot,
+      this.edgeType,
+      this.edgeDirection,
+      this.focusedNode,
+      this.nodeRepresentatives,
+      this.collapseAllowedNodes,
+    );
+    this.filteredEdgeIndexActive = true;
+    this.assignFilteredEdges();
     const selectedType = this.edgeType === 'all' ? 0 : edgeTypeMask(this.edgeType);
-    for (let edge = 0; edge < this.allEdgeTypes.length; edge += 1) {
-      const typeMask = this.allEdgeTypes[edge];
-      const sourceLeft = this.allEdges[edge * 2];
-      const sourceRight = this.allEdges[edge * 2 + 1];
-      if (selectedType !== 0 && (typeMask & selectedType) === 0) continue;
-      if (this.collapseAllowedNodes
-        && (this.collapseAllowedNodes[sourceLeft] !== 1 || this.collapseAllowedNodes[sourceRight] !== 1)) continue;
-      let left = this.representative(sourceLeft);
-      let right = this.representative(sourceRight);
-      if (left === right) continue;
-      let direction = directionForTypes(this.allEdgeDirections[edge], selectedType);
-      if (left > right) {
-        [left, right] = [right, left];
-        direction = swapDirectionFlags(direction);
-      }
-      const visibleDirection = directionForFocus(
-        direction,
-        left,
-        right,
-        this.edgeDirection,
-        this.focusedNode,
-      );
-      if (visibleDirection === 0) continue;
-      pairs.push(left, right);
-      directions.push(visibleDirection);
-      types.push(typeMask);
-    }
-    const filteredEdges = new Uint32Array(pairs);
-    const filteredDirections = new Uint32Array(directions);
-    const filteredTypes = new Uint32Array(types);
-    const projected = this.nodeRepresentatives
-      ? projectCommunityEdges(
-        filteredEdges,
-        filteredDirections,
-        filteredTypes,
-        this.nodeRepresentatives,
-      )
-      : { edges: filteredEdges, directions: filteredDirections, types: filteredTypes };
-    this.renderEdges = projected.edges;
-    this.renderEdgeDirections = projected.directions;
-    this.renderEdgeTypes = projected.types;
-    this.renderArrowEdges = directedEdges(this.renderEdges, this.renderEdgeDirections);
-    this.renderEdgeCount = this.renderEdgeTypes.length;
-    this.renderDirectionStorage = this.renderEdgeDirections;
-    this.arrowStorage = this.renderArrowEdges;
-    this.arrowCount = this.renderArrowEdges.length / 2;
     const transitionPairs: number[] = [];
     const transitionDirections: number[] = [];
     const transitionTypes: number[] = [];
@@ -734,28 +712,64 @@ export class SnapshotStore implements NodeReader {
     this.renderTransitionEdges = new Uint32Array(transitionPairs);
     this.renderTransitionEdgeDirections = new Uint32Array(transitionDirections);
     this.renderTransitionEdgeTypes = new Uint32Array(transitionTypes);
-      this.renderedTransitionSources = new Uint32Array(transitionSources);
+    this.renderedTransitionSources = new Uint32Array(transitionSources);
     this.updateRenderedTransitionTargets();
-    if (rebuildAdjacency) {
-      if (this.nodeRepresentatives) {
-        const liveEdges = compactEdgeSlots(snapshot);
-        const projected = projectCommunityEdges(
-          liveEdges.pairs,
-          genericDirections(liveEdges.directions),
-          liveEdges.types,
-          this.nodeRepresentatives,
-        );
-        this.adjacency = buildAdjacency({
-          ...snapshot,
-          edgeCount: projected.edges.length / 2,
-          edges: projected.edges,
-          edgeTypes: projected.types,
-        }, this.edgeType);
-      } else {
-        this.adjacency = buildAdjacency(snapshot, this.edgeType);
-      }
+    if (rebuildAdjacency) this.rebuildAdjacency(snapshot);
+  }
+
+  private rebuildAdjacency(snapshot: GraphSnapshot): void {
+    if (!this.nodeRepresentatives) {
+      this.adjacencyEdgeIndex.clear();
+      this.adjacency = buildAdjacency(snapshot, this.edgeType);
       this.islandNodes = this.adjacency.islandNodes;
+      return;
     }
+    this.adjacencyEdgeIndex.rebuild(
+      snapshot,
+      'all',
+      'all',
+      -1,
+      this.nodeRepresentatives,
+      null,
+      true,
+    );
+    const projected = this.adjacencyEdgeIndex;
+    this.adjacency = buildAdjacency({
+      ...snapshot,
+      edgeCount: projected.types.length,
+      edgeSlotCount: projected.types.length,
+      edges: projected.edges,
+      edgeTypes: projected.types,
+    }, this.edgeType);
+    this.islandNodes = this.adjacency.islandNodes;
+  }
+
+  private collapseProjectionStable(
+    snapshot: GraphSnapshot,
+    updates: GraphTopologyDelta['nodeUpdates'],
+    metricsStale: boolean,
+  ): boolean {
+    if (!this.nodeRepresentatives) return true;
+    if (metricsStale || snapshot.metricsStale) return false;
+    for (const update of updates) {
+      const changedDegree = snapshot.degrees[update.index] !== update.degree;
+      const changedModifiedDay = update.modifiedDay !== undefined
+        && snapshot.modifiedDays[update.index] !== update.modifiedDay;
+      if (changedModifiedDay
+        || (changedDegree && isCommunityCollapsed(snapshot.clusterIds[update.index], this.collapsedCommunities))) return false;
+    }
+    return true;
+  }
+
+  private assignFilteredEdges(): void {
+    this.renderEdges = this.filteredEdgeIndex.edges;
+    this.renderEdgeDirections = this.filteredEdgeIndex.directions;
+    this.renderEdgeTypes = this.filteredEdgeIndex.types;
+    this.renderArrowEdges = this.filteredEdgeIndex.arrows;
+    this.renderEdgeCount = this.renderEdgeTypes.length;
+    this.renderDirectionStorage = this.renderEdgeDirections;
+    this.arrowStorage = this.renderArrowEdges;
+    this.arrowCount = this.renderArrowEdges.length / 2;
   }
 
   freshnessTexture(): Float32Array {
@@ -1205,6 +1219,19 @@ function sameBytes(left: Uint8Array | null, right: Uint8Array | null): boolean {
   if (left === right) return true;
   if (!left || !right || left.length !== right.length) return false;
   return left.every((value, index) => value === right[index]);
+}
+
+function isCommunityCollapsed(community: number, collapsedCommunities: number[]): boolean {
+  let low = 0;
+  let high = collapsedCommunities.length - 1;
+  while (low <= high) {
+    const middle = (low + high) >>> 1;
+    const candidate = collapsedCommunities[middle];
+    if (candidate === community) return true;
+    if (candidate < community) low = middle + 1;
+    else high = middle - 1;
+  }
+  return false;
 }
 
 function edgeTypeMask(edgeType: GraphEdgeType): number {
