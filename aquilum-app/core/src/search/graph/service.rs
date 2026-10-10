@@ -1554,7 +1554,8 @@ mod tests {
             "C:/vault/Bookshelf/Other.md".to_owned(),
         ]);
 
-        let indices = graph_indices(&paths, Some("c:/vault/books/"), Some(&allowed));
+        let folder_prefix = format!("{}/", super::identity(Path::new("C:/vault/Books")));
+        let indices = graph_indices(&paths, Some(&folder_prefix), Some(&allowed));
 
         assert_eq!(indices, vec![0]);
     }
