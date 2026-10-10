@@ -119,6 +119,7 @@ pub struct ReaderSettings {
     pub justify: bool,
     pub hyphenate: bool,
     pub flow: String,
+    pub paper_theme: String,
     #[serde(flatten)]
     pub font: FontSettings,
 }
@@ -132,6 +133,7 @@ impl Default for ReaderSettings {
             justify: true,
             hyphenate: true,
             flow: "paginated".to_string(),
+            paper_theme: "inherit".to_string(),
             font: FontSettings {
                 font_family: "iA Writer Quattro".to_string(),
                 font_weight: 400,

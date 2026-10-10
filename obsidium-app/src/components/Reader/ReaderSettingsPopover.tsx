@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { readingThemeOptions, type ReadingThemeId } from '../../modules/theme/reading';
 import type { ReaderFlow, ReaderSettings } from '../../modules/settings';
 import { SegmentedControl } from '../Common/SegmentedControl';
 import { Row } from '../Settings/Row';
@@ -24,6 +25,17 @@ export function ReaderSettingsPopover({
         onClick={onClose}
       />
       <div className="q-reader-settings" role="dialog" aria-label={t('reader.settings')}>
+        <Row label={t('reader.paperTheme')}>
+          <select className="q-reader-theme-select" aria-label={t('reader.paperTheme')}
+            value={settings.paperTheme ?? 'inherit'}
+            onChange={(event) => onChange({ paperTheme: event.currentTarget.value as ReadingThemeId })}>
+            {readingThemeOptions.map(({ id, name }) => (
+              <option key={id} value={id}>
+                {id === 'inherit' ? t('settings.reader.paperInherit') : name}
+              </option>
+            ))}
+          </select>
+        </Row>
         <Row label={t('reader.flow')}>
           <SegmentedControl
             stretch

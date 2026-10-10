@@ -1,3 +1,5 @@
+@import '../../../styles/themes/reading-paper.css';
+
 .q-editor-pane {
     position: absolute;
     inset: 0;

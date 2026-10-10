@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Plus } from 'lucide';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
+import { Dialog, DialogFooter } from '../Common/Dialog';
+import { ConfirmDialog } from '../Common/ConfirmDialog';
+import { Menu, type MenuPosition } from '../Common/Menu';
+import { Button } from '../Common/Button';
 import { t } from '../../i18n';
 import { childPath, fileName } from '../../modules/paths';
-import { createAtFreeName, createFile, ensureDirectory, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
+import { createAtFreeName, createFile, ensureDirectory, readFileSnapshot, trashFile, writeFileAtomic } from '../../modules/documents/fileGateway';
+import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile';
 import { sanitizeFileName } from '../../modules/documents/documentFactory';
 import { setFrontmatterField } from '../../modules/docs/frontmatter';
 import { loadBaseView, saveBaseView } from '../../modules/ui-state/gateway';
@@ -33,6 +38,8 @@ interface BaseViewProps {
   indexReady: boolean;
   indexRevision: number;
   onOpenNote: (path: string) => void;
+  onFileRenamed?: (oldPath: string, newPath: string) => void;
+  onFileDeleted?: (path: string) => void;
   viewRequest?: { path: string; index: number; id: number } | null;
   onViewRequestConsumed?: (id: number) => void;
 }
@@ -110,6 +117,8 @@ export function BaseView({
   indexReady,
   indexRevision,
   onOpenNote,
+  onFileRenamed,
+  onFileDeleted,
   viewRequest,
   onViewRequestConsumed,
 }: BaseViewProps) {
@@ -246,6 +255,27 @@ export function BaseView({
     } : current);
   };
 
+  const renameCard = async (row: BaseRow, name: string) => {
+    const safe = sanitizeFileName(name);
+    if (!safe || safe !== name.trim()) throw new Error(t('bases.kanbanInvalidTitle'));
+    const renamed = await renameWorkspaceFile(row.path, safe);
+    if (!renamed) return;
+    setLoaded((current) => current ? {
+      ...current,
+      rows: current.rows.map((entry) => entry.path === row.path ? { ...entry, path: renamed } : entry),
+    } : current);
+    onFileRenamed?.(row.path, renamed);
+  };
+
+  const deleteCard = async (row: BaseRow) => {
+    await trashFile(workspacePath, row.path);
+    setLoaded((current) => current ? {
+      ...current,
+      rows: current.rows.filter((entry) => entry.path !== row.path),
+    } : current);
+    onFileDeleted?.(row.path);
+  };
+
   const toggleSort = (property: string) => {
     setSort((current) => current[0]?.property === property
       ? [{ property, direction: current[0].direction === 'ASC' ? 'DESC' : 'ASC' }]
@@ -298,6 +328,8 @@ export function BaseView({
             onCommit={commitProperty}
             onCreate={createCard}
             onOpen={onOpenNote}
+            onRename={renameCard}
+            onDelete={deleteCard}
           />
         ) : grouped.map((group) => (
           <section className="q-base-group" key={group.key}>
@@ -499,6 +531,8 @@ function BaseKanban({
   onCommit,
   onCreate,
   onOpen,
+  onRename,
+  onDelete,
 }: {
   rows: BaseRow[];
   columns: string[];
@@ -509,12 +543,22 @@ function BaseKanban({
   onCommit: (row: BaseRow, property: string, value: string) => Promise<void>;
   onCreate: (title: string, group: string) => Promise<void>;
   onOpen: (path: string) => void;
+  onRename: (row: BaseRow, name: string) => Promise<void>;
+  onDelete: (row: BaseRow) => Promise<void>;
 }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<{ title: string; x: number; y: number } | null>(null);
+  const pointer = useRef<{ id: number; row: BaseRow; x: number; y: number; active: boolean } | null>(null);
+  const suppressClick = useRef(false);
+  const [menu, setMenu] = useState<{ row: BaseRow; position: MenuPosition } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<BaseRow | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<BaseRow | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
   const groupProperty = kanbanProperty(view);
   const writable = kanbanWritableProperty(groupProperty);
   const board = buildKanbanColumns(rows, view, workspacePath);
@@ -544,14 +588,62 @@ function BaseKanban({
     }
   };
 
-  const drop = (event: DragEvent, value: string) => {
-    if (!writable) return;
+  const startDrag = (event: ReactPointerEvent<HTMLElement>, row: BaseRow) => {
+    if (!writable || event.button !== 0 || pointer.current) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('select, input, textarea, .q-base-kanban__menu-trigger')) return;
+    pointer.current = { id: event.pointerId, row, x: event.clientX, y: event.clientY, active: false };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const moveDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const session = pointer.current;
+    if (!session || session.id !== event.pointerId) return;
+    if (!session.active && Math.hypot(event.clientX - session.x, event.clientY - session.y) < 6) return;
+    session.active = true;
     event.preventDefault();
-    event.stopPropagation();
+    setDragging({ title: rowTitle(session.row, workspacePath), x: event.clientX, y: event.clientY });
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-kanban-column]');
+    setDragOver(target?.dataset.kanbanColumnKey ?? null);
+  };
+  const endDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const session = pointer.current;
+    if (!session || session.id !== event.pointerId) return;
+    pointer.current = null;
+    setDragging(null);
     setDragOver(null);
-    const path = event.dataTransfer?.getData('text/plain');
-    const row = rows.find((candidate) => candidate.path === path);
-    if (row) void move(row, value);
+    if (!session.active || event.type === 'pointercancel') return;
+    suppressClick.current = true;
+    window.setTimeout(() => { suppressClick.current = false; }, 0);
+    event.preventDefault();
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-kanban-column]');
+    if (target) void move(session.row, target.dataset.kanbanColumn ?? '');
+  };
+  const showMenu = (row: BaseRow, x: number, y: number) => {
+    setMenu({ row, position: { left: x, top: y } });
+  };
+  const submitRename = async () => {
+    if (!renameTarget || actionBusy) return;
+    setActionBusy(true);
+    try {
+      await onRename(renameTarget, renameValue.trim());
+      setRenameTarget(null);
+      setError('');
+    } catch (cause) {
+      setError(t('bases.kanbanRenameError', { reason: String(cause) }));
+    } finally { setActionBusy(false); }
+  };
+  const confirmDelete = async () => {
+    if (!deleteTarget || actionBusy) return;
+    setActionBusy(true);
+    try {
+      await onDelete(deleteTarget);
+      setDeleteTarget(null);
+      setError('');
+    } catch (cause) {
+      setError(t('bases.kanbanDeleteError', { reason: String(cause) }));
+    } finally { setActionBusy(false); }
   };
 
   const create = async (value: string) => {
@@ -576,20 +668,9 @@ function BaseKanban({
         {board.map((column) => (
           <section
             key={column.key}
+            data-kanban-column={column.value}
+            data-kanban-column-key={column.key}
             className={`q-base-kanban__column${dragOver === column.key ? ' q-base-kanban__column--drop' : ''}`}
-            onDragEnter={(event) => {
-              if (writable) { event.preventDefault(); setDragOver(column.key); }
-            }}
-            onDragOver={(event) => {
-              if (writable) {
-                event.preventDefault();
-                if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-              }
-            }}
-            onDragLeave={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(null);
-            }}
-            onDrop={(event) => drop(event, column.value)}
           >
             <header className="q-base-kanban__header">
               <span title={!column.value ? t('bases.kanbanUnassignedHint') : undefined}>
@@ -602,16 +683,36 @@ function BaseKanban({
                 <article
                   key={row.path}
                   className="q-base-kanban__card"
-                  draggable={writable}
-                  onDragStart={(event) => {
-                    event.dataTransfer?.setData('text/plain', row.path);
-                    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+                  tabIndex={0}
+                  aria-label={rowTitle(row, workspacePath)}
+                  onPointerDown={(event) => startDrag(event, row)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  onContextMenu={(event) => { event.preventDefault(); showMenu(row, event.clientX, event.clientY); }}
+                  onClick={(event) => {
+                    if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); return; }
+                    if (!(event.target as HTMLElement).closest('button, select, input')) onOpen(row.path);
                   }}
-                  onDragEnd={() => setDragOver(null)}
+                  onKeyDown={(event) => {
+                    if (event.currentTarget !== event.target) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault(); onOpen(row.path);
+                    }
+                  }}
                 >
-                  <button type="button" className="q-base-card__title" onClick={() => onOpen(row.path)}>
-                    {rowTitle(row, workspacePath)}
-                  </button>
+                  <div className="q-base-kanban__card-heading">
+                    <button type="button" className="q-base-card__title" onClick={() => { if (!suppressClick.current) onOpen(row.path); }}>
+                      {rowTitle(row, workspacePath)}
+                    </button>
+                    <button type="button" className="q-base-kanban__menu-trigger"
+                      aria-label={t('bases.kanbanCardActions', { title: rowTitle(row, workspacePath) })}
+                      onClick={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        showMenu(row, rect.right, rect.bottom);
+                      }}
+                    ><Icon icon={MoreHorizontal} /></button>
+                  </div>
                   {cardFields.map((property) => (
                     <div className="q-base-card__property" key={property}>
                       <span>{propertyLabel(definition, property)}</span>
@@ -674,6 +775,40 @@ function BaseKanban({
           </section>
         ))}
       </div>
+      {dragging && (
+        <div className="q-base-kanban__drag-ghost" aria-hidden="true"
+          style={{ left: dragging.x + 12, top: dragging.y + 12 }}>
+          {dragging.title}
+        </div>
+      )}
+      <Menu open={Boolean(menu)} position={menu?.position ?? null}
+        onClose={() => setMenu(null)} items={menu ? [
+          { id: 'open', label: t('bases.kanbanOpen'), icon: ExternalLink,
+            onSelect: () => onOpen(menu.row.path) },
+          { id: 'rename', label: t('common.rename'), icon: Pencil,
+            onSelect: () => { setRenameValue(rowTitle(menu.row, workspacePath)); setRenameTarget(menu.row); setError(''); } },
+          { id: 'delete', label: t('common.delete'), icon: Trash2,
+            onSelect: () => { setDeleteTarget(menu.row); setError(''); } },
+        ] : []} />
+      <Dialog open={Boolean(renameTarget)} title={t('bases.kanbanRenameTitle')}
+        closeLabel={t('common.cancel')} dismissible={!actionBusy}
+        onClose={() => setRenameTarget(null)} className="q-base-kanban__dialog">
+        <div className="q-base-kanban__dialog-body">
+          <input autoFocus value={renameValue} aria-label={t('bases.kanbanCardTitle')}
+            onChange={(event) => setRenameValue(event.currentTarget.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void submitRename(); } }} />
+          {error && <p role="alert" className="q-base-kanban__error">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" disabled={actionBusy} onClick={() => setRenameTarget(null)}>{t('common.cancel')}</Button>
+          <Button disabled={actionBusy || !renameValue.trim()} onClick={() => void submitRename()}>{t('common.rename')}</Button>
+        </DialogFooter>
+      </Dialog>
+      <ConfirmDialog open={Boolean(deleteTarget)}
+        title={t('bases.kanbanDeleteTitle')}
+        description={t('bases.kanbanDeleteDescription', { title: deleteTarget ? rowTitle(deleteTarget, workspacePath) : '' })}
+        confirmLabel={t('common.delete')} error={error} pending={actionBusy}
+        onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmDelete()} />
     </div>
   );
 }

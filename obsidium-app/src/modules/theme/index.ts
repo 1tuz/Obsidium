@@ -104,6 +104,11 @@ export const themePalettes: ThemePalette[] = [
   palette('malachite-osyx', 'Malachite (osyx)'),
   palette('sakura-osyx', 'Sakura (osyx)'),
   palette('cendre', 'Cendre'),
+  palette('paper-white', 'Paper White'),
+  palette('ivory', 'Ivory'),
+  palette('parchment', 'Parchment'),
+  palette('sepia', 'Sepia'),
+  palette('dark-paper', 'Dark Paper'),
 ].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 
 let currentAppearance: Theme = 'system';

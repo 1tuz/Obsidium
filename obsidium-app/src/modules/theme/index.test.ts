@@ -51,15 +51,16 @@ describe('theme engine', () => {
     expect(themePalettes.map(({ id }) => id).sort()).toEqual([
       'obsidium', 'obsidian', 'dracula', 'vscode', 'cursor', 'catppuccin',
       'nord', 'tokyo-night', 'gruvbox', 'rose-pine', 'one-dark',
-      'everforest', 'kanagawa', 'flexoki', 'ayu', 'solarized', 'material',
+      'dark-paper', 'everforest', 'kanagawa', 'flexoki', 'ayu', 'solarized', 'material',
       'github', 'nightfox', 'graphite', 'carbon', 'metal', 'iceberg',
-      'notion', 'craft', 'bear', 'capacities', 'anytype', 'notesnook', 'heptabase', 'logseq',
+      'ivory', 'notion', 'craft', 'bear', 'capacities', 'anytype', 'notesnook', 'heptabase', 'logseq',
+      'paper-white', 'parchment',
       'reham-amber', 'reham-aubergine', 'reham-dawn', 'reham-dracula', 'reham-ember',
       'reham-forest', 'reham-graphite', 'reham-ink', 'reham-matcha', 'reham-mint',
       'reham-mist', 'reham-nord', 'reham-obsidian', 'reham-ocean', 'reham-peach',
       'reham-quantum', 'reham-ruby', 'reham-sakura', 'reham-solarized', 'reham-synth',
       'reham-teal', 'reham-violet', 'reham-void', 'blush-osyx', 'malachite-osyx',
-      'sakura-osyx', 'cendre',
+      'sakura-osyx', 'cendre', 'sepia',
     ].sort());
     for (const palette of themePalettes) {
       expect(palette.light.accent).toContain(`${palette.id}-light-accent`);
@@ -83,7 +84,7 @@ describe('theme engine', () => {
   });
 
   it('keeps text and accent-button labels at WCAG AA across all palette modes', () => {
-    expect(themePalettes).toHaveLength(58);
+    expect(themePalettes).toHaveLength(63);
     let checked = 0;
     for (const { id } of themePalettes) {
       for (const mode of ['light', 'dark'] as const) {
@@ -104,7 +105,7 @@ describe('theme engine', () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(116);
+    expect(checked).toBe(126);
   });
 
   it('binds component states to the active palette semantic tokens', () => {

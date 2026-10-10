@@ -1,5 +1,6 @@
 import { Overlayer } from 'foliate-js/overlayer.js';
 import { readerColumnWidthPx, readerPalette, readerStyleCss } from './readerStyle';
+import type { ReadingMode } from '../../modules/theme/reading';
 import type { ReaderSettings } from '../../modules/settings';
 import { clamp } from '../../modules/math';
 
@@ -181,6 +182,7 @@ export class FoliateReaderEngine {
   private desiredCaret: CaretPoint | null = null;
   private caretFrame: number | null = null;
   private settings: ReaderSettings | null = null;
+  private colorMode: ReadingMode = 'light';
   private appliedSettingsKey: string | null = null;
 
   private onQuoteDrawAnnotation = (event: Event) => {
@@ -283,14 +285,15 @@ export class FoliateReaderEngine {
     this.attachSelectionTracking(doc);
   };
 
-  applyStyle(settings: ReaderSettings): void {
+  applyStyle(settings: ReaderSettings, mode: ReadingMode = this.colorMode): void {
     this.settings = settings;
+    this.colorMode = mode;
     const renderer = this.renderer;
     if (!renderer) return;
-    const key = JSON.stringify(settings);
+    const key = JSON.stringify({ settings, mode });
     if (key === this.appliedSettingsKey) return;
     this.appliedSettingsKey = key;
-    renderer.setStyles?.(readerStyleCss(settings, readerPalette()));
+    renderer.setStyles?.(readerStyleCss(settings, readerPalette(settings, mode)));
     renderer.setAttribute('flow', settings.flow);
     renderer.setAttribute('margin', `${settings.marginPx}px`);
     void readerColumnWidthPx(settings).then((width) => {

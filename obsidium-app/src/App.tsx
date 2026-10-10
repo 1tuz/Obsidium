@@ -622,6 +622,8 @@ export default function App() {
                       indexReady={linkIndexReady}
                       indexRevision={linkIndexRevision}
                       onOpenNote={(path) => openNote(path, { paneId })}
+                      onFileRenamed={handleFileRenamed}
+                      onFileDeleted={closeTab}
                       viewRequest={baseViewRequest?.path === activeBasePath && baseViewRequest.paneId === paneId ? baseViewRequest : null}
                       onViewRequestConsumed={(id) => {
                         setBaseViewRequest((current) => current?.id === id ? null : current);
