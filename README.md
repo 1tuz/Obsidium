@@ -19,7 +19,15 @@
 
 Obsidium opens a folder you choose and works directly with the `.md` files inside it. There is no required account, proprietary note format, or cloud database. Notes and attachments remain usable in other tools, and you can back them up or synchronize them with any service you trust.
 
-The desktop interface is built with Tauri and React; disk access, indexing, search, and queries run in Rust. The result is a responsive workspace that keeps its source of truth on your computer.
+The desktop interface is built with Tauri and Preact's React-compatible API; disk access, indexing, search, and queries run in Rust. The result is a responsive workspace that keeps its source of truth on your computer.
+
+## How Obsidium works
+
+The desktop UI and CLI share the Rust core. Markdown files remain the source of truth; the core maintains local document sessions, indexes, and interface state.
+
+![Obsidium application architecture](assets/readme/obsidium-architecture.svg)
+
+Implementation: [UI](obsidium-app/src/main.tsx), [Tauri host](obsidium-app/src-tauri/src/lib.rs), [core services](obsidium-app/core/src/app_core.rs).
 
 ## A tour of Obsidium
 
