@@ -24,6 +24,7 @@ describe('EditingToolbar', () => {
   it('stretches the top toolbar across the pane', () => {
     const styles = readFileSync(resolve(process.cwd(), 'src/components/Editor/EditingToolbar.css'), 'utf8');
     expect(styles).toMatch(/\.q-editing-toolbar--top\s*\{[^}]*align-self:\s*stretch;[^}]*width:\s*100%;/s);
+    expect(styles).toMatch(/\.q-editing-toolbar--top\s*\{[^}]*box-sizing:\s*border-box;/s);
   });
 
   it('exposes the remaining Markdown heading levels and image insertion', () => {

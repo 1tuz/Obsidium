@@ -39,6 +39,10 @@ describe('graph shaders', () => {
     expect(EDGE_FRAGMENT).toContain('precision highp float;');
   });
 
+  it('declare the custom group palette in the fragment shader that samples it', () => {
+    expect(NODE_FRAGMENT).toContain('uniform sampler2D uCustomGroupPalette;');
+  });
+
   it('colors the PageRank prefix without touching removed transition nodes', () => {
     expect(NODE_VERTEX).toContain('float(gl_InstanceID) < uImportantCount');
     expect(NODE_FRAGMENT).toContain('vImportant * uImportantNodes');

@@ -106,6 +106,7 @@ in float vImportant;
 in float vShown;
 in float vCommunity;
 in float vCustomGroup;
+uniform sampler2D uCustomGroupPalette;
 uniform vec4 uFill;
 uniform vec4 uOutline;
 uniform vec4 uBackdrop;
