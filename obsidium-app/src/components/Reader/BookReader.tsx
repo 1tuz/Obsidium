@@ -6,6 +6,7 @@ import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { IconButton } from '../Common/IconButton';
 import { useSettingsPersist } from '../Settings/useSettingsPersist';
+import { useThemeMode } from '../../hooks/useThemeMode';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { FoliateReaderEngine, prefetchFoliate } from './ReaderEngine';
 import { ReaderSettingsPopover } from './ReaderSettingsPopover';
@@ -59,6 +60,7 @@ export function BookReader({
   onQuoteRefClick,
 }: BookReaderProps) {
   const { config, persist } = useSettingsPersist();
+  const themeMode = useThemeMode();
   const readerSettings = config?.reader ?? DEFAULT_READER_SETTINGS;
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -88,7 +90,7 @@ export function BookReader({
     onPagesChange(formatted, cfi ? { cfi, readPercent } : undefined);
   });
 
-  const readOpenInputs = useStableCallback(() => ({ pagesFm, quoteMarks, readerSettings }));
+  const readOpenInputs = useStableCallback(() => ({ pagesFm, quoteMarks, readerSettings, themeMode }));
   const openQuoteRef = useStableCallback((cfi: string) => onQuoteRefClick?.(cfi));
 
   const handleKeyDown = useStableCallback((event: KeyboardEvent) => {
@@ -115,7 +117,7 @@ export function BookReader({
     if (!host) return;
 
     const engine = new FoliateReaderEngine(host);
-    engine.applyStyle(readOpenInputs().readerSettings);
+    engine.applyStyle(readOpenInputs().readerSettings, readOpenInputs().themeMode);
     engineRef.current = engine;
 
     const unsubscribe = engine.onRelocate(({ fraction, cfi }) => {
@@ -183,8 +185,8 @@ export function BookReader({
   }, [quoteMarks]);
 
   useEffect(() => {
-    engineRef.current?.applyStyle(readerSettings);
-  }, [readerSettings]);
+    engineRef.current?.applyStyle(readerSettings, themeMode);
+  }, [readerSettings, themeMode]);
 
   const patchReader = (partial: Partial<typeof readerSettings>) => {
     if (!config) return;

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { setTheme } from '../theme';
+import { normalizeReadingTheme, type ReadingThemeId } from '../theme/reading';
 import { setLanguage } from '../../i18n';
 import { setFilesFolder } from '../docs/vaultFiles';
 import { pxToRem } from '../scaling';
@@ -59,6 +60,7 @@ export interface ReaderSettings extends FontSettings {
   justify: boolean;
   hyphenate: boolean;
   flow: ReaderFlow;
+  paperTheme?: ReadingThemeId;
 }
 
 export const DEFAULT_READER_SETTINGS: ReaderSettings = {
@@ -71,6 +73,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
   justify: true,
   hyphenate: true,
   flow: 'paginated',
+  paperTheme: 'inherit',
 };
 
 interface UiSettings extends FontSettings {
@@ -182,7 +185,7 @@ function withKnownFonts(config: AppConfig): AppConfig {
     builtins: { ...DEFAULT_BUILTINS, ...config.builtins },
     ui: { ...knownFont('ui', config.ui), motion: normalizeMotion(config.ui.motion) },
     editor: knownFont('editor', config.editor),
-    reader: knownFont('reader', config.reader),
+    reader: { ...knownFont('reader', config.reader), paperTheme: normalizeReadingTheme(config.reader.paperTheme) },
   };
 }
 
@@ -248,6 +251,7 @@ function applySettingsToDom(config: AppConfig) {
   const root = document.documentElement;
   setLanguage(config.ui.language);
   setFilesFolder(config.files.folder);
+  root.dataset.readingTheme = normalizeReadingTheme(config.reader.paperTheme);
   setTheme(
     config.ui.appearance,
     config.ui.palette,

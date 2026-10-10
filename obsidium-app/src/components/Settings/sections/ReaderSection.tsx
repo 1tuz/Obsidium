@@ -1,4 +1,6 @@
 import type { AppConfig, ReaderFlow } from '../../../modules/settings';
+import { readingThemeOptions, type ReadingThemeId } from '../../../modules/theme/reading';
+import { Dropdown } from '../../Common/Dropdown';
 import { SegmentedControl } from '../../Common/SegmentedControl';
 import { t } from '../../../i18n';
 import { Switch } from '../../Common/Switch';
@@ -34,6 +36,14 @@ export function ReaderSection({ config, onChange }: SettingsSectionProps) {
         </Row>
       </Section>
       <Section title={t('settings.reader.page')}>
+        <Row label={t('settings.reader.paperTheme')} description={t('settings.reader.paperThemeHint')}>
+          <Dropdown ariaLabel={t('settings.reader.paperTheme')}
+            value={config.reader.paperTheme ?? 'inherit'}
+            options={readingThemeOptions.map(({ id, name }) => ({
+              value: id, label: id === 'inherit' ? t('settings.reader.paperInherit') : name,
+            }))}
+            onChange={(paperTheme) => patchReader({ paperTheme: paperTheme as ReadingThemeId })} />
+        </Row>
         <Row
           label={t('settings.reader.flow')}
           description={t('settings.reader.flowHint')}

@@ -518,3 +518,37 @@
   --q-palette-cendre-light-text: #332820;
   --q-palette-cendre-light-accent: #a94f2f;
 }
+
+/* Paper-inspired palettes, each with an accessible light/dark pairing. */
+:root {
+  --q-palette-paper-white-light-background: #ffffff;
+  --q-palette-paper-white-light-text: #202124;
+  --q-palette-paper-white-light-accent: #245d90;
+  --q-palette-paper-white-dark-background: #1c1e20;
+  --q-palette-paper-white-dark-text: #eae7e2;
+  --q-palette-paper-white-dark-accent: #9cbeea;
+  --q-palette-ivory-light-background: #fffcf2;
+  --q-palette-ivory-light-text: #393329;
+  --q-palette-ivory-light-accent: #815b31;
+  --q-palette-ivory-dark-background: #24211c;
+  --q-palette-ivory-dark-text: #efe6d3;
+  --q-palette-ivory-dark-accent: #d5ad70;
+  --q-palette-parchment-light-background: #f2e7d1;
+  --q-palette-parchment-light-text: #42382b;
+  --q-palette-parchment-light-accent: #74512f;
+  --q-palette-parchment-dark-background: #29241c;
+  --q-palette-parchment-dark-text: #e7d5b6;
+  --q-palette-parchment-dark-accent: #d6aa6c;
+  --q-palette-sepia-light-background: #e9dbc0;
+  --q-palette-sepia-light-text: #493727;
+  --q-palette-sepia-light-accent: #80532e;
+  --q-palette-sepia-dark-background: #2c241d;
+  --q-palette-sepia-dark-text: #e0caac;
+  --q-palette-sepia-dark-accent: #d0a16f;
+  --q-palette-dark-paper-light-background: #e5e2dc;
+  --q-palette-dark-paper-light-text: #333531;
+  --q-palette-dark-paper-light-accent: #496454;
+  --q-palette-dark-paper-dark-background: #171a19;
+  --q-palette-dark-paper-dark-text: #dcded7;
+  --q-palette-dark-paper-dark-accent: #a1c2a4;
+}

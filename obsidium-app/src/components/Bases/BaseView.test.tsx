@@ -31,6 +31,11 @@ vi.mock('../../modules/documents/fileGateway', () => ({
     '    name: By owner',
   ].join('\n'), hash: 'hash', textHash: 'hash' })),
   writeFileAtomic: vi.fn(async () => ({ hash: 'saved' })),
+  trashFile: vi.fn(async () => '/vault/.trash/Task.md'),
+}));
+
+vi.mock('../../modules/documents/renameWorkspaceFile', () => ({
+  renameWorkspaceFile: vi.fn(async (_path: string, title: string) => `/vault/${title}.md`),
 }));
 
 vi.mock('../../modules/bases/gateway', () => ({ getBaseRows: vi.fn(async () => state.rows) }));
@@ -201,5 +206,47 @@ describe('BaseView view selection', () => {
     expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
       '/vault/Unsorted.md', expect.stringContaining('status: todo'), 'hash',
     );
+  });
+
+  it('opens a card by clicking its surface, not only its title', async () => {
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    const onOpenNote = vi.fn();
+    act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
+      indexReady indexRevision={0} onOpenNote={onOpenNote}
+      viewRequest={{ path: '/vault/Project.base', index: 1, id: 4 }} />); });
+    await actAndSettle();
+    const card = renderer!.container.querySelector<HTMLElement>('.q-base-kanban__card')!;
+    act(() => { card.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(onOpenNote).toHaveBeenCalledWith('/vault/Task.md');
+  });
+
+  it('uses pointer movement to transfer a card to another Kanban column', async () => {
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
+      indexReady indexRevision={0} onOpenNote={vi.fn()}
+      viewRequest={{ path: '/vault/Project.base', index: 1, id: 5 }} />); });
+    await actAndSettle();
+    const card = renderer!.container.querySelector<HTMLElement>('.q-base-kanban__card')!;
+    card.setPointerCapture = vi.fn();
+    const target = [...renderer!.container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
+      .find((item) => item.dataset.kanbanColumn === 'done')!;
+    const original = document.elementFromPoint;
+    document.elementFromPoint = vi.fn(() => target);
+    const pointerEvent = (type: string, x: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        pointerId: { value: 1 }, button: { value: 0 }, clientX: { value: x }, clientY: { value: 10 },
+      });
+      return event;
+    };
+    try {
+      act(() => { card.dispatchEvent(pointerEvent('pointerdown', 10)); });
+      act(() => { card.dispatchEvent(pointerEvent('pointermove', 70)); });
+      act(() => { card.dispatchEvent(pointerEvent('pointerup', 70)); });
+      await actAndSettle();
+      expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+        '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
+      );
+    } finally { document.elementFromPoint = original; }
   });
 });

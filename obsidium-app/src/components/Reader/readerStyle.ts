@@ -1,13 +1,18 @@
 import { BOLD_WEIGHT, fontFaceCss, fontStack } from '../../fonts/catalog';
+import { readingColors, type ReadingMode } from '../../modules/theme/reading';
 import type { ReaderSettings } from '../../modules/settings';
 
 interface ReaderPalette {
   text: string;
   background: string;
   muted: string;
+  accent?: string;
 }
 
-export function readerPalette(): ReaderPalette {
+export function readerPalette(settings?: ReaderSettings, mode?: ReadingMode): ReaderPalette {
+  const activeMode: ReadingMode = mode ?? (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+  const paper = readingColors(settings?.paperTheme ?? 'inherit', activeMode);
+  if (paper) return paper;
   const style = getComputedStyle(document.documentElement);
   const text = style.getPropertyValue('--q-text-primary').trim() || 'inherit';
   return {
@@ -77,8 +82,11 @@ export function readerStyleCss(settings: ReaderSettings, palette: ReaderPalette)
     [align="center"] { text-align: center; }
     [align="justify"] { text-align: justify; }
     p, li, blockquote, dd { color: ${palette.text}; }
-    a { color: ${palette.muted}; }
-    pre { white-space: pre-wrap !important; }
+    a { color: ${palette.accent ?? palette.muted} !important; }
+    blockquote { border-inline-start: 3px solid ${palette.muted}; padding-inline-start: 1rem; }
+    pre { white-space: pre-wrap !important; background: color-mix(in srgb, ${palette.background} 90%, ${palette.text}); padding: .75rem; border-radius: .4rem; }
+    code { color: ${palette.text}; }
+    ::selection { background: color-mix(in srgb, ${palette.muted} 40%, transparent); }
     img, svg, video { max-width: 100%; height: auto; }
   `;
 }

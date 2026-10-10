@@ -1,0 +1,31 @@
+/* Independent Markdown reading surfaces. The editing canvas keeps its own palette. */
+:root[data-reading-theme="paper-white"][data-theme="light"] { --q-reading-bg: #ffffff; --q-reading-text: #202124; --q-reading-muted: #53565b; --q-reading-link: #245d90; }
+:root[data-reading-theme="paper-white"][data-theme="dark"] { --q-reading-bg: #1c1e20; --q-reading-text: #eae7e2; --q-reading-muted: #b7b6b1; --q-reading-link: #9cbeea; }
+:root[data-reading-theme="ivory"][data-theme="light"] { --q-reading-bg: #fffcf2; --q-reading-text: #393329; --q-reading-muted: #6a5f50; --q-reading-link: #815b31; }
+:root[data-reading-theme="ivory"][data-theme="dark"] { --q-reading-bg: #24211c; --q-reading-text: #efe6d3; --q-reading-muted: #bfb3a0; --q-reading-link: #d5ad70; }
+:root[data-reading-theme="parchment"][data-theme="light"] { --q-reading-bg: #f2e7d1; --q-reading-text: #42382b; --q-reading-muted: #695747; --q-reading-link: #74512f; }
+:root[data-reading-theme="parchment"][data-theme="dark"] { --q-reading-bg: #29241c; --q-reading-text: #e7d5b6; --q-reading-muted: #bbaa8e; --q-reading-link: #d6aa6c; }
+:root[data-reading-theme="sepia"][data-theme="light"] { --q-reading-bg: #e9dbc0; --q-reading-text: #493727; --q-reading-muted: #705a46; --q-reading-link: #80532e; }
+:root[data-reading-theme="sepia"][data-theme="dark"] { --q-reading-bg: #2c241d; --q-reading-text: #e0caac; --q-reading-muted: #bda78d; --q-reading-link: #d0a16f; }
+:root[data-reading-theme="dark-paper"][data-theme="light"] { --q-reading-bg: #e5e2dc; --q-reading-text: #333531; --q-reading-muted: #60655e; --q-reading-link: #496454; }
+:root[data-reading-theme="dark-paper"][data-theme="dark"] { --q-reading-bg: #171a19; --q-reading-text: #dcded7; --q-reading-muted: #aaaead; --q-reading-link: #a1c2a4; }
+
+:root:not([data-reading-theme="inherit"]) .q-editor-container:has(.q-editor-content--reading) {
+  --q-editor-bg: var(--q-reading-bg);
+  --q-text-primary: var(--q-reading-text);
+  --q-text-secondary: var(--q-reading-muted);
+  --q-text-tertiary: var(--q-reading-muted);
+  --q-text-accent: var(--q-reading-link);
+  --q-text-link: var(--q-reading-link);
+  --q-editor-placeholder-color: var(--q-reading-muted);
+  background-color: var(--q-reading-bg);
+}
+:root:not([data-reading-theme="inherit"]) .q-editor-content--reading {
+  color: var(--q-reading-text);
+  background: var(--q-reading-bg);
+}
+:root:not([data-reading-theme="inherit"]) .q-editor-content--reading .cm-editor,
+:root:not([data-reading-theme="inherit"]) .q-editor-content--reading .cm-scroller {
+  color: var(--q-reading-text);
+  background-color: var(--q-reading-bg);
+}
