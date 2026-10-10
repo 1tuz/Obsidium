@@ -138,11 +138,12 @@ jobs:
         env:
           PLATFORM: ${{ matrix.platform }}
           RELEASE_VERSION: ${{ github.ref_name }}
+          TARGET_TRIPLE: ${{ matrix.target }}
         run: |
           platform="$(printf '%s' "$PLATFORM" | tr '[:upper:]' '[:lower:]')"
           node scripts/prepare-release-assets.mjs collect \
             "$platform" "${RELEASE_VERSION#v}" \
-            .artifacts/cargo-release/release/bundle \
+            ".artifacts/cargo-release/$TARGET_TRIPLE/release/bundle" \
             .artifacts/release-assets
 
       - uses: actions/upload-artifact@v7
