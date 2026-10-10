@@ -31,7 +31,7 @@ Obsidium открывает выбранную вами папку и напря
 
 Интерфейс и CLI используют общее ядро на Rust. Источник истины — Markdown-файлы; ядро ведёт локальные сессии документов, индексы и состояние интерфейса.
 
-![Архитектура приложения Obsidium](assets/readme/obsidium-architecture-ru.svg)
+![Архитектура приложения Obsidium](assets/readme/obsidium-architecture-ru-dark.svg)
 
 Исходники: [интерфейс](obsidium-app/src/main.tsx), [оболочка Tauri](obsidium-app/src-tauri/src/lib.rs), [состав ядра](obsidium-app/core/src/app_core.rs).
 
