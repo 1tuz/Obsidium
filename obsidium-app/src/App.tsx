@@ -51,6 +51,7 @@ import { isMacOs } from "./modules/platform";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
 import { useThemeMode } from "./hooks/useThemeMode";
+import { transitionThemeFrom } from "./modules/theme/transition";
 import { CommandRegistry } from "./modules/commands/registry";
 import type { BoardActionRequest } from "./components/Layout/BoardsPanel";
 import { paneLeaves } from "./modules/panes/layout";
@@ -156,13 +157,17 @@ export default function App() {
   const kanbanEnabled = config?.builtins?.kanban ?? DEFAULT_BUILTINS.kanban;
   const panesEnabled = config?.builtins?.panes ?? DEFAULT_BUILTINS.panes;
   const themeMode = useThemeMode();
-  const toggleTheme = useCallback(async () => {
-    const currentConfig = config ?? await loadConfig();
-    if (!currentConfig) return;
-    await updateConfig({
-      ...currentConfig,
-      ui: { ...currentConfig.ui, appearance: themeMode === 'dark' ? 'light' : 'dark' },
-    }).catch((error) => console.error('Failed to switch theme', error));
+  const toggleTheme = useCallback((origin?: HTMLElement) => {
+    const update = async () => {
+      const currentConfig = config ?? await loadConfig();
+      if (!currentConfig) return;
+      await updateConfig({
+        ...currentConfig,
+        ui: { ...currentConfig.ui, appearance: themeMode === 'dark' ? 'light' : 'dark' },
+      }).catch((error) => console.error('Failed to switch theme', error));
+    };
+    if (origin) transitionThemeFrom(origin, update);
+    else void update();
   }, [config, loadConfig, themeMode, updateConfig]);
 
   useEffect(() => {

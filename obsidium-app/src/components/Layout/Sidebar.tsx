@@ -33,7 +33,7 @@ interface SidebarProps {
   isOpen: boolean;
   onOpenSettings: () => void;
   onOpenWorkspaces: () => void;
-  onToggleTheme: () => void;
+  onToggleTheme: (origin: HTMLElement) => void;
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
   panel?: 'files' | 'boards';
   onOpenBaseView: (path: string, viewIndex: number) => void;

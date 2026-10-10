@@ -47,3 +47,22 @@
   height: 100%;
   background-color: var(--q-editor-bg, var(--q-bg-primary));
 }
+
+::view-transition-old(root) {
+  animation: none;
+  z-index: 0;
+}
+
+::view-transition-new(root) {
+  animation: q-theme-reveal var(--q-duration-slower) var(--q-ease-out) both;
+  z-index: 1;
+}
+
+@keyframes q-theme-reveal {
+  from {
+    clip-path: circle(0 at var(--q-theme-transition-x) var(--q-theme-transition-y));
+  }
+  to {
+    clip-path: circle(var(--q-theme-transition-radius) at var(--q-theme-transition-x) var(--q-theme-transition-y));
+  }
+}

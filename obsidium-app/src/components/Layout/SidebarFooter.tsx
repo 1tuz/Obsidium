@@ -9,7 +9,7 @@ interface SidebarFooterProps {
   workspacePath: string | null;
   onOpenSettings: () => void;
   onOpenWorkspaces: () => void;
-  onToggleTheme: () => void;
+  onToggleTheme: (origin: HTMLElement) => void;
 }
 
 export function SidebarFooter({
@@ -38,7 +38,7 @@ export function SidebarFooter({
       </button>
       <IconButton
         label={t(themeMode === 'dark' ? 'titlebar.switchToLightTheme' : 'titlebar.switchToDarkTheme')}
-        onClick={onToggleTheme}
+        onClick={(event) => onToggleTheme(event.currentTarget)}
       >
         <Icon icon={themeMode === 'dark' ? Sun : Moon} />
       </IconButton>

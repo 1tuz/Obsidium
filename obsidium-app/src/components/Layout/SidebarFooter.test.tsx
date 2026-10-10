@@ -38,6 +38,6 @@ describe('SidebarFooter', () => {
 
     act(() => button!.click());
 
-    expect(onToggleTheme).toHaveBeenCalledOnce();
+    expect(onToggleTheme).toHaveBeenCalledWith(button);
   });
 });

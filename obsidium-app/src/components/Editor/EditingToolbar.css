@@ -17,10 +17,11 @@
 }
 
 .q-editing-toolbar--top {
-  align-self: stretch;
-  width: 100%;
+  align-self: center;
+  width: max-content;
+  max-width: 100%;
   box-sizing: border-box;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .q-editing-toolbar__group {
