@@ -2,6 +2,7 @@ use super::{Core, CoreEvent, EventSink};
 use crate::documents::session::SYSTEM_CLIENT;
 use crate::documents::DocumentEvent;
 use crate::files::gate;
+use crate::files::watcher::{WatchBatch, WatchScope};
 use crate::history::Source;
 use crate::mcp::bridge::{Disposition, Navigation};
 use serde_json::json;
@@ -53,6 +54,20 @@ fn the_frontend_receives_the_same_event_names_and_payloads_as_before() {
     let changed = CoreEvent::WorkspaceChanged(vec!["a.md".into()]);
     assert_eq!(changed.name(), "workspace-changed");
     assert_eq!(serde_json::to_value(&changed).unwrap(), json!(["a.md"]));
+}
+
+#[test]
+fn a_base_file_content_change_refreshes_the_boards_panel() {
+    let (directory, core, events) = open_core();
+    let base = directory.path().join("Board.base");
+
+    core.ingest_watch(WatchBatch::new(vec![base.clone()], WatchScope::Content));
+
+    let recorded = events.0.lock().unwrap();
+    assert!(matches!(
+        &recorded[0],
+        CoreEvent::WorkspaceChanged(paths) if paths == &[base.to_string_lossy().into_owned()]
+    ));
 }
 
 #[test]

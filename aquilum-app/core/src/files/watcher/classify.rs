@@ -22,12 +22,16 @@ pub fn classify(result: notify::Result<Event>) -> Option<WatchBatch> {
     let paths = event
         .paths
         .into_iter()
-        .filter(|path| is_markdown(path))
+        .filter(|path| is_markdown(path) || is_base(path))
         .collect::<Vec<_>>();
     if paths.is_empty() {
         return None;
     }
     Some(WatchBatch::new(paths, scope))
+}
+
+fn is_base(path: &std::path::Path) -> bool {
+    path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
 }
 
 fn is_structural(kind: &EventKind) -> bool {
@@ -79,6 +83,13 @@ mod tests {
     #[test]
     fn ignores_files_that_are_not_notes() {
         assert!(classify(written(&["cover.png"])).is_none());
+    }
+
+    #[test]
+    fn base_file_changes_are_visible_to_the_board_panel() {
+        let batch = classify(written(&["Boards.base"])).unwrap();
+        assert_eq!(batch.scope, WatchScope::Content);
+        assert_eq!(batch.paths, vec![PathBuf::from("Boards.base")]);
     }
 
     #[test]

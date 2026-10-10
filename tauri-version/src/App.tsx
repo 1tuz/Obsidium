@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { WindowControls } from "./components/Layout/WindowControls";
@@ -36,7 +36,7 @@ import { DEFAULT_LIVE_TABS, useSettingsStore } from "./modules/settings";
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isMarkdownPath } from "./modules/documents/fileGateway";
+import { isBasePath, isMarkdownPath } from "./modules/documents/fileGateway";
 import { fileStem } from "./modules/paths";
 import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
@@ -48,12 +48,15 @@ import { applyTemplateToDocument } from "./components/Editor/docMutations";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
+import type { BoardActionRequest } from "./components/Layout/BoardsPanel";
 import "./App.css";
 
 const GraphView = lazy(() => import("./components/Graph/GraphView")
   .then((module) => ({ default: module.GraphView })));
 const SettingsDialog = lazy(() => import("./components/Settings/SettingsDialog")
   .then((module) => ({ default: module.SettingsDialog })));
+const BaseView = lazy(() => import("./components/Bases/BaseView")
+  .then((module) => ({ default: module.BaseView })));
 
 export default function App() {
   const search = useOverlay();
@@ -75,6 +78,10 @@ export default function App() {
   } | null>(null);
   const [revealNonceByPath, setRevealNonceByPath] = useState<Record<string, string>>({});
   const [homePagePath, setHomePagePath] = useState<string | null>(null);
+  const [sidebarPanel, setSidebarPanel] = useState<'files' | 'boards'>('files');
+  const [boardActionRequest, setBoardActionRequest] = useState<BoardActionRequest | null>(null);
+  const [baseViewRequest, setBaseViewRequest] = useState<{ path: string; index: number; id: number } | null>(null);
+  const boardRequestId = useRef(0);
   const {
     files,
     directories,
@@ -119,6 +126,7 @@ export default function App() {
     handleExternalRename
   } = useTabs(workspacePath, workspaceReady);
   const activeTab = tabs.find((tab) => tab.tabId === activeTabId) ?? null;
+  const activeBasePath = activeTab?.kind === 'document' && isBasePath(activeTab.path) ? activeTab.path : null;
   const hasGraphTab = tabs.some((tab) => tab.kind === 'graph');
   const graphActive = activeTab?.kind === 'graph';
   const {
@@ -133,7 +141,7 @@ export default function App() {
   const liveTabIds = useLiveTabs(tabs, activeTabId, config?.editor.liveTabs ?? DEFAULT_LIVE_TABS);
   const livePanes = liveTabIds.flatMap((tabId) => {
     const tab = tabs.find((candidate) => candidate.tabId === tabId);
-    return tab && tab.kind === 'document' ? [tab] : [];
+    return tab && tab.kind === 'document' && !isBasePath(tab.path) ? [tab] : [];
   });
 
   const openNote = useCallback((
@@ -342,6 +350,30 @@ export default function App() {
     setLeftSidebarOpen((current) => !current);
   }, []);
 
+  const openBoards = useCallback(() => {
+    setSidebarPanel('boards');
+    setLeftSidebarOpen(true);
+  }, [setLeftSidebarOpen]);
+
+  const openFilesPanel = useCallback(() => {
+    setSidebarPanel('files');
+    setLeftSidebarOpen(true);
+  }, [setLeftSidebarOpen]);
+
+  const requestBoardAction = useCallback((path: string, action: BoardActionRequest['action']) => {
+    setSidebarPanel('boards');
+    setLeftSidebarOpen(true);
+    boardRequestId.current += 1;
+    setBoardActionRequest({ path, action, id: boardRequestId.current });
+  }, [setLeftSidebarOpen]);
+
+  const openBaseView = useCallback((path: string, index: number) => {
+    boardRequestId.current += 1;
+    setBaseViewRequest({ path, index, id: boardRequestId.current });
+    openNote(path);
+  }, [openNote]);
+
+
   const toggleRightSidebar = useCallback(() => {
     setRightSidebarOpen((current) => !current);
   }, []);
@@ -370,7 +402,7 @@ export default function App() {
   });
   useNoteRelocation({ renamed: handleFileRenamed, deleted: closeTab });
 
-  useActiveNoteReport(activeFile);
+  useActiveNoteReport(activeFile && isMarkdownPath(activeFile) ? activeFile : null);
   useMcpNavigation({
     openNote: (path, disposition) => openNote(path, { disposition }),
     openWorkspace: (path) => { void openWorkspace(path); },
@@ -385,6 +417,8 @@ export default function App() {
           onOpenGraph={focusMode ? undefined : openGraph}
           onOpenHome={homePagePath && !focusMode ? openHomePage : undefined}
           onOpenSettings={focusMode ? settings.show : undefined}
+          onOpenBoards={focusMode ? undefined : openBoards}
+          onOpenFiles={focusMode ? undefined : openFilesPanel}
         />
         <Sidebar
           activeFile={activeFile}
@@ -400,6 +434,13 @@ export default function App() {
           onOpenSettings={settings.show}
           onOpenWorkspaces={workspaces.show}
           onPatchFileInTree={patchFileInTree}
+          panel={sidebarPanel}
+          onOpenBaseView={openBaseView}
+          boardActionRequest={boardActionRequest}
+          onBoardActionRequestComplete={() => setBoardActionRequest(null)}
+          createBoardRequest={0}
+          onAddToBoard={(path) => requestBoardAction(path, 'add')}
+          onBoardRenamed={handleFileRenamed}
         />
 
         <div className="q-app-main">
@@ -440,7 +481,22 @@ export default function App() {
                 <div className="q-app-editor-boot" aria-busy="true" />
               ) : (
                 <>
-                  {activeTab?.kind === 'empty' ? (
+                  {activeBasePath && (
+                    <Suspense fallback={null}>
+                      <BaseView
+                        path={activeBasePath}
+                        workspacePath={workspacePath}
+                        indexReady={linkIndexReady}
+                        indexRevision={linkIndexRevision}
+                        onOpenNote={openNote}
+                        viewRequest={baseViewRequest?.path === activeBasePath ? baseViewRequest : null}
+                        onViewRequestConsumed={(id) => {
+                          setBaseViewRequest((current) => current?.id === id ? null : current);
+                        }}
+                      />
+                    </Suspense>
+                  )}
+                  {!activeBasePath && activeTab?.kind === 'empty' ? (
                     <NewTab
                       key={activeTab.tabId}
                       onCreate={createNewFile}
@@ -448,7 +504,7 @@ export default function App() {
                       onClose={() => closeTab(activeTab.path)}
                     />
                   ) : null}
-                  {livePanes.map((tab) => (
+                  {!activeBasePath && livePanes.map((tab) => (
                     <EditorPane
                       key={tab.tabId}
                       inactive={tab.tabId !== activeTabId}

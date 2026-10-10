@@ -16,6 +16,7 @@ import { useFileSelection } from './useFileSelection';
 import { useFileTreeActions } from './useFileTreeActions';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import './Sidebar.css';
+import { BoardsPanel, type BoardActionRequest } from './BoardsPanel';
 
 interface SidebarProps {
   activeFile: string | null;
@@ -31,6 +32,13 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onOpenWorkspaces: () => void;
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
+  panel?: 'files' | 'boards';
+  onOpenBaseView: (path: string, viewIndex: number) => void;
+  boardActionRequest: BoardActionRequest | null;
+  onBoardActionRequestComplete: () => void;
+  createBoardRequest: number;
+  onAddToBoard: (path: string) => void;
+  onBoardRenamed: (oldPath: string, newPath: string) => void;
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -47,6 +55,13 @@ export const Sidebar = memo(function Sidebar({
   onOpenSettings,
   onOpenWorkspaces,
   onPatchFileInTree,
+  panel = 'files',
+  onOpenBaseView,
+  boardActionRequest,
+  onBoardActionRequestComplete,
+  createBoardRequest,
+  onAddToBoard,
+  onBoardRenamed,
 }: SidebarProps) {
   const { expandedFolders, setExpandedFolders, followFolder } = useExpandedFolders(workspacePath);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -108,9 +123,10 @@ export const Sidebar = memo(function Sidebar({
   const treeActions = useMemo<FileTreeActions>(() => ({
     ...selectionActions,
     ...fileOps.rowActions,
+    addToBoard: onAddToBoard,
     toggleFolder,
     prefetchFolder,
-  }), [fileOps.rowActions, prefetchFolder, selectionActions, toggleFolder]);
+  }), [fileOps.rowActions, onAddToBoard, prefetchFolder, selectionActions, toggleFolder]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -141,6 +157,7 @@ export const Sidebar = memo(function Sidebar({
       <div className="q-panel-header" data-tauri-drag-region aria-hidden="true">
       </div>
       <div ref={contentRef} className="q-sidebar-content">
+        <div hidden={panel !== 'files'}>
         {!treeReady ? null : rows.length === 0 ? (
           <EmptyState icon={FileText} title={t('fileTree.empty')} compact>
             <Button size="s" onClick={() => void onCreateNote()}>
@@ -156,6 +173,18 @@ export const Sidebar = memo(function Sidebar({
             actions={treeActions}
           />
         )}
+        </div>
+        <div hidden={panel !== 'boards'} className="q-sidebar-boards">
+          <BoardsPanel
+            active={isOpen && panel === 'boards'}
+            workspacePath={workspacePath}
+            onOpenView={onOpenBaseView}
+            onBoardRenamed={onBoardRenamed}
+            actionRequest={boardActionRequest}
+            onActionRequestComplete={onBoardActionRequestComplete}
+            createRequest={createBoardRequest}
+          />
+        </div>
       </div>
 
       <DeleteNotesDialog

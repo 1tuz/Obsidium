@@ -46,6 +46,10 @@ export function isMarkdownPath(path: string): boolean {
   return path.toLowerCase().endsWith('.md');
 }
 
+export function isBasePath(path: string): boolean {
+  return path.toLowerCase().endsWith('.base');
+}
+
 export function readDirectory(path: string): Promise<WorkspaceItem[]> {
   return invoke<WorkspaceItem[]>('read_directory', { path });
 }
@@ -118,6 +122,7 @@ export function ensureDirectory(path: string): Promise<void> {
 export function copyFile(from: string, to: string): Promise<void> {
   return invoke<void>('copy_file', { from, to });
 }
+
 
 const FREE_NAME_ATTEMPTS = 10_000;
 

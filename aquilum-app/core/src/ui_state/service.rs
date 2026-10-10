@@ -1,6 +1,6 @@
 use super::database::UiStateDatabase;
 use super::error::UiStateError;
-use super::models::{KnownWorkspace, LoadedSession, OpenSessionInput, SaveStateBatchInput};
+use super::models::{KnownWorkspace, LoadedSession, OpenSessionInput, SaveBaseViewStateInput, SaveStateBatchInput};
 use super::validation::{validate_batch, validate_open_session};
 use crate::search::paths::canonical_path;
 use std::path::{Path, PathBuf};
@@ -150,6 +150,14 @@ impl UiStateService {
         input: &super::models::SaveReaderStateInput,
     ) -> Result<(), UiStateError> {
         self.with_database(|database| database.save_reader_state(input))
+    }
+
+    pub fn load_base_view(&self, workspace_id: Uuid, base_file: &str) -> Result<Option<i64>, UiStateError> {
+        self.with_database(|database| database.load_base_view(workspace_id, base_file))
+    }
+
+    pub fn save_base_view(&self, input: &SaveBaseViewStateInput) -> Result<(), UiStateError> {
+        self.with_database(|database| database.save_base_view(input))
     }
 }
 

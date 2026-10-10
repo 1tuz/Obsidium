@@ -3,8 +3,8 @@ use std::sync::Arc;
 use super::error::UiStateError;
 use crate::blocking::run_blocking;
 use super::models::{
-    KnownWorkspace, LoadedReaderState, LoadedSession, OpenSessionInput, SaveReaderStateInput,
-    SaveStateBatchInput,
+    KnownWorkspace, LoadedReaderState, LoadedSession, OpenSessionInput, SaveBaseViewStateInput,
+    SaveReaderStateInput, SaveStateBatchInput,
 };
 use super::paths::{canonical_workspace, normalize_relative};
 use crate::documents::DocumentHub;
@@ -182,6 +182,33 @@ pub async fn save_ui_reader_state(
             book_file,
             ..input
         })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn load_ui_base_view(
+    core: State<'_, Arc<Core>>,
+    workspace_id: Uuid,
+    base_file: String,
+) -> Result<Option<i64>, UiStateError> {
+    let service = core.ui_state.clone();
+    run_blocking(move || {
+        let base_file = normalize_relative(&base_file)?;
+        service.load_base_view(workspace_id, &base_file)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn save_ui_base_view(
+    core: State<'_, Arc<Core>>,
+    input: SaveBaseViewStateInput,
+) -> Result<(), UiStateError> {
+    let service = core.ui_state.clone();
+    run_blocking(move || {
+        let base_file = normalize_relative(&input.base_file)?;
+        service.save_base_view(&SaveBaseViewStateInput { base_file, ..input })
     })
     .await
 }

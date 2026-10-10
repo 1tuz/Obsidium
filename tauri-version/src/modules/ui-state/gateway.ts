@@ -1,8 +1,25 @@
 import { invoke } from '@tauri-apps/api/core';
+import { relativePath } from '../paths';
 import type { LoadedSession, ViewState, OpenSessionInput, SaveStateBatchInput } from './types';
 
 export function resolveWorkspace(path: string, nowMs: number): Promise<string> {
   return invoke<string>('resolve_ui_workspace', { path, nowMs });
+}
+
+export async function loadBaseView(workspacePath: string, basePath: string): Promise<number | null> {
+  const workspaceId = await resolveWorkspace(workspacePath, Date.now());
+  return invoke<number | null>('load_ui_base_view', {
+    workspaceId,
+    baseFile: relativePath(workspacePath, basePath),
+  });
+}
+
+export async function saveBaseView(workspacePath: string, basePath: string, viewIndex: number): Promise<void> {
+  const nowMs = Date.now();
+  const workspaceId = await resolveWorkspace(workspacePath, nowMs);
+  await invoke<void>('save_ui_base_view', {
+    input: { workspaceId, baseFile: relativePath(workspacePath, basePath), viewIndex, nowMs },
+  });
 }
 
 export function resolveDocument(workspaceId: string, relativePath: string): Promise<string> {

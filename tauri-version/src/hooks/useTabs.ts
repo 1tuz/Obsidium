@@ -7,7 +7,7 @@ import {
 } from './tabWorkspace';
 import { createUniqueFile } from '../modules/documents/documentFactory';
 import { useTabSession } from './useTabSession';
-import { isMarkdownPath } from '../modules/documents/fileGateway';
+import { isBasePath, isMarkdownPath } from '../modules/documents/fileGateway';
 import type { LinkDisposition } from '../modules/links';
 
 function createInitialState(): TabsState {
@@ -68,7 +68,7 @@ export function useTabs(
       dispatch({ type: 'select', path });
       return;
     }
-    if (!isMarkdownPath(path)) return;
+    if (!isMarkdownPath(path) && !isBasePath(path)) return;
     touch();
     dispatch(disposition === 'new-tab'
       ? { type: 'open-file-new-tab', path, tabId: crypto.randomUUID() }

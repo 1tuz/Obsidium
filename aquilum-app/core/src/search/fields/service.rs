@@ -71,6 +71,19 @@ impl SearchService {
         ))
     }
 
+    pub fn base_rows(&self, workspace: &str) -> Result<Vec<NoteFields>, SearchError> {
+        let Some(rows) = self.note_fields_for_filter(workspace, &[], &[])? else {
+            return Ok(Vec::new());
+        };
+        Ok(rows
+            .into_iter()
+            .map(|(path, fields)| NoteFields {
+                path,
+                fields: as_object(&fields),
+            })
+            .collect())
+    }
+
     fn ready_metadata_path(&self, workspace: &str) -> Option<PathBuf> {
         self.with_index(workspace, |open| {
             let status = open.progress.snapshot();
@@ -81,4 +94,3 @@ impl SearchService {
         .flatten()
     }
 }
-

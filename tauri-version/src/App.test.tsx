@@ -104,6 +104,10 @@ vi.mock('./components/Graph/GraphView', () => ({
   },
 }));
 
+vi.mock('./components/Bases/BaseView', () => ({
+  BaseView: ({ path }: { path: string }) => <div id="base-view" data-path={path} />,
+}));
+
 vi.mock('./components/Layout/Sidebar', () => ({
   Sidebar: ({
     onFileSelect,
@@ -115,6 +119,7 @@ vi.mock('./components/Layout/Sidebar', () => ({
     <div id="left-sidebar">
       <button id="open-a" onClick={() => onFileSelect('C:\\notes\\a.md')} />
       <button id="open-b" onClick={() => onFileSelect('C:\\notes\\b.md')} />
+      <button id="open-base" onClick={() => onFileSelect('C:\\notes\\Board.base')} />
     </div>
   ) : null,
 }));
@@ -231,6 +236,17 @@ describe('App editor lifecycle', () => {
     const mountedB = editorLifecycle.lastIndexOf('mount:C:\\notes\\b.md');
     expect(unmountedA).toBeGreaterThanOrEqual(0);
     expect(mountedB).toBeGreaterThan(unmountedA);
+  });
+
+  it('opens a Base view without mounting the Markdown editor', async () => {
+    await renderWithSession();
+
+    click('open-base');
+    await actAndSettle(() => Promise.resolve());
+
+    expect(find('base-view')).toHaveLength(1);
+    expect(attribute('base-view', 'data-path')).toBe('C:\\notes\\Board.base');
+    expect(editorLifecycle).toHaveLength(0);
   });
 
   it('keeps the graph mounted and merely hidden while another tab is active', async () => {

@@ -140,12 +140,16 @@ impl Core {
     }
 
     fn ingest_watch(&self, batch: WatchBatch) {
-        if batch.scope >= WatchScope::Structure {
+        if batch.scope >= WatchScope::Structure || batch.paths.iter().any(|path| is_base_file(path)) {
             self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths)));
         }
         self.documents.reconcile_paths(self, &batch.paths);
         self.search.ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
     }
+}
+
+fn is_base_file(path: &Path) -> bool {
+    path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
 }
 
 fn path_names(paths: &[PathBuf]) -> Vec<String> {

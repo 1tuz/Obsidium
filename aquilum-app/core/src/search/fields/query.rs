@@ -1,4 +1,4 @@
-use super::value::{key_lower, value_lower, Field, FieldKind};
+use super::value::{Field, FieldKind, key_lower, value_lower};
 use crate::search::error::SearchError;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -73,8 +73,8 @@ pub fn candidates(
 pub fn paths_with_tag(connection: &Connection, tag: &str) -> Result<HashSet<String>, SearchError> {
     let wanted = value_lower(tag.trim_start_matches('#'));
     let nested = format!("{wanted}/");
-    let mut statement =
-        connection.prepare("SELECT path, text_lower, items FROM note_fields WHERE key_lower='tags'")?;
+    let mut statement = connection
+        .prepare("SELECT path, text_lower, items FROM note_fields WHERE key_lower='tags'")?;
     let rows = statement.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -128,5 +128,26 @@ fn intersect(narrowed: Option<HashSet<String>>, found: HashSet<String>) -> HashS
     match narrowed {
         Some(current) => current.intersection(&found).cloned().collect(),
         None => found,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::candidates;
+    use rusqlite::Connection;
+
+    #[test]
+    fn empty_filter_returns_notes_without_indexed_fields() {
+        let connection = Connection::open_in_memory().expect("database");
+        connection
+            .execute_batch(
+                "CREATE TABLE documents(path TEXT NOT NULL);
+                 INSERT INTO documents(path) VALUES('plain.md'), ('frontmatter.md');",
+            )
+            .expect("documents");
+
+        let paths = candidates(&connection, &[], &[]).expect("all documents");
+
+        assert_eq!(paths, ["frontmatter.md", "plain.md"]);
     }
 }

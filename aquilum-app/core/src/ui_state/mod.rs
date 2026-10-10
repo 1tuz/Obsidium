@@ -1,4 +1,5 @@
 pub mod cleanup;
+pub mod base_views;
 pub mod database;
 #[cfg(test)]
 mod efficiency_tests;

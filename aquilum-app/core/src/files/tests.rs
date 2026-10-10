@@ -4,7 +4,7 @@ use super::document::{
 };
 use super::error::FileCommandError;
 use super::models::FileItemType;
-use super::workspace::read_directory_impl;
+use super::workspace::{existing_files_impl, read_directory_impl};
 use std::fs;
 
 #[test]
@@ -134,6 +134,7 @@ fn workspace_filters_and_sorts_entries() {
     fs::write(directory.path().join("Beta.md"), "").expect("beta fixture");
     fs::write(directory.path().join("alpha.md"), "").expect("alpha fixture");
     fs::write(directory.path().join("Gamma.MD"), "").expect("gamma fixture");
+    fs::write(directory.path().join("Tasks.base"), "views: []").expect("base fixture");
     fs::write(directory.path().join("photo.png"), "").expect("image fixture");
     fs::write(directory.path().join("doc.pdf"), "").expect("pdf fixture");
     fs::write(directory.path().join("novel.epub"), "").expect("epub fixture");
@@ -152,11 +153,31 @@ fn workspace_filters_and_sorts_entries() {
             "doc.pdf",
             "Gamma",
             "novel.epub",
-            "photo.png"
+            "photo.png",
+            "Tasks.base",
         ]
     );
     assert_eq!(items[0].item_type, FileItemType::Folder);
     assert_eq!(items[1].item_type, FileItemType::File);
+}
+
+#[test]
+fn existing_file_filter_keeps_base_tabs_restorable() {
+    let directory = tempfile::tempdir().expect("workspace");
+    let note = directory.path().join("Note.md");
+    let base = directory.path().join("Board.base");
+    let text = directory.path().join("ignored.txt");
+    fs::write(&note, "note").expect("note");
+    fs::write(&base, "views: []").expect("base");
+    fs::write(&text, "text").expect("text");
+
+    let existing = existing_files_impl(vec![
+        note.to_string_lossy().into_owned(),
+        base.to_string_lossy().into_owned(),
+        text.to_string_lossy().into_owned(),
+    ]);
+
+    assert_eq!(existing, vec![note.to_string_lossy().into_owned(), base.to_string_lossy().into_owned()]);
 }
 
 #[test]
