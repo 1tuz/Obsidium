@@ -4,11 +4,15 @@ use aquilum_core::bases::BaseColumn;
 use masonry::core::{NewWidget, PropertySet, Widget, WidgetId};
 use masonry::kurbo::Axis;
 use masonry::layout::Length;
+use masonry::parley::style::StyleProperty;
+use masonry::parley::LineHeight;
 use masonry::properties::types::{CrossAxisAlignment, MainAxisAlignment};
 use masonry::properties::{Background, Gap, Padding};
+use masonry::properties::{CaretColor, ContentColor, SelectionColor};
 use masonry::widgets::{Flex, SizedBox};
 use serde_json::Value;
 
+use super::editor::TextEditor;
 use super::scroll::ScrollArea;
 use super::text::label;
 use super::tokens::size;
@@ -37,6 +41,9 @@ pub enum KanbanAction {
         expected: Value,
         target: Value,
     },
+    RenameCard(PathBuf),
+    CommitRenameCard(PathBuf),
+    DeleteCard(PathBuf),
     SelectView(usize),
 }
 
@@ -49,6 +56,7 @@ impl KanbanView {
         editable: bool,
         views: &[String],
         selected_view: usize,
+        renaming: Option<&Path>,
     ) -> (NewWidget<dyn Widget>, Vec<(WidgetId, KanbanAction)>) {
         let tm = theme::current();
         let mut actions = Vec::new();
@@ -87,7 +95,7 @@ impl KanbanView {
             KanbanStatus::Loading => status_page(&t("kanban.loading"), tm.text_secondary),
             KanbanStatus::Error(error) => status_page(&error, tm.text_danger),
             KanbanStatus::NoWorkspace => status_page(&t("kanban.noWorkspace"), tm.text_secondary),
-            KanbanStatus::Ready => board(columns, editable, &mut actions),
+            KanbanStatus::Ready => board(columns, editable, renaming, &mut actions),
         };
         let page = Flex::column()
             .cross_axis_alignment(CrossAxisAlignment::Stretch)
@@ -180,6 +188,7 @@ fn status_page(message: &str, color: masonry::peniko::Color) -> NewWidget<dyn Wi
 fn board(
     columns: &[BaseColumn],
     editable: bool,
+    renaming: Option<&Path>,
     actions: &mut Vec<(WidgetId, KanbanAction)>,
 ) -> NewWidget<dyn Widget> {
     let tm = theme::current();
@@ -219,11 +228,40 @@ fn board(
                         .unwrap_or_default()
                         .to_owned()
                 });
-            let item = DocumentItem::new(&title, None);
-            actions.push((item.id(), KanbanAction::OpenNote(path.clone())));
-            let mut card = Flex::row()
-                .cross_axis_alignment(CrossAxisAlignment::Center)
-                .with(item, 1.0);
+            let mut card = Flex::row().cross_axis_alignment(CrossAxisAlignment::Center);
+            if renaming == Some(path.as_path()) {
+                let font = theme::ui_font_settings();
+                let field = NewWidget::new(
+                    TextEditor::single_line(&title)
+                        .with_style(StyleProperty::FontFamily(theme::ui_font(&font.family)))
+                        .with_style(StyleProperty::FontSize(font.size))
+                        .with_style(StyleProperty::LineHeight(LineHeight::Absolute(
+                            size::SIZE_20 as f32,
+                        ))),
+                )
+                .with_props(
+                    PropertySet::new()
+                        .with(ContentColor::new(tm.text_primary))
+                        .with(CaretColor {
+                            color: tm.text_primary,
+                        })
+                        .with(SelectionColor {
+                            color: tm.selection_bg,
+                        }),
+                );
+                actions.push((field.id(), KanbanAction::CommitRenameCard(path.clone())));
+                card = card.with(field, 1.0);
+            } else {
+                let item = DocumentItem::new(&title, None);
+                actions.push((item.id(), KanbanAction::OpenNote(path.clone())));
+                card = card.with(item, 1.0);
+                let rename = NewWidget::new(IconButton::new(icons::PENCIL, t("common.rename")));
+                actions.push((rename.id(), KanbanAction::RenameCard(path.clone())));
+                card = card.with_fixed(rename);
+                let delete = NewWidget::new(IconButton::new(icons::TRASH, t("common.delete")));
+                actions.push((delete.id(), KanbanAction::DeleteCard(path.clone())));
+                card = card.with_fixed(delete);
+            }
             if editable && column_index > 0 {
                 let target = columns[column_index - 1].value.clone();
                 let button =

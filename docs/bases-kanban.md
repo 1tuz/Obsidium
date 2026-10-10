@@ -12,6 +12,8 @@ Unsupported filter operators and properties produce an error instead of silently
 
 Creating a card writes a new Markdown file through the shared file gate. Moving a card reads its current contents, changes only the configured grouping frontmatter value, and writes with the snapshot hash. A concurrent disk change causes one fresh read and retry; if the card's group changed, the move stops with a conflict. After a successful move, an already-open note is reconciled through the document service so its Y.Doc is not replaced.
 
+Cards can be renamed through the shared file rename gate, which updates links and open document paths. Deletion asks for confirmation and moves the note to the workspace trash.
+
 A view is read-only when its group property cannot be safely edited or its filters make membership uncertain. Derived `file.*` fields are read-only. Unsupported or malformed `.base` files are never rewritten by the board.
 
 ## Source preservation

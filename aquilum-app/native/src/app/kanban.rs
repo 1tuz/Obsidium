@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::sync::mpsc::{Receiver, Sender, channel};
 
 use aquilum_core::bases::{BaseColumn, BaseDefinition, BaseRows};
 use masonry::app::RenderRoot;
 use masonry::core::{ErasedAction, NewWidget, Widget, WidgetId};
 
 use super::App;
+use crate::ui::editor::TextEditor;
 use crate::ui::kanban::{KanbanAction, KanbanStatus, KanbanView};
 
 struct LoadedBoard {
@@ -34,6 +35,7 @@ pub(super) struct KanbanState {
     rx: Receiver<KanbanResult>,
     actions: HashMap<WidgetId, KanbanAction>,
     pub(super) picker: Option<WidgetId>,
+    renaming: Option<PathBuf>,
 }
 
 impl Default for KanbanState {
@@ -51,6 +53,7 @@ impl Default for KanbanState {
             rx,
             actions: HashMap::new(),
             picker: None,
+            renaming: None,
         }
     }
 }
@@ -101,6 +104,7 @@ impl KanbanState {
         self.loading = false;
         self.failed = None;
         self.actions.clear();
+        self.renaming = None;
     }
 
     fn open(
@@ -260,7 +264,32 @@ impl App {
             editable,
             &views,
             self.kanban.selected_view,
+            self.kanban.renaming.as_deref(),
         )
+    }
+
+    fn render_kanban(&mut self, root: &mut RenderRoot) {
+        let Some(chrome) = &self.chrome else {
+            return;
+        };
+        let (widget, actions) = self.kanban_view();
+        let focus = self.kanban.renaming.as_ref().and_then(|path| {
+            actions.iter().find_map(|(id, action)| {
+                matches!(action, KanbanAction::CommitRenameCard(target) if target == path)
+                    .then_some(*id)
+            })
+        });
+        self.kanban.actions = actions.into_iter().collect();
+        chrome.kanban_page.edit(root, |mut page| {
+            crate::ui::widgets::Slot::set_child(&mut page, widget)
+        });
+        if let Some(id) = focus {
+            root.edit_widget(id, |mut field| {
+                let len = field.text().len();
+                TextEditor::select_byte_range(&mut field, 0, len);
+            });
+            root.focus_on(Some(id));
+        }
     }
 
     pub(super) fn on_kanban_results(&mut self, root: &mut RenderRoot) {
@@ -299,13 +328,7 @@ impl App {
                     continue;
                 }
             }
-            if let Some(chrome) = &self.chrome {
-                let (widget, actions) = self.kanban_view();
-                self.kanban.actions = actions.into_iter().collect();
-                chrome.kanban_page.edit(root, |mut page| {
-                    crate::ui::widgets::Slot::set_child(&mut page, widget)
-                });
-            }
+            self.render_kanban(root);
         }
     }
 
@@ -322,12 +345,54 @@ impl App {
         let Some(kanban_action) = self.kanban.actions.get(&id).cloned() else {
             return false;
         };
+        if let Some(text) = action.downcast_ref::<masonry::widgets::TextAction>() {
+            let KanbanAction::CommitRenameCard(path) = kanban_action else {
+                return false;
+            };
+            return match text {
+                masonry::widgets::TextAction::Entered(name) => {
+                    self.kanban.renaming = None;
+                    if let (Some(workspace), Some((target, _))) = (
+                        self.tree.root().map(PathBuf::from),
+                        crate::file_ops::rename_target(&path, name),
+                    ) {
+                        let source = resolve_path(&workspace, path);
+                        let target = resolve_path(&workspace, target);
+                        self.mutate_kanban(move |core| {
+                            aquilum_core::files::gate::rename(&core, &source, &target)
+                                .map(|_| ())
+                                .map_err(|error| error.to_string())
+                        });
+                    } else {
+                        self.render_kanban(root);
+                    }
+                    true
+                }
+                masonry::widgets::TextAction::Cancelled => {
+                    self.kanban.renaming = None;
+                    self.render_kanban(root);
+                    true
+                }
+                masonry::widgets::TextAction::Changed(_) => true,
+            };
+        }
         match kanban_action {
             KanbanAction::OpenBoard(path) => return self.open_base(root, path, true),
             KanbanAction::ClosePicker => return false,
             KanbanAction::CreateBoard => {
                 self.create_board(root);
             }
+            KanbanAction::RenameCard(path) => {
+                self.kanban.renaming = Some(path);
+                self.render_kanban(root);
+            }
+            KanbanAction::DeleteCard(path) => {
+                let Some(workspace) = self.tree.root().map(PathBuf::from) else {
+                    return false;
+                };
+                self.confirm_delete(root, vec![resolve_path(&workspace, path)]);
+            }
+            KanbanAction::CommitRenameCard(_) => return false,
             KanbanAction::OpenNote(path) => {
                 let Some(workspace) = self.tree.root().map(PathBuf::from) else {
                     return false;
@@ -576,7 +641,16 @@ fn resolve_path(workspace: &Path, path: PathBuf) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::board_paths;
+    use super::{board_paths, resolve_path};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn resolves_relative_card_paths_from_workspace() {
+        assert_eq!(
+            resolve_path(Path::new("/vault"), PathBuf::from("nested/note.md")),
+            PathBuf::from("/vault/nested/note.md")
+        );
+    }
 
     #[test]
     fn lists_nested_base_files_case_insensitively() {
