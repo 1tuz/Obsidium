@@ -121,6 +121,9 @@ describe('BoardsPanel', () => {
       `[aria-label="${t('boards.actions', { name: 'Bugs' })}"]`,
     );
     expect(menuButton).not.toBeNull();
+    const viewRow = renderer!.container.querySelector('.q-boards-tree__view');
+    expect(viewRow?.contains(menuButton)).toBe(true);
+    expect(viewRow?.querySelector('button[title="/vault/Work/Bugs.base"]')).not.toBeNull();
     act(() => menuButton!.click());
     await actAndSettle();
     expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([

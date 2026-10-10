@@ -20,7 +20,7 @@ interface EditorToolbarProps {
   onToggleFocusMode: () => void;
   readOnly: boolean;
   onModeChange: (readOnly: boolean) => void;
-  showModeButtons?: boolean;
+  showModeToggle?: boolean;
 }
 
 export function EditorToolbar({
@@ -34,7 +34,7 @@ export function EditorToolbar({
   onToggleFocusMode,
   readOnly,
   onModeChange,
-  showModeButtons = true,
+  showModeToggle = true,
 }: EditorToolbarProps) {
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [position, setPosition] = useState<MenuPosition | null>(null);
@@ -57,19 +57,13 @@ export function EditorToolbar({
     </div>
     {!focusMode && <div className="q-editor-toolbar__name" title={fileName}>{fileName}</div>}
     <div className="q-editor-toolbar__side">
-      {showModeButtons && <>
+      {showModeToggle && <>
         <IconButton
-          label={t('editor.readingMode')}
+          label={t(readOnly ? 'editor.readingMode' : 'editor.editingMode')}
           size="medium"
           aria-pressed={readOnly}
-          onClick={() => onModeChange(true)}
-        ><Icon icon={BookOpen} /></IconButton>
-        <IconButton
-          label={t('editor.editingMode')}
-          size="medium"
-          aria-pressed={!readOnly}
-          onClick={() => onModeChange(false)}
-        ><Icon icon={Pencil} /></IconButton>
+          onClick={() => onModeChange(!readOnly)}
+        ><Icon icon={readOnly ? BookOpen : Pencil} /></IconButton>
       </>}
       <Button variant="ghost" size="xs" aria-pressed={focusMode} onClick={onToggleFocusMode}>{t('editor.focusMode')}</Button>
       {!focusMode && <IconButton label={t('editor.searchInNote')} size="medium" onClick={onSearch}><Icon icon={Search} /></IconButton>}

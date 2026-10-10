@@ -12,7 +12,7 @@ describe('EditorToolbar modes', () => {
     renderer = null;
   });
 
-  it('offers separate reading and editing mode buttons', () => {
+  it('shows the current mode and toggles to the other mode', () => {
     const onModeChange = vi.fn();
     act(() => {
       renderer = mountDom(
@@ -30,16 +30,12 @@ describe('EditorToolbar modes', () => {
         />,
       );
     });
-    const reading = renderer!.container.querySelector<HTMLButtonElement>('[aria-label="Reading mode"]');
-    const editing = renderer!.container.querySelector<HTMLButtonElement>('[aria-label="Editing mode"]');
-    expect(reading).not.toBeNull();
-    expect(editing).not.toBeNull();
-    expect(reading?.getAttribute('aria-pressed')).toBe('false');
-    expect(editing?.getAttribute('aria-pressed')).toBe('true');
-    act(() => reading?.click());
+    const mode = renderer!.container.querySelector<HTMLButtonElement>('[aria-pressed]');
+    expect(mode?.getAttribute('aria-label')).toBe('Editing mode');
+    expect(mode?.getAttribute('aria-pressed')).toBe('false');
+    expect(renderer!.container.querySelectorAll('[aria-label="Reading mode"], [aria-label="Editing mode"]')).toHaveLength(1);
+    act(() => mode?.click());
     expect(onModeChange).toHaveBeenLastCalledWith(true);
-    act(() => editing?.click());
-    expect(onModeChange).toHaveBeenLastCalledWith(false);
   });
 
   it('marks reading mode as selected while reading', () => {
@@ -60,8 +56,31 @@ describe('EditorToolbar modes', () => {
         />,
       );
     });
-    expect(renderer!.container.querySelector('[aria-label="Reading mode"]')?.getAttribute('aria-pressed')).toBe('true');
-    expect(renderer!.container.querySelector('[aria-label="Editing mode"]')?.getAttribute('aria-pressed')).toBe('false');
+    const mode = renderer!.container.querySelector<HTMLButtonElement>('[aria-pressed]');
+    expect(mode?.getAttribute('aria-label')).toBe('Reading mode');
+    expect(mode?.getAttribute('aria-pressed')).toBe('true');
+    act(() => mode?.click());
+    expect(onModeChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('changes its icon with the current mode', () => {
+    const props = {
+      fileName: 'Note.md',
+      canGoBack: false,
+      canGoForward: false,
+      onNavigate: () => {},
+      onSearch: () => {},
+      onExportPdf: () => {},
+      focusMode: false,
+      onToggleFocusMode: () => {},
+      onModeChange: () => {},
+    };
+    act(() => { renderer = mountDom(<EditorToolbar {...props} readOnly={false} />); });
+    const editingIcon = renderer!.container.querySelector('[aria-pressed] svg')?.outerHTML;
+    act(() => { renderer!.unmount(); });
+    act(() => { renderer = mountDom(<EditorToolbar {...props} readOnly />); });
+    const readingIcon = renderer!.container.querySelector('[aria-pressed] svg')?.outerHTML;
+    expect(editingIcon).not.toBe(readingIcon);
   });
 
   it('hides the mode toggle while viewing history', () => {
@@ -78,11 +97,10 @@ describe('EditorToolbar modes', () => {
           onToggleFocusMode={() => {}}
           readOnly
           onModeChange={() => {}}
-          showModeButtons={false}
+          showModeToggle={false}
         />,
       );
     });
-    expect(renderer!.container.querySelector('[aria-label="Reading mode"]')).toBeNull();
-    expect(renderer!.container.querySelector('[aria-label="Editing mode"]')).toBeNull();
+    expect(renderer!.container.querySelector('.q-icon-button[aria-pressed]')).toBeNull();
   });
 });

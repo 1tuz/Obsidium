@@ -83,18 +83,24 @@ function FolderTree({
         <li className="q-boards-tree__board" key={board.path}>
           <div className="q-boards-tree__heading">
             <strong>{board.name}</strong>
-            <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
+            {board.views.length === 0 ? (
+              <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
+            ) : null}
           </div>
-          {board.views.map((view) => (
-            <button
-              type="button"
-              key={`${board.path}:${view.index}`}
-              title={board.path}
-              onClick={() => onOpenView(board.path, view.index)}
-            >
-              <Icon icon={Columns3} />
-              <span>{view.name}</span>
-            </button>
+          {board.views.map((view, index) => (
+            <div className="q-boards-tree__view" key={`${board.path}:${view.index}`}>
+              <button
+                type="button"
+                title={board.path}
+                onClick={() => onOpenView(board.path, view.index)}
+              >
+                <Icon icon={Columns3} />
+                <span>{view.name}</span>
+              </button>
+              {index === 0 ? (
+                <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
+              ) : null}
+            </div>
           ))}
         </li>
       ))}
