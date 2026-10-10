@@ -50,7 +50,7 @@ export function collectPlatformAssets(platform, version, source, destination) {
   const files = filesBelow(source);
   const names = {
     windows: [[new RegExp(`^Obsidium_${version}_x64-setup\\.exe$`, 'u'), 'Windows installer'], [new RegExp(`^Obsidium_${version}_x64-setup\\.exe\\.sig$`, 'u'), 'Windows signature']],
-    macos: [[new RegExp(`^Obsidium_${version}_aarch64\\.dmg$`, 'u'), 'macOS DMG'], [new RegExp(`^Obsidium_${version}_aarch64\\.app\\.tar\\.gz$`, 'u'), 'macOS updater archive'], [new RegExp(`^Obsidium_${version}_aarch64\\.app\\.tar\\.gz\\.sig$`, 'u'), 'macOS updater signature']],
+    macos: [[new RegExp(`^Obsidium_${version}_aarch64\\.dmg$`, 'u'), 'macOS DMG'], [/^Obsidium\.app\.tar\.gz$/u, 'macOS updater archive', `Obsidium_${version}_aarch64.app.tar.gz`], [/^Obsidium\.app\.tar\.gz\.sig$/u, 'macOS updater signature', `Obsidium_${version}_aarch64.app.tar.gz.sig`]],
     linux: [[new RegExp(`^Obsidium_${version}_amd64\\.deb$`, 'u'), 'Linux installer'], [new RegExp(`^Obsidium_${version}_amd64\\.deb\\.sig$`, 'u'), 'Linux signature']],
   }[platform];
   if (!names) throw new Error(`Unsupported release platform: ${platform}`);
@@ -60,8 +60,9 @@ export function collectPlatformAssets(platform, version, source, destination) {
     if (readFileSync(signature, 'utf8').trim().length === 0) throw new Error(`Empty signature: ${signature}`);
   }
   mkdirSync(destination, { recursive: true });
-  for (const path of selected) copyFileSync(path, join(destination, basename(path)));
-  return selected.map((path) => basename(path));
+  const outputs = selected.map((path, index) => names[index][2] ?? basename(path));
+  for (const [index, path] of selected.entries()) copyFileSync(path, join(destination, outputs[index]));
+  return outputs;
 }
 
 export function createUpdaterManifest(tag, repository, assets, publishedAt = new Date().toISOString()) {
