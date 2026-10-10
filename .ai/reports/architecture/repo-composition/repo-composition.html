@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Состав Obsidium</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f5f5f5;
+      --paper-2: #ececec;
+      --ink: #2d3142;
+      --muted: #4f5d75;
+      --soft: #7a8399;
+      --rule: rgba(45,49,66,0.12);
+      --accent: #eb6c36;
+      --accent-tint: rgba(235,108,54,0.08);
+      --link: #2e5aa8;
+      --sans: 'Geist', system-ui, sans-serif;
+      --serif: 'Instrument Serif', 'Noto Serif', serif;
+      --mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      min-height: 100vh;
+      padding: 40px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+    .frame { width: min(100%, 1280px); margin: 0 auto; }
+    .eyebrow {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font: 500 11px var(--mono);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin-bottom: 8px;
+      font: 400 32px/1.15 var(--serif);
+      letter-spacing: -.02em;
+    }
+    .subtitle { margin-bottom: 20px; color: var(--muted); font-size: 13px; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    svg { display: block; width: 100%; min-width: 1280px; }
+    @media print {
+      body { padding: 0; }
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <p class="eyebrow">Архитектура · runtime-состав</p>
+    <h1>Из чего состоит Obsidium</h1>
+    <p class="subtitle">UI и CLI используют общее Rust-ядро; ядро работает с Markdown workspace и локальными данными.</p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="repo-composition-title repo-composition-desc">
+        <title id="repo-composition-title">Состав Obsidium</title>
+        <desc id="repo-composition-desc">Диаграмма показывает точки входа Obsidium, Tauri host, общее Rust-ядро, локальные данные и внешние web-интеграции.</desc>
+        <defs>
+          <marker id="repo-composition-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+          <marker id="repo-composition-arrow-muted" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="repo-composition-arrow-start" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+          <marker id="repo-composition-arrow-start-muted" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+        </defs>
+        <rect width="1280" height="720" fill="#f5f5f5"/>
+        <g fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.12)" stroke-width="1">
+          <rect x="32" y="104" width="312" height="494" rx="8"/>
+          <rect x="372" y="104" width="680" height="494" rx="8"/>
+          <rect x="1080" y="104" width="168" height="494" rx="8"/>
+        </g>
+        <g fill="#f5f5f5" font-family="'Geist Mono', monospace" font-size="9" letter-spacing="1.2">
+          <rect x="48" y="108" width="112" height="16"/>
+          <rect x="388" y="108" width="136" height="16"/>
+          <rect x="1096" y="108" width="124" height="16"/>
+        </g>
+        <g fill="#7a8399" font-family="'Geist Mono', monospace" font-size="9" letter-spacing="1.2">
+          <text x="56" y="120">ТОЧКИ ВХОДА</text>
+          <text x="396" y="120">ПРИЛОЖЕНИЕ</text>
+          <text x="1104" y="120">ДАННЫЕ И WEB</text>
+        </g>
+        <g fill="none" stroke-width="1.4">
+          <path d="M304 220 H312" stroke="#2e5aa8"/>
+          <path d="M392 220 H400" stroke="#2e5aa8" marker-end="url(#repo-composition-arrow)"/>
+          <path d="M400 248 H388" stroke="#4f5d75" stroke-dasharray="4 3"/>
+          <path d="M316 248 H304" stroke="#4f5d75" stroke-dasharray="4 3" marker-end="url(#repo-composition-arrow-muted)"/>
+          <path d="M640 232 H644" stroke="#2e5aa8"/>
+          <path d="M700 232 H716" stroke="#2e5aa8" marker-end="url(#repo-composition-arrow)"/>
+          <path d="M304 384 H464" stroke="#2e5aa8"/>
+          <path d="M544 384 H716" stroke="#2e5aa8" marker-end="url(#repo-composition-arrow)"/>
+          <path d="M304 532 H424" stroke="#2e5aa8"/>
+          <path d="M584 532 H716" stroke="#2e5aa8" marker-end="url(#repo-composition-arrow)"/>
+          <path d="M1004 200 H1016" stroke="#4f5d75" marker-start="url(#repo-composition-arrow-start-muted)"/>
+          <path d="M1096 200 H1108" stroke="#4f5d75" marker-end="url(#repo-composition-arrow-muted)"/>
+          <path d="M1004 410 H1008" stroke="#4f5d75" marker-start="url(#repo-composition-arrow-start-muted)"/>
+          <path d="M1096 410 H1108" stroke="#4f5d75" marker-end="url(#repo-composition-arrow-muted)"/>
+          <path d="M1004 540 H1024" stroke="#2e5aa8" marker-start="url(#repo-composition-arrow-start)"/>
+          <path d="M1088 540 H1108" stroke="#2e5aa8" marker-end="url(#repo-composition-arrow)"/>
+        </g>
+        <g font-family="'Geist Mono', monospace" font-size="9" text-anchor="middle">
+          <rect x="320" y="204" width="64" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="352" y="216" fill="#2e5aa8">invoke</text>
+          <rect x="324" y="240" width="56" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="352" y="252" fill="#4f5d75">events</text>
+          <rect x="652" y="204" width="48" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="676" y="216" fill="#2e5aa8">calls</text>
+          <rect x="472" y="356" width="64" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="504" y="368" fill="#2e5aa8">Core API</text>
+          <rect x="432" y="504" width="144" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="504" y="516" fill="#2e5aa8">stdio / loopback MCP</text>
+          <rect x="1024" y="172" width="64" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="1056" y="184" fill="#4f5d75">Markdown</text>
+          <rect x="1016" y="382" width="80" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="1056" y="394" fill="#4f5d75">local stores</text>
+          <rect x="1032" y="512" width="48" height="16" rx="2" fill="#f5f5f5"/>
+          <text x="1056" y="524" fill="#2e5aa8">HTTPS</text>
+        </g>
+        <g font-family="'Geist', system-ui, sans-serif" fill="#2d3142">
+          <rect x="64" y="176" width="240" height="96" rx="6" fill="#fff" stroke="#2d3142" stroke-width="1"/>
+          <text x="84" y="204" font-size="13" font-weight="600">Desktop UI</text>
+          <text x="84" y="226" font-size="10" fill="#4f5d75">TypeScript · Preact</text>
+          <text x="84" y="246" font-size="10" fill="#4f5d75">редактор · workspace · панели</text>
+          <rect x="64" y="348" width="240" height="72" rx="6" fill="#fff" stroke="#2d3142" stroke-width="1"/>
+          <text x="84" y="377" font-size="13" font-weight="600">CLI</text>
+          <text x="84" y="398" font-size="10" fill="#4f5d75">headless-доступ к общему Core</text>
+          <rect x="64" y="500" width="240" height="64" rx="6" fill="#fff" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+          <text x="84" y="528" font-size="12" font-weight="600">MCP-клиенты</text>
+          <text x="84" y="548" font-size="10" fill="#4f5d75">stdio или локальный HTTP</text>
+          <rect x="400" y="184" width="240" height="96" rx="6" fill="#fff" stroke="#2d3142" stroke-width="1"/>
+          <text x="420" y="212" font-size="13" font-weight="600">Tauri host</text>
+          <text x="420" y="234" font-size="10" fill="#4f5d75">окно · плагины · IPC-команды</text>
+          <text x="420" y="254" font-size="10" fill="#4f5d75">передача событий во frontend</text>
+          <rect x="716" y="318" width="288" height="258" rx="8" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.5"/>
+          <text x="740" y="352" font-size="16" font-weight="600">aquilum-core</text>
+          <text x="740" y="376" font-size="10" fill="#4f5d75">хост-независимое Rust-ядро</text>
+          <path d="M740 392 H980" stroke="rgba(45,49,66,0.12)"/>
+          <text x="740" y="416" font-size="11">Документы · файлы · история</text>
+          <text x="740" y="440" font-size="11">Поиск · ссылки · Dataview · граф</text>
+          <text x="740" y="464" font-size="11">Настройки · UI-state</text>
+          <text x="740" y="488" font-size="11">Watcher · согласование изменений</text>
+          <text x="740" y="512" font-size="11">MCP · Wikixiv · web agent</text>
+          <text x="740" y="548" font-size="9" fill="#7a8399" font-family="'Geist Mono', monospace">общий crate для Tauri и CLI</text>
+          <rect x="1108" y="152" width="140" height="96" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+          <text x="1124" y="180" font-size="12" font-weight="600">Markdown vault</text>
+          <text x="1124" y="200" font-size="10" fill="#4f5d75">файлы заметок</text>
+          <text x="1124" y="220" font-size="9" fill="#4f5d75">источник содержимого</text>
+          <text x="1124" y="236" font-size="9" fill="#4f5d75">.aquilum/history</text>
+          <rect x="1108" y="354" width="140" height="112" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+          <text x="1124" y="380" font-size="12" font-weight="600">App data</text>
+          <text x="1124" y="404" font-size="9" fill="#4f5d75">settings · UI-state</text>
+          <text x="1124" y="424" font-size="9" fill="#4f5d75">documents · SQLite</text>
+          <text x="1124" y="444" font-size="9" fill="#4f5d75">Yrs · Tantivy</text>
+          <rect x="1108" y="506" width="140" height="68" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+          <text x="1124" y="532" font-size="12" font-weight="600">Web endpoints</text>
+          <text x="1124" y="552" font-size="10" fill="#4f5d75">Wikipedia · страницы</text>
+        </g>
+        <g font-family="'Geist Mono', monospace" font-size="9" fill="#4f5d75">
+          <path d="M64 638 H100" stroke="#2e5aa8" stroke-width="1.4" marker-end="url(#repo-composition-arrow)"/>
+          <text x="112" y="641">вызов / данные</text>
+          <path d="M272 638 H308" stroke="#4f5d75" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#repo-composition-arrow-muted)"/>
+          <text x="320" y="641">событие</text>
+          <rect x="432" y="630" width="16" height="16" rx="3" fill="rgba(235,108,54,0.08)" stroke="#eb6c36"/>
+          <text x="460" y="641">общий Core</text>
+          <text x="1216" y="640" text-anchor="end">runtime view · 2026</text>
+        </g>
+      </svg>
+    </div>
+  </main>
+</body>
+</html>
