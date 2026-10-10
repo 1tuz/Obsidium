@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Camera } from './camera';
+import { FrameClock } from './frameClock';
 import {
   DIMMED_STRENGTH,
   dimmedBy,
@@ -15,6 +16,16 @@ import {
 const FRAME = 1 / 60;
 const ZOOM_IN = 1.2;
 const ZOOM_OUT = 1 / 1.2;
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+function setMotionPreference(motion: 'on' | 'off' | 'system', reducedMotion: boolean): void {
+  vi.stubGlobal('document', { documentElement: { dataset: { motion } } });
+  vi.stubGlobal('window', { matchMedia: () => ({ matches: reducedMotion }) });
+  vi.stubGlobal('cancelAnimationFrame', () => undefined);
+}
 
 function settle(camera: Camera): void {
   for (let step = 0; step < 400 && camera.advance(FRAME); step += 1) {
@@ -83,6 +94,31 @@ describe('Camera', () => {
     expect(camera.centerY).toBeGreaterThan(0);
   });
 
+  it('animates target pans and retargets from the previous destination', () => {
+    const camera = new Camera();
+
+    camera.panToBy(60, 30);
+    expect(camera.centerX).toBe(0);
+    camera.advance(FRAME);
+    const firstFrame = camera.centerX;
+    camera.panToBy(60, 30);
+    settle(camera);
+
+    expect(firstFrame).toBeLessThan(0);
+    expect(camera.centerX).toBeCloseTo(-120, 6);
+    expect(camera.centerY).toBeCloseTo(60, 6);
+  });
+
+  it('keeps pointer panning immediate and cancels an unfinished target pan', () => {
+    const camera = new Camera();
+
+    camera.panToBy(100, 0);
+    camera.panBy(10, 0);
+
+    expect(camera.centerX).toBe(-10);
+    expect(camera.advance(FRAME)).toBe(false);
+  });
+
   it('panning while zooming keeps the zoom going', () => {
     const camera = new Camera();
 
@@ -118,6 +154,82 @@ describe('Camera', () => {
     expect(camera.centerX).toBeCloseTo(0, 6);
     expect(camera.centerY).toBeCloseTo(0, 6);
     expect(camera.scale).toBeCloseTo(20, 6);
+  });
+
+  it('finishes camera transitions at their exact target when motion is disabled', () => {
+    const camera = new Camera();
+    camera.zoomBy(3, 120, -80);
+    camera.glideTo({ minX: -10, maxX: 10, minY: -5, maxY: 5 }, 400, 200);
+
+    expect(camera.finish()).toBe(true);
+    expect(camera.scale).toBe(20);
+    expect(camera.centerX).toBe(0);
+    expect(camera.centerY).toBe(0);
+    expect(camera.advance(FRAME)).toBe(false);
+  });
+
+  it('preserves the zoom anchor when a disabled-motion transition finishes', () => {
+    const camera = new Camera();
+    const anchor = { x: 120, y: -80 };
+    const world = camera.toWorld(anchor.x, anchor.y);
+
+    camera.zoomBy(3, anchor.x, anchor.y);
+    camera.finish();
+
+    expect(camera.toWorld(anchor.x, anchor.y)).toEqual(world);
+    expect(camera.scale).toBe(3);
+  });
+});
+
+describe('camera target pan and motion preference', () => {
+  it('animates wheel pan while motion is on', () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    setMotionPreference('on', false);
+    const camera = new Camera();
+    const clock = new FrameClock();
+    camera.panToBy(60, 0);
+    clock.request((seconds, _time, animate) => animate && camera.advance(seconds));
+
+    expect(camera.centerX).toBe(0);
+    for (let time = 16; frames.length > 0 && time < 2_000; time += 16) {
+      frames.shift()?.(time);
+    }
+
+    expect(camera.centerX).toBeCloseTo(-60, 6);
+    clock.stop();
+  });
+
+  it.each(['off', 'system'] as const)('snaps wheel pan immediately with motion=%s and reduced motion', (motion) => {
+    setMotionPreference(motion, true);
+    const camera = new Camera();
+    const clock = new FrameClock();
+    camera.panToBy(60, 0);
+
+    clock.request((_seconds, _time, animate) => animate && camera.advance(_seconds) || camera.finish());
+
+    expect(camera.centerX).toBe(-60);
+    clock.stop();
+  });
+
+  it('animates wheel pan in system mode when reduced motion is disabled', () => {
+    const frames: FrameRequestCallback[] = [];
+    setMotionPreference('system', false);
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const camera = new Camera();
+    const clock = new FrameClock();
+    camera.panToBy(60, 0);
+    clock.request((seconds, _time, animate) => animate && camera.advance(seconds));
+
+    expect(frames).toHaveLength(1);
+    expect(camera.centerX).toBe(0);
+    clock.stop();
   });
 });
 

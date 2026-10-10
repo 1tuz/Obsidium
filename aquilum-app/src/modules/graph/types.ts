@@ -3,15 +3,38 @@ export interface GraphEpoch {
   high: number;
 }
 
+export interface GraphTopologyDelta {
+  baseEpochLow: number;
+  baseEpochHigh: number;
+  revision: number;
+  edgeSlotCount: number;
+  edgeCount: number;
+  metricsStale: boolean;
+  nodeUpdates: Array<{ index: number; degree: number; modifiedDay?: number }>;
+  edgeUpdates: Array<{
+    slot: number;
+    source: number;
+    target: number;
+    directionMask: number;
+    typeMask: number;
+  }>;
+}
+
 export interface GraphSnapshot {
   nodeCount: number;
   edgeCount: number;
+  edgeSlotCount?: number;
+  metricsStale?: boolean;
   epoch: GraphEpoch;
   positions: Float32Array;
   createdDays: Float32Array;
   modifiedDays: Float32Array;
   degrees: Uint32Array;
+  nodeIds: Uint32Array;
+  clusterIds: Uint32Array;
   edges: Uint32Array;
+  edgeDirections: Uint32Array;
+  edgeTypes: Uint32Array;
 }
 
 export interface GraphBounds {

@@ -59,8 +59,18 @@ export class HighlightMap {
     });
   }
 
-  advance(seconds: number): boolean {
-    const step = approachStep(seconds, FADE_SECONDS);
+  lightNodes(nodes: readonly number[]): void {
+    for (const member of this.lit) this.retarget(member, 0);
+    this.lit.length = 0;
+    this.dimmingTarget = nodes.length > 0 ? 1 : 0;
+    nodes.forEach((node, index) => {
+      this.retarget(node, (index % 2) + 1);
+      this.lit.push(node);
+    });
+  }
+
+  advance(seconds: number, animate = true): boolean {
+    const step = animate ? approachStep(seconds, FADE_SECONDS) : 1;
     const dimmingGap = this.dimmingTarget - this.dimming;
     this.dimming = Math.abs(dimmingGap) < SETTLED_DIMMING
       ? this.dimmingTarget

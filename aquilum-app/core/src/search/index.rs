@@ -52,16 +52,25 @@ impl SearchIndex {
 
     pub fn reload(&self) -> Result<u64, SearchError> {
         self.reader.reload()?;
-        *self.field_stats.write().map_err(|error| SearchError::Task {
-            message: error.to_string(),
-        })? = None;
+        *self
+            .field_stats
+            .write()
+            .map_err(|error| SearchError::Task {
+                message: error.to_string(),
+            })? = None;
         Ok(self.document_count())
     }
 
     pub fn field_stats(&self) -> Result<FieldStats, SearchError> {
-        if let Some(stats) = self.field_stats.read().map_err(|error| SearchError::Task {
-            message: error.to_string(),
-        })?.as_ref().copied() {
+        if let Some(stats) = self
+            .field_stats
+            .read()
+            .map_err(|error| SearchError::Task {
+                message: error.to_string(),
+            })?
+            .as_ref()
+            .copied()
+        {
             return Ok(stats);
         }
 
@@ -83,9 +92,12 @@ impl SearchIndex {
             average_title_length: title_length as f64 / divisor,
             average_body_length: body_length as f64 / divisor,
         };
-        *self.field_stats.write().map_err(|error| SearchError::Task {
-            message: error.to_string(),
-        })? = Some(stats);
+        *self
+            .field_stats
+            .write()
+            .map_err(|error| SearchError::Task {
+                message: error.to_string(),
+            })? = Some(stats);
         Ok(stats)
     }
 

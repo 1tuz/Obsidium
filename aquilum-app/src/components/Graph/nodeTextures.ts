@@ -6,18 +6,24 @@ export const FRESHNESS_UNIT = 1;
 export const HIGHLIGHT_UNIT = 2;
 export const REVEAL_UNIT = 3;
 export const ATLAS_UNIT = 4;
+export const CLUSTER_UNIT = 5;
+export const CUSTOM_GROUP_UNIT = 6;
 
 export class NodeTextures {
   private readonly nodes: WebGLTexture;
   private readonly freshness: WebGLTexture;
   private readonly highlight: WebGLTexture;
   private readonly reveal: WebGLTexture;
+  private readonly clusters: WebGLTexture;
+  private readonly customGroups: WebGLTexture;
 
   constructor(private readonly gl: WebGL2RenderingContext) {
     this.nodes = createDataTexture(gl);
     this.freshness = createDataTexture(gl);
     this.highlight = createDataTexture(gl);
     this.reveal = createDataTexture(gl);
+    this.clusters = createDataTexture(gl);
+    this.customGroups = createDataTexture(gl);
   }
 
   uploadNodes(texels: Float32Array, rows: number): void {
@@ -36,6 +42,72 @@ export class NodeTextures {
     );
   }
 
+  uploadNode(texels: Float32Array, node: number): void {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.nodes);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      node % NODE_TEXTURE_WIDTH,
+      Math.floor(node / NODE_TEXTURE_WIDTH),
+      1,
+      1,
+      gl.RGBA,
+      gl.FLOAT,
+      texels.subarray(node * 4, node * 4 + 4),
+    );
+  }
+
+  uploadClusters(
+    clusterIds: Uint32Array,
+    islandNodes: Uint8Array,
+    rows: number,
+    customGroups?: Uint32Array,
+  ): void {
+    const gl = this.gl;
+    const values = new Float32Array(NODE_TEXTURE_WIDTH * rows * 4);
+    for (let node = 0; node < clusterIds.length; node += 1) {
+      values[node * 4] = clusterIds[node];
+      values[node * 4 + 1] = islandNodes[node];
+      values[node * 4 + 2] = customGroups?.[node] ?? 0;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.clusters);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA32F,
+      NODE_TEXTURE_WIDTH,
+      rows,
+      0,
+      gl.RGBA,
+      gl.FLOAT,
+      values,
+    );
+  }
+
+  uploadCustomGroupColors(colors: Float32Array): void {
+    const gl = this.gl;
+    const count = colors.length / 4;
+    const width = Math.max(1, Math.min(count, NODE_TEXTURE_WIDTH));
+    const rows = Math.max(1, Math.ceil(count / width));
+    const data = colors.length === width * rows * 4
+      ? colors
+      : new Float32Array(width * rows * 4);
+    if (data !== colors) data.set(colors);
+    gl.bindTexture(gl.TEXTURE_2D, this.customGroups);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA32F,
+      width,
+      rows,
+      0,
+      gl.RGBA,
+      gl.FLOAT,
+      data,
+    );
+  }
+
   uploadFreshness(texels: Float32Array, rows: number): void {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.freshness);
@@ -49,6 +121,22 @@ export class NodeTextures {
       gl.RED,
       gl.FLOAT,
       texels,
+    );
+  }
+
+  uploadFreshnessNode(texels: Float32Array, node: number): void {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.freshness);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      node % NODE_TEXTURE_WIDTH,
+      Math.floor(node / NODE_TEXTURE_WIDTH),
+      1,
+      1,
+      gl.RED,
+      gl.FLOAT,
+      texels.subarray(node, node + 1),
     );
   }
 
@@ -117,6 +205,10 @@ export class NodeTextures {
     gl.bindTexture(gl.TEXTURE_2D, this.highlight);
     gl.activeTexture(gl.TEXTURE0 + REVEAL_UNIT);
     gl.bindTexture(gl.TEXTURE_2D, this.reveal);
+    gl.activeTexture(gl.TEXTURE0 + CLUSTER_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, this.clusters);
+    gl.activeTexture(gl.TEXTURE0 + CUSTOM_GROUP_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, this.customGroups);
   }
 
   dispose(): void {
@@ -125,5 +217,7 @@ export class NodeTextures {
     gl.deleteTexture(this.freshness);
     gl.deleteTexture(this.highlight);
     gl.deleteTexture(this.reveal);
+    gl.deleteTexture(this.clusters);
+    gl.deleteTexture(this.customGroups);
   }
 }

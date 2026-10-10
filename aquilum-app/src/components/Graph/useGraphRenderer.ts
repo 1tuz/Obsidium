@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { GraphRenderer } from './renderer';
+import { GraphRenderer, type GraphPathState } from './renderer';
 import type { NoteLabels } from './noteLabels';
 import type { GraphCameraState } from '../../modules/ui-state';
 import { useStableCallback } from '../../hooks/useStableCallback';
@@ -12,7 +12,10 @@ interface GraphRendererInput {
   visible: boolean;
   attempt: number;
   onOpenNote: (path: string) => void;
+  onGraphNodeSelect: (node: number, path: string) => void;
+  onPositionChange: (node: number, x: number, y: number) => void;
   onCameraSettled: (camera: GraphCameraState) => void;
+  onPathState: (state: GraphPathState) => void;
 }
 
 export function useGraphRenderer({
@@ -21,7 +24,10 @@ export function useGraphRenderer({
   visible,
   attempt,
   onOpenNote,
+  onGraphNodeSelect,
+  onPositionChange,
   onCameraSettled,
+  onPathState,
 }: GraphRendererInput) {
   const rendererRef = useRef<GraphRenderer | null>(null);
   const scaleReadoutRef = useRef<HTMLSpanElement | null>(null);
@@ -29,7 +35,10 @@ export function useGraphRenderer({
   const [visibleNodes, setVisibleNodes] = useState(0);
   const [generation, setGeneration] = useState(0);
   const openNote = useStableCallback(onOpenNote);
+  const graphNodeSelected = useStableCallback(onGraphNodeSelect);
+  const positionChanged = useStableCallback(onPositionChange);
   const cameraSettled = useStableCallback(onCameraSettled);
+  const pathStateChanged = useStableCallback(onPathState);
 
   const attachScaleReadout = useStableCallback((element: HTMLSpanElement | null) => {
     scaleReadoutRef.current = element;
@@ -49,11 +58,15 @@ export function useGraphRenderer({
     rendererRef.current = renderer;
     setRendererError(null);
     renderer.onVisibleNodes = setVisibleNodes;
+    renderer.onPositionChange = positionChanged;
     renderer.onContextLost = () => setRendererError(t('graph.errors.contextLost'));
     renderer.onCameraSettled = cameraSettled;
+    renderer.onPathState = pathStateChanged;
     renderer.onSelect = (node) => {
       void labels.resolve(node).then((label) => {
-        if (label) openNote(label.path);
+        if (!label) return;
+        graphNodeSelected(node, label.path);
+        openNote(label.path);
       });
     };
     renderer.setScaleReadout(scaleReadoutRef.current);
@@ -68,7 +81,7 @@ export function useGraphRenderer({
       renderer.dispose();
       rendererRef.current = null;
     };
-  }, [visible, attempt, cameraSettled, canvasRef, labels, openNote]);
+  }, [visible, attempt, cameraSettled, canvasRef, labels, openNote, graphNodeSelected, positionChanged, pathStateChanged]);
 
   return { rendererRef, generation, rendererError, visibleNodes, attachScaleReadout };
 }

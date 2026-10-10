@@ -38,4 +38,9 @@ describe('graph shaders', () => {
     expect(NODE_FRAGMENT).toContain('precision highp float;');
     expect(EDGE_FRAGMENT).toContain('precision highp float;');
   });
+
+  it('colors the PageRank prefix without touching removed transition nodes', () => {
+    expect(NODE_VERTEX).toContain('float(gl_InstanceID) < uImportantCount');
+    expect(NODE_FRAGMENT).toContain('vImportant * uImportantNodes');
+  });
 });

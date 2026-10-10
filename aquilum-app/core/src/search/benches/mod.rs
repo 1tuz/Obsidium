@@ -1,3 +1,4 @@
+pub mod graph_layout;
 pub mod indexing;
 pub mod link_pipeline;
 pub mod search_pipeline;

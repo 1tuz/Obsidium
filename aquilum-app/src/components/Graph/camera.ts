@@ -47,6 +47,15 @@ export class Camera {
     }
   }
 
+  panToBy(dx: number, dy: number): void {
+    const destination = this.target ?? { x: this.centerX, y: this.centerY };
+    this.target = {
+      x: destination.x - dx / this.scale,
+      y: destination.y + dy / this.scale,
+    };
+    this.anchor = null;
+  }
+
   rescaleWorld(factor: number): void {
     this.centerX *= factor;
     this.centerY *= factor;
@@ -91,6 +100,21 @@ export class Camera {
     const zooming = this.advanceScale(step);
     const gliding = this.advanceCenter(step);
     return zooming || gliding;
+  }
+
+  finish(): boolean {
+    const changed = this.scale !== this.targetScale
+      || this.centerX !== (this.target?.x ?? this.centerX)
+      || this.centerY !== (this.target?.y ?? this.centerY);
+    this.scale = this.targetScale;
+    this.holdAnchor();
+    if (this.target) {
+      this.centerX = this.target.x;
+      this.centerY = this.target.y;
+    }
+    this.anchor = null;
+    this.target = null;
+    return changed;
   }
 
   toWorld(offsetX: number, offsetY: number): { x: number; y: number } {
