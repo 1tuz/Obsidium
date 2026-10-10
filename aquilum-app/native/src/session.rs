@@ -293,6 +293,9 @@ impl Session {
         let (Some(document), Some(path)) = (tab.document_id, tab.path.as_deref()) else {
             return;
         };
+        if tab.graph || !is_markdown(path) {
+            return;
+        }
         let Some(relative) = relative(&self.root, path) else {
             return;
         };
@@ -448,6 +451,49 @@ mod tests {
         );
         let (reopened, _) = Session::open(&core, vault.path()).unwrap();
         assert_eq!(reopened.load_base_view(&core, &board, 7), 4);
+        core.shutdown();
+    }
+
+    #[test]
+    fn note_to_base_transition_never_renames_document_identity_to_base_path() {
+        let vault = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let note = vault.path().join("note.md");
+        let base = vault.path().join("board.BASE");
+        let restored_note = vault.path().join("restored.md");
+        std::fs::write(&note, "").unwrap();
+        let core = Core::open(data.path(), std::sync::Arc::new(|_| {}));
+        let (mut session, mut tabs) = Session::open(&core, vault.path()).unwrap();
+        tabs.open(note.clone());
+        session.save(&core, &mut tabs);
+        let document = tabs.active().document_id.unwrap();
+        std::fs::rename(&note, &base).unwrap();
+        let stale = Tab {
+            document_id: Some(document),
+            ..Tab::base(base.clone())
+        };
+        session.renamed(&core, &stale);
+        assert_eq!(
+            core.ui_state
+                .resolve_document(session.workspace_id, "note.md")
+                .unwrap(),
+            document
+        );
+        assert!(tabs.rename(&note, &base));
+        assert_eq!(tabs.active().document_id, None);
+        session.renamed(&core, tabs.active());
+        session.save(&core, &mut tabs);
+        let (_, restored) = Session::open(&core, vault.path()).unwrap();
+        assert!(restored.active().is_base());
+        assert_eq!(restored.active().document_id, None);
+        let (mut session, _) = Session::open(&core, vault.path()).unwrap();
+        std::fs::rename(&base, &restored_note).unwrap();
+        assert!(tabs.rename(&base, &restored_note));
+        assert_eq!(tabs.active().document_id, None);
+        session.renamed(&core, tabs.active());
+        session.save(&core, &mut tabs);
+        assert!(tabs.active().document_id.is_some());
+        assert_ne!(tabs.active().document_id, Some(document));
         core.shutdown();
     }
 }

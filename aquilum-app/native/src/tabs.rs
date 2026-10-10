@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use aquilum_core::search::paths::is_markdown;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -184,6 +185,9 @@ impl Tabs {
         for tab in &mut self.tabs {
             if tab.path.as_deref() == Some(from) {
                 tab.path = Some(to.to_path_buf());
+                if !is_markdown(to) {
+                    tab.document_id = None;
+                }
                 changed = true;
             }
         }
@@ -298,5 +302,26 @@ mod tests {
         tabs.close(first);
         assert!(tabs.active().path.is_none());
         assert!(tabs.active().document_id.is_none());
+    }
+
+    #[test]
+    fn rename_retains_only_markdown_document_identity() {
+        let mut tabs = Tabs::default();
+        tabs.open("note.md".into());
+        let id = tabs.active_id();
+        let document = Uuid::new_v4();
+        tabs.tab_mut(id).unwrap().document_id = Some(document);
+        assert!(tabs.rename(Path::new("note.md"), Path::new("renamed.MD")));
+        assert_eq!(tabs.active().document_id, Some(document));
+        assert!(tabs.rename(Path::new("renamed.MD"), Path::new("board.BASE")));
+        assert!(tabs.active().is_base());
+        assert_eq!(tabs.active().document_id, None);
+        assert!(tabs.rename(Path::new("board.BASE"), Path::new("restored.md")));
+        assert!(!tabs.active().is_base());
+        assert_eq!(tabs.active_id(), id);
+        assert_eq!(tabs.active().document_id, None);
+        tabs.tab_mut(id).unwrap().document_id = Some(document);
+        assert!(tabs.rename(Path::new("restored.md"), Path::new("file.txt")));
+        assert_eq!(tabs.active().document_id, None);
     }
 }
