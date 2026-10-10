@@ -24,7 +24,7 @@ foreach ($invalidRelease in $invalidReleases) {
   try { Get-InstallerAssetUrl $invalidRelease | Out-Null } catch { $rejected = $true }
   if (-not $rejected) { throw 'Installer asset validation accepted an invalid release asset.' }
 }
-if (Get-UninstallEntry @([pscustomobject]@{ DisplayName = 'Obsidium Beta' }, [pscustomobject]@{ DisplayName = 'Obsidium' })) { throw 'Uninstall lookup accepted a non-exact name.' }
+if (Get-UninstallEntry @([pscustomobject]@{ DisplayName = 'Obsidium Beta' })) { throw 'Uninstall lookup accepted a non-exact name.' }
 if ((Get-UninstallEntry @([pscustomobject]@{ DisplayName = 'Obsidium Beta' }, [pscustomobject]@{ DisplayName = 'Obsidium'; UninstallString = 'uninstall.exe' })).UninstallString -ne 'uninstall.exe') { throw 'Exact uninstall lookup failed.' }
 
 'Windows installer checks passed.'
