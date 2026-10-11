@@ -1,6 +1,6 @@
+use super::models::{SearchRequest, WikixivSearchResult};
 use crate::app_core::Core;
 use std::sync::Arc;
-use super::models::{SearchRequest, WikixivSearchResult};
 use tauri::State;
 
 #[tauri::command]

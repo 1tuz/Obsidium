@@ -1,8 +1,8 @@
 use super::service::{HistoryPage, VersionTexts};
 use super::store;
+use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::files::error::FileCommandError;
-use crate::app_core::Core;
 use crate::files::gate;
 use crate::files::trash::trash_path;
 use std::path::Path;
@@ -21,7 +21,12 @@ pub async fn note_history(
     let core = Arc::clone(&core);
     run_blocking(move || {
         let history = &core.history;
-        Ok(history.page(&|| core.known_roots(), Path::new(&path), offset, limit.min(HISTORY_PAGE_LIMIT)))
+        Ok(history.page(
+            &|| core.known_roots(),
+            Path::new(&path),
+            offset,
+            limit.min(HISTORY_PAGE_LIMIT),
+        ))
     })
     .await
 }
@@ -48,7 +53,15 @@ pub async fn name_note_version(
     name: String,
 ) -> Result<Option<String>, FileCommandError> {
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(gate::name_version(&core, Path::new(&path), version.as_deref(), &name))).await
+    run_blocking(move || {
+        Ok(gate::name_version(
+            &core,
+            Path::new(&path),
+            version.as_deref(),
+            &name,
+        ))
+    })
+    .await
 }
 
 #[tauri::command]

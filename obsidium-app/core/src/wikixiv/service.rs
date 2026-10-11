@@ -119,17 +119,26 @@ fn collect(
     let mut seen = HashSet::new();
     let mut last_error = None;
 
-    let explicit_titles = extracted.title.iter().map(|title| (title, true)).chain(
-        extracted.embedded_titles.iter().map(|title| (title, false)),
-    );
+    let explicit_titles = extracted
+        .title
+        .iter()
+        .map(|title| (title, true))
+        .chain(extracted.embedded_titles.iter().map(|title| (title, false)));
     for (title, from_filename) in explicit_titles {
         if hits.len() >= MAX_TOTAL_HITS {
             break;
         }
-        let preferred_lang = if title.chars().any(is_cyrillic) { "ru" } else { "en" };
+        let preferred_lang = if title.chars().any(is_cyrillic) {
+            "ru"
+        } else {
+            "en"
+        };
         let mut resolved_directly = false;
 
-        for lang in [preferred_lang, if preferred_lang == "ru" { "en" } else { "ru" }] {
+        for lang in [
+            preferred_lang,
+            if preferred_lang == "ru" { "en" } else { "ru" },
+        ] {
             match wikipedia::summary(client, lang, title) {
                 Ok(Some(mut hit)) => {
                     resolved_directly = true;
@@ -144,7 +153,10 @@ fn collect(
         }
 
         if !resolved_directly {
-            for lang in [preferred_lang, if preferred_lang == "ru" { "en" } else { "ru" }] {
+            for lang in [
+                preferred_lang,
+                if preferred_lang == "ru" { "en" } else { "ru" },
+            ] {
                 match wikipedia::search_title(client, lang, title) {
                     Ok(Some(mut hit)) => {
                         hit.from_filename = from_filename;
@@ -191,4 +203,3 @@ fn push(hits: &mut Vec<WikixivHit>, seen: &mut HashSet<String>, hit: WikixivHit)
         hits.push(hit);
     }
 }
-

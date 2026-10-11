@@ -10,7 +10,7 @@ import type { OpenedDocument } from '../../modules/documents/documentGateway';
 import { invalidateWikiLinks } from './extensions/livePreviewPlugin';
 import { EditorContent } from './EditorContent';
 import type { CodeMirrorFieldRef } from '../Common/CodeMirrorField';
-import { useSettingsStore } from '../../modules/settings';
+import { DEFAULT_MARKDOWN_READING_SETTINGS, useSettingsStore } from '../../modules/settings';
 import { BookPage } from '../BookPage/BookPage';
 const BookReader = lazy(() => import('../Reader/BookReader')
   .then((module) => ({ default: module.BookReader })));
@@ -228,6 +228,7 @@ export function Editor({
         hasFrontmatter={metadata.hasFrontmatter}
         metadataExpanded={metadata.metadataExpanded}
         onToggleMetadata={metadata.toggleMetadata}
+        markdownReading={editorSettings?.markdownReading ?? DEFAULT_MARKDOWN_READING_SETTINGS}
       />
   );
 

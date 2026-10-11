@@ -32,7 +32,10 @@ impl Slot {
     fn wait(endpoint: &Arc<Endpoint>) -> Option<Self> {
         let mut open = lock(&endpoint.open);
         while *open >= MAX_CONNECTIONS && !endpoint.stopping.load(Ordering::SeqCst) {
-            open = endpoint.freed.wait(open).unwrap_or_else(PoisonError::into_inner);
+            open = endpoint
+                .freed
+                .wait(open)
+                .unwrap_or_else(PoisonError::into_inner);
         }
         if endpoint.stopping.load(Ordering::SeqCst) {
             return None;
@@ -51,8 +54,8 @@ impl Drop for Slot {
 
 impl RunningServer {
     pub fn start(port: u16, token: String, call: SharedToolCaller) -> Result<Self, String> {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port))
-            .map_err(|error| error.to_string())?;
+        let listener =
+            TcpListener::bind((Ipv4Addr::LOCALHOST, port)).map_err(|error| error.to_string())?;
         let address = listener.local_addr().map_err(|error| error.to_string())?;
         let endpoint = Arc::new(Endpoint {
             token,
@@ -64,7 +67,7 @@ impl RunningServer {
         });
         let accepted = Arc::clone(&endpoint);
         let accepting = thread::Builder::new()
-            .name("aquilum-mcp".to_owned())
+            .name("obsidium-mcp".to_owned())
             .spawn(move || accept(&listener, &accepted))
             .map_err(|error| error.to_string())?;
         Ok(Self {
@@ -118,7 +121,7 @@ fn accept(listener: &TcpListener, endpoint: &Arc<Endpoint>) {
             return;
         };
         let _ = thread::Builder::new()
-            .name("aquilum-mcp-connection".to_owned())
+            .name("obsidium-mcp-connection".to_owned())
             .spawn(move || serve(&stream, &slot.0));
     }
 }
@@ -268,7 +271,9 @@ mod tests {
     }
 
     fn head(extra: &str) -> String {
-        format!("POST /mcp HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {TOKEN}\r\n{extra}\r\n")
+        format!(
+            "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {TOKEN}\r\n{extra}\r\n"
+        )
     }
 
     fn sized(body: &str, extra: &str) -> String {
@@ -290,7 +295,9 @@ mod tests {
     impl Client {
         fn connect(server: &RunningServer) -> Self {
             let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, server.port())).unwrap();
-            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
             Self {
                 stream,
                 received: Vec::new(),
@@ -359,7 +366,10 @@ mod tests {
             .send_string(&initialize())
             .unwrap();
         assert_eq!(response.status(), 200);
-        assert!(response.header("Content-Type").unwrap().contains("application/json"));
+        assert!(response
+            .header("Content-Type")
+            .unwrap()
+            .contains("application/json"));
         let body: Value = serde_json::from_str(&response.into_string().unwrap()).unwrap();
         assert_eq!(body["result"]["serverInfo"]["name"], "obsidium");
         server.stop();
@@ -406,7 +416,9 @@ mod tests {
         let (server, url) = server();
         let response = ureq::post(&url)
             .set("Authorization", &bearer())
-            .send_string(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }).to_string())
+            .send_string(
+                &json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }).to_string(),
+            )
             .unwrap();
         assert_eq!(response.status(), 202);
         server.stop();
@@ -479,13 +491,22 @@ mod tests {
 
         let mut waiting = Client::connect(&server);
         waiting.send(&sized(&tool_call("waiting"), ""));
-        waiting.stream.set_read_timeout(Some(Duration::from_millis(300))).unwrap();
+        waiting
+            .stream
+            .set_read_timeout(Some(Duration::from_millis(300)))
+            .unwrap();
         let mut chunk = [0; 1];
         let early = waiting.stream.read(&mut chunk).unwrap_err().kind();
-        assert!(matches!(early, io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut));
+        assert!(matches!(
+            early,
+            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+        ));
 
         drop(held.pop());
-        waiting.stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        waiting
+            .stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
         let answer = waiting.answer();
         assert_eq!(answer.status, 200);
         assert!(answer.body.contains("waiting"));
@@ -500,7 +521,10 @@ mod tests {
         for name in ["first", "second"] {
             client.send(&sized(&tool_call(name), ""));
             let answer = client.answer();
-            assert_eq!((answer.status, answer.connection.as_str()), (200, "keep-alive"));
+            assert_eq!(
+                (answer.status, answer.connection.as_str()),
+                (200, "keep-alive")
+            );
             assert!(answer.body.contains(name));
         }
         server.stop();
@@ -539,7 +563,10 @@ mod tests {
         let (server, _) = server();
         let mut client = Client::connect(&server);
         let body = initialize();
-        client.send(&head(&format!("Content-Length: {}\r\nExpect: 100-continue\r\n", body.len())));
+        client.send(&head(&format!(
+            "Content-Length: {}\r\nExpect: 100-continue\r\n",
+            body.len()
+        )));
         assert_eq!(client.answer().status, 100);
         let (first, rest) = body.split_at(10);
         client.send(first);
@@ -657,13 +684,31 @@ mod tests {
         thread::sleep(Duration::from_millis(30));
         server.stop();
 
-        assert!(finished.load(Ordering::SeqCst), "остановка дождалась идущего вызова");
-        assert_eq!(first.join().unwrap(), Some(200), "ответ идущего вызова дошёл");
-        assert_eq!(queued.join().unwrap(), Some(503), "вызов из очереди отклонён");
+        assert!(
+            finished.load(Ordering::SeqCst),
+            "остановка дождалась идущего вызова"
+        );
+        assert_eq!(
+            first.join().unwrap(),
+            Some(200),
+            "ответ идущего вызова дошёл"
+        );
+        assert_eq!(
+            queued.join().unwrap(),
+            Some(503),
+            "вызов из очереди отклонён"
+        );
         idle.send(&sized(&initialize(), ""));
         let refused = idle.answer();
-        assert_eq!((refused.status, refused.connection.as_str()), (503, "close"));
-        assert_eq!(calls.load(Ordering::SeqCst), 1, "после остановки инструменты не запускаются");
+        assert_eq!(
+            (refused.status, refused.connection.as_str()),
+            (503, "close")
+        );
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "после остановки инструменты не запускаются"
+        );
     }
 
     #[test]

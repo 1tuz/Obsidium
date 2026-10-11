@@ -49,7 +49,7 @@ impl SearchService {
         let started = Instant::now();
         let opened = self.open_index(root, false)?;
         eprintln!(
-            "[aquilum:guest] открыта {} за {} мс",
+            "[obsidium:guest] открыта {} за {} мс",
             opened.root.display(),
             started.elapsed().as_millis()
         );
@@ -88,14 +88,14 @@ impl SearchService {
     fn close_when_idle(&self, generation: u64) {
         let service = self.clone();
         let spawned = std::thread::Builder::new()
-            .name("aquilum-guest-idle".to_owned())
+            .name("obsidium-guest-idle".to_owned())
             .spawn(move || {
                 while let Some(wait) = service.close_if_idle(generation, IDLE_LIMIT) {
                     std::thread::sleep(wait);
                 }
             });
         if let Err(error) = spawned {
-            eprintln!("[aquilum:guest] таймер простоя не запущен: {error}");
+            eprintln!("[obsidium:guest] таймер простоя не запущен: {error}");
         }
     }
 
@@ -113,7 +113,7 @@ impl SearchService {
             slot.take()?
         };
         eprintln!(
-            "[aquilum:guest] закрыта {} после {} с простоя",
+            "[obsidium:guest] закрыта {} после {} с простоя",
             closed.index.root.display(),
             limit.as_secs()
         );

@@ -56,7 +56,10 @@ pub fn remove_files(paths: &[PathBuf]) -> u64 {
         .filter(|path| match fs::remove_file(path) {
             Ok(()) => true,
             Err(error) => {
-                eprintln!("[aquilum:files] файл не удалён {}: {error}", path.display());
+                eprintln!(
+                    "[obsidium:files] файл не удалён {}: {error}",
+                    path.display()
+                );
                 false
             }
         })
@@ -78,7 +81,10 @@ pub fn remove_empty_folders(root: &Path) {
             continue;
         }
         if let Err(error) = fs::remove_dir(&folder) {
-            eprintln!("[aquilum:files] пустая папка не удалена {}: {error}", folder.display());
+            eprintln!(
+                "[obsidium:files] пустая папка не удалена {}: {error}",
+                folder.display()
+            );
         }
     }
 }
@@ -93,7 +99,13 @@ fn relocate_into(
     if source.is_dir() && target.is_dir() {
         for child in fs::read_dir(source)? {
             let child = child?;
-            relocate_into(&child.path(), &target.join(child.file_name()), placement, moved_at, files)?;
+            relocate_into(
+                &child.path(),
+                &target.join(child.file_name()),
+                placement,
+                moved_at,
+                files,
+            )?;
         }
         fs::remove_dir(source)?;
         return Ok(target.to_path_buf());
@@ -163,7 +175,10 @@ fn record_moved(
             .open(entry.path())
             .and_then(|file| file.set_modified(deleted_at));
         if let Err(error) = stamped {
-            eprintln!("[aquilum:trash] дата удаления не проставлена {}: {error}", entry.path().display());
+            eprintln!(
+                "[obsidium:trash] дата удаления не проставлена {}: {error}",
+                entry.path().display()
+            );
         }
     }
 }

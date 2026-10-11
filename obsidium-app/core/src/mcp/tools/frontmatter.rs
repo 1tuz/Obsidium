@@ -1,14 +1,14 @@
 use super::workspace::{indexed_vault, requested_vault};
-use super::{offset, 
-    limit, open_after_write, optional_names, optional_text, require_write, text, tool,
+use super::{
+    limit, offset, open_after_write, optional_names, optional_text, require_write, text, tool,
     version_name_property, workspace_property, write_retrying,
 };
+use crate::app_core::Core;
 use crate::history::Source;
 use crate::search::analyzer::frontmatter_set;
 use crate::search::fields::{as_object, head_fields, note_fields, Field};
 use serde_json::{json, Map, Value};
 use std::path::PathBuf;
-use crate::app_core::Core;
 
 const FIND_LIMIT: usize = 200;
 
@@ -63,9 +63,13 @@ fn set_frontmatter(core: &Core, arguments: &Value) -> Result<Value, String> {
     let note = vault.note(&text(arguments, "note")?)?;
     let updates = field_updates(arguments)?;
     let version_name = optional_text(arguments, "versionName");
-    let (changed, next) = write_retrying(core, &note, Source::Agent, version_name.as_deref(), |current| {
-        frontmatter_set(current, &updates)
-    })?;
+    let (changed, next) = write_retrying(
+        core,
+        &note,
+        Source::Agent,
+        version_name.as_deref(),
+        |current| frontmatter_set(current, &updates),
+    )?;
     if changed {
         open_after_write(core, &vault, &note, arguments);
     }
@@ -80,7 +84,9 @@ fn field_updates(arguments: &Value) -> Result<Vec<(String, String)>, String> {
     let fields = arguments
         .get("fields")
         .and_then(Value::as_object)
-        .ok_or_else(|| "Не заполнен аргумент «fields»: нужен объект вида {«ключ»: «значение»}".to_owned())?;
+        .ok_or_else(|| {
+            "Не заполнен аргумент «fields»: нужен объект вида {«ключ»: «значение»}".to_owned()
+        })?;
     if fields.is_empty() {
         return Err("Список полей пуст: нечего менять".to_owned());
     }
@@ -93,7 +99,14 @@ fn field_updates(arguments: &Value) -> Result<Vec<(String, String)>, String> {
                 ));
             }
             let value = match value {
-                Value::String(value) => value.clone(),
+                Value::String(value) => {
+                    if value.contains(['\n', '\r']) {
+                        return Err(format!(
+                            "Поле «{key}»: значение не может быть многострочным"
+                        ));
+                    }
+                    serde_json::to_string(value).map_err(|error| error.to_string())?
+                }
                 Value::Number(value) => value.to_string(),
                 Value::Bool(value) => value.to_string(),
                 Value::Null => String::new(),
@@ -104,7 +117,9 @@ fn field_updates(arguments: &Value) -> Result<Vec<(String, String)>, String> {
                 }
             };
             if value.contains('\n') {
-                return Err(format!("Поле «{key}»: значение не может быть многострочным"));
+                return Err(format!(
+                    "Поле «{key}»: значение не может быть многострочным"
+                ));
             }
             Ok((key.trim().to_owned(), value))
         })
@@ -239,9 +254,9 @@ fn equals_from(arguments: &Value) -> Result<Vec<(String, String)>, String> {
     let Some(fields) = arguments.get("match") else {
         return Ok(Vec::new());
     };
-    let fields = fields
-        .as_object()
-        .ok_or_else(|| "Аргумент «match» должен быть объектом вида {«ключ»: «значение»}".to_owned())?;
+    let fields = fields.as_object().ok_or_else(|| {
+        "Аргумент «match» должен быть объектом вида {«ключ»: «значение»}".to_owned()
+    })?;
     fields
         .iter()
         .map(|(key, value)| {
@@ -262,7 +277,36 @@ fn equals_from(arguments: &Value) -> Result<Vec<(String, String)>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{matches, selected, value_of, Filter};
+    use super::{field_updates, matches, selected, value_of, Filter};
+    use serde_json::json;
+
+    #[test]
+    fn text_values_are_quoted_while_numbers_and_booleans_keep_their_yaml_types() {
+        let updates = field_updates(&json!({
+            "fields": {
+                "text": "true",
+                "tag": "#work/project",
+                "count": 5,
+                "enabled": false
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(
+            updates,
+            [
+                ("count".to_owned(), "5".to_owned()),
+                ("enabled".to_owned(), "false".to_owned()),
+                ("tag".to_owned(), "\"#work/project\"".to_owned()),
+                ("text".to_owned(), "\"true\"".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn multiline_text_values_are_rejected_before_yaml_serialization() {
+        assert!(field_updates(&json!({ "fields": { "text": "first\nsecond" } })).is_err());
+    }
 
     fn book() -> Vec<(String, String)> {
         vec![
@@ -324,7 +368,11 @@ mod tests {
     fn only_requested_fields_come_back() {
         let fields = selected(&book(), &["author".to_owned(), "rating".to_owned()]);
         let object = fields.as_object().unwrap();
-        assert_eq!(object.len(), 1, "несуществующее поле не превращается в null");
+        assert_eq!(
+            object.len(),
+            1,
+            "несуществующее поле не превращается в null"
+        );
         assert_eq!(object["author"], "Иван Ефремов");
         assert!(selected(&book(), &[]).as_object().unwrap().is_empty());
     }

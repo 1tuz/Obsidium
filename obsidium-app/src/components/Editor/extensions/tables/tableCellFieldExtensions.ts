@@ -2,9 +2,9 @@ import { t } from '../../../../i18n';
 import { Prec, type Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import {
-    aquilumCodeMirrorTheme,
-    aquilumFieldSetup,
-    aquilumSingleLineExtensions,
+    obsidiumCodeMirrorTheme,
+    obsidiumFieldSetup,
+    obsidiumSingleLineExtensions,
 } from '../../../Common/codeMirror';
 import { tableCellFieldTheme } from './tableCellFieldTheme';
 import type { TableCellFieldHandlers } from './tableCellField';
@@ -20,10 +20,10 @@ export function buildTableCellFieldExtensions(
     onHostFocusChange: (focused: boolean) => void,
 ): Extension[] {
     return [
-        aquilumFieldSetup,
-        aquilumCodeMirrorTheme,
+        obsidiumFieldSetup,
+        obsidiumCodeMirrorTheme,
         tableCellFieldTheme,
-        aquilumSingleLineExtensions,
+        obsidiumSingleLineExtensions,
         EditorView.lineWrapping,
         EditorView.contentAttributes.of({
             'aria-label': t('editor.table.cellAria'),

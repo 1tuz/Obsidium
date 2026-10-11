@@ -1,7 +1,10 @@
 use super::*;
 
 fn point(file: &str, text: &str) -> SyncPoint {
-    SyncPoint { file_hash: file.into(), text_hash: text.into() }
+    SyncPoint {
+        file_hash: file.into(),
+        text_hash: text.into(),
+    }
 }
 
 #[test]
@@ -11,7 +14,10 @@ fn returns_the_snapshot_then_updates_in_write_order() {
     store.append("a", b"one").expect("append");
     store.append("a", b"two").expect("append");
     store.append("b", b"other").expect("append");
-    assert_eq!(store.load("a").expect("load"), vec![b"state".to_vec(), b"one".to_vec(), b"two".to_vec()]);
+    assert_eq!(
+        store.load("a").expect("load"),
+        vec![b"state".to_vec(), b"one".to_vec(), b"two".to_vec()]
+    );
 }
 
 #[test]
@@ -42,9 +48,16 @@ fn an_unknown_document_has_nothing_stored() {
 #[test]
 fn remembers_and_overwrites_the_sync_point() {
     let store = DocumentStore::memory().expect("store");
-    store.remember_sync_point("a", &point("f1", "t1")).expect("remember");
-    store.remember_sync_point("a", &point("f2", "t2")).expect("remember");
-    assert_eq!(store.sync_point("a"), SyncPointLookup::Found(point("f2", "t2")));
+    store
+        .remember_sync_point("a", &point("f1", "t1"))
+        .expect("remember");
+    store
+        .remember_sync_point("a", &point("f2", "t2"))
+        .expect("remember");
+    assert_eq!(
+        store.sync_point("a"),
+        SyncPointLookup::Found(point("f2", "t2"))
+    );
 }
 
 #[test]
@@ -52,7 +65,9 @@ fn forgetting_a_note_drops_its_replica_updates_and_sync_point() {
     let mut store = DocumentStore::memory().expect("store");
     store.compact("a", b"state").expect("compact");
     store.append("a", b"one").expect("append");
-    store.remember_sync_point("a", &point("f", "t")).expect("remember");
+    store
+        .remember_sync_point("a", &point("f", "t"))
+        .expect("remember");
     store.forget("a").expect("forget");
     assert!(store.load("a").expect("load").is_empty());
     assert_eq!(store.sync_point("a"), SyncPointLookup::Absent);
@@ -63,22 +78,37 @@ fn relocation_moves_everything_and_replaces_a_stale_target() {
     let mut store = DocumentStore::memory().expect("store");
     store.compact("old", b"state").expect("compact");
     store.append("old", b"one").expect("append");
-    store.remember_sync_point("old", &point("f", "t")).expect("remember");
+    store
+        .remember_sync_point("old", &point("f", "t"))
+        .expect("remember");
     store.compact("new", b"stale").expect("compact");
-    store.remember_sync_point("new", &point("stale", "stale")).expect("remember");
+    store
+        .remember_sync_point("new", &point("stale", "stale"))
+        .expect("remember");
 
     store.relocate("old", "new").expect("relocate");
 
     assert!(store.load("old").expect("load").is_empty());
-    assert_eq!(store.load("new").expect("load"), vec![b"state".to_vec(), b"one".to_vec()]);
-    assert_eq!(store.sync_point("new"), SyncPointLookup::Found(point("f", "t")));
+    assert_eq!(
+        store.load("new").expect("load"),
+        vec![b"state".to_vec(), b"one".to_vec()]
+    );
+    assert_eq!(
+        store.sync_point("new"),
+        SyncPointLookup::Found(point("f", "t"))
+    );
 }
 
 #[test]
 fn refuses_a_store_written_by_a_newer_build() {
     let connection = Connection::open_in_memory().expect("database");
-    connection.execute_batch("PRAGMA user_version = 99;").expect("version");
-    assert!(matches!(DocumentStore::prepare(connection), Err(StoreError::UnsupportedSchema(99))));
+    connection
+        .execute_batch("PRAGMA user_version = 99;")
+        .expect("version");
+    assert!(matches!(
+        DocumentStore::prepare(connection),
+        Err(StoreError::UnsupportedSchema(99))
+    ));
 }
 
 #[test]

@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use walkdir::WalkDir;
 
-pub const AQUILUM_FOLDER: &str = ".aquilum";
+pub const OBSIDIUM_FOLDER: &str = ".aquilum";
 const QUANTUM_FOLDER: &str = ".quantum";
 const HISTORY_FOLDER: &str = "history";
 const VERSION_EXTENSION: &str = ".md";
@@ -29,7 +29,7 @@ pub struct VersionFile {
 }
 
 fn history_root(base: &Path) -> PathBuf {
-    base.join(AQUILUM_FOLDER).join(HISTORY_FOLDER)
+    base.join(OBSIDIUM_FOLDER).join(HISTORY_FOLDER)
 }
 
 pub fn adopt_quantum_history(base: &Path) {
@@ -58,7 +58,10 @@ pub fn adopt_quantum_history(base: &Path) {
             .map_or(Ok(()), fs::create_dir_all)
             .and_then(|()| fs::rename(&file, &destination));
         if let Err(error) = moved {
-            eprintln!("[aquilum:history] версия не перенесена из {}: {error}", file.display());
+            eprintln!(
+                "[obsidium:history] версия не перенесена из {}: {error}",
+                file.display()
+            );
         }
     }
     remove_empty_folders(&legacy);
@@ -105,7 +108,9 @@ pub fn has_text(dir: &Path, version: &VersionFile, text: &str) -> bool {
 
 #[cfg(test)]
 pub fn latest_text(dir: &Path) -> Option<String> {
-    versions(dir).last().and_then(|version| read_version(dir, version))
+    versions(dir)
+        .last()
+        .and_then(|version| read_version(dir, version))
 }
 
 pub fn version_at(id: &str) -> Option<u64> {
@@ -173,7 +178,8 @@ pub fn remove_expired(vault: &Path, retention_days: u32) -> u64 {
     if retention_days == 0 || !root.is_dir() {
         return 0;
     }
-    let cutoff = millis(SystemTime::now()).saturating_sub(millis(UNIX_EPOCH + DAY * retention_days));
+    let cutoff =
+        millis(SystemTime::now()).saturating_sub(millis(UNIX_EPOCH + DAY * retention_days));
     let mut named = HashMap::<PathBuf, HashMap<String, String>>::new();
     let expired = WalkDir::new(&root)
         .into_iter()
@@ -188,7 +194,10 @@ pub fn remove_expired(vault: &Path, retention_days: u32) -> u64 {
         })
         .collect::<Vec<_>>();
     let removed = remove_files(&expired);
-    let orphans = named.keys().flat_map(|dir| orphan_names(dir)).collect::<Vec<_>>();
+    let orphans = named
+        .keys()
+        .flat_map(|dir| orphan_names(dir))
+        .collect::<Vec<_>>();
     remove_files(&orphans);
     remove_empty_folders(&root);
     removed
@@ -215,7 +224,12 @@ fn files(dir: &Path) -> impl Iterator<Item = (String, PathBuf)> {
         .flatten()
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
-        .map(|entry| (entry.file_name().to_string_lossy().into_owned(), entry.path()))
+        .map(|entry| {
+            (
+                entry.file_name().to_string_lossy().into_owned(),
+                entry.path(),
+            )
+        })
 }
 
 fn parse_version(name: String) -> Option<VersionFile> {
@@ -280,8 +294,14 @@ mod tests {
 
         adopt_quantum_history(vault.path());
 
-        assert_eq!(fs::read_to_string(current.join("1_dev_me.md")).unwrap(), "старая");
-        assert_eq!(fs::read_to_string(current.join("2_dev_me.md")).unwrap(), "уже в aquilum");
+        assert_eq!(
+            fs::read_to_string(current.join("1_dev_me.md")).unwrap(),
+            "старая"
+        );
+        assert_eq!(
+            fs::read_to_string(current.join("2_dev_me.md")).unwrap(),
+            "уже в aquilum"
+        );
         assert!(legacy.join("2_dev_me.md").exists());
         assert!(!legacy.join("1_dev_me.md").exists());
     }
@@ -291,7 +311,10 @@ mod tests {
         let vault = Path::new("C:/База");
         assert_eq!(
             history_dir(vault, Path::new("Проекты/Идея.md")),
-            vault.join(".aquilum").join("history").join("Проекты/Идея.md")
+            vault
+                .join(".aquilum")
+                .join("history")
+                .join("Проекты/Идея.md")
         );
     }
 
@@ -301,13 +324,23 @@ mod tests {
         let dir = history_dir(directory.path(), Path::new("Идея.md"));
         write_version(&dir, "aaaa", &snapshot("второй", Source::Agent, 20)).unwrap();
         write_version(&dir, "aaaa", &snapshot("первый", Source::Me, 10)).unwrap();
-        let clash = write_version(&dir, "aaaa", &snapshot("тот же миг", Source::Agent, 20)).unwrap();
+        let clash =
+            write_version(&dir, "aaaa", &snapshot("тот же миг", Source::Agent, 20)).unwrap();
 
         let found = versions(&dir);
 
-        assert_eq!(found.iter().map(|version| version.source).collect::<Vec<_>>(), [Source::Me, Source::Agent, Source::Agent]);
+        assert_eq!(
+            found
+                .iter()
+                .map(|version| version.source)
+                .collect::<Vec<_>>(),
+            [Source::Me, Source::Agent, Source::Agent]
+        );
         assert_eq!(dir.join(&found[2].id), clash);
-        assert_eq!(found[2].at_ms, 20_001, "совпавшее имя сдвигает миллисекунду, а не перезаписывает файл");
+        assert_eq!(
+            found[2].at_ms, 20_001,
+            "совпавшее имя сдвигает миллисекунду, а не перезаписывает файл"
+        );
         assert_eq!(latest_text(&dir).as_deref(), Some("тот же миг"));
     }
 
@@ -315,12 +348,22 @@ mod tests {
     fn a_restored_version_keeps_the_time_of_its_original() {
         let directory = tempfile::tempdir().unwrap();
         let dir = history_dir(directory.path(), Path::new("Идея.md"));
-        let written = write_version(&dir, "aaaa", &snapshot("старое", Source::Restore(10_000), 20)).unwrap();
+        let written = write_version(
+            &dir,
+            "aaaa",
+            &snapshot("старое", Source::Restore(10_000), 20),
+        )
+        .unwrap();
 
         let found = versions(&dir);
 
-        assert!(written.to_string_lossy().ends_with("_aaaa_restore-0000000010000.md"));
-        assert_eq!((found[0].source, found[0].from_ms), (Source::Restore(10_000), Some(10_000)));
+        assert!(written
+            .to_string_lossy()
+            .ends_with("_aaaa_restore-0000000010000.md"));
+        assert_eq!(
+            (found[0].source, found[0].from_ms),
+            (Source::Restore(10_000), Some(10_000))
+        );
     }
 
     #[test]
@@ -333,7 +376,10 @@ mod tests {
 
         write_name(&dir, "aaaa", &id, " Черновик ", at(20)).unwrap();
         write_name(&dir, "bbbb", &id, "До рефакторинга", at(30)).unwrap();
-        assert_eq!(names(&dir).get(&id).map(String::as_str), Some("До рефакторинга"));
+        assert_eq!(
+            names(&dir).get(&id).map(String::as_str),
+            Some("До рефакторинга")
+        );
         assert!(versions(&dir).len() == 1, "файл названия — не версия");
 
         write_name(&dir, "aaaa", &id, "", at(40)).unwrap();
@@ -344,18 +390,39 @@ mod tests {
     fn retention_keeps_named_versions_and_drops_names_of_removed_ones() {
         let directory = tempfile::tempdir().unwrap();
         let dir = history_dir(directory.path(), Path::new("Идея.md"));
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let old = now - 40 * DAY.as_secs();
         let named = write_version(&dir, "aaaa", &snapshot("важная", Source::Me, old)).unwrap();
         let plain = write_version(&dir, "aaaa", &snapshot("обычная", Source::Me, old + 1)).unwrap();
         let id = |path: &Path| path.file_name().unwrap().to_string_lossy().into_owned();
-        write_name(&dir, "aaaa", &id(&named), "Важная", UNIX_EPOCH + Duration::from_secs(old)).unwrap();
-        write_name(&dir, "aaaa", &id(&plain), "", UNIX_EPOCH + Duration::from_secs(old)).unwrap();
+        write_name(
+            &dir,
+            "aaaa",
+            &id(&named),
+            "Важная",
+            UNIX_EPOCH + Duration::from_secs(old),
+        )
+        .unwrap();
+        write_name(
+            &dir,
+            "aaaa",
+            &id(&plain),
+            "",
+            UNIX_EPOCH + Duration::from_secs(old),
+        )
+        .unwrap();
 
         assert_eq!(remove_expired(directory.path(), 30), 1);
 
         assert!(named.exists() && !plain.exists());
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2, "осталась версия и её название");
+        assert_eq!(
+            fs::read_dir(&dir).unwrap().count(),
+            2,
+            "осталась версия и её название"
+        );
     }
 
     #[test]
@@ -373,17 +440,45 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let old_note = history_dir(directory.path(), Path::new("Архив/Старая.md"));
         let fresh_note = history_dir(directory.path(), Path::new("Свежая.md"));
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        write_version(&old_note, "aaaa", &snapshot("давно", Source::Me, now - 40 * DAY.as_secs())).unwrap();
-        write_version(&fresh_note, "aaaa", &snapshot("давно", Source::Me, now - 40 * DAY.as_secs())).unwrap();
-        write_version(&fresh_note, "aaaa", &snapshot("вчера", Source::Me, now - DAY.as_secs())).unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        write_version(
+            &old_note,
+            "aaaa",
+            &snapshot("давно", Source::Me, now - 40 * DAY.as_secs()),
+        )
+        .unwrap();
+        write_version(
+            &fresh_note,
+            "aaaa",
+            &snapshot("давно", Source::Me, now - 40 * DAY.as_secs()),
+        )
+        .unwrap();
+        write_version(
+            &fresh_note,
+            "aaaa",
+            &snapshot("вчера", Source::Me, now - DAY.as_secs()),
+        )
+        .unwrap();
         fs::write(fresh_note.join("заметки.txt"), "чужой файл").unwrap();
 
-        assert_eq!(remove_expired(directory.path(), 0), 0, "ноль — хранить всегда");
+        assert_eq!(
+            remove_expired(directory.path(), 0),
+            0,
+            "ноль — хранить всегда"
+        );
         assert_eq!(remove_expired(directory.path(), 30), 2);
 
-        assert!(!history_root(directory.path()).join("Архив").exists(), "опустевшие папки убраны");
+        assert!(
+            !history_root(directory.path()).join("Архив").exists(),
+            "опустевшие папки убраны"
+        );
         assert_eq!(latest_text(&fresh_note).as_deref(), Some("вчера"));
-        assert!(fresh_note.join("заметки.txt").exists(), "трогаются только файлы версий");
+        assert!(
+            fresh_note.join("заметки.txt").exists(),
+            "трогаются только файлы версий"
+        );
     }
 }

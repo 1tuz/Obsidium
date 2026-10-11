@@ -16,23 +16,37 @@ fn invalid(message: &str) -> ChangeError {
 }
 
 fn section_len(value: &Value) -> Result<usize, ChangeError> {
-    value.as_u64().map(|length| length as usize).ok_or_else(|| invalid("section length is not a number"))
+    value
+        .as_u64()
+        .map(|length| length as usize)
+        .ok_or_else(|| invalid("section length is not a number"))
 }
 
 pub fn edits_from_json(changes: &Value, doc_length: usize) -> Result<Vec<TextEdit>, ChangeError> {
-    let sections = changes.as_array().ok_or_else(|| invalid("change set is not an array"))?;
+    let sections = changes
+        .as_array()
+        .ok_or_else(|| invalid("change set is not an array"))?;
     let mut position = 0;
     let mut edits = Vec::new();
     for section in sections {
         if let Some(parts) = section.as_array() {
-            let (removed, lines) = parts.split_first().ok_or_else(|| invalid("empty replacement"))?;
+            let (removed, lines) = parts
+                .split_first()
+                .ok_or_else(|| invalid("empty replacement"))?;
             let removed = section_len(removed)?;
             let insert = lines
                 .iter()
-                .map(|line| line.as_str().ok_or_else(|| invalid("inserted line is not a string")))
+                .map(|line| {
+                    line.as_str()
+                        .ok_or_else(|| invalid("inserted line is not a string"))
+                })
                 .collect::<Result<Vec<_>, _>>()?
                 .join("\n");
-            edits.push(TextEdit { from: position, to: position + removed, insert });
+            edits.push(TextEdit {
+                from: position,
+                to: position + removed,
+                insert,
+            });
             position += removed;
         } else {
             position += section_len(section)?;
@@ -65,7 +79,9 @@ pub fn edits_to_json(edits: &[TextEdit], doc_length: usize) -> Value {
 }
 
 pub fn length_after(edits: &[TextEdit], doc_length: usize) -> usize {
-    edits.iter().fold(doc_length, |length, edit| length - (edit.to - edit.from) + utf16_len(&edit.insert))
+    edits.iter().fold(doc_length, |length, edit| {
+        length - (edit.to - edit.from) + utf16_len(&edit.insert)
+    })
 }
 
 #[cfg(test)]

@@ -1,8 +1,8 @@
-# Markdown и live preview в редакторе Aquilum
+# Markdown и live preview в редакторе Obsidium
 
 ## Назначение
 
-Редактор Aquilum хранит обычный Markdown и поверх него строит визуальное представление, близкое к WYSIWYG.
+Редактор Obsidium хранит обычный Markdown и поверх него строит визуальное представление, близкое к WYSIWYG.
 
 Главный принцип:
 
@@ -380,7 +380,7 @@ Preview опирается на дерево, не угадывает намер
 | `> [!book]` book widget | `bookCallout/preview.ts` |
 | `> [!quote]` reader widget | `readerQuote/*` (виджет; полоса — общий `.q-md-blockquote`) |
 | стили содержимого | `markdownStyles` |
-| caret / selection / base | `aquilumCodeMirrorTheme` |
+| caret / selection / base | `obsidiumCodeMirrorTheme` |
 
 ## Как добавить новый Markdown-элемент
 

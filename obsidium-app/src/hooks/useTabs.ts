@@ -7,7 +7,8 @@ import {
 } from './tabWorkspace';
 import { createUniqueCanvas, createUniqueFile } from '../modules/documents/documentFactory';
 import { useTabSession } from './useTabSession';
-import { isBasePath, isCanvasPath, isMarkdownPath } from '../modules/documents/fileGateway';
+import { isBasePath, isPdfPath, isTextFilePath } from '../modules/documents/fileGateway';
+import { openPath } from '@tauri-apps/plugin-opener';
 import type { LinkDisposition } from '../modules/links';
 import { paneLeaves } from '../modules/panes/layout';
 
@@ -67,6 +68,10 @@ export function useTabs(
       openGraph();
       return;
     }
+    if (isPdfPath(path)) {
+      void openPath(path).catch((error) => console.error('Failed to open PDF', error));
+      return;
+    }
     const disposition = options?.disposition ?? 'current';
     const paneId = options?.paneId ?? activePaneId;
     const existing = disposition === 'current'
@@ -77,7 +82,7 @@ export function useTabs(
       dispatch({ type: 'select', tabId: existing.tabId, paneId });
       return;
     }
-    if (!isMarkdownPath(path) && !isBasePath(path) && !isCanvasPath(path)) return;
+    if (!isTextFilePath(path) && !isBasePath(path)) return;
     touch();
     if (paneId !== activePaneId) dispatch({ type: 'focus-pane', paneId });
     dispatch(disposition === 'new-tab'

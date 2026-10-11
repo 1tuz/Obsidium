@@ -1,214 +1,175 @@
-export type JsonObject = Record<string, unknown>;
+export type CanvasNodeType = 'text' | 'file' | 'link' | 'group';
 
-export interface CanvasNodeBase extends JsonObject {
+export type CanvasNode = {
   id: string;
-  type: string;
+  type: CanvasNodeType;
   x: number;
   y: number;
   width: number;
   height: number;
-  color?: string;
-}
+  [key: string]: unknown;
+};
 
-export interface CanvasTextNode extends CanvasNodeBase {
-  type: 'text';
-  text: string;
-}
+export type CanvasTextNode = CanvasNode & { type: 'text'; text: string };
+export type CanvasFileNode = CanvasNode & { type: 'file'; file: string };
+export type CanvasLinkNode = CanvasNode & { type: 'link'; url: string };
+export type CanvasGroupNode = CanvasNode & { type: 'group'; label?: string };
+export type CanvasTypedNode = CanvasTextNode | CanvasFileNode | CanvasLinkNode | CanvasGroupNode;
 
-export interface CanvasFileNode extends CanvasNodeBase {
-  type: 'file';
-  file: string;
-  subpath?: string;
-}
-
-export interface CanvasLinkNode extends CanvasNodeBase {
-  type: 'link';
-  url: string;
-}
-
-export interface CanvasGroupNode extends CanvasNodeBase {
-  type: 'group';
-  label?: string;
-  background?: string;
-  backgroundStyle?: 'cover' | 'ratio' | 'repeat';
-}
-
-export type CanvasNode = CanvasTextNode | CanvasFileNode | CanvasLinkNode | CanvasGroupNode | CanvasNodeBase;
-
-export interface CanvasEdge extends JsonObject {
+export type CanvasEdge = {
   id: string;
   fromNode: string;
   toNode: string;
-  fromSide?: 'top' | 'right' | 'bottom' | 'left';
-  toSide?: 'top' | 'right' | 'bottom' | 'left';
-  fromEnd?: 'none' | 'arrow';
-  toEnd?: 'none' | 'arrow';
-  color?: string;
-  label?: string;
-}
-
-export type CanvasDrawingKind = 'rectangle' | 'ellipse' | 'arrow' | 'freehand' | 'highlighter';
-
-export interface CanvasDrawing {
-  id: string;
-  kind: CanvasDrawingKind;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  points?: number[];
-  strokeWidth?: number;
-  opacity?: number;
-}
-
-export interface ObsidiumCanvasExtension extends JsonObject {
-  drawings?: CanvasDrawing[];
-}
-
-export interface CanvasDocument {
-  nodes: CanvasNode[];
-  edges: CanvasEdge[];
-  obsidium: ObsidiumCanvasExtension;
-  extra: JsonObject;
-}
-
-const EMPTY_CANVAS: CanvasDocument = {
-  nodes: [],
-  edges: [],
-  obsidium: {},
-  extra: {},
+  [key: string]: unknown;
 };
 
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+export type CanvasDocument = {
+  nodes: CanvasTypedNode[];
+  edges: CanvasEdge[];
+  obsidium?: Record<string, unknown>;
+  [key: string]: unknown;
+};
 
-function finite(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
+export type CanvasParseResult =
+  | { ok: true; value: CanvasDocument }
+  | { ok: false; error: string };
 
-function validNode(value: unknown): CanvasNode | null {
-  if (!isObject(value) || typeof value.id !== 'string' || typeof value.type !== 'string') return null;
-  return {
-    ...value,
-    id: value.id,
-    type: value.type,
-    x: finite(value.x, 0),
-    y: finite(value.y, 0),
-    width: Math.max(40, finite(value.width, 260)),
-    height: Math.max(30, finite(value.height, 140)),
-  } as CanvasNode;
-}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-function validEdge(value: unknown): CanvasEdge | null {
-  if (!isObject(value)
-    || typeof value.id !== 'string'
-    || typeof value.fromNode !== 'string'
-    || typeof value.toNode !== 'string') return null;
-  return value as CanvasEdge;
-}
+const isCanvasColor = (value: unknown): boolean => value === undefined
+  || (typeof value === 'string' && (/^[1-6]$/.test(value) || /^#[\da-f]{3,8}$/i.test(value)));
 
-function validDrawing(value: unknown): CanvasDrawing | null {
-  if (!isObject(value) || typeof value.id !== 'string' || typeof value.kind !== 'string') return null;
-  if (!['rectangle', 'ellipse', 'arrow', 'freehand', 'highlighter'].includes(value.kind)) return null;
-  const points = Array.isArray(value.points)
-    ? value.points.filter((point): point is number => typeof point === 'number' && Number.isFinite(point))
-    : undefined;
-  return {
-    id: value.id,
-    kind: value.kind as CanvasDrawingKind,
-    x: finite(value.x, 0),
-    y: finite(value.y, 0),
-    width: Math.max(1, finite(value.width, 1)),
-    height: Math.max(1, finite(value.height, 1)),
-    points,
-    strokeWidth: Math.max(1, finite(value.strokeWidth, value.kind === 'highlighter' ? 18 : 3)),
-    opacity: Math.min(1, Math.max(0.05, finite(value.opacity, value.kind === 'highlighter' ? 0.28 : 1))),
-  };
-}
+const validateCanvasColor = (value: unknown, name: string): string | null =>
+  isCanvasColor(value) ? null : `${name} must be a JSON Canvas preset or hex color`;
 
-export function parseCanvas(source: string): CanvasDocument {
-  if (!source.trim()) return structuredClone(EMPTY_CANVAS);
-  const parsed = JSON.parse(source) as unknown;
-  if (!isObject(parsed)) throw new Error('Canvas root must be an object');
-  const nodes = Array.isArray(parsed.nodes) ? parsed.nodes.map(validNode).filter(Boolean) as CanvasNode[] : [];
-  const edges = Array.isArray(parsed.edges) ? parsed.edges.map(validEdge).filter(Boolean) as CanvasEdge[] : [];
-  const obsidiumRaw = isObject(parsed.obsidium) ? parsed.obsidium : {};
-  const drawings = Array.isArray(obsidiumRaw.drawings)
-    ? obsidiumRaw.drawings.map(validDrawing).filter(Boolean) as CanvasDrawing[]
-    : [];
-  const { nodes: _nodes, edges: _edges, obsidium: _obsidium, ...extra } = parsed;
-  return {
-    nodes,
-    edges,
-    obsidium: { ...obsidiumRaw, drawings },
-    extra,
-  };
-}
-
-export function serializeCanvas(document: CanvasDocument): string {
-  const payload: JsonObject = {
-    ...document.extra,
-    nodes: document.nodes,
-    edges: document.edges,
-  };
-  const drawings = document.obsidium.drawings ?? [];
-  const otherExtension = Object.keys(document.obsidium).some((key) => key !== 'drawings');
-  if (drawings.length > 0 || otherExtension) {
-    payload.obsidium = { ...document.obsidium, drawings };
+const validateNode = (value: unknown, index: number): string | null => {
+  if (!isRecord(value)) return `nodes[${index}] must be an object`;
+  if (typeof value.id !== 'string' || !value.id) return `nodes[${index}].id must be a non-empty string`;
+  if (!['text', 'file', 'link', 'group'].includes(String(value.type))) {
+    return `nodes[${index}].type must be text, file, link, or group`;
   }
-  return `${JSON.stringify(payload, null, 2)}\n`;
-}
+  for (const key of ['x', 'y', 'width', 'height']) {
+    if (!Number.isInteger(value[key])) return `nodes[${index}].${key} must be an integer`;
+  }
+  if ((value.width as number) <= 0 || (value.height as number) <= 0) return `nodes[${index}] dimensions must be positive`;
+  const colorError = validateCanvasColor(value.color, `nodes[${index}].color`);
+  if (colorError) return colorError;
+  if (value.type === 'text' && typeof value.text !== 'string') return `nodes[${index}].text must be a string`;
+  if (value.type === 'file' && typeof value.file !== 'string') return `nodes[${index}].file must be a string`;
+  if (value.type === 'link' && typeof value.url !== 'string') return `nodes[${index}].url must be a string`;
+  if (value.type === 'group' && value.label !== undefined && typeof value.label !== 'string') {
+    return `nodes[${index}].label must be a string`;
+  }
+  return null;
+};
 
-export function updateNode(
+const validateEdge = (value: unknown, index: number): string | null => {
+  if (!isRecord(value)) return `edges[${index}] must be an object`;
+  for (const key of ['id', 'fromNode', 'toNode']) {
+    if (typeof value[key] !== 'string' || !value[key]) return `edges[${index}].${key} must be a non-empty string`;
+  }
+  for (const key of ['fromSide', 'toSide']) {
+    if (value[key] !== undefined && !['top', 'right', 'bottom', 'left'].includes(String(value[key]))) {
+      return `edges[${index}].${key} is invalid`;
+    }
+  }
+  for (const key of ['fromEnd', 'toEnd']) {
+    if (value[key] !== undefined && !['none', 'arrow'].includes(String(value[key]))) {
+      return `edges[${index}].${key} is invalid`;
+    }
+  }
+  const colorError = validateCanvasColor(value.color, `edges[${index}].color`);
+  if (colorError) return colorError;
+  return null;
+};
+
+export const parseCanvasDocument = (source: string): CanvasParseResult => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    return { ok: false, error: 'Invalid JSON' };
+  }
+  if (!isRecord(parsed)) return { ok: false, error: 'Canvas document must be an object' };
+  if (parsed.nodes !== undefined && !Array.isArray(parsed.nodes)) return { ok: false, error: 'Canvas document nodes must be an array' };
+  if (parsed.edges !== undefined && !Array.isArray(parsed.edges)) return { ok: false, error: 'Canvas document edges must be an array' };
+  const nodes = (parsed.nodes ?? []) as unknown[];
+  const edges = (parsed.edges ?? []) as unknown[];
+  const ids = new Set<string>();
+  const nodeIds = new Set<string>();
+  for (let index = 0; index < nodes.length; index += 1) {
+    const error = validateNode(nodes[index], index);
+    if (error) return { ok: false, error };
+    const id = (nodes[index] as Record<string, unknown>).id as string;
+    if (ids.has(id)) return { ok: false, error: `Duplicate Canvas id: ${id}` };
+    ids.add(id);
+    nodeIds.add(id);
+  }
+  for (let index = 0; index < edges.length; index += 1) {
+    const error = validateEdge(edges[index], index);
+    if (error) return { ok: false, error };
+    const edge = edges[index] as Record<string, unknown>;
+    const id = edge.id as string;
+    if (ids.has(id)) return { ok: false, error: `Duplicate Canvas id: ${id}` };
+    if (!nodeIds.has(edge.fromNode as string) || !nodeIds.has(edge.toNode as string)) {
+      return { ok: false, error: `edges[${index}] references an unknown node` };
+    }
+    ids.add(id);
+  }
+  if (parsed.obsidium !== undefined && !isRecord(parsed.obsidium)) {
+    return { ok: false, error: 'Canvas document obsidium extension must be an object' };
+  }
+  return { ok: true, value: { ...parsed, nodes: nodes as CanvasTypedNode[], edges: edges as CanvasEdge[] } as CanvasDocument };
+};
+
+export const serializeCanvasDocument = (document: CanvasDocument): string => JSON.stringify(document, null, 2);
+
+export const addCanvasNode = (document: CanvasDocument, node: CanvasTypedNode): CanvasDocument => ({
+  ...document,
+  nodes: [...document.nodes, node],
+});
+
+export const updateCanvasNode = (
   document: CanvasDocument,
   id: string,
-  patch: Partial<CanvasNode>,
-): CanvasDocument {
-  return {
-    ...document,
-    nodes: document.nodes.map((node) => node.id === id ? { ...node, ...patch } as CanvasNode : node),
-  };
-}
+  update: Partial<CanvasTypedNode>,
+): CanvasDocument => ({
+  ...document,
+  nodes: document.nodes.map(node => node.id === id ? { ...node, ...update } as CanvasTypedNode : node),
+});
 
-export function removeNode(document: CanvasDocument, id: string): CanvasDocument {
-  return {
-    ...document,
-    nodes: document.nodes.filter((node) => node.id !== id),
-    edges: document.edges.filter((edge) => edge.fromNode !== id && edge.toNode !== id),
-  };
-}
+export const removeCanvasNode = (document: CanvasDocument, id: string): CanvasDocument => ({
+  ...document,
+  nodes: document.nodes.filter(node => node.id !== id),
+  edges: document.edges.filter(edge => edge.fromNode !== id && edge.toNode !== id),
+});
 
-export function addNode(document: CanvasDocument, node: CanvasNode): CanvasDocument {
-  return { ...document, nodes: [...document.nodes, node] };
-}
+export const duplicateCanvasNode = (
+  document: CanvasDocument,
+  id: string,
+  newId: string,
+  offset = 20,
+): CanvasDocument => {
+  const node = document.nodes.find(candidate => candidate.id === id);
+  return node ? addCanvasNode(document, { ...node, id: newId, x: node.x + offset, y: node.y + offset }) : document;
+};
 
-export function addEdge(document: CanvasDocument, edge: CanvasEdge): CanvasDocument {
-  if (!document.nodes.some((node) => node.id === edge.fromNode)
-    || !document.nodes.some((node) => node.id === edge.toNode)) return document;
-  return { ...document, edges: [...document.edges, edge] };
-}
+export const addCanvasEdge = (document: CanvasDocument, edge: CanvasEdge): CanvasDocument => ({
+  ...document,
+  edges: [...document.edges, edge],
+});
 
-export function addDrawing(document: CanvasDocument, drawing: CanvasDrawing): CanvasDocument {
-  return {
-    ...document,
-    obsidium: {
-      ...document.obsidium,
-      drawings: [...(document.obsidium.drawings ?? []), drawing],
-    },
-  };
-}
+export const updateCanvasEdge = (
+  document: CanvasDocument,
+  id: string,
+  update: Partial<CanvasEdge>,
+): CanvasDocument => ({
+  ...document,
+  edges: document.edges.map(edge => edge.id === id ? { ...edge, ...update } : edge),
+});
 
-export function removeDrawing(document: CanvasDocument, id: string): CanvasDocument {
-  return {
-    ...document,
-    obsidium: {
-      ...document.obsidium,
-      drawings: (document.obsidium.drawings ?? []).filter((drawing) => drawing.id !== id),
-    },
-  };
-}
-
-export function emptyCanvas(): CanvasDocument {
-  return structuredClone(EMPTY_CANVAS);
-}
+export const removeCanvasEdge = (document: CanvasDocument, id: string): CanvasDocument => ({
+  ...document,
+  edges: document.edges.filter(edge => edge.id !== id),
+});

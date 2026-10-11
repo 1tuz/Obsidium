@@ -13,19 +13,26 @@ pub fn migrate_legacy_data(target_dir: &Path) {
     if !legacy_dir.is_dir() {
         return;
     }
-    let entries = match std::fs::create_dir_all(target_dir).and_then(|()| std::fs::read_dir(&legacy_dir)) {
-        Ok(entries) => entries,
-        Err(error) => {
-            eprintln!("[aquilum:migration] данные quantum-app не перенесены: {error}");
-            return;
-        }
-    };
+    let entries =
+        match std::fs::create_dir_all(target_dir).and_then(|()| std::fs::read_dir(&legacy_dir)) {
+            Ok(entries) => entries,
+            Err(error) => {
+                eprintln!("[obsidium:migration] данные quantum-app не перенесены: {error}");
+                return;
+            }
+        };
     for entry in entries.flatten() {
-        if REBUILT_CACHES.iter().any(|cache| entry.file_name() == *cache) {
+        if REBUILT_CACHES
+            .iter()
+            .any(|cache| entry.file_name() == *cache)
+        {
             continue;
         }
         if let Err(error) = copy_entry(&entry, &target_dir.join(entry.file_name())) {
-            eprintln!("[aquilum:migration] не перенесено {}: {error}", entry.path().display());
+            eprintln!(
+                "[obsidium:migration] не перенесено {}: {error}",
+                entry.path().display()
+            );
         }
     }
 }
@@ -67,7 +74,10 @@ mod tests {
 
         migrate_legacy_data(&target);
 
-        assert!(!target.join("search-v2").exists(), "поисковый кэш строится заново, его не копируют");
+        assert!(
+            !target.join("search-v2").exists(),
+            "поисковый кэш строится заново, его не копируют"
+        );
         assert!(target.join("settings.json").exists());
         assert!(target.join("ui-state.sqlite3").exists());
         assert_eq!(

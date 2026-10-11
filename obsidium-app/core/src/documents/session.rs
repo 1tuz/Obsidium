@@ -70,7 +70,10 @@ impl From<ChangeError> for SessionError {
 fn disk_failure(error: DiskError) -> SessionError {
     match error {
         DiskError::Missing => SessionError::Missing,
-        DiskError::Conflict => SessionError::Disk { code: "conflict", message: "the file changed during the write".into() },
+        DiskError::Conflict => SessionError::Disk {
+            code: "conflict",
+            message: "the file changed during the write".into(),
+        },
         DiskError::Other { code, message } => SessionError::Disk { code, message },
     }
 }
@@ -88,7 +91,8 @@ pub enum Pull {
 }
 
 fn is_blank(text: &str) -> bool {
-    text.chars().all(|symbol| matches!(symbol, ' ' | '\t' | '\n' | '\r'))
+    text.chars()
+        .all(|symbol| matches!(symbol, ' ' | '\t' | '\n' | '\r'))
 }
 
 pub struct DocumentSession {
@@ -202,13 +206,28 @@ impl DocumentSession {
         }
     }
 
-    pub fn revert(&mut self, version_text: &str, previous_text: &str, client: &str, io: &impl SessionIo) -> bool {
+    pub fn revert(
+        &mut self,
+        version_text: &str,
+        previous_text: &str,
+        client: &str,
+        io: &impl SessionIo,
+    ) -> bool {
         let current = self.replica.text();
         let merged = merge_external_change(version_text, previous_text, &current);
         if !merged.displaced.is_empty() {
-            let report = ConflictReport { cause: ConflictCause::Reverted, disk_hash: None, synced_hash: None };
-            io.preserve(&merged.displaced.join("
-"), report);
+            let report = ConflictReport {
+                cause: ConflictCause::Reverted,
+                disk_hash: None,
+                synced_hash: None,
+            };
+            io.preserve(
+                &merged.displaced.join(
+                    "
+",
+                ),
+                report,
+            );
         }
         let changed = self.apply(&merged.edits, client, io);
         if changed {
@@ -247,7 +266,10 @@ impl DocumentSession {
                     self.synced_content = content;
                     self.synced_hash = hash.clone();
                     self.dirty = false;
-                    io.remember(SyncPoint { file_hash: hash, text_hash });
+                    io.remember(SyncPoint {
+                        file_hash: hash,
+                        text_hash,
+                    });
                     return Ok(());
                 }
                 Err(DiskError::Conflict) => self.reconcile(io)?,
@@ -255,7 +277,10 @@ impl DocumentSession {
             }
         }
         if self.dirty {
-            return Err(SessionError::Disk { code: "conflict", message: "the file kept changing during the write".into() });
+            return Err(SessionError::Disk {
+                code: "conflict",
+                message: "the file kept changing during the write".into(),
+            });
         }
         Ok(())
     }
@@ -269,11 +294,14 @@ impl DocumentSession {
     fn merge(&mut self, snapshot: &DiskSnapshot, base: &str, doc_text: &str, io: &impl SessionIo) {
         let merged = merge_external_change(base, &snapshot.content, doc_text);
         if merged.coarse {
-            eprintln!("[aquilum:documents] грубое слияние: файл разошёлся с документом больше порога построчного сравнения");
+            eprintln!("[obsidium:documents] грубое слияние: файл разошёлся с документом больше порога построчного сравнения");
         }
         self.apply(&merged.edits, DISK_CLIENT, io);
         if !merged.displaced.is_empty() {
-            io.preserve(&merged.displaced.join("\n"), self.report(ConflictCause::Displaced, snapshot));
+            io.preserve(
+                &merged.displaced.join("\n"),
+                self.report(ConflictCause::Displaced, snapshot),
+            );
         }
         self.synced_content = snapshot.content.clone();
         self.synced_hash = snapshot.hash.clone();
@@ -295,7 +323,10 @@ impl DocumentSession {
     }
 
     fn record(&mut self, client: &str, changes: Value) {
-        self.log.push_back(LoggedChange { client: client.to_owned(), changes });
+        self.log.push_back(LoggedChange {
+            client: client.to_owned(),
+            changes,
+        });
         self.version += 1;
         while self.log.len() > LOG_LIMIT {
             self.log.pop_front();
@@ -306,7 +337,10 @@ impl DocumentSession {
     fn remember_snapshot(&mut self, snapshot: &DiskSnapshot, io: &impl SessionIo) {
         self.synced_content = snapshot.content.clone();
         self.synced_hash = snapshot.hash.clone();
-        io.remember(SyncPoint { file_hash: snapshot.hash.clone(), text_hash: snapshot.text_hash.clone() });
+        io.remember(SyncPoint {
+            file_hash: snapshot.hash.clone(),
+            text_hash: snapshot.text_hash.clone(),
+        });
     }
 
     fn report(&self, cause: ConflictCause, snapshot: &DiskSnapshot) -> ConflictReport {
@@ -318,7 +352,11 @@ impl DocumentSession {
     }
 
     fn truncation_report(&self) -> ConflictReport {
-        ConflictReport { cause: ConflictCause::Truncated, disk_hash: None, synced_hash: Some(self.synced_hash.clone()) }
+        ConflictReport {
+            cause: ConflictCause::Truncated,
+            disk_hash: None,
+            synced_hash: Some(self.synced_hash.clone()),
+        }
     }
 }
 

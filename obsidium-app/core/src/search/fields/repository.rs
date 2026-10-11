@@ -104,7 +104,12 @@ mod tests {
         let mut connection = Connection::open_in_memory().unwrap();
         open_schema(&connection).unwrap();
         let transaction = connection.transaction().unwrap();
-        index_document(&transaction, Path::new("C:/vault/Заметка.md"), "просто текст").unwrap();
+        index_document(
+            &transaction,
+            Path::new("C:/vault/Заметка.md"),
+            "просто текст",
+        )
+        .unwrap();
         transaction.commit().unwrap();
         assert_eq!(count(&connection), 0);
     }

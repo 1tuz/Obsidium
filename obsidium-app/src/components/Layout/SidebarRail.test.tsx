@@ -6,6 +6,21 @@ import { mountDom } from '../../testing/mountDom';
 import { SidebarRail } from './SidebarRail';
 
 describe('SidebarRail', () => {
+  it('opens Canvas from the rail', () => {
+    const onOpenCanvas = vi.fn();
+    const rail = mountDom(
+      <SidebarRail isSidebarOpen onOpenCanvas={onOpenCanvas} canvasActive />,
+    );
+    const button = rail.container.querySelector<HTMLButtonElement>(
+      `[aria-label="${t('rail.canvas')}"]`,
+    );
+
+    expect(button?.getAttribute('aria-pressed')).toBe('true');
+    act(() => button!.click());
+    expect(onOpenCanvas).toHaveBeenCalledOnce();
+    act(() => rail.unmount());
+  });
+
   it('opens the file tree from an explicit file manager control', () => {
     const onOpenFiles = vi.fn();
     const rail = mountDom(

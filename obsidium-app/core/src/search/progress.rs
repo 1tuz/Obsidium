@@ -74,7 +74,7 @@ impl IndexProgress {
 
     pub fn failed(&self, error: &SearchError) {
         self.updating.store(false, Ordering::Relaxed);
-        eprintln!("[aquilum:index] failed: {error:?}");
+        eprintln!("[obsidium:index] failed: {error:?}");
         if let Ok(mut message) = self.error.lock() {
             *message = Some(format!("{error:?}"));
         }

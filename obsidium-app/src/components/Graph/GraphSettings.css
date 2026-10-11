@@ -8,6 +8,7 @@
   flex-direction: column;
   gap: var(--q-space-16);
   padding: var(--q-space-16);
+  overflow-x: hidden;
   overflow-y: auto;
   border: var(--q-border-1) solid var(--q-sidebar-border);
   border-radius: var(--q-radius-2xl);
@@ -240,4 +241,19 @@
 
 .q-graph-settings-preset > button {
   flex: 1;
+}
+
+.q-graph-settings .q-segmented-control--stretch {
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+
+.q-graph-settings .q-segmented-control--stretch .q-segmented-control__button {
+  flex: 1 1 40%;
+  min-width: 0;
+  white-space: normal;
+}
+
+.q-graph:has(> .q-graph-settings:not(.q-graph-settings--collapsed)) .q-graph-timeline {
+  right: calc(var(--q-graph-settings-width) + var(--q-space-32));
 }

@@ -8,7 +8,9 @@ const KEYWORDS: [&str; 10] = [
 ];
 
 pub fn is_keyword(word: &str) -> bool {
-    KEYWORDS.iter().any(|keyword| word.eq_ignore_ascii_case(keyword))
+    KEYWORDS
+        .iter()
+        .any(|keyword| word.eq_ignore_ascii_case(keyword))
 }
 
 pub fn expression(cursor: &mut Cursor<'_>) -> Result<Expr, String> {

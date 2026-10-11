@@ -1,5 +1,5 @@
-use super::first;
 use super::super::value::Value;
+use super::first;
 
 pub fn reverse(value: &Value) -> Value {
     match value {
@@ -54,7 +54,11 @@ pub fn slice(arguments: &[Value]) -> Value {
         Value::List(items) => items.clone(),
         other => vec![other.clone()],
     };
-    let from = arguments.get(1).and_then(Value::as_number).unwrap_or(0.0).max(0.0) as usize;
+    let from = arguments
+        .get(1)
+        .and_then(Value::as_number)
+        .unwrap_or(0.0)
+        .max(0.0) as usize;
     let to = arguments
         .get(2)
         .and_then(Value::as_number)
@@ -76,7 +80,11 @@ pub fn edge(value: &Value, leading: bool) -> Value {
 pub fn nonnull(value: &Value) -> Value {
     match value {
         Value::List(items) => Value::List(
-            items.iter().filter(|item| !matches!(item, Value::Null)).cloned().collect(),
+            items
+                .iter()
+                .filter(|item| !matches!(item, Value::Null))
+                .cloned()
+                .collect(),
         ),
         other => other.clone(),
     }

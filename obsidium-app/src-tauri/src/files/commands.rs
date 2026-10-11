@@ -1,20 +1,14 @@
-use super::document::{
-    ensure_directory_impl, read_file_snapshot_impl,
-    read_file_stat_impl,
-};
-use super::error::FileCommandError;
-use crate::blocking::run_blocking;
-use super::gate;
-use crate::history::Source;
-use super::models::{FileItem, FileRenameResult, FileSnapshot, FileStat, FileWriteResult};
 use super::deletions::{deletion_page_impl, DeletionPage};
-use super::trash::{
-    cleanup_trash_impl, ensure_trash_impl, trash_state_impl,
-    TrashState,
-};
+use super::document::{ensure_directory_impl, read_file_snapshot_impl, read_file_stat_impl};
+use super::error::FileCommandError;
+use super::gate;
+use super::models::{FileItem, FileRenameResult, FileSnapshot, FileStat, FileWriteResult};
+use super::trash::{cleanup_trash_impl, ensure_trash_impl, trash_state_impl, TrashState};
 use super::workspace::{existing_files_impl, list_vault_snippets_impl, read_directory_impl};
-use std::path::Path;
 use crate::app_core::Core;
+use crate::blocking::run_blocking;
+use crate::history::Source;
+use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
@@ -28,9 +22,13 @@ pub enum WriteSource {
     Edit,
     ReadingProgress,
     #[serde(rename_all = "camelCase")]
-    Restore { from_ms: u64 },
+    Restore {
+        from_ms: u64,
+    },
     #[serde(rename_all = "camelCase")]
-    Revert { from_ms: u64 },
+    Revert {
+        from_ms: u64,
+    },
 }
 
 impl From<WriteSource> for Source {
@@ -50,7 +48,9 @@ pub async fn read_directory(path: String) -> Result<Vec<FileItem>, FileCommandEr
 }
 
 #[tauri::command]
-pub async fn list_vault_snippets(workspace_path: String) -> Result<Vec<FileItem>, FileCommandError> {
+pub async fn list_vault_snippets(
+    workspace_path: String,
+) -> Result<Vec<FileItem>, FileCommandError> {
     run_blocking(move || list_vault_snippets_impl(Path::new(&workspace_path))).await
 }
 
@@ -94,7 +94,14 @@ pub async fn write_file_atomic(
     let source = Source::from(source.unwrap_or_default());
     let core = Arc::clone(&core);
     run_blocking(move || {
-        gate::write(&core, Path::new(&path), &content, expected_hash.as_deref(), source, None)
+        gate::write(
+            &core,
+            Path::new(&path),
+            &content,
+            expected_hash.as_deref(),
+            source,
+            None,
+        )
     })
     .await
 }
@@ -126,10 +133,9 @@ pub async fn trash_file(
     path: String,
 ) -> Result<String, FileCommandError> {
     let core = Arc::clone(&core);
-    let moved = run_blocking(move || {
-        gate::trash(&core, Path::new(&workspace_path), Path::new(&path))
-    })
-    .await?;
+    let moved =
+        run_blocking(move || gate::trash(&core, Path::new(&workspace_path), Path::new(&path)))
+            .await?;
     Ok(moved.to_string_lossy().into_owned())
 }
 
@@ -139,7 +145,14 @@ pub async fn list_trash(
     offset: usize,
     limit: usize,
 ) -> Result<DeletionPage, FileCommandError> {
-    run_blocking(move || deletion_page_impl(Path::new(&workspace_path), offset, limit.min(TRASH_PAGE_LIMIT))).await
+    run_blocking(move || {
+        deletion_page_impl(
+            Path::new(&workspace_path),
+            offset,
+            limit.min(TRASH_PAGE_LIMIT),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -181,7 +194,11 @@ pub async fn ensure_directory(path: String) -> Result<(), FileCommandError> {
 }
 
 #[tauri::command]
-pub async fn copy_file(core: State<'_, Arc<Core>>, from: String, to: String) -> Result<(), FileCommandError> {
+pub async fn copy_file(
+    core: State<'_, Arc<Core>>,
+    from: String,
+    to: String,
+) -> Result<(), FileCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || gate::copy(&core, Path::new(&from), Path::new(&to))).await
 }

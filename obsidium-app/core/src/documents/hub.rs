@@ -1,9 +1,10 @@
 use super::io::HubIo;
+use super::resolve::SyncPoint;
 use super::session::{DocumentSession, LoggedChange, Pull, SessionError, SYSTEM_CLIENT};
 use super::store::DocumentStore;
+use crate::app_core::{Core, CoreEvent};
 use crate::history::Source;
 use crate::search::paths::identity;
-use super::resolve::SyncPoint;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -11,9 +12,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
-use crate::app_core::{Core, CoreEvent};
 use std::sync::Weak;
+use std::time::{Duration, Instant};
 
 const MIN_DELAY_MS: u64 = 100;
 const MAX_DELAY_MS: u64 = 5_000;
@@ -67,7 +67,10 @@ struct Entry {
 }
 
 fn inside(key: &str, folder_key: &str) -> bool {
-    key == folder_key || key.strip_prefix(folder_key).is_some_and(|rest| rest.starts_with('/'))
+    key == folder_key
+        || key
+            .strip_prefix(folder_key)
+            .is_some_and(|rest| rest.starts_with('/'))
 }
 
 pub struct DocumentHub {
@@ -80,7 +83,9 @@ pub struct DocumentHub {
 impl DocumentHub {
     pub fn new(path: &Path) -> Self {
         let store = DocumentStore::open(path)
-            .map_err(|error| eprintln!("[aquilum:documents] локальная копия документов не открылась: {error}"))
+            .map_err(|error| {
+                eprintln!("[obsidium:documents] локальная копия документов не открылась: {error}")
+            })
             .ok();
         Self {
             store: Mutex::new(store),
@@ -102,7 +107,13 @@ impl DocumentHub {
         self.io_as(core, path, key, Source::Me)
     }
 
-    fn io_as<'a>(&'a self, core: &'a Core, path: &'a Path, key: &'a str, source: Source) -> HubIo<'a> {
+    fn io_as<'a>(
+        &'a self,
+        core: &'a Core,
+        path: &'a Path,
+        key: &'a str,
+        source: Source,
+    ) -> HubIo<'a> {
         HubIo {
             core,
             path,
@@ -113,15 +124,24 @@ impl DocumentHub {
         }
     }
 
-    pub fn open(&self, core: &Core, path: &Path, offset_minutes: i64) -> Result<OpenedDocument, HubError> {
-        self.offset_seconds.store(offset_minutes * 60, Ordering::Relaxed);
+    pub fn open(
+        &self,
+        core: &Core,
+        path: &Path,
+        offset_minutes: i64,
+    ) -> Result<OpenedDocument, HubError> {
+        self.offset_seconds
+            .store(offset_minutes * 60, Ordering::Relaxed);
         let key = identity(path);
         let mut sessions = self.sessions.lock().expect("document sessions");
         if let Some(entry) = sessions.get_mut(&key) {
             entry.holders += 1;
             let path = entry.path.clone();
             self.reconcile_entry(core, &key, &path, entry);
-            return Ok(OpenedDocument { text: entry.session.text(), version: entry.session.version() });
+            return Ok(OpenedDocument {
+                text: entry.session.text(),
+                version: entry.session.version(),
+            });
         }
         let blobs = self.load(&key);
         let session = DocumentSession::open(&blobs, &self.io(core, path, &key))?;
@@ -129,8 +149,19 @@ impl DocumentHub {
         if session.dirty() {
             self.schedule(&key, Duration::ZERO);
         }
-        let opened = OpenedDocument { text: session.text(), version: session.version() };
-        sessions.insert(key, Entry { path: path.to_path_buf(), session, holders: 1, moving: false });
+        let opened = OpenedDocument {
+            text: session.text(),
+            version: session.version(),
+        };
+        sessions.insert(
+            key,
+            Entry {
+                path: path.to_path_buf(),
+                session,
+                holders: 1,
+                moving: false,
+            },
+        );
         Ok(opened)
     }
 
@@ -146,7 +177,10 @@ impl DocumentHub {
         let mut sessions = self.sessions.lock().expect("document sessions");
         let entry = sessions.get_mut(&key).ok_or(HubError::NotOpen)?;
         let entry_path = entry.path.clone();
-        let accepted = entry.session.push(client, version, changes, &self.io(core, &entry_path, &key))?;
+        let accepted =
+            entry
+                .session
+                .push(client, version, changes, &self.io(core, &entry_path, &key))?;
         if accepted {
             self.schedule(&key, self.save_delay(core));
             announce_change(core, &entry_path, entry.session.version());
@@ -159,25 +193,43 @@ impl DocumentHub {
         let entry = sessions.get(&identity(path)).ok_or(HubError::NotOpen)?;
         Ok(match entry.session.pull(version) {
             Pull::Changes(changes) => PullResult::Changes { changes },
-            Pull::Resync => PullResult::Resync { text: entry.session.text(), version: entry.session.version() },
+            Pull::Resync => PullResult::Resync {
+                text: entry.session.text(),
+                version: entry.session.version(),
+            },
         })
     }
 
     pub fn encode_positions(&self, path: &Path, indices: &[usize]) -> Option<Vec<Option<Vec<u8>>>> {
         let sessions = self.sessions.lock().expect("document sessions");
         let entry = sessions.get(&identity(path))?;
-        Some(indices.iter().map(|index| entry.session.encode_position(*index)).collect())
+        Some(
+            indices
+                .iter()
+                .map(|index| entry.session.encode_position(*index))
+                .collect(),
+        )
     }
 
-    pub fn resolve_positions(&self, path: &Path, positions: &[Vec<u8>]) -> Result<Vec<Option<usize>>, HubError> {
+    pub fn resolve_positions(
+        &self,
+        path: &Path,
+        positions: &[Vec<u8>],
+    ) -> Result<Vec<Option<usize>>, HubError> {
         let sessions = self.sessions.lock().expect("document sessions");
         let entry = sessions.get(&identity(path)).ok_or(HubError::NotOpen)?;
-        Ok(positions.iter().map(|encoded| entry.session.resolve_position(encoded)).collect())
+        Ok(positions
+            .iter()
+            .map(|encoded| entry.session.resolve_position(encoded))
+            .collect())
     }
 
     pub fn read(&self, core: &Core, path: &Path) -> Result<OpenedDocument, HubError> {
         self.with_document(core, path, |_, entry| {
-            Ok(OpenedDocument { text: entry.session.text(), version: entry.session.version() })
+            Ok(OpenedDocument {
+                text: entry.session.text(),
+                version: entry.session.version(),
+            })
         })
     }
 
@@ -196,7 +248,9 @@ impl DocumentHub {
             }
             let entry_path = entry.path.clone();
             let before = entry.session.version();
-            entry.session.replace_text(text, client, &self.io(core, &entry_path, key));
+            entry
+                .session
+                .replace_text(text, client, &self.io(core, &entry_path, key));
             if entry.session.version() != before {
                 announce_change(core, &entry_path, entry.session.version());
             }
@@ -215,8 +269,12 @@ impl DocumentHub {
     ) -> Result<bool, HubError> {
         self.with_document(core, path, |key, entry| {
             let entry_path = entry.path.clone();
-            let changed =
-                entry.session.revert(version_text, previous_text, SYSTEM_CLIENT, &self.io(core, &entry_path, key));
+            let changed = entry.session.revert(
+                version_text,
+                previous_text,
+                SYSTEM_CLIENT,
+                &self.io(core, &entry_path, key),
+            );
             if changed {
                 announce_change(core, &entry_path, entry.session.version());
                 self.write_entry_as(core, key, entry, source);
@@ -251,14 +309,21 @@ impl DocumentHub {
 
     pub fn import_legacy(&self, replicas: &[LegacyReplica]) -> usize {
         let store = self.store.lock().expect("document store");
-        let Some(store) = store.as_ref() else { return 0 };
-        replicas.iter().filter(|replica| import_one(store, replica)).count()
+        let Some(store) = store.as_ref() else {
+            return 0;
+        };
+        replicas
+            .iter()
+            .filter(|replica| import_one(store, replica))
+            .count()
     }
 
     pub fn release(&self, core: &Core, path: &Path) {
         let key = identity(path);
         let mut sessions = self.sessions.lock().expect("document sessions");
-        let Some(entry) = sessions.get_mut(&key) else { return };
+        let Some(entry) = sessions.get_mut(&key) else {
+            return;
+        };
         entry.holders = entry.holders.saturating_sub(1);
         if entry.holders > 0 {
             return;
@@ -304,15 +369,20 @@ impl DocumentHub {
                 entry.moving = false;
                 sessions.insert(to_key.clone(), entry);
             }
-            if let Some(Err(error)) = store.as_mut().map(|store| store.relocate(&from_key, &to_key)) {
-                eprintln!("[aquilum:documents] локальная копия не перенесена: {error}");
+            if let Some(Err(error)) = store
+                .as_mut()
+                .map(|store| store.relocate(&from_key, &to_key))
+            {
+                eprintln!("[obsidium:documents] локальная копия не перенесена: {error}");
             }
         }
         for path in removed {
             let key = identity(Path::new(path));
             sessions.remove(&key);
             if let Some(Err(error)) = store.as_mut().map(|store| store.forget(&key)) {
-                eprintln!("[aquilum:documents] локальная копия удалённой заметки не стёрта: {error}");
+                eprintln!(
+                    "[obsidium:documents] локальная копия удалённой заметки не стёрта: {error}"
+                );
             }
         }
     }
@@ -321,7 +391,10 @@ impl DocumentHub {
         let folder_key = identity(from);
         {
             let mut sessions = self.sessions.lock().expect("document sessions");
-            for (key, entry) in sessions.iter_mut().filter(|(key, _)| inside(key, &folder_key)) {
+            for (key, entry) in sessions
+                .iter_mut()
+                .filter(|(key, _)| inside(key, &folder_key))
+            {
                 self.write_entry(core, key, entry);
                 entry.moving = true;
             }
@@ -345,7 +418,10 @@ impl DocumentHub {
     }
 
     fn is_open(&self, path: &Path) -> bool {
-        self.sessions.lock().expect("document sessions").contains_key(&identity(path))
+        self.sessions
+            .lock()
+            .expect("document sessions")
+            .contains_key(&identity(path))
     }
 
     fn reconcile_entry(&self, core: &Core, key: &str, path: &Path, entry: &mut Entry) {
@@ -353,7 +429,7 @@ impl DocumentHub {
         match entry.session.reconcile(&self.io(core, path, key)) {
             Ok(()) => {}
             Err(SessionError::Missing) => announce_missing(core, path),
-            Err(error) => eprintln!("[aquilum:documents] сверка с диском не удалась: {error}"),
+            Err(error) => eprintln!("[obsidium:documents] сверка с диском не удалась: {error}"),
         }
         if entry.session.version() != before {
             announce_change(core, path, entry.session.version());
@@ -379,9 +455,18 @@ impl DocumentHub {
         }
         let path_text = path.to_string_lossy().into_owned();
         core.emit(match result {
-            Ok(()) => CoreEvent::DocumentSaved(DocumentEvent { path: path_text, version: entry.session.version() }),
-            Err(SessionError::Missing) => CoreEvent::DocumentMissing(DocumentEvent { path: path_text, version: 0 }),
-            Err(error) => CoreEvent::DocumentSaveFailed(SaveFailed { path: path_text, reason: error.to_string() }),
+            Ok(()) => CoreEvent::DocumentSaved(DocumentEvent {
+                path: path_text,
+                version: entry.session.version(),
+            }),
+            Err(SessionError::Missing) => CoreEvent::DocumentMissing(DocumentEvent {
+                path: path_text,
+                version: 0,
+            }),
+            Err(error) => CoreEvent::DocumentSaveFailed(SaveFailed {
+                path: path_text,
+                reason: error.to_string(),
+            }),
         });
     }
 
@@ -390,7 +475,7 @@ impl DocumentHub {
         match store.as_ref().map(|store| store.load(key)) {
             Some(Ok(blobs)) => blobs,
             Some(Err(error)) => {
-                eprintln!("[aquilum:documents] локальная копия не прочиталась, документ открыт с диска: {error}");
+                eprintln!("[obsidium:documents] локальная копия не прочиталась, документ открыт с диска: {error}");
                 Vec::new()
             }
             None => Vec::new(),
@@ -399,8 +484,11 @@ impl DocumentHub {
 
     fn compact(&self, key: &str, session: &DocumentSession) {
         let mut store = self.store.lock().expect("document store");
-        if let Some(Err(error)) = store.as_mut().map(|store| store.compact(key, &session.state())) {
-            eprintln!("[aquilum:documents] локальная копия не сжата: {error}");
+        if let Some(Err(error)) = store
+            .as_mut()
+            .map(|store| store.compact(key, &session.state()))
+        {
+            eprintln!("[obsidium:documents] локальная копия не сжата: {error}");
         }
     }
 
@@ -438,25 +526,43 @@ fn import_one(store: &DocumentStore, replica: &LegacyReplica) -> bool {
     if replica.updates.is_empty() || !path.is_file() || store.has_replica(&key).unwrap_or(true) {
         return false;
     }
-    let appended = replica.updates.iter().try_for_each(|update| store.append(&key, update));
+    let appended = replica
+        .updates
+        .iter()
+        .try_for_each(|update| store.append(&key, update));
     let remembered = replica.point.as_ref().map_or(Ok(()), |point| {
-        store.remember_sync_point(&key, &SyncPoint { file_hash: point.file_hash.clone(), text_hash: point.text_hash.clone() })
+        store.remember_sync_point(
+            &key,
+            &SyncPoint {
+                file_hash: point.file_hash.clone(),
+                text_hash: point.text_hash.clone(),
+            },
+        )
     });
     match appended.and(remembered) {
         Ok(()) => true,
         Err(error) => {
-            eprintln!("[aquilum:documents] старая локальная копия {} не перенесена: {error}", replica.path);
+            eprintln!(
+                "[obsidium:documents] старая локальная копия {} не перенесена: {error}",
+                replica.path
+            );
             false
         }
     }
 }
 
 fn announce_change(core: &Core, path: &Path, version: u64) {
-    core.emit(CoreEvent::DocumentChanged(DocumentEvent { path: path.to_string_lossy().into_owned(), version }));
+    core.emit(CoreEvent::DocumentChanged(DocumentEvent {
+        path: path.to_string_lossy().into_owned(),
+        version,
+    }));
 }
 
 fn announce_missing(core: &Core, path: &Path) {
-    core.emit(CoreEvent::DocumentMissing(DocumentEvent { path: path.to_string_lossy().into_owned(), version: 0 }));
+    core.emit(CoreEvent::DocumentMissing(DocumentEvent {
+        path: path.to_string_lossy().into_owned(),
+        version: 0,
+    }));
 }
 
 fn run_writes(core: Weak<Core>, receiver: Receiver<(String, Instant)>) {
@@ -475,7 +581,11 @@ fn run_writes(core: Weak<Core>, receiver: Receiver<(String, Instant)>) {
             Err(RecvTimeoutError::Disconnected) => return,
         }
         let now = Instant::now();
-        let due: Vec<String> = pending.iter().filter(|(_, at)| **at <= now).map(|(key, _)| key.clone()).collect();
+        let due: Vec<String> = pending
+            .iter()
+            .filter(|(_, at)| **at <= now)
+            .map(|(key, _)| key.clone())
+            .collect();
         if due.is_empty() {
             continue;
         }

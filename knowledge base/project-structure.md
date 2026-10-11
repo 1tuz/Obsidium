@@ -27,6 +27,7 @@ D:\My programs\Obsidium\
 
 Правила изоляции сборок: [[build-artifacts-separation]].
 Релиз и автообновление: [[release-and-updates]].
+Открытие и сохранение стандартных файлов: [[standard-files]].
 
 ## Установленные зависимости
 

@@ -1,11 +1,13 @@
 use super::super::vault::Vault;
 use super::workspace::requested_vault;
 use super::{limit, offset, require_write, text, tool, workspace_property};
+use crate::app_core::Core;
 use crate::files::gate;
-use crate::files::trash::{empty_trash_impl, list_trash_impl, trash_page_impl, trash_path, TRASH_FOLDER};
+use crate::files::trash::{
+    empty_trash_impl, list_trash_impl, trash_page_impl, trash_path, TRASH_FOLDER,
+};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use crate::app_core::Core;
 
 const LIST_LIMIT: usize = 500;
 
@@ -118,17 +120,29 @@ mod tests {
     fn a_note_is_found_in_the_trash_by_its_former_path_or_by_its_trash_address() {
         let directory = tempfile::tempdir().unwrap();
         let root = crate::search::paths::canonical_path(directory.path());
-        let vault = Vault { root: root.clone(), visible: false };
+        let vault = Vault {
+            root: root.clone(),
+            visible: false,
+        };
         let note = root.join("Проекты").join("Идея.md");
         fs::create_dir_all(note.parent().unwrap()).unwrap();
         fs::write(&note, "первая").unwrap();
         let older = move_to_trash_impl(&root, &note).unwrap().root;
         let day_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(24 * 60 * 60);
-        fs::File::options().write(true).open(&older).unwrap().set_modified(day_ago).unwrap();
+        fs::File::options()
+            .write(true)
+            .open(&older)
+            .unwrap()
+            .set_modified(day_ago)
+            .unwrap();
         fs::write(&note, "вторая").unwrap();
         let newest = move_to_trash_impl(&root, &note).unwrap().root;
 
-        assert_eq!(trashed_note(&vault, "Проекты/Идея").unwrap(), newest, "свежая копия");
+        assert_eq!(
+            trashed_note(&vault, "Проекты/Идея").unwrap(),
+            newest,
+            "свежая копия"
+        );
         assert_eq!(trashed_note(&vault, "проекты\\идея.md").unwrap(), newest);
         assert_eq!(
             trashed_note(&vault, ".trash/Проекты/Идея.md").unwrap(),

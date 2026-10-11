@@ -110,9 +110,14 @@ export function EditorPane({
 
   const exportPdf = useCallback(() => {
     void readDocument(tab.path)
-      .then(({ text }) => exportNoteToPdf({ title: fileStem(tab.path), markdown: text, workspacePath }))
+      .then(({ text }) => exportNoteToPdf({
+        title: fileStem(tab.path),
+        markdown: text,
+        workspacePath,
+        markdownReading: config?.editor.markdownReading,
+      }))
       .catch((error) => console.error('Failed to export the note to PDF', error));
-  }, [tab.path, workspacePath]);
+  }, [config?.editor.markdownReading, tab.path, workspacePath]);
 
   const documentId = tab.documentId;
   const viewStateReady = stateError !== null || (documentId ? isViewLoaded(documentId, paneId) : false);

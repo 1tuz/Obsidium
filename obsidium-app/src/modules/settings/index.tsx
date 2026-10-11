@@ -38,6 +38,7 @@ interface EditorSettings extends FontSettings {
   saveDebounceMs: number;
   lineHeight: number;
   maxWidthCh: number;
+  markdownReading: MarkdownReadingSettings;
   smartDashes: boolean;
   listCallouts: boolean;
   autoLinkTitle: boolean;
@@ -45,6 +46,28 @@ interface EditorSettings extends FontSettings {
   linkSuggestMinChars: number;
   liveTabs: number;
 }
+
+export type MarkdownReadingStyle = 'theme' | 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
+export type MarkdownReadingTexture = 'off' | 'subtle' | 'visible';
+export type MarkdownReadingFont = 'standard' | 'book';
+
+export interface MarkdownReadingSettings {
+  style: MarkdownReadingStyle;
+  texture: MarkdownReadingTexture;
+  font: MarkdownReadingFont;
+  fontSizePx: number;
+  lineHeight: number;
+  pageWidthCh: number;
+}
+
+export const DEFAULT_MARKDOWN_READING_SETTINGS: MarkdownReadingSettings = {
+  style: 'theme',
+  texture: 'off',
+  font: 'standard',
+  fontSizePx: 18,
+  lineHeight: 1.7,
+  pageWidthCh: 65,
+};
 
 export const DEFAULT_EDITOR_MAX_WIDTH_CH = 65;
 export const DEFAULT_LIVE_TABS = 3;
@@ -80,7 +103,7 @@ interface UiSettings extends FontSettings {
   appearance: 'system' | 'light' | 'dark';
   palette: string;
   accentMode: 'palette' | 'custom';
-  motion: 'on' | 'off';
+  motion: 'system' | 'on' | 'off';
   enabledSnippets: Record<string, string[]>;
   language: string;
   primaryColor: string;
@@ -175,16 +198,15 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
   root.style.setProperty('--q-editor-font-size', pxToRem(font.fontSizeBase));
 }
 
-function normalizeMotion(value: unknown): UiSettings['motion'] {
-  return value === 'on' ? 'on' : 'off';
-}
-
-function withKnownFonts(config: AppConfig): AppConfig {
+export function normalizeConfig(config: AppConfig): AppConfig {
   return {
     ...config,
     builtins: { ...DEFAULT_BUILTINS, ...config.builtins },
-    ui: { ...knownFont('ui', config.ui), motion: normalizeMotion(config.ui.motion) },
-    editor: knownFont('editor', config.editor),
+    ui: knownFont('ui', config.ui),
+    editor: {
+      ...knownFont('editor', config.editor),
+      markdownReading: { ...DEFAULT_MARKDOWN_READING_SETTINGS, ...config.editor.markdownReading },
+    },
     reader: { ...knownFont('reader', config.reader), paperTheme: normalizeReadingTheme(config.reader.paperTheme) },
   };
 }
@@ -200,7 +222,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     const pending = invoke<AppConfig>('get_settings')
       .then((loadedConfig) => {
-        const newConfig = withKnownFonts(loadedConfig);
+        const newConfig = normalizeConfig(loadedConfig);
         applySettingsToDom(newConfig);
         setConfig(newConfig);
         return newConfig;
@@ -251,7 +273,6 @@ function applySettingsToDom(config: AppConfig) {
   const root = document.documentElement;
   setLanguage(config.ui.language);
   setFilesFolder(config.files.folder);
-  root.dataset.readingTheme = normalizeReadingTheme(config.reader.paperTheme);
   setTheme(
     config.ui.appearance,
     config.ui.palette,

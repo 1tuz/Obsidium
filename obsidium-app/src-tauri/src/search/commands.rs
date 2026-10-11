@@ -1,13 +1,12 @@
-use crate::app_core::Core;
-use std::sync::Arc;
 use super::dataview::QueryOutput;
 use super::error::SearchError;
-use crate::blocking::run_blocking;
 use super::fields::NoteFields;
 use super::models::{
-    Backlink, NoteSuggestion, OutgoingLink, SearchIndexStatus, SearchResponse,
-    WikiLinkResolution,
+    Backlink, NoteSuggestion, OutgoingLink, SearchIndexStatus, SearchResponse, WikiLinkResolution,
 };
+use crate::app_core::Core;
+use crate::blocking::run_blocking;
+use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
@@ -20,7 +19,7 @@ pub async fn prepare_search_index(
         if let Ok(root) = super::paths::canonical_workspace(&workspace_path) {
             if let Err(error) = core.watcher.watch(&root) {
                 eprintln!(
-                    "[aquilum:watch] наблюдение за базой не запущено: {error}. \
+                    "[obsidium:watch] наблюдение за базой не запущено: {error}. \
                      Внешние правки будут подтягиваться при возврате фокуса в окно."
                 );
             }

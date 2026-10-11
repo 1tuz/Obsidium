@@ -88,6 +88,11 @@ pub fn set(text: &str, updates: &[(String, String)]) -> Result<String, String> {
         return Ok(format!("---\n{created}\n---\n{text}"));
     };
 
+    let line_ending = if text[found.yaml_start..found.yaml_end].contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
     let mut lines = text[found.yaml_start..found.yaml_end]
         .lines()
         .map(str::to_owned)
@@ -104,9 +109,9 @@ pub fn set(text: &str, updates: &[(String, String)]) -> Result<String, String> {
         }
     }
 
-    let mut yaml = lines.join("\n");
+    let mut yaml = lines.join(line_ending);
     if !yaml.is_empty() {
-        yaml.push('\n');
+        yaml.push_str(line_ending);
     }
     Ok(format!(
         "{}{yaml}{}",
@@ -120,8 +125,10 @@ fn entry(key: &str, value: &str) -> String {
 }
 
 fn declares(line: &str, key: &str) -> bool {
-    line.split_once(':')
-        .is_some_and(|(name, _)| same_key(name, key))
+    !line.starts_with([' ', '\t'])
+        && line
+            .split_once(':')
+            .is_some_and(|(name, _)| same_key(name, key))
 }
 
 fn same_key(left: &str, right: &str) -> bool {
@@ -208,7 +215,11 @@ mod tests {
     fn appends_an_unknown_field_after_the_existing_ones() {
         let updated = set(BOOK, &update("rating", "5")).unwrap();
         let found = keys(&updated);
-        assert_eq!(found.first().unwrap(), "created", "порядок прежних ключей сохранён");
+        assert_eq!(
+            found.first().unwrap(),
+            "created",
+            "порядок прежних ключей сохранён"
+        );
         assert_eq!(found.last().unwrap(), "rating");
     }
 
@@ -244,6 +255,30 @@ mod tests {
         let updated = set(note, &update("author", "О. Генри")).unwrap();
         assert!(updated.contains("source: https://example.com/page"));
         assert!(updated.contains("author: О. Генри"));
+    }
+
+    #[test]
+    fn setting_a_root_field_does_not_replace_a_nested_field_with_the_same_name() {
+        let note = "---\nplugin:\n  title: nested\n---\nbody";
+
+        let updated = set(note, &update("title", "root")).unwrap();
+
+        assert_eq!(
+            updated,
+            "---\nplugin:\n  title: nested\ntitle: root\n---\nbody"
+        );
+    }
+
+    #[test]
+    fn updating_a_field_preserves_crlf_frontmatter() {
+        let note = "---\r\ntitle: old\r\nplugin:\r\n  title: nested\r\n---\r\nbody";
+
+        let updated = set(note, &update("title", "new")).unwrap();
+
+        assert_eq!(
+            updated,
+            "---\r\ntitle: new\r\nplugin:\r\n  title: nested\r\n---\r\nbody"
+        );
     }
 
     const SAMPLE: &str = r#"---

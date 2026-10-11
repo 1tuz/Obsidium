@@ -46,7 +46,11 @@ fn regions(mut hunks: Vec<SidedHunk>) -> Vec<Vec<SidedHunk>> {
 }
 
 fn side(region: &[SidedHunk], external: bool) -> Vec<LineHunk> {
-    region.iter().filter(|sided| sided.external == external).map(|sided| sided.hunk.clone()).collect()
+    region
+        .iter()
+        .filter(|sided| sided.external == external)
+        .map(|sided| sided.hunk.clone())
+        .collect()
 }
 
 pub fn merge_external_change(base: &str, disk: &str, current: &str) -> MergeResult {
@@ -64,8 +68,14 @@ pub fn merge_external_change(base: &str, disk: &str, current: &str) -> MergeResu
     let sided = disk_diff
         .hunks
         .iter()
-        .map(|hunk| SidedHunk { hunk: hunk.clone(), external: true })
-        .chain(local_diff.hunks.iter().map(|hunk| SidedHunk { hunk: hunk.clone(), external: false }))
+        .map(|hunk| SidedHunk {
+            hunk: hunk.clone(),
+            external: true,
+        })
+        .chain(local_diff.hunks.iter().map(|hunk| SidedHunk {
+            hunk: hunk.clone(),
+            external: false,
+        }))
         .collect();
 
     let mut displaced = Vec::new();
@@ -75,19 +85,31 @@ pub fn merge_external_change(base: &str, disk: &str, current: &str) -> MergeResu
         if external.is_empty() {
             continue;
         }
-        let from = region.iter().map(|sided| sided.hunk.from).min().unwrap_or(0);
+        let from = region
+            .iter()
+            .map(|sided| sided.hunk.from)
+            .min()
+            .unwrap_or(0);
         let to = region.iter().map(|sided| sided.hunk.to).max().unwrap_or(0);
         let local = side(&region, false);
         if !local.is_empty() {
             displaced.extend(apply_hunks(&base_lines, &local, from, to));
         }
-        resolved.push(LineHunk { from, to, lines: apply_hunks(&base_lines, &external, from, to) });
+        resolved.push(LineHunk {
+            from,
+            to,
+            lines: apply_hunks(&base_lines, &external, from, to),
+        });
     }
 
     let untouched_local = local_diff
         .hunks
         .iter()
-        .filter(|hunk| !resolved.iter().any(|region| overlaps(region, hunk) || contains(region, hunk)))
+        .filter(|hunk| {
+            !resolved
+                .iter()
+                .any(|region| overlaps(region, hunk) || contains(region, hunk))
+        })
         .cloned();
     let mut kept: Vec<LineHunk> = resolved.iter().cloned().chain(untouched_local).collect();
     kept.sort_by(by_position);
@@ -96,7 +118,10 @@ pub fn merge_external_change(base: &str, disk: &str, current: &str) -> MergeResu
 
     MergeResult {
         edits: to_char_edits(&current_lines, &line_diff(&current_lines, &merged).hunks),
-        displaced: displaced.into_iter().filter(|line| !line.trim().is_empty()).collect(),
+        displaced: displaced
+            .into_iter()
+            .filter(|line| !line.trim().is_empty())
+            .collect(),
         coarse: disk_diff.coarse || local_diff.coarse,
     }
 }

@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import type { MarkdownReadingSettings } from '../../modules/settings';
 import { useMemo, type RefObject } from 'react';
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, type ViewUpdate } from '@codemirror/view';
@@ -36,6 +37,7 @@ interface EditorContentProps {
     hasFrontmatter?: boolean;
     metadataExpanded?: boolean;
     onToggleMetadata?: () => void;
+    markdownReading: MarkdownReadingSettings;
 }
 
 export function EditorContent({
@@ -53,6 +55,7 @@ export function EditorContent({
     hasFrontmatter = false,
     metadataExpanded = false,
     onToggleMetadata,
+    markdownReading,
 }: EditorContentProps) {
     const titleExtensions = useMemo(() => [wikiHoverHighlightTitle], []);
     const bodyExtensions = useMemo<Extension[]>(() => [
@@ -62,9 +65,20 @@ export function EditorContent({
     ], [extensions, readOnly]);
     const bodyMenu = useEditorBodyMenu(bodyRef, autoLinkTitle);
 
+    const paperStyle = markdownReading.style === 'theme' ? undefined : markdownReading.style;
+    const readingStyle = paperStyle ? {
+        '--q-editor-font-size': `${markdownReading.fontSizePx}px`,
+        '--q-editor-line-height': String(markdownReading.lineHeight),
+        '--q-editor-max-width': `${markdownReading.pageWidthCh}ch`,
+    } : undefined;
+
     return (
         <div
             className={`q-editor-content${readOnly ? ' q-editor-content--reading' : ''}`}
+            data-reading-style={paperStyle}
+            data-reading-texture={paperStyle ? markdownReading.texture : undefined}
+            data-reading-font={paperStyle ? markdownReading.font : undefined}
+            style={readingStyle}
             onContextMenu={readOnly ? undefined : bodyMenu.onContextMenu}
         >
             <CodeMirrorField

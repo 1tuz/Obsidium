@@ -37,7 +37,7 @@ impl SettingsManager {
                                 }
                                 .to_string();
                             if let Err(error) = write_config(path, &config) {
-                                eprintln!("[aquilum:settings] не удалось сохранить миграцию accent: {error}");
+                                eprintln!("[obsidium:settings] не удалось сохранить миграцию accent: {error}");
                             }
                         }
                         return config;
@@ -47,13 +47,13 @@ impl SettingsManager {
             }
             Err(error) if error.kind() == ErrorKind::NotFound => {}
             Err(error) => eprintln!(
-                "[aquilum:settings] не удалось прочитать {}: {error}",
+                "[obsidium:settings] не удалось прочитать {}: {error}",
                 path.display()
             ),
         }
         let default_config = AppConfig::default();
         if let Err(error) = write_config(path, &default_config) {
-            eprintln!("[aquilum:settings] не удалось записать настройки по умолчанию: {error}");
+            eprintln!("[obsidium:settings] не удалось записать настройки по умолчанию: {error}");
         }
         default_config
     }
@@ -83,12 +83,12 @@ fn write_config(path: &Path, config: &AppConfig) -> Result<(), String> {
 fn set_aside_unreadable(path: &Path, error: &serde_json::Error) {
     let backup = path.with_extension("json.unreadable");
     eprintln!(
-        "[aquilum:settings] {} не разобран ({error}), копия сохранена в {}",
+        "[obsidium:settings] {} не разобран ({error}), копия сохранена в {}",
         path.display(),
         backup.display()
     );
     if let Err(copy_error) = fs::copy(path, &backup) {
-        eprintln!("[aquilum:settings] не удалось сохранить копию: {copy_error}");
+        eprintln!("[obsidium:settings] не удалось сохранить копию: {copy_error}");
     }
 }
 
@@ -114,6 +114,35 @@ mod tests {
         assert!(config.analysis.enable_bm25f);
         assert!(config.builtins.editing_toolbar);
         assert!(config.builtins.kanban);
+        assert_eq!(config.editor.markdown_reading.style, "theme");
+        assert_eq!(config.editor.markdown_reading.texture, "off");
+        assert_eq!(config.editor.markdown_reading.font, "standard");
+        assert_eq!(config.editor.markdown_reading.font_size_px, 18);
+        assert_eq!(config.editor.markdown_reading.line_height, 1.7);
+        assert_eq!(config.editor.markdown_reading.page_width_ch, 65);
+    }
+
+    #[test]
+    fn markdown_reading_settings_survive_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        config.editor.markdown_reading.style = "parchment".to_string();
+        config.editor.markdown_reading.texture = "subtle".to_string();
+        config.editor.markdown_reading.font = "book".to_string();
+        config.editor.markdown_reading.font_size_px = 21;
+        config.editor.markdown_reading.line_height = 1.85;
+        config.editor.markdown_reading.page_width_ch = 72;
+
+        manager.update_config(config).unwrap();
+
+        let stored = SettingsManager::new(dir.path()).get_config();
+        assert_eq!(stored.editor.markdown_reading.style, "parchment");
+        assert_eq!(stored.editor.markdown_reading.texture, "subtle");
+        assert_eq!(stored.editor.markdown_reading.font, "book");
+        assert_eq!(stored.editor.markdown_reading.font_size_px, 21);
+        assert_eq!(stored.editor.markdown_reading.line_height, 1.85);
+        assert_eq!(stored.editor.markdown_reading.page_width_ch, 72);
     }
 
     #[test]
@@ -134,6 +163,29 @@ mod tests {
         assert!(stored.builtins.iconize);
         assert_eq!(stored.builtins.highlight_colors.len(), 6);
         assert_eq!(stored.builtins.toolbar_position, "selection");
+    }
+
+    #[test]
+    fn graph_preferences_and_presets_survive_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        config.graph.preferences = Some(serde_json::json!({ "nodeSize": 1.7 }));
+        config.graph.presets = Some(serde_json::json!({
+            "Research": { "nodeSize": 1.7 }
+        }));
+
+        manager.update_config(config).unwrap();
+
+        let stored = SettingsManager::new(dir.path()).get_config();
+        assert_eq!(
+            stored.graph.preferences,
+            Some(serde_json::json!({ "nodeSize": 1.7 }))
+        );
+        assert_eq!(
+            stored.graph.presets,
+            Some(serde_json::json!({ "Research": { "nodeSize": 1.7 } }))
+        );
     }
 
     #[test]
@@ -168,7 +220,7 @@ mod tests {
         manager.update_config(config).unwrap();
         let stored = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
         assert!(stored.contains("\"appearance\": \"dark\""));
-        assert!(!stored.contains("\"theme\""));
+        assert!(!stored.contains("\"theme\":"));
     }
 
     #[test]
@@ -230,30 +282,5 @@ mod tests {
         let config = SettingsManager::new(dir.path()).get_config();
 
         assert_eq!(config.ui.enabled_snippets["__legacy__"], ["foo.css"]);
-    }
-
-    #[test]
-    fn graph_preferences_and_presets_survive_restart() {
-        let dir = tempfile::tempdir().unwrap();
-        let manager = SettingsManager::new(dir.path());
-        let mut config = manager.get_config();
-        config.graph.preferences = Some(serde_json::json!({ "nodeSize": 1.7 }));
-        config.graph.presets = Some(serde_json::json!({
-            "Research": { "nodeSize": 1.7 }
-        }));
-
-        manager.update_config(config).unwrap();
-
-        let stored = SettingsManager::new(dir.path()).get_config();
-        assert_eq!(
-            stored.graph.preferences,
-            Some(serde_json::json!({ "nodeSize": 1.7 }))
-        );
-        assert_eq!(
-            stored.graph.presets,
-            Some(serde_json::json!({
-                "Research": { "nodeSize": 1.7 }
-            }))
-        );
     }
 }

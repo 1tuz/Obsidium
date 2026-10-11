@@ -1,4 +1,4 @@
-# Workflow разработки Aquilum
+# Workflow разработки Obsidium
 
 ## Два режима разработки
 

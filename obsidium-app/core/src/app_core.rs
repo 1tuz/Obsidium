@@ -104,7 +104,11 @@ impl Core {
             Core {
                 settings: SettingsManager::new(app_data_dir),
                 ui_state: UiStateService::open(&app_data_dir.join("ui-state.sqlite3")),
-                search: SearchService::new(app_data_dir.join("search-v2"), notifier, index_notifier),
+                search: SearchService::new(
+                    app_data_dir.join("search-v2"),
+                    notifier,
+                    index_notifier,
+                ),
                 history: HistoryService::new(app_data_dir),
                 documents: DocumentHub::new(&app_data_dir.join("documents.sqlite3")),
                 wikixiv: WikixivService::new(),
@@ -144,12 +148,16 @@ impl Core {
             self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths)));
         }
         self.documents.reconcile_paths(self, &batch.paths);
-        self.search.ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
+        self.search
+            .ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
     }
 }
 
 fn path_names(paths: &[PathBuf]) -> Vec<String> {
-    paths.iter().map(|path| path.to_string_lossy().into_owned()).collect()
+    paths
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
 }
 
 #[cfg(test)]

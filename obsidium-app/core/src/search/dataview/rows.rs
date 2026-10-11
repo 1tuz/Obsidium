@@ -1,8 +1,8 @@
 use crate::search::error::SearchError;
 use crate::search::fields::{read_fields, Field};
+use crate::search::paths::{relative_slash_path, strip_markdown_extension};
 use crate::search::tasks::{read_tasks, Task};
 use rusqlite::Connection;
-use crate::search::paths::{relative_slash_path, strip_markdown_extension};
 use std::path::Path;
 
 pub struct Row {
@@ -73,7 +73,11 @@ pub fn load(
     Ok(rows)
 }
 
-pub fn attach_tasks(connection: &Connection, rows: &mut [Row], paths: &[String]) -> Result<(), SearchError> {
+pub fn attach_tasks(
+    connection: &Connection,
+    rows: &mut [Row],
+    paths: &[String],
+) -> Result<(), SearchError> {
     if paths.is_empty() || rows.is_empty() {
         return Ok(());
     }

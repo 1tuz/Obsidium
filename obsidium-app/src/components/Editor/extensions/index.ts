@@ -12,9 +12,9 @@ import { dataviewTheme } from './dataview';
 import { blockquoteTheme } from './blockquotePreview';
 import { readerQuoteTheme } from './readerQuote';
 import { imageEmbedExtension } from './image';
-import { aquilumEditorTheme, markdownStyles } from './theme';
+import { obsidiumEditorTheme, markdownStyles } from './theme';
 import { formattingKeymap } from './formatting';
-import { aquilumCodeMirrorTheme } from '../../Common/codeMirror';
+import { obsidiumCodeMirrorTheme } from '../../Common/codeMirror';
 import { editorLinkExtension } from './links';
 import { blockWidthExtension } from './blockWidth';
 import { editorMarkdownSupport } from './markdownConfig';
@@ -85,8 +85,8 @@ export function useEditorExtensions(
             externalRevealExtension,
             wikiHoverHighlight,
             smartDashExtension(smartDashes),
-            aquilumCodeMirrorTheme,
-            aquilumEditorTheme,
+            obsidiumCodeMirrorTheme,
+            obsidiumEditorTheme,
             pageSearchExtension,
             EditorView.lineWrapping,
             placeholder("Начните писать текст..."),

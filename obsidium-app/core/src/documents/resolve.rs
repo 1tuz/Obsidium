@@ -37,14 +37,20 @@ pub fn resolve_sync(
         return SyncVerdict::InSync;
     }
     if let Some(base) = inputs.session_base {
-        return SyncVerdict::Merge { base: base.to_owned() };
+        return SyncVerdict::Merge {
+            base: base.to_owned(),
+        };
     }
     if inputs.doc_text.is_empty() {
         return SyncVerdict::TakeFile;
     }
     let (lookup, doc_hash) = evidence();
     let point = match lookup {
-        SyncPointLookup::Absent => return SyncVerdict::Merge { base: inputs.doc_text.to_owned() },
+        SyncPointLookup::Absent => {
+            return SyncVerdict::Merge {
+                base: inputs.doc_text.to_owned(),
+            }
+        }
         SyncPointLookup::Unavailable => return SyncVerdict::Conflict(ConflictCause::NoSyncPoint),
         SyncPointLookup::Found(point) => point,
     };
@@ -52,7 +58,9 @@ pub fn resolve_sync(
     let document_untouched = doc_hash == point.text_hash;
     match (file_untouched, document_untouched) {
         (true, false) => SyncVerdict::PublishDocument,
-        (false, true) => SyncVerdict::Merge { base: inputs.doc_text.to_owned() },
+        (false, true) => SyncVerdict::Merge {
+            base: inputs.doc_text.to_owned(),
+        },
         _ => SyncVerdict::Conflict(ConflictCause::Diverged),
     }
 }

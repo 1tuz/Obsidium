@@ -1,4 +1,4 @@
-# Индексация и переключение хранилищ Aquilum
+# Индексация и переключение хранилищ Obsidium
 
 Продолжение: [[search-indexing-workspaces-part-2]]
 

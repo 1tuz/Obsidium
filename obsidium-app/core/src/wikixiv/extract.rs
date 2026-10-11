@@ -1,6 +1,6 @@
+use super::stopwords::is_stop_term;
 use crate::search::analyzer::stem_surface_labels;
 use crate::search::schema;
-use super::stopwords::is_stop_term;
 use std::path::Path;
 
 const MIN_SIGNIFICANT_WORDS: usize = 15;
@@ -34,12 +34,7 @@ pub fn extract_queries(text: &str, document_path: Option<&str>) -> ExtractedQuer
         })
         .filter(|(label, _)| is_usable_body_term(label))
         .collect();
-    ranked.sort_by(|left, right| {
-        right
-            .1
-            .cmp(&left.1)
-            .then_with(|| left.0.cmp(&right.0))
-    });
+    ranked.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
 
     let mut body_terms = Vec::new();
     for (label, _) in ranked {
@@ -52,14 +47,16 @@ pub fn extract_queries(text: &str, document_path: Option<&str>) -> ExtractedQuer
         {
             continue;
         }
-        if title.as_deref().is_some_and(|title| {
-            title.to_lowercase().contains(&label.to_lowercase())
-        }) {
+        if title
+            .as_deref()
+            .is_some_and(|title| title.to_lowercase().contains(&label.to_lowercase()))
+        {
             continue;
         }
-        if body_terms.iter().any(|existing: &String| {
-            existing.eq_ignore_ascii_case(&label)
-        }) {
+        if body_terms
+            .iter()
+            .any(|existing: &String| existing.eq_ignore_ascii_case(&label))
+        {
             continue;
         }
         body_terms.push(label);
@@ -78,13 +75,23 @@ fn embedded_titles(text: &str, filename: Option<&str>) -> Vec<String> {
     let mut rest = text;
     while let Some(start) = rest.find("[[") {
         let after_start = &rest[start + 2..];
-        let Some(end) = after_start.find("]]" ) else { break };
+        let Some(end) = after_start.find("]]") else {
+            break;
+        };
         let raw = &after_start[..end];
-        let raw = raw.split('|').next().unwrap_or_default().split('#').next().unwrap_or_default();
+        let raw = raw
+            .split('|')
+            .next()
+            .unwrap_or_default()
+            .split('#')
+            .next()
+            .unwrap_or_default();
         let title = sanitize_query(raw);
         if is_usable_filename(&title)
             && !filename.is_some_and(|value| value.eq_ignore_ascii_case(&title))
-            && !titles.iter().any(|value: &String| value.eq_ignore_ascii_case(&title))
+            && !titles
+                .iter()
+                .any(|value: &String| value.eq_ignore_ascii_case(&title))
         {
             titles.push(title);
         }
@@ -242,14 +249,15 @@ mod tests {
 
     #[test]
     fn filename_plus_body_terms() {
-        let text = "*20030907*\nТип: #учебник\n\n- Single Expand — секция\n- Panel — контент\n".repeat(4);
+        let text =
+            "*20030907*\nТип: #учебник\n\n- Single Expand — секция\n- Panel — контент\n".repeat(4);
         let extracted = extract_queries(&text, Some(r"D:\notes\Accordion.md"));
         assert_eq!(extracted.title.as_deref(), Some("Accordion"));
         assert!(extracted.body_terms.len() <= MAX_BODY_TERMS);
-        assert!(!extracted
-            .body_terms
-            .iter()
-            .any(|q| matches!(q.to_lowercase().as_str(), "управляет" | "доступен" | "несколько")));
+        assert!(!extracted.body_terms.iter().any(|q| matches!(
+            q.to_lowercase().as_str(),
+            "управляет" | "доступен" | "несколько"
+        )));
     }
 
     #[test]
@@ -261,13 +269,19 @@ mod tests {
 
     #[test]
     fn title_from_path_strips_extension() {
-        assert_eq!(title_from_path(r"C:\vault\Accordion.md").as_deref(), Some("Accordion"));
+        assert_eq!(
+            title_from_path(r"C:\vault\Accordion.md").as_deref(),
+            Some("Accordion")
+        );
         assert_eq!(title_from_path("__empty_tab__1"), None);
     }
 
     #[test]
     fn filename_query_removes_formatting_and_noise() {
-        assert_eq!(sanitize_query("✨ **Макар Чудра**, #литература 1"), "Макар Чудра литература");
+        assert_eq!(
+            sanitize_query("✨ **Макар Чудра**, #литература 1"),
+            "Макар Чудра литература"
+        );
         assert_eq!(sanitize_query("1984 — роман"), "1984 роман");
         assert_eq!(sanitize_query("Accordion2"), "Accordion");
     }

@@ -64,7 +64,8 @@ pub fn plan_for_rename(
                     .find(['#', '?'])
                     .map_or("", |index| &link.target[index..]);
                 let replacement = if markdown {
-                    let mut relative = markdown_relative_target(root, source_path, new_path);
+                    let mut relative =
+                        encode_markdown_path(markdown_relative_target(root, source_path, new_path));
                     if link.target.to_lowercase().contains(".md")
                         && !relative.to_lowercase().ends_with(".md")
                     {
@@ -99,6 +100,18 @@ pub fn plan_for_rename(
         });
     }
     Ok(rewrites)
+}
+
+fn encode_markdown_path(path: String) -> String {
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'/') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
 }
 
 fn markdown_relative_target(root: &Path, source: &Path, target: &Path) -> String {
@@ -278,7 +291,7 @@ see [[New]]
             None,
         )
         .unwrap();
-        let expected = "---\ntitle: Source\nplugin: !expr [[keep-this]]\n---\n![[Проекты/Заметка#Раздел]]\n[[Проекты/Заметка|показать]]\n[относительная](../Проекты/Заметка.md#абзац)\n```plugin\n![[Каталог/旧]]\n```\n";
+        let expected = "---\ntitle: Source\nplugin: !expr [[keep-this]]\n---\n![[Проекты/Заметка#Раздел]]\n[[Проекты/Заметка|показать]]\n[относительная](../%D0%9F%D1%80%D0%BE%D0%B5%D0%BA%D1%82%D1%8B/%D0%97%D0%B0%D0%BC%D0%B5%D1%82%D0%BA%D0%B0.md#абзац)\n```plugin\n![[Каталог/旧]]\n```\n";
         assert_eq!(plan[0].content, expected);
     }
 
@@ -319,5 +332,35 @@ see [[New]]
             "---\r\ntitle: Source\r\nunknown: [keep, exact]\r\n---\r\n![[Новый#Раздел]]\r\n";
         assert_eq!(plan[0].content, expected);
         assert!(plan[0].original.contains("\r\n"));
+    }
+
+    #[test]
+    fn markdown_links_encode_spaces_and_unicode_in_renamed_paths() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let old_path = root.join("Old.md");
+        let new_path = root.join("新 note.md");
+        let source_path = root.join("Source.md");
+        let original = "[note](Old.md)";
+        fs::write(&old_path, "target").unwrap();
+        fs::write(&source_path, original).unwrap();
+        let mut connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let transaction = connection.transaction().unwrap();
+        index_document(&transaction, root, &old_path, "target").unwrap();
+        index_document(&transaction, root, &source_path, original).unwrap();
+        transaction.commit().unwrap();
+
+        let plan = plan_for_rename(
+            &connection,
+            root,
+            &old_path,
+            &new_path,
+            vec![source_path],
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(plan[0].content, "[note](%E6%96%B0%20note.md)");
     }
 }

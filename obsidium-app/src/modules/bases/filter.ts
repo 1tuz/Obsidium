@@ -119,6 +119,7 @@ export function evaluateBaseFilter(
 ): FilterResult {
   if (!filter) return { match: true, unsupported: false };
   if (typeof filter === 'string') return evaluateExpression(filter, row, workspacePath);
+  if (filter.unsupported) return { match: true, unsupported: true };
   if (filter.and) {
     const results = filter.and.map((item) => evaluateBaseFilter(item, row, workspacePath));
     return { match: results.every((item) => item.match), unsupported: results.some((item) => item.unsupported) };

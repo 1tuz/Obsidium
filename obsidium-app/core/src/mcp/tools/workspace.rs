@@ -1,15 +1,13 @@
 use super::super::bridge;
 use super::super::vault::Vault;
-use super::workspace_locator::{
-    address, known_paths, known_workspace, open_guest, wait_until,
-};
 pub use super::workspace_locator::workspace_vault;
+use super::workspace_locator::{address, known_paths, known_workspace, open_guest, wait_until};
 use super::{optional_text, text, tool, workspace_property};
+use crate::app_core::Core;
 use crate::search::paths::{canonical_path, same_path};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::time::Duration;
-use crate::app_core::Core;
 
 const SWITCH_TIMEOUT: Duration = Duration::from_secs(20);
 
@@ -49,11 +47,7 @@ pub fn definitions() -> Vec<Value> {
     ]
 }
 
-pub fn call(
-    core: &Core,
-    name: &str,
-    arguments: &Value,
-) -> Option<Result<Value, String>> {
+pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, String>> {
     Some(match name {
         "get_workspace" => get_workspace(core),
         "list_workspaces" => list_workspaces(core),

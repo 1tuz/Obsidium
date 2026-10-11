@@ -35,10 +35,7 @@ fn start(
 ) -> Outcome {
     let file = HSTRING::from(path);
     unsafe {
-        let core = webview
-            .controller()
-            .CoreWebView2()
-            .map_err(describe)?;
+        let core = webview.controller().CoreWebView2().map_err(describe)?;
         let environment = core
             .cast::<ICoreWebView2_2>()
             .map_err(describe)?

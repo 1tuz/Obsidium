@@ -28,7 +28,9 @@ fn parse_at(value: &str, offset: i64) -> Option<i64> {
 }
 
 fn civil_day(text: &str) -> Option<i64> {
-    let separator = text.chars().find(|symbol| *symbol == '-' || *symbol == '.')?;
+    let separator = text
+        .chars()
+        .find(|symbol| *symbol == '-' || *symbol == '.')?;
     let mut fields = text.split(separator);
     let first = fields.next()?;
     let second = number(fields.next()?)?;
@@ -139,7 +141,11 @@ pub fn format(nanos: i64) -> String {
 
 fn civil_from_days(day: i64) -> (i64, i64, i64) {
     let shifted = day + 719_468;
-    let era = if shifted >= 0 { shifted } else { shifted - 146_096 } / 146_097;
+    let era = if shifted >= 0 {
+        shifted
+    } else {
+        shifted - 146_096
+    } / 146_097;
     let day_of_era = shifted - era * 146_097;
     let year_of_era =
         (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
@@ -147,7 +153,11 @@ fn civil_from_days(day: i64) -> (i64, i64, i64) {
     let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
     let month_index = (5 * day_of_year + 2) / 153;
     let date = day_of_year - (153 * month_index + 2) / 5 + 1;
-    let month = if month_index < 10 { month_index + 3 } else { month_index - 9 };
+    let month = if month_index < 10 {
+        month_index + 3
+    } else {
+        month_index - 9
+    };
     (if month <= 2 { year + 1 } else { year }, month, date)
 }
 
@@ -204,8 +214,14 @@ mod tests {
     #[test]
     fn a_time_adds_seconds_to_the_day() {
         let day = parse("2024-10-07").expect("date");
-        assert_eq!(parse("2024-10-07 17:17"), Some(day + 17 * 3600 * 1_000_000_000 + 17 * 60 * 1_000_000_000));
-        assert_eq!(parse("2024-10-07T17:17:05"), Some(day + (17 * 3600 + 17 * 60 + 5) * 1_000_000_000));
+        assert_eq!(
+            parse("2024-10-07 17:17"),
+            Some(day + 17 * 3600 * 1_000_000_000 + 17 * 60 * 1_000_000_000)
+        );
+        assert_eq!(
+            parse("2024-10-07T17:17:05"),
+            Some(day + (17 * 3600 + 17 * 60 + 5) * 1_000_000_000)
+        );
     }
 
     #[test]
@@ -219,7 +235,10 @@ mod tests {
         for text in ["1970-01-01", "2024-10-07", "2024-02-29", "1900-03-01"] {
             assert_eq!(format(parse(text).expect(text)), text);
         }
-        assert_eq!(format(parse("2024-10-07 17:17").unwrap()), "2024-10-07 17:17");
+        assert_eq!(
+            format(parse("2024-10-07 17:17").unwrap()),
+            "2024-10-07 17:17"
+        );
     }
 
     #[test]
