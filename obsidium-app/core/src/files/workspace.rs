@@ -81,7 +81,12 @@ pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandErro
         let is_markdown = extension == "md";
         let is_base = extension == "base";
         let is_canvas = extension == "canvas";
-        if !is_markdown && !is_base && !is_canvas && !is_attachment(extension.as_str()) {
+        if !is_markdown
+            && !is_base
+            && !is_canvas
+            && !is_text(&path)
+            && !is_attachment(extension.as_str())
+        {
             continue;
         }
 
@@ -155,7 +160,8 @@ pub fn existing_files_impl(paths: Vec<String>) -> Vec<String> {
         .into_iter()
         .filter(|value| {
             let path = Path::new(value);
-            path.is_file() && (is_markdown(path) || is_base(path) || is_canvas(path))
+            path.is_file()
+                && (is_markdown(path) || is_base(path) || is_canvas(path) || is_text(path))
         })
         .collect()
 }
