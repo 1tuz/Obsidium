@@ -29,6 +29,7 @@ function updateIconElement(svg: SVGSVGElement, strokeWidth: number, iconSet: Ret
   const markup = iconSet === 'lucide' ? null : getIconMarkup(iconSet, iconId);
   const renderedSet = markup ? iconSet : 'lucide';
   svg.replaceChildren();
+  svg.setAttribute('viewBox', renderedSet === 'phosphor' ? '0 0 256 256' : '0 0 24 24');
   svg.setAttribute('fill', renderedSet === 'phosphor' ? 'currentColor' : 'none');
   svg.removeAttribute('stroke');
   svg.removeAttribute('stroke-width');

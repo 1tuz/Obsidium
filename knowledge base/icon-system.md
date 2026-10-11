@@ -12,11 +12,12 @@ older settings resolve to Lucide. The selector updates all React icons and CodeM
 without restarting. Family data is cached after its first use, so returning to a previously selected
 set does not load it again.
 
-Each family uses the same 24 by 24 viewport and `currentColor`. Tabler inherits the app's stroke
-weight, Phosphor uses its Regular filled paths, and Lucide uses the original outline nodes. This keeps
-hover, active, disabled, light, dark, and palette colors in the existing CSS tokens. Local subset
-imports keep unused library assets out of the frontend bundle; do not replace them with namespace
-imports or remote image URLs.
+Each family keeps its source viewport: Lucide and Tabler use 24 by 24, while Phosphor Regular uses
+256 by 256. The shared rendered size scales all three consistently without clipping Phosphor paths.
+All sets use `currentColor`; Tabler inherits the app's stroke weight and Phosphor uses filled paths.
+This keeps hover, active, disabled, light, dark, and palette colors in the existing CSS tokens. Local
+subset imports keep unused library assets out of the frontend bundle; do not replace them with
+namespace imports or remote image URLs.
 
 If a legacy Lucide icon is not in the mapping, alternate sets use the `file` icon as a same family
 fallback. Add its ID and one asset per family before using it in a new surface. The regression test

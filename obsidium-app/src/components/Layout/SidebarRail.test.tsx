@@ -3,6 +3,7 @@ import { act } from 'preact/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
 import { mountDom } from '../../testing/mountDom';
+import { setIconSet } from '../../modules/iconSet';
 import { SidebarRail } from './SidebarRail';
 
 describe('SidebarRail', () => {
@@ -34,5 +35,27 @@ describe('SidebarRail', () => {
     act(() => button!.click());
     expect(onOpenFiles).toHaveBeenCalledOnce();
     act(() => rail.unmount());
+  });
+
+  it('renders visible Phosphor icons throughout the rail', async () => {
+    await act(async () => setIconSet('phosphor'));
+    const rail = mountDom(
+      <SidebarRail
+        isSidebarOpen
+        onToggleSidebar={() => {}}
+        onOpenHome={() => {}}
+        onOpenGraph={() => {}}
+        onOpenBoards={() => {}}
+        onOpenFiles={() => {}}
+        onOpenCanvas={() => {}}
+        onOpenSettings={() => {}}
+      />,
+    );
+    const icons = [...rail.container.querySelectorAll<SVGSVGElement>('svg[data-icon-set="phosphor"]')];
+
+    expect(icons).toHaveLength(7);
+    expect(icons.every((icon) => icon.getAttribute('viewBox') === '0 0 256 256')).toBe(true);
+    act(() => rail.unmount());
+    await act(async () => setIconSet('lucide'));
   });
 });
