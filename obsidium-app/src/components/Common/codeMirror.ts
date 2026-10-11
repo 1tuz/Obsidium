@@ -2,17 +2,17 @@ import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { EditorState, type Extension } from '@codemirror/state';
 import { drawSelection, EditorView, keymap } from '@codemirror/view';
 
-const aquilumFieldCore: Extension = [
+const obsidiumFieldCore: Extension = [
   history(),
   keymap.of([...defaultKeymap, ...historyKeymap]),
 ];
 
-export const aquilumFieldSetup: Extension = [
-  aquilumFieldCore,
+export const obsidiumFieldSetup: Extension = [
+  obsidiumFieldCore,
   drawSelection(),
 ];
 
-export const aquilumCodeMirrorTheme = EditorView.theme({
+export const obsidiumCodeMirrorTheme = EditorView.theme({
   '&': {
     color: 'var(--q-cm-text-color, var(--q-text-primary))',
     backgroundColor: 'transparent',
@@ -99,7 +99,7 @@ export function normalizeSingleLineText(text: string): string {
     .replace(/\t+/g, ' ');
 }
 
-export const aquilumHorizontalFieldTheme = EditorView.theme({
+export const obsidiumHorizontalFieldTheme = EditorView.theme({
   '.cm-scroller': {
     overflowX: 'auto',
     overflowY: 'hidden',
@@ -110,7 +110,7 @@ export const aquilumHorizontalFieldTheme = EditorView.theme({
   },
 });
 
-export const aquilumSingleLineExtensions: Extension = [
+export const obsidiumSingleLineExtensions: Extension = [
   EditorView.clipboardInputFilter.of(normalizeSingleLineText),
   EditorState.transactionFilter.of((transaction) => (
     transaction.docChanged && transaction.newDoc.lines > 1 ? [] : transaction

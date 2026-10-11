@@ -44,6 +44,7 @@ export class NoteTransclusionWidget extends WidgetType {
     return other instanceof NoteTransclusionWidget
       && this.embed.target === other.embed.target
       && this.embed.heading === other.embed.heading
+      && this.embed.blockId === other.embed.blockId
       && this.config.workspacePath === other.config.workspacePath
       && this.revision === other.revision
       && this.ancestry.length === other.ancestry.length
@@ -114,11 +115,13 @@ export class NoteTransclusionWidget extends WidgetType {
       resources.unregister = this.registerTarget(this.targetKey, path);
       const snapshot = await readFileSnapshot(path);
       if (resources.abort.signal.aborted || !root.isConnected) return;
-      const content = noteEmbedSection(noteBody(snapshot.content), this.embed.heading);
+      const content = noteEmbedSection(noteBody(snapshot.content), this.embed.heading, this.embed.blockId);
       if (!content) {
-        body.textContent = this.embed.heading
-          ? t('editor.embeddedHeadingUnavailable', { heading: this.embed.heading })
-          : t('editor.embeddedNoteEmpty');
+        body.textContent = this.embed.blockId
+          ? t('editor.embeddedBlockUnavailable', { blockId: this.embed.blockId })
+          : this.embed.heading
+            ? t('editor.embeddedHeadingUnavailable', { heading: this.embed.heading })
+            : t('editor.embeddedNoteEmpty');
         return;
       }
       body.replaceChildren();

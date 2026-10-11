@@ -1,6 +1,6 @@
+use super::models::WikixivHit;
 use blake3::Hash;
 use std::collections::HashMap;
-use super::models::WikixivHit;
 
 const CACHE_CAP: usize = 32;
 

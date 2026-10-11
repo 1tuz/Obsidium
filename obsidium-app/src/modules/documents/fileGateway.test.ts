@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import {
   createFile,
+  isCanvasPath,
   isFileCommandError,
+  isPdfPath,
+  isTextFilePath,
   readFileSnapshot,
   renameFile,
   writeFileAtomic,
@@ -13,6 +16,24 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 const invokeMock = vi.mocked(invoke);
+
+describe('workspace file types', () => {
+  it('recognises standard UTF-8 text formats without accepting binary files', () => {
+    expect(isTextFilePath('config.yml')).toBe(true);
+    expect(isTextFilePath('board.canvas')).toBe(true);
+    expect(isTextFilePath('BOARD.CANVAS')).toBe(true);
+    expect(isCanvasPath('BOARD.CANVAS')).toBe(true);
+    expect(isCanvasPath('board.canvas.md')).toBe(false);
+    expect(isTextFilePath('src/main.rs')).toBe(true);
+    expect(isTextFilePath('image.png')).toBe(false);
+    expect(isTextFilePath('.env')).toBe(false);
+  });
+
+  it('recognises PDF files case-insensitively', () => {
+    expect(isPdfPath('Manual.PDF')).toBe(true);
+    expect(isPdfPath('Manual.epub')).toBe(false);
+  });
+});
 
 describe('fileGateway', () => {
   beforeEach(() => {

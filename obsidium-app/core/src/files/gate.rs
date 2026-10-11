@@ -8,12 +8,12 @@ use super::error::FileCommandError;
 use super::models::{FileRenameResult, FileWriteResult};
 use super::rename::rename_with_links;
 use super::trash::{move_to_trash_impl, restore_from_trash_impl};
+use crate::app_core::{Core, CoreEvent};
 use crate::history::{NoteWrite, Source};
 use crate::search::paths::is_markdown;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use crate::app_core::{Core, CoreEvent};
 use walkdir::WalkDir;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -45,7 +45,13 @@ pub fn write(
     let history = &core.history;
     let before = history.disk_before(path, expected_hash);
     let result = write_file_atomic_impl(path, content, expected_hash)?;
-    let write = NoteWrite { disk_before: before, text: content, hash: &result.hash, source, name: version_name };
+    let write = NoteWrite {
+        disk_before: before,
+        text: content,
+        hash: &result.hash,
+        source,
+        name: version_name,
+    };
     if history.saved(&|| core.known_roots(), path, write) {
         announce_history(core, path);
     }
@@ -93,12 +99,9 @@ pub fn copy(core: &Core, from: &Path, to: &Path) -> Result<(), FileCommandError>
     Ok(())
 }
 
-pub fn rename(
-    core: &Core,
-    from: &Path,
-    to: &Path,
-) -> Result<FileRenameResult, FileCommandError> {
-    core.documents.moving(core, from, || rename_now(core, from, to))
+pub fn rename(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, FileCommandError> {
+    core.documents
+        .moving(core, from, || rename_now(core, from, to))
 }
 
 fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, FileCommandError> {
@@ -121,7 +124,12 @@ fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, F
     }
     let mut changed = vec![from.to_path_buf(), to.to_path_buf()];
     changed.extend(renamed.result.updated_paths.iter().map(PathBuf::from));
-    let rewritten: Vec<PathBuf> = renamed.result.updated_paths.iter().map(PathBuf::from).collect();
+    let rewritten: Vec<PathBuf> = renamed
+        .result
+        .updated_paths
+        .iter()
+        .map(PathBuf::from)
+        .collect();
     paths_changed(core, changed);
     announce(core, relocation);
     core.documents.reconcile_paths(core, &rewritten);
@@ -129,7 +137,8 @@ fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, F
 }
 
 pub fn move_across(core: &Core, from: &Path, to: &Path) -> Result<(), FileCommandError> {
-    core.documents.moving(core, from, || move_across_now(core, from, to))
+    core.documents
+        .moving(core, from, || move_across_now(core, from, to))
 }
 
 fn move_across_now(core: &Core, from: &Path, to: &Path) -> Result<(), FileCommandError> {
@@ -142,12 +151,9 @@ fn move_across_now(core: &Core, from: &Path, to: &Path) -> Result<(), FileComman
     Ok(())
 }
 
-pub fn trash(
-    core: &Core,
-    workspace: &Path,
-    path: &Path,
-) -> Result<PathBuf, FileCommandError> {
-    core.documents.moving(core, path, || trash_now(core, workspace, path))
+pub fn trash(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, FileCommandError> {
+    core.documents
+        .moving(core, path, || trash_now(core, workspace, path))
 }
 
 fn trash_now(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, FileCommandError> {
@@ -162,20 +168,12 @@ fn trash_now(core: &Core, workspace: &Path, path: &Path) -> Result<PathBuf, File
     Ok(moved.root)
 }
 
-pub fn restore(
-    core: &Core,
-    workspace: &Path,
-    trashed: &Path,
-) -> Result<PathBuf, FileCommandError> {
+pub fn restore(core: &Core, workspace: &Path, trashed: &Path) -> Result<PathBuf, FileCommandError> {
     let mut roots = restore_all(core, workspace, &[trashed.to_path_buf()])?;
     Ok(roots.remove(0))
 }
 
-pub fn restore_deletion(
-    core: &Core,
-    workspace: &Path,
-    id: &str,
-) -> Result<(), FileCommandError> {
+pub fn restore_deletion(core: &Core, workspace: &Path, id: &str) -> Result<(), FileCommandError> {
     restore_all(core, workspace, &deletion_files(workspace, id)).map(|_| ())
 }
 
@@ -205,13 +203,10 @@ fn restore_all(
     failure.map_or(Ok(roots), Err)
 }
 
-pub fn name_version(
-    core: &Core,
-    path: &Path,
-    version: Option<&str>,
-    name: &str,
-) -> Option<String> {
-    let named = core.history.name(&|| core.known_roots(), path, version, name);
+pub fn name_version(core: &Core, path: &Path, version: Option<&str>, name: &str) -> Option<String> {
+    let named = core
+        .history
+        .name(&|| core.known_roots(), path, version, name);
     if named.is_some() {
         announce_history(core, path);
     }
@@ -223,11 +218,14 @@ fn paths_changed(core: &Core, paths: Vec<PathBuf>) {
     core.search.notify_paths(paths);
 }
 
-
 fn follow_moves(core: &Core, relocation: &Relocation) {
     let history = &core.history;
     for step in &relocation.moves {
-        history.moved(&|| core.known_roots(), Path::new(&step.from), Path::new(&step.to));
+        history.moved(
+            &|| core.known_roots(),
+            Path::new(&step.from),
+            Path::new(&step.to),
+        );
     }
 }
 
@@ -243,8 +241,11 @@ fn announce(core: &Core, relocation: Relocation) {
     if relocation.moves.is_empty() && relocation.removed.is_empty() {
         return;
     }
-    let moves: Vec<(String, String)> =
-        relocation.moves.iter().map(|step| (step.from.clone(), step.to.clone())).collect();
+    let moves: Vec<(String, String)> = relocation
+        .moves
+        .iter()
+        .map(|step| (step.from.clone(), step.to.clone()))
+        .collect();
     core.documents.relocated(&moves, &relocation.removed);
     core.emit(CoreEvent::NotesRelocated(relocation));
 }
@@ -290,7 +291,9 @@ fn relocated(notes: &[PathBuf], from: &Path, to: &Path) -> Relocation {
 fn removed<'a>(notes: impl Iterator<Item = &'a PathBuf>) -> Relocation {
     Relocation {
         moves: Vec::new(),
-        removed: notes.map(|note| note.to_string_lossy().into_owned()).collect(),
+        removed: notes
+            .map(|note| note.to_string_lossy().into_owned())
+            .collect(),
     }
 }
 
@@ -328,7 +331,9 @@ mod tests {
         let target = directory.path().join("Архив");
 
         let mut relocation = relocated(&notes_under(&folder), &folder, &target);
-        relocation.moves.sort_by(|left, right| left.from.cmp(&right.from));
+        relocation
+            .moves
+            .sort_by(|left, right| left.from.cmp(&right.from));
 
         let targets = relocation
             .moves
@@ -339,7 +344,11 @@ mod tests {
             targets,
             vec![
                 target.join("А.md").to_string_lossy().into_owned(),
-                target.join("Глубже").join("Б.md").to_string_lossy().into_owned(),
+                target
+                    .join("Глубже")
+                    .join("Б.md")
+                    .to_string_lossy()
+                    .into_owned(),
             ],
             "только заметки, вложенность сохраняется"
         );
@@ -354,7 +363,10 @@ mod tests {
 
         let relocation = removed(notes_under(&folder).iter());
 
-        assert_eq!(relocation.removed, vec![folder.join("А.md").to_string_lossy().into_owned()]);
+        assert_eq!(
+            relocation.removed,
+            vec![folder.join("А.md").to_string_lossy().into_owned()]
+        );
         assert!(relocation.moves.is_empty());
     }
 }

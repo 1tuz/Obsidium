@@ -3,6 +3,7 @@ import { samePath } from '../paths';
 export interface NoteEmbed {
   target: string;
   heading: string | null;
+  blockId: string | null;
 }
 
 export function noteEmbedCreatesCycle(path: string, ancestry: readonly string[]): boolean {
@@ -22,16 +23,19 @@ export function parseNoteEmbed(line: string): NoteEmbed | null {
   const anchor = target.indexOf('#');
   const noteTarget = (anchor < 0 ? target : target.slice(0, anchor)).trim();
   if (!noteTarget) return null;
+  const fragment = anchor < 0 ? '' : target.slice(anchor + 1).trim();
   const extension = noteTarget.match(/\.([^.\\/]+)$/)?.[1];
   if (extension && NON_NOTE_EXTENSIONS.has(extension.toLowerCase())) return null;
   return {
     target: noteTarget,
-    heading: anchor < 0 ? null : target.slice(anchor + 1).trim() || null,
+    heading: fragment && !fragment.startsWith('^') ? fragment : null,
+    blockId: fragment.startsWith('^') ? fragment.slice(1) || null : null,
   };
 }
 
-export function noteEmbedSection(content: string, heading: string | null): string {
+export function noteEmbedSection(content: string, heading: string | null, blockId: string | null = null): string {
   const lines = content.split(/\r?\n/);
+  if (blockId) return noteEmbedBlock(lines, blockId);
   if (!heading) return content;
   const expected = normalizeHeading(heading);
   const start = lines.findIndex((line) => {
@@ -47,6 +51,47 @@ export function noteEmbedSection(content: string, heading: string | null): strin
     end += 1;
   }
   return lines.slice(start, end).join('\n');
+}
+
+function noteEmbedBlock(lines: string[], blockId: string): string {
+  let fence: { marker: string; length: number } | null = null;
+  let found = -1;
+  let standalone = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      if (marker?.[1]?.[0] === fence.marker && marker[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (marker) {
+      fence = { marker: marker[1]![0]!, length: marker[1]!.length };
+      continue;
+    }
+    if (new RegExp(`^\\s{0,3}\\^${escapeRegex(blockId)}\\s*$`).test(line)) {
+      found = index;
+      standalone = true;
+      break;
+    }
+    if (new RegExp(`\\s+\\^${escapeRegex(blockId)}\\s*$`).test(line)) {
+      found = index;
+      break;
+    }
+  }
+  if (found < 0) return '';
+  const end = standalone ? found : found + 1;
+  const listItem = /^\s{0,3}(?:[-+*]|\d+[.)])\s+/.test(lines[found]!);
+  let start = standalone ? found - 1 : found;
+  if (!listItem) {
+    while (start > 0 && lines[start - 1]!.trim()) start -= 1;
+  }
+  const selected = lines.slice(start, end);
+  if (!standalone) selected[selected.length - 1] = selected[selected.length - 1]!.replace(/\s+\^[\w-]+\s*$/, '').trimEnd();
+  return selected.join('\n');
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function normalizeHeading(value: string): string {

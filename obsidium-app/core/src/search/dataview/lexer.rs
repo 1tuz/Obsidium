@@ -196,7 +196,10 @@ fn number_length(rest: &str) -> usize {
     for symbol in rest.chars() {
         if symbol.is_ascii_digit() {
             length += 1;
-        } else if symbol == '.' && !seen_dot && rest[length + 1..].starts_with(|next: char| next.is_ascii_digit()) {
+        } else if symbol == '.'
+            && !seen_dot
+            && rest[length + 1..].starts_with(|next: char| next.is_ascii_digit())
+        {
             seen_dot = true;
             length += 1;
         } else {
@@ -274,7 +277,10 @@ mod tests {
 
     #[test]
     fn reads_a_nested_tag() {
-        assert_eq!(pieces("#книги/фантастика"), vec![Piece::Tag("книги/фантастика".to_owned())]);
+        assert_eq!(
+            pieces("#книги/фантастика"),
+            vec![Piece::Tag("книги/фантастика".to_owned())]
+        );
     }
 
     #[test]

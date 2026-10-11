@@ -81,7 +81,7 @@ GitHub Actions кэширует Cargo напрямую в `.artifacts/cargo-rele
 
 ## Карта путей
 
-Корень: `D:\My programs\Aquilum\.artifacts\` (gitignore).
+Корень: `D:\My programs\Obsidium\.artifacts\` (gitignore).
 
 | Путь | Роль | Кто пишет |
 |------|------|-----------|
@@ -93,7 +93,7 @@ GitHub Actions кэширует Cargo напрямую в `.artifacts/cargo-rele
 ### После переноса или переименования папки проекта
 
 Junction `src-tauri/target` и кэши cargo хранят абсолютные пути. После переименования
-`Quantum` → `Aquilum` ссылка указывала в несуществующую папку, а build-скрипты Tauri в кэше
+`Quantum` → `Obsidium` ссылка указывала в несуществующую папку, а build-скрипты Tauri в кэше
 читали права плагинов по старому пути (`failed to read plugin permissions ... Quantum\.artifacts`).
 
 - `cargo-junction.mjs` распознаёт битую ссылку через `lstat`, а не `existsSync`: `existsSync` идёт по

@@ -1,6 +1,6 @@
-use crate::search::paths::slash_path;
 use super::error::FileCommandError;
 use super::trash::{original_path, trash_path, trashed_notes};
+use crate::search::paths::slash_path;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
@@ -35,7 +35,9 @@ pub fn deletion_page_impl(
 ) -> Result<DeletionPage, FileCommandError> {
     let mut deletions = deletions(workspace);
     deletions.sort_by(|(left_at, left), (right_at, right)| {
-        right_at.cmp(left_at).then_with(|| left.root.cmp(&right.root))
+        right_at
+            .cmp(left_at)
+            .then_with(|| left.root.cmp(&right.root))
     });
     Ok(DeletionPage {
         total: deletions.len(),
@@ -71,7 +73,10 @@ fn deletions(workspace: &Path) -> Vec<(u128, Deletion)> {
         let original = original_path(&trash, &path);
         let deletion = grouped
             .entry(deleted_at_nanos(&metadata))
-            .or_insert_with(|| Deletion { root: original.clone(), files: 0 });
+            .or_insert_with(|| Deletion {
+                root: original.clone(),
+                files: 0,
+            });
         if deletion.files > 0 {
             deletion.root = shared_folder(&deletion.root, deletion.files == 1, &original);
         }
@@ -81,7 +86,11 @@ fn deletions(workspace: &Path) -> Vec<(u128, Deletion)> {
 }
 
 fn shared_folder(root: &Path, root_is_file: bool, original: &Path) -> PathBuf {
-    let start = if root_is_file { root.parent() } else { Some(root) };
+    let start = if root_is_file {
+        root.parent()
+    } else {
+        Some(root)
+    };
     start
         .into_iter()
         .flat_map(Path::ancestors)

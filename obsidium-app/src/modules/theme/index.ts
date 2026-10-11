@@ -235,7 +235,7 @@ function applyTheme(
     currentMode = mode;
     modeListeners.forEach((notify) => notify());
   }
-  root.dispatchEvent(new CustomEvent('aquilum-motion-change', { detail: motion }));
+  root.dispatchEvent(new CustomEvent('obsidium-motion-change', { detail: motion }));
 }
 
 export function themeMode(): ThemeMode {

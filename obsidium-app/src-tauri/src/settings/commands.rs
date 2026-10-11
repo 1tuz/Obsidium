@@ -1,6 +1,6 @@
 use crate::app_core::Core;
-use std::sync::Arc;
 use crate::settings::models::AppConfig;
+use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
@@ -10,10 +10,7 @@ pub fn get_settings(core: State<'_, Arc<Core>>) -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
-pub fn update_settings(
-    core: State<'_, Arc<Core>>,
-    new_config: AppConfig,
-) -> Result<(), String> {
+pub fn update_settings(core: State<'_, Arc<Core>>, new_config: AppConfig) -> Result<(), String> {
     let settings = &core.settings;
     settings.update_config(new_config)
 }

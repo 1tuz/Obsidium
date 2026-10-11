@@ -81,6 +81,7 @@ export const FileTreeRow = memo(function FileTreeRow({
         <button
           type="button"
           className={itemClass}
+          draggable={!isFolder}
           data-file-active={active || undefined}
           aria-expanded={isFolder ? expanded : undefined}
           onMouseEnter={() => {
@@ -95,6 +96,14 @@ export const FileTreeRow = memo(function FileTreeRow({
             } else {
               actions.selectFile(item.id, primary, event.shiftKey);
             }
+          }}
+          onDragStart={(event) => {
+            if (isFolder) return;
+            const transfer = event.dataTransfer;
+            if (!transfer) return;
+            transfer.effectAllowed = 'copy';
+            transfer.setData('application/x-obsidium-file-path', item.id);
+            transfer.setData('text/plain', item.id);
           }}
           onContextMenu={(event) => {
             if (!canRowActions) return;

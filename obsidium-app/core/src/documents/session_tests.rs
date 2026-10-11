@@ -18,7 +18,10 @@ fn hash_of(text: &str) -> String {
 
 impl FakeIo {
     fn with_file(text: &str) -> Self {
-        Self { file: RefCell::new(Some(text.to_owned())), ..Self::default() }
+        Self {
+            file: RefCell::new(Some(text.to_owned())),
+            ..Self::default()
+        }
     }
 
     fn file(&self) -> String {
@@ -33,11 +36,19 @@ impl FakeIo {
 impl SessionIo for FakeIo {
     fn read(&self) -> Result<DiskSnapshot, DiskError> {
         let content = self.file.borrow().clone().ok_or(DiskError::Missing)?;
-        Ok(DiskSnapshot { hash: hash_of(&content), text_hash: hash_of(&content), content })
+        Ok(DiskSnapshot {
+            hash: hash_of(&content),
+            text_hash: hash_of(&content),
+            content,
+        })
     }
 
     fn hash(&self) -> Result<String, DiskError> {
-        self.file.borrow().as_deref().map(hash_of).ok_or(DiskError::Missing)
+        self.file
+            .borrow()
+            .as_deref()
+            .map(hash_of)
+            .ok_or(DiskError::Missing)
     }
 
     fn write(&self, content: &str, expected_hash: &str) -> Result<String, DiskError> {
@@ -58,7 +69,9 @@ impl SessionIo for FakeIo {
     }
 
     fn preserve(&self, body: &str, report: ConflictReport) {
-        self.copies.borrow_mut().push((report.cause, body.to_owned()));
+        self.copies
+            .borrow_mut()
+            .push((report.cause, body.to_owned()));
     }
 
     fn append(&self, _update: &[u8]) {
@@ -66,7 +79,10 @@ impl SessionIo for FakeIo {
     }
 
     fn sync_point(&self) -> SyncPointLookup {
-        self.point.borrow().clone().map_or(SyncPointLookup::Absent, SyncPointLookup::Found)
+        self.point
+            .borrow()
+            .clone()
+            .map_or(SyncPointLookup::Absent, SyncPointLookup::Found)
     }
 
     fn remember(&self, point: SyncPoint) {
@@ -76,12 +92,26 @@ impl SessionIo for FakeIo {
 
 fn replica_with(text: &str) -> Vec<u8> {
     let replica = Replica::new();
-    replica.apply_edits(&[TextEdit { from: 0, to: 0, insert: text.into() }], "test");
+    replica.apply_edits(
+        &[TextEdit {
+            from: 0,
+            to: 0,
+            insert: text.into(),
+        }],
+        "test",
+    );
     replica.state()
 }
 
 fn insert_at(position: usize, text: &str, length: usize) -> Value {
-    edits_to_json(&[TextEdit { from: position, to: position, insert: text.into() }], length)
+    edits_to_json(
+        &[TextEdit {
+            from: position,
+            to: position,
+            insert: text.into(),
+        }],
+        length,
+    )
 }
 
 #[test]
@@ -90,14 +120,24 @@ fn a_first_open_takes_the_file_and_remembers_the_sync_point() {
     let session = DocumentSession::open(&[], &io).expect("open");
     assert_eq!(session.text(), "первая\nвторая\n");
     assert!(!session.dirty());
-    assert_eq!(io.point.borrow().as_ref().map(|point| point.file_hash.clone()), Some(hash_of("первая\nвторая\n")));
+    assert_eq!(
+        io.point
+            .borrow()
+            .as_ref()
+            .map(|point| point.file_hash.clone()),
+        Some(hash_of("первая\nвторая\n"))
+    );
 }
 
 #[test]
 fn input_that_never_reached_the_disk_is_published_after_a_crash() {
     let io = FakeIo::with_file("текст\n");
-    *io.point.borrow_mut() = Some(SyncPoint { file_hash: hash_of("текст\n"), text_hash: hash_of("текст\n") });
-    let mut session = DocumentSession::open(&[replica_with("текст и недописанное\n")], &io).expect("open");
+    *io.point.borrow_mut() = Some(SyncPoint {
+        file_hash: hash_of("текст\n"),
+        text_hash: hash_of("текст\n"),
+    });
+    let mut session =
+        DocumentSession::open(&[replica_with("текст и недописанное\n")], &io).expect("open");
     assert!(session.dirty());
     session.write(&io).expect("write");
     assert_eq!(io.file(), "текст и недописанное\n");
@@ -106,16 +146,25 @@ fn input_that_never_reached_the_disk_is_published_after_a_crash() {
 #[test]
 fn both_sides_changed_while_closed_keeps_the_document_as_a_copy() {
     let io = FakeIo::with_file("правка снаружи\n");
-    *io.point.borrow_mut() = Some(SyncPoint { file_hash: hash_of("было\n"), text_hash: hash_of("было\n") });
+    *io.point.borrow_mut() = Some(SyncPoint {
+        file_hash: hash_of("было\n"),
+        text_hash: hash_of("было\n"),
+    });
     let session = DocumentSession::open(&[replica_with("правка внутри\n")], &io).expect("open");
     assert_eq!(session.text(), "правка снаружи\n");
-    assert_eq!(*io.copies.borrow(), vec![(ConflictCause::Diverged, "правка внутри\n".to_owned())]);
+    assert_eq!(
+        *io.copies.borrow(),
+        vec![(ConflictCause::Diverged, "правка внутри\n".to_owned())]
+    );
 }
 
 #[test]
 fn a_missing_file_does_not_open() {
     let io = FakeIo::default();
-    assert!(matches!(DocumentSession::open(&[], &io), Err(SessionError::Missing)));
+    assert!(matches!(
+        DocumentSession::open(&[], &io),
+        Err(SessionError::Missing)
+    ));
 }
 
 #[test]
@@ -124,8 +173,12 @@ fn accepts_changes_based_on_the_current_version_and_rejects_stale_ones() {
     let mut session = DocumentSession::open(&[], &io).expect("open");
     let version = session.version();
 
-    assert!(session.push("editor", version, &[insert_at(3, "d", 3)], &io).expect("push"));
-    assert!(!session.push("editor", version, &[insert_at(4, "e", 4)], &io).expect("push"));
+    assert!(session
+        .push("editor", version, &[insert_at(3, "d", 3)], &io)
+        .expect("push"));
+    assert!(!session
+        .push("editor", version, &[insert_at(4, "e", 4)], &io)
+        .expect("push"));
 
     assert_eq!(session.text(), "abcd");
     assert_eq!(session.version(), version + 1);
@@ -159,11 +212,21 @@ fn pull_returns_what_happened_after_the_given_version() {
     let io = FakeIo::with_file("abc");
     let mut session = DocumentSession::open(&[], &io).expect("open");
     let start = session.version();
-    session.push("left", start, &[insert_at(0, "x", 3)], &io).expect("push");
+    session
+        .push("left", start, &[insert_at(0, "x", 3)], &io)
+        .expect("push");
     session.replace_text("xabc!", SYSTEM_CLIENT, &io);
 
-    let Pull::Changes(changes) = session.pull(start) else { panic!("expected changes") };
-    assert_eq!(changes.iter().map(|change| change.client.as_str()).collect::<Vec<_>>(), ["left", "system"]);
+    let Pull::Changes(changes) = session.pull(start) else {
+        panic!("expected changes")
+    };
+    assert_eq!(
+        changes
+            .iter()
+            .map(|change| change.client.as_str())
+            .collect::<Vec<_>>(),
+        ["left", "system"]
+    );
     assert_eq!(changes[0].changes, json!([[0, "x"], 3]));
     assert_eq!(session.pull(session.version()), Pull::Changes(Vec::new()));
     assert_eq!(session.pull(session.version() + 1), Pull::Resync);
@@ -174,14 +237,18 @@ fn an_external_edit_merges_with_unsaved_input_on_another_line() {
     let io = FakeIo::with_file("один\nдва\nтри\n");
     let mut session = DocumentSession::open(&[], &io).expect("open");
     let version = session.version();
-    session.push("editor", version, &[insert_at(4, " ввод", 13)], &io).expect("push");
+    session
+        .push("editor", version, &[insert_at(4, " ввод", 13)], &io)
+        .expect("push");
     io.edit_file("один\nдва\nтри от агента\n");
 
     session.reconcile(&io).expect("reconcile");
 
     assert_eq!(session.text(), "один ввод\nдва\nтри от агента\n");
     assert!(session.dirty());
-    let Pull::Changes(changes) = session.pull(version + 1) else { panic!("expected changes") };
+    let Pull::Changes(changes) = session.pull(version + 1) else {
+        panic!("expected changes")
+    };
     assert_eq!(changes[0].client, DISK_CLIENT);
 }
 
@@ -199,7 +266,9 @@ fn a_write_conflict_pulls_the_disk_and_writes_both_sides() {
     let io = FakeIo::with_file("один\nдва\n");
     let mut session = DocumentSession::open(&[], &io).expect("open");
     let version = session.version();
-    session.push("editor", version, &[insert_at(4, "!", 9)], &io).expect("push");
+    session
+        .push("editor", version, &[insert_at(4, "!", 9)], &io)
+        .expect("push");
     *io.changed_on_next_write.borrow_mut() = Some("один\nдва и агент\n".into());
 
     session.write(&io).expect("write");
@@ -215,7 +284,10 @@ fn emptying_a_note_keeps_its_previous_text_as_a_copy() {
     session.replace_text("", "editor", &io);
     session.write(&io).expect("write");
     assert_eq!(io.file(), "");
-    assert_eq!(*io.copies.borrow(), vec![(ConflictCause::Truncated, "важный текст\n".to_owned())]);
+    assert_eq!(
+        *io.copies.borrow(),
+        vec![(ConflictCause::Truncated, "важный текст\n".to_owned())]
+    );
 }
 
 #[test]
@@ -233,9 +305,21 @@ fn the_sync_point_is_remembered_only_after_a_successful_write() {
     let io = FakeIo::with_file("старое");
     let mut session = DocumentSession::open(&[], &io).expect("open");
     session.replace_text("новое", "editor", &io);
-    assert_eq!(io.point.borrow().as_ref().map(|point| point.file_hash.clone()), Some(hash_of("старое")));
+    assert_eq!(
+        io.point
+            .borrow()
+            .as_ref()
+            .map(|point| point.file_hash.clone()),
+        Some(hash_of("старое"))
+    );
     session.write(&io).expect("write");
-    assert_eq!(io.point.borrow().as_ref().map(|point| point.file_hash.clone()), Some(hash_of("новое")));
+    assert_eq!(
+        io.point
+            .borrow()
+            .as_ref()
+            .map(|point| point.file_hash.clone()),
+        Some(hash_of("новое"))
+    );
 }
 
 #[test]
@@ -243,7 +327,9 @@ fn every_document_change_is_persisted() {
     let io = FakeIo::with_file("abc");
     let mut session = DocumentSession::open(&[], &io).expect("open");
     let before = io.appended.get();
-    session.push("editor", session.version(), &[insert_at(0, "x", 3)], &io).expect("push");
+    session
+        .push("editor", session.version(), &[insert_at(0, "x", 3)], &io)
+        .expect("push");
     session.replace_text("xabcy", "editor", &io);
     assert_eq!(io.appended.get(), before + 2);
 }
@@ -252,7 +338,12 @@ fn every_document_change_is_persisted() {
 fn reverting_a_version_undoes_its_lines_and_keeps_later_ones_as_a_copy() {
     let io = FakeIo::with_file("один\nдва правка версии\nтри позже\n");
     let mut session = DocumentSession::open(&[], &io).expect("open");
-    let changed = session.revert("один\nдва правка версии\nтри\n", "один\nдва\nтри\n", SYSTEM_CLIENT, &io);
+    let changed = session.revert(
+        "один\nдва правка версии\nтри\n",
+        "один\nдва\nтри\n",
+        SYSTEM_CLIENT,
+        &io,
+    );
     assert!(changed);
     assert_eq!(session.text(), "один\nдва\nтри позже\n");
     assert!(session.dirty());
@@ -262,7 +353,15 @@ fn reverting_a_version_undoes_its_lines_and_keeps_later_ones_as_a_copy() {
 fn reverting_lines_changed_later_preserves_the_later_text() {
     let io = FakeIo::with_file("один\nдва ещё позже\n");
     let mut session = DocumentSession::open(&[], &io).expect("open");
-    session.revert("один\nдва правка версии\n", "один\nдва\n", SYSTEM_CLIENT, &io);
+    session.revert(
+        "один\nдва правка версии\n",
+        "один\nдва\n",
+        SYSTEM_CLIENT,
+        &io,
+    );
     assert_eq!(session.text(), "один\nдва\n");
-    assert_eq!(*io.copies.borrow(), vec![(ConflictCause::Reverted, "два ещё позже".to_owned())]);
+    assert_eq!(
+        *io.copies.borrow(),
+        vec![(ConflictCause::Reverted, "два ещё позже".to_owned())]
+    );
 }

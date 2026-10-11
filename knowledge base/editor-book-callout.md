@@ -1,4 +1,4 @@
-# Виджет книги `[!book]` в редакторе Aquilum
+# Виджет книги `[!book]` в редакторе Obsidium
 
 ## Назначение
 
@@ -246,7 +246,7 @@ view.dom.style.setProperty('--q-editor-block-width', `${width}px`)
 
 ### Подстраховка
 
-`aquilumEditorTheme` → `& > .cm-scroller { overflow-x: clip }` — обрезает редкий
+`obsidiumEditorTheme` → `& > .cm-scroller { overflow-x: clip }` — обрезает редкий
 horizontal bleed; **не заменяет** `blockWidth.ts`.
 
 ### Чеклист при правках виджета

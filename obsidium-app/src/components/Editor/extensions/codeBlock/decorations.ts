@@ -1,6 +1,7 @@
 import { RangeSetBuilder, type Text } from '@codemirror/state';
 import { Decoration, type DecorationSet } from '@codemirror/view';
 import type { CodeBlockShape } from './blocks';
+import { codeBlockControlDecoration } from './controls';
 
 const LINE_CLASS = 'q-md-code-line';
 
@@ -24,6 +25,8 @@ export function codeBlockDecorations(doc: Text, blocks: readonly CodeBlockShape[
   const builder = new RangeSetBuilder<Decoration>();
 
   for (const block of blocks) {
+    const controls = codeBlockControlDecoration(block);
+    if (controls) builder.add(block.from, block.from, controls);
     const first = doc.lineAt(block.from).number;
     const last = doc.lineAt(block.end).number;
     for (let number = first; number <= last; number += 1) {

@@ -9,11 +9,11 @@ pub mod vault;
 
 pub use stdio::{open_headless_core, run_stdio_bridge, run_stdio_core, run_stdio_headless};
 
+use crate::app_core::Core;
 use crate::settings::models::McpSettings;
 use serde::Serialize;
 use server::RunningServer;
 use std::sync::{Arc, Mutex};
-use crate::app_core::Core;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,10 +82,13 @@ impl McpServer {
 
         if state.running.is_none() {
             let weak = Arc::downgrade(core);
-            let caller: server::SharedToolCaller = Arc::new(move |name: &str, arguments: &serde_json::Value| {
-                let core = weak.upgrade().ok_or_else(|| "Приложение завершается".to_owned())?;
-                tools::call(&core, name, arguments)
-            });
+            let caller: server::SharedToolCaller =
+                Arc::new(move |name: &str, arguments: &serde_json::Value| {
+                    let core = weak
+                        .upgrade()
+                        .ok_or_else(|| "Приложение завершается".to_owned())?;
+                    tools::call(&core, name, arguments)
+                });
             match RunningServer::start(settings.port, token, caller) {
                 Ok(running) => {
                     state.port = running.port();

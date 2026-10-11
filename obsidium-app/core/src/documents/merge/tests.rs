@@ -35,7 +35,13 @@ impl Lcg {
 
 fn random_lines(random: &mut Lcg, max: u64, empty_one_in: u64) -> Vec<String> {
     (0..random.next(max))
-        .map(|index| if random.next(empty_one_in) == 0 { String::new() } else { format!("строка {index}") })
+        .map(|index| {
+            if random.next(empty_one_in) == 0 {
+                String::new()
+            } else {
+                format!("строка {index}")
+            }
+        })
         .collect()
 }
 
@@ -59,7 +65,10 @@ fn keeps_a_local_edit_in_a_different_paragraph_from_the_external_one() {
         "первый\n\nвторой\n\nтретий переписан агентом\n",
         "первый абзац дополнен вручную\n\nвторой\n\nтретий\n",
     );
-    assert_eq!(merged.text, "первый абзац дополнен вручную\n\nвторой\n\nтретий переписан агентом\n");
+    assert_eq!(
+        merged.text,
+        "первый абзац дополнен вручную\n\nвторой\n\nтретий переписан агентом\n"
+    );
     assert!(merged.result.displaced.is_empty());
 }
 
@@ -78,36 +87,56 @@ fn applies_an_external_append_while_the_user_types_on_an_earlier_line() {
         "заголовок\n\nтекст\n\nдописано агентом\n",
         "заголовок\n\nтекст с добавкой\n",
     );
-    assert_eq!(merged.text, "заголовок\n\nтекст с добавкой\n\nдописано агентом\n");
+    assert_eq!(
+        merged.text,
+        "заголовок\n\nтекст с добавкой\n\nдописано агентом\n"
+    );
     assert!(merged.result.displaced.is_empty());
 }
 
 #[test]
 fn reports_displaced_local_lines_when_both_sides_changed_the_same_line() {
-    let merged = merge("один\nдва\nтри\n", "один\nдва от агента\nтри\n", "один\nдва от пользователя\nтри\n");
+    let merged = merge(
+        "один\nдва\nтри\n",
+        "один\nдва от агента\nтри\n",
+        "один\nдва от пользователя\nтри\n",
+    );
     assert_eq!(merged.text, "один\nдва от агента\nтри\n");
-    assert_eq!(merged.result.displaced, vec!["два от пользователя".to_owned()]);
+    assert_eq!(
+        merged.result.displaced,
+        vec!["два от пользователя".to_owned()]
+    );
 }
 
 #[test]
 fn does_nothing_when_the_file_did_not_move() {
     let base = "один\nдва\n";
-    assert!(merge_external_change(base, base, "один\nдва изменённый\n").edits.is_empty());
+    assert!(merge_external_change(base, base, "один\nдва изменённый\n")
+        .edits
+        .is_empty());
 }
 
 #[test]
 fn does_nothing_when_both_sides_already_agree() {
-    assert!(merge_external_change("старое\n", "новое\n", "новое\n").edits.is_empty());
+    assert!(merge_external_change("старое\n", "новое\n", "новое\n")
+        .edits
+        .is_empty());
 }
 
 #[test]
 fn handles_the_last_line_without_a_trailing_newline() {
-    assert_eq!(merge("один\nдва", "один\nдва и хвост", "один\nдва").text, "один\nдва и хвост");
+    assert_eq!(
+        merge("один\nдва", "один\nдва и хвост", "один\nдва").text,
+        "один\nдва и хвост"
+    );
 }
 
 #[test]
 fn handles_the_first_line() {
-    assert_eq!(merge("один\nдва\n", "ОДИН\nдва\n", "один\nдва\n").text, "ОДИН\nдва\n");
+    assert_eq!(
+        merge("один\nдва\n", "ОДИН\nдва\n", "один\nдва\n").text,
+        "ОДИН\nдва\n"
+    );
 }
 
 #[test]
@@ -117,12 +146,18 @@ fn handles_deletion_of_a_middle_line() {
 
 #[test]
 fn merges_an_external_deletion_with_an_unrelated_local_insertion() {
-    assert_eq!(merge("a\nb\nc\nd\n", "a\nb\nd\n", "a\nb\nc\nd\nдобавлено\n").text, "a\nb\nd\nдобавлено\n");
+    assert_eq!(
+        merge("a\nb\nc\nd\n", "a\nb\nd\n", "a\nb\nc\nd\nдобавлено\n").text,
+        "a\nb\nd\nдобавлено\n"
+    );
 }
 
 #[test]
 fn takes_the_whole_file_when_the_document_is_empty() {
-    assert_eq!(merge("", "первая строка\nвторая\n", "").text, "первая строка\nвторая\n");
+    assert_eq!(
+        merge("", "первая строка\nвторая\n", "").text,
+        "первая строка\nвторая\n"
+    );
 }
 
 #[test]
@@ -136,7 +171,10 @@ fn counts_positions_in_utf16_units_like_yjs() {
     let base = "😀 эмодзи\nкириллица\n𝄞 нота\n";
     let disk = "😀 эмодзи\nкириллица правка 🎉\n𝄞 нота\nхвост 👍\n";
     let current = "😀😀 эмодзи\nкириллица\n𝄞 нота\n";
-    assert_eq!(merge(base, disk, current).text, "😀😀 эмодзи\nкириллица правка 🎉\n𝄞 нота\nхвост 👍\n");
+    assert_eq!(
+        merge(base, disk, current).text,
+        "😀😀 эмодзи\nкириллица правка 🎉\n𝄞 нота\nхвост 👍\n"
+    );
 }
 
 #[test]
@@ -166,7 +204,11 @@ fn reports_edits_that_never_share_a_position() {
     for _ in 0..400 {
         let base = random_lines(&mut random, 14, 3);
         let disk = mutate(&mut random, &base, 5);
-        let current = if random.next(3) == 0 { String::new() } else { base.join("\n") };
+        let current = if random.next(3) == 0 {
+            String::new()
+        } else {
+            base.join("\n")
+        };
         let result = merge_external_change(&base.join("\n"), &disk.join("\n"), &current);
         let mut reach: Option<usize> = None;
         for edit in &result.edits {
@@ -180,11 +222,17 @@ fn reports_edits_that_never_share_a_position() {
 }
 
 fn divergent_disk() -> String {
-    (0..COARSE_MERGE_THRESHOLD + 5).map(|index| format!("совсем другое {index}")).collect::<Vec<_>>().join("\n")
+    (0..COARSE_MERGE_THRESHOLD + 5)
+        .map(|index| format!("совсем другое {index}"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn twenty_lines() -> String {
-    (0..20).map(|index| format!("строка {index}")).collect::<Vec<_>>().join("\n")
+    (0..20)
+        .map(|index| format!("строка {index}"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[test]

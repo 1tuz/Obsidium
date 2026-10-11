@@ -1,5 +1,6 @@
 use super::workspace::{indexed_vault, requested_vault};
 use super::{limit, optional_text, shorten, text, tool, workspace_property};
+use crate::app_core::Core;
 use crate::files::document::read_text;
 use crate::search::analysis::models::AnalysisMethod;
 use crate::search::headings;
@@ -7,7 +8,6 @@ use crate::wikixiv::models::SearchRequest;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
-use crate::app_core::Core;
 
 const SNIPPET_LIMIT: usize = 300;
 const CONTEXT_LIMIT: usize = 200;
@@ -92,11 +92,7 @@ pub fn definitions() -> Vec<Value> {
     ]
 }
 
-pub fn call(
-    core: &Core,
-    name: &str,
-    arguments: &Value,
-) -> Option<Result<Value, String>> {
+pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, String>> {
     Some(match name {
         "search_notes" => search_notes(core, arguments),
         "dataview_syntax" => dataview_syntax(arguments),
@@ -143,7 +139,10 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
         .search
         .backlink_counts(
             &vault.root.to_string_lossy(),
-            &shown.iter().map(|result| result.path.clone()).collect::<Vec<_>>(),
+            &shown
+                .iter()
+                .map(|result| result.path.clone())
+                .collect::<Vec<_>>(),
         )
         .ok();
     let results = shown
@@ -273,21 +272,15 @@ fn wiki_sources(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
     let note = vault.note(&text(arguments, "note")?)?;
     let content = read_text(&note).map_err(|error| error.to_string())?;
-    let enabled = core
-        .settings
-        .get_config()
-        .analysis
-        .enable_wikixiv;
-    let result = core
-        .wikixiv
-        .search(
-            SearchRequest {
-                text: content,
-                document_path: Some(note.to_string_lossy().into_owned()),
-                generation: WIKI_GENERATION.fetch_add(1, Ordering::Relaxed),
-            },
-            enabled,
-        )?;
+    let enabled = core.settings.get_config().analysis.enable_wikixiv;
+    let result = core.wikixiv.search(
+        SearchRequest {
+            text: content,
+            document_path: Some(note.to_string_lossy().into_owned()),
+            generation: WIKI_GENERATION.fetch_add(1, Ordering::Relaxed),
+        },
+        enabled,
+    )?;
 
     let hits = result
         .hits
@@ -315,8 +308,12 @@ fn link_context(path: &Path, offset_utf16: usize) -> (Option<String>, Option<Str
     let at = byte_at_utf16(&text, offset_utf16);
     let start = text[..at].rfind('\n').map_or(0, |index| index + 1);
     let end = text[at..].find('\n').map_or(text.len(), |index| at + index);
-    let heading = headings::enclosing(&headings::headings(&text), at).map(|heading| heading.title.clone());
-    (heading, Some(shorten(text[start..end].trim(), CONTEXT_LIMIT)))
+    let heading =
+        headings::enclosing(&headings::headings(&text), at).map(|heading| heading.title.clone());
+    (
+        heading,
+        Some(shorten(text[start..end].trim(), CONTEXT_LIMIT)),
+    )
 }
 
 fn byte_at_utf16(text: &str, offset: usize) -> usize {
@@ -332,9 +329,7 @@ fn byte_at_utf16(text: &str, offset: usize) -> usize {
 
 fn index_status(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
-    let status = core
-        .search
-        .status(Some(&vault.root.to_string_lossy()));
+    let status = core.search.status(Some(&vault.root.to_string_lossy()));
     serde_json::to_value(status).map_err(|error| error.to_string())
 }
 
@@ -354,11 +349,15 @@ mod tests {
     fn the_context_is_the_line_and_section_of_the_link() {
         let directory = tempfile::tempdir().unwrap();
         let note = directory.path().join("Источник.md");
-        fs::write(&note, "# Раздел
+        fs::write(
+            &note,
+            "# Раздел
 
 текст [[Цель]] хвост
 дальше
-").unwrap();
+",
+        )
+        .unwrap();
         let (heading, context) = link_context(&note, 16);
         assert_eq!(heading.as_deref(), Some("Раздел"));
         assert_eq!(context.as_deref(), Some("текст [[Цель]] хвост"));

@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
@@ -25,6 +27,11 @@ const DEFAULT_CONTROLS = {
   propertyKeyFilter: '',
   propertyValueFilter: '',
 };
+
+const graphSettingsStyles = readFileSync(
+  resolve(process.cwd(), 'src/components/Graph/GraphSettings.css'),
+  'utf8',
+);
 
 describe('GraphSettings', () => {
   let renderer: MountedDom | null = null;
@@ -859,5 +866,18 @@ describe('GraphSettings', () => {
 
     expect(onPathModeChange).toHaveBeenCalledWith(true);
     expect(panel.textContent).toContain(t('graph.pathFound', { count: 3 }));
+  });
+
+  it('prevents settings overflow and leaves room for graph history', () => {
+    expect(graphSettingsStyles).toMatch(/\.q-graph-settings\s*\{[^}]*overflow-x:\s*hidden;/s);
+    expect(graphSettingsStyles).toMatch(
+      /\.q-graph-settings \.q-segmented-control--stretch\s*\{[^}]*flex-wrap:\s*wrap;/s,
+    );
+    expect(graphSettingsStyles).toMatch(
+      /\.q-graph-settings \.q-segmented-control--stretch \.q-segmented-control__button\s*\{[^}]*min-width:\s*0;[^}]*white-space:\s*normal;/s,
+    );
+    expect(graphSettingsStyles).toMatch(
+      /\.q-graph:has\(> \.q-graph-settings:not\(\.q-graph-settings--collapsed\)\) \.q-graph-timeline\s*\{[^}]*right:\s*calc\(var\(--q-graph-settings-width\) \+ var\(--q-space-32\)\);/s,
+    );
   });
 });

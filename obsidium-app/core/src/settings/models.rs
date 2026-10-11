@@ -85,8 +85,33 @@ pub struct EditorSettings {
     pub live_tabs: u32,
     pub link_suggest: bool,
     pub link_suggest_min_chars: u32,
+    pub markdown_reading: MarkdownReadingSettings,
     #[serde(flatten)]
     pub font: FontSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct MarkdownReadingSettings {
+    pub style: String,
+    pub texture: String,
+    pub font: String,
+    pub font_size_px: u32,
+    pub line_height: f32,
+    pub page_width_ch: u32,
+}
+
+impl Default for MarkdownReadingSettings {
+    fn default() -> Self {
+        Self {
+            style: "theme".to_string(),
+            texture: "off".to_string(),
+            font: "standard".to_string(),
+            font_size_px: 18,
+            line_height: 1.7,
+            page_width_ch: 65,
+        }
+    }
 }
 
 impl Default for EditorSettings {
@@ -101,6 +126,7 @@ impl Default for EditorSettings {
             live_tabs: 3,
             link_suggest: true,
             link_suggest_min_chars: 2,
+            markdown_reading: MarkdownReadingSettings::default(),
             font: FontSettings {
                 font_family: "iA Writer Mono".to_string(),
                 font_weight: 400,
@@ -280,6 +306,13 @@ impl Default for BuiltinPluginSettings {
             icon_assignments: HashMap::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct GraphSettings {
+    pub preferences: Option<serde_json::Value>,
+    pub presets: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

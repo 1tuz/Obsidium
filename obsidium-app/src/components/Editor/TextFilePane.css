@@ -1,0 +1,58 @@
+.q-text-file-pane {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--q-bg-surface);
+}
+
+.q-text-file-pane.q-offstage {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.q-text-file-pane__header {
+  display: flex;
+  align-items: center;
+  gap: var(--q-gap-md);
+  min-height: var(--q-size-40);
+  padding: 0 var(--q-padding-md);
+  border-bottom: var(--q-border-1) solid var(--q-border-default);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-base);
+}
+
+.q-text-file-pane__name {
+  flex: 1;
+  overflow: hidden;
+  color: var(--q-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-text-file-pane__reload {
+  border: 0;
+  background: transparent;
+  color: var(--q-text-accent);
+  cursor: pointer;
+  font: inherit;
+}
+
+.q-text-file-pane__editor {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.q-text-file-pane__editor .cm-editor {
+  min-height: 100%;
+}
+
+.q-text-file-pane__error {
+  margin: 0;
+  padding: var(--q-padding-sm) var(--q-padding-md);
+  color: var(--q-text-danger);
+}

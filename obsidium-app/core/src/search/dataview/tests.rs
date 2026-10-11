@@ -17,7 +17,10 @@ fn note(relative: &str, created: i64, fields: Vec<Field>) -> Row {
         tasks: Vec::new(),
         relative: relative.to_owned(),
         name,
-        folder: relative.rsplit_once('/').map(|(head, _)| head.to_owned()).unwrap_or_default(),
+        folder: relative
+            .rsplit_once('/')
+            .map(|(head, _)| head.to_owned())
+            .unwrap_or_default(),
         created,
         modified: created,
         size: 100,
@@ -67,8 +70,16 @@ const DAY: i64 = 86_400 * 1_000_000_000;
 #[test]
 fn the_backlinks_query_builds_labelled_links_newest_first() {
     let rows = vec![
-        note("Заметки/Старая.md", DAY, vec![scalar("title", "Про доверие")]),
-        note("Заметки/Новая.md", DAY * 3, vec![scalar("title", "Про конфликт")]),
+        note(
+            "Заметки/Старая.md",
+            DAY,
+            vec![scalar("title", "Про доверие")],
+        ),
+        note(
+            "Заметки/Новая.md",
+            DAY * 3,
+            vec![scalar("title", "Про конфликт")],
+        ),
         note("Заметки/Безымянная.md", DAY * 2, Vec::new()),
     ];
     let output = run(
@@ -157,7 +168,11 @@ fn a_missing_field_sorts_to_the_end_in_both_directions() {
 #[test]
 fn tags_are_a_list_and_contains_looks_inside_it() {
     let rows = vec![
-        note("Фантастика.md", DAY, vec![list("tags", &["книги", "фантастика"])]),
+        note(
+            "Фантастика.md",
+            DAY,
+            vec![list("tags", &["книги", "фантастика"])],
+        ),
         note("Проза.md", DAY, vec![list("tags", &["книги"])]),
     ];
     let output = run(
@@ -257,7 +272,6 @@ impl CloneRows for Vec<Row> {
     }
 }
 
-
 const HOME_STATS: &str = r#"TABLE WITHOUT ID
     item.Period AS "Стата заметок",
     item.Count AS "Всего",
@@ -281,14 +295,21 @@ fn today() -> i64 {
 fn the_recent_notes_query_formats_its_dates() {
     let rows = vec![
         note("Свежая.md", today(), vec![scalar("title", "Свежая мысль")]),
-        note("Старая.md", today() - DAY * 30, vec![scalar("title", "Старая мысль")]),
+        note(
+            "Старая.md",
+            today() - DAY * 30,
+            vec![scalar("title", "Старая мысль")],
+        ),
     ];
     let output = run(
         "TABLE WITHOUT ID link(file.link, title) AS \"Последние заметки\", dateformat(file.ctime, \"d MMM\") AS \"Дата\" WHERE file.ctime >= date(today) - dur(1 week) SORT file.ctime DESC LIMIT 10",
         rows,
     );
 
-    assert_eq!(output.total, 1, "заметка месячной давности не попала в неделю");
+    assert_eq!(
+        output.total, 1,
+        "заметка месячной давности не попала в неделю"
+    );
     assert_eq!(plain(&output.rows[0]), "Свежая мысль");
     assert_eq!(
         plain(&output.rows[1]),
@@ -312,7 +333,11 @@ fn the_stats_query_groups_the_whole_vault_into_one_table() {
     assert_eq!(plain(&output.rows[1]), "1");
     assert_eq!(plain(&output.rows[3]), "Неделя");
     assert_eq!(plain(&output.rows[4]), "3");
-    assert_eq!(plain(&output.rows[5]), "+2", "на прошлой неделе была одна заметка");
+    assert_eq!(
+        plain(&output.rows[5]),
+        "+2",
+        "на прошлой неделе была одна заметка"
+    );
     assert_eq!(plain(&output.rows[6]), "За всё время");
     assert_eq!(plain(&output.rows[7]), "4");
 }
@@ -324,7 +349,10 @@ fn a_group_keeps_the_key_and_counts_its_rows() {
         note("Книги/Две.md", DAY, Vec::new()),
         note("Мысли/Три.md", DAY, Vec::new()),
     ];
-    let output = run("TABLE length(rows) AS \"Сколько\" GROUP BY file.folder", rows);
+    let output = run(
+        "TABLE length(rows) AS \"Сколько\" GROUP BY file.folder",
+        rows,
+    );
 
     assert_eq!(output.columns, vec!["Заметка", "Сколько"]);
     assert_eq!(output.total, 2);
@@ -336,8 +364,15 @@ fn a_group_keeps_the_key_and_counts_its_rows() {
 
 #[test]
 fn flatten_spreads_a_list_field_into_rows() {
-    let rows = vec![note("Книга.md", DAY, vec![list("tags", &["книги", "мысль"])])];
-    let output = run("TABLE WITHOUT ID tag FROM \"\" FLATTEN file.tags AS tag SORT tag", rows);
+    let rows = vec![note(
+        "Книга.md",
+        DAY,
+        vec![list("tags", &["книги", "мысль"])],
+    )];
+    let output = run(
+        "TABLE WITHOUT ID tag FROM \"\" FLATTEN file.tags AS tag SORT tag",
+        rows,
+    );
 
     assert_eq!(output.total, 2);
     assert_eq!(plain(&output.rows[0]), "книги");
@@ -378,12 +413,18 @@ fn the_progress_query_needs_no_notes_at_all() {
         .collect();
     assert_eq!(shares.len(), 6, "в каждой строке своя полоса");
     assert!(shares.iter().all(|share| (0.0..=100.0).contains(share)));
-    assert!(shares[5] > 20.0 && shares[5] < 60.0, "жизнь прожита примерно на треть");
+    assert!(
+        shares[5] > 20.0 && shares[5] < 60.0,
+        "жизнь прожита примерно на треть"
+    );
 }
 
 #[test]
 fn a_query_from_once_ignores_the_notes_it_was_given() {
-    let output = run("TABLE WITHOUT ID 2 + 2 AS \"Сумма\" FROM once", vec![note("Лишняя.md", DAY, Vec::new())]);
+    let output = run(
+        "TABLE WITHOUT ID 2 + 2 AS \"Сумма\" FROM once",
+        vec![note("Лишняя.md", DAY, Vec::new())],
+    );
     assert_eq!(output.total, 1);
     assert_eq!(plain(&output.rows[0]), "4");
 }
@@ -409,7 +450,11 @@ fn a_query_from_once_is_answered_without_an_index() {
 
 #[test]
 fn the_new_functions_work_on_real_values() {
-    let rows = vec![note("Книга.md", DAY, vec![scalar("title", "Пять пороков команды")])];
+    let rows = vec![note(
+        "Книга.md",
+        DAY,
+        vec![scalar("title", "Пять пороков команды")],
+    )];
     let output = run(
         "TABLE WITHOUT ID truncate(title, 10) AS \"Кратко\", upper(substring(title, 0, 4)) AS \"Начало\", length(split(title, \" \")) AS \"Слов\", containsword(title, \"пороков\") AS \"Есть\"",
         rows,
@@ -448,7 +493,11 @@ fn the_short_stats_query_counts_the_same_as_the_long_one() {
     assert_eq!(plain(&output.rows[1]), "1");
     assert_eq!(plain(&output.rows[3]), "Неделя");
     assert_eq!(plain(&output.rows[4]), "3");
-    assert_eq!(plain(&output.rows[5]), "+2", "на прошлой неделе была одна заметка");
+    assert_eq!(
+        plain(&output.rows[5]),
+        "+2",
+        "на прошлой неделе была одна заметка"
+    );
     assert_eq!(plain(&output.rows[6]), "За всё время");
     assert_eq!(plain(&output.rows[7]), "4");
     assert_eq!(plain(&output.rows[8]), "\u{2014}");
@@ -474,7 +523,11 @@ fn a_period_boundary_belongs_to_one_side_only() {
         rows,
     );
     assert_eq!(plain(&output.rows[0]), "1");
-    assert_eq!(plain(&output.rows[1]), "0", "конец отрезка в него не входит");
+    assert_eq!(
+        plain(&output.rows[1]),
+        "0",
+        "конец отрезка в него не входит"
+    );
 }
 
 fn with_tasks(relative: &str, tasks: &[(bool, &str)]) -> Row {
@@ -520,12 +573,18 @@ fn a_task_query_lists_checkboxes_not_notes() {
 
 #[test]
 fn a_condition_filters_the_tasks_themselves() {
-    let rows = vec![with_tasks("Дела.md", &[(false, "написать"), (true, "отправить")])];
+    let rows = vec![with_tasks(
+        "Дела.md",
+        &[(false, "написать"), (true, "отправить")],
+    )];
     let output = run("TASK WITHOUT ID WHERE !completed", rows);
 
     assert_eq!(output.total, 1);
     assert_eq!(plain(&output.rows[0]), "[ ] написать");
-    assert!(targets(&output.rows[0]).is_empty(), "«WITHOUT ID» убирает ссылку на заметку");
+    assert!(
+        targets(&output.rows[0]).is_empty(),
+        "«WITHOUT ID» убирает ссылку на заметку"
+    );
 }
 
 #[test]
@@ -534,7 +593,10 @@ fn tasks_can_be_searched_sorted_and_cut() {
         "Дела.md",
         &[(false, "бета"), (false, "альфа"), (false, "гамма")],
     )];
-    let output = run("TASK WITHOUT ID WHERE contains(text, \"а\") SORT text LIMIT 2", rows);
+    let output = run(
+        "TASK WITHOUT ID WHERE contains(text, \"а\") SORT text LIMIT 2",
+        rows,
+    );
 
     assert_eq!(output.total, 2);
     assert_eq!(plain(&output.rows[0]), "[ ] альфа");
@@ -544,7 +606,10 @@ fn tasks_can_be_searched_sorted_and_cut() {
 #[test]
 fn a_task_knows_which_note_and_line_it_came_from() {
     let rows = vec![with_tasks("Дела.md", &[(false, "написать")])];
-    let output = run("TASK WITHOUT ID WHERE line = 1 and file.name = \"Дела\"", rows);
+    let output = run(
+        "TASK WITHOUT ID WHERE line = 1 and file.name = \"Дела\"",
+        rows,
+    );
     assert_eq!(output.total, 1);
 }
 
@@ -606,35 +671,63 @@ FLATTEN list(
     assert_eq!(output.total, 2);
     assert_eq!(plain(&output.rows[0]), "До конца работы");
     let share: f64 = plain(&output.rows[1]).parse().expect("процент — число");
-    assert!((0.0..=100.0).contains(&share), "доля дня в пределах ста процентов: {share}");
+    assert!(
+        (0.0..=100.0).contains(&share),
+        "доля дня в пределах ста процентов: {share}"
+    );
 }
 
 #[test]
 fn a_block_that_asks_the_clock_keeps_itself_fresh_without_every() {
     crate::search::note_date::take_now_used();
     run("TABLE WITHOUT ID 2 + 2 AS \"Сумма\" FROM once", Vec::new());
-    assert!(!crate::search::note_date::take_now_used(), "арифметика часов не трогает");
+    assert!(
+        !crate::search::note_date::take_now_used(),
+        "арифметика часов не трогает"
+    );
 
-    run("TABLE WITHOUT ID percent(day) AS \"День\" FROM once", Vec::new());
-    assert!(crate::search::note_date::take_now_used(), "период спрашивает текущий момент");
+    run(
+        "TABLE WITHOUT ID percent(day) AS \"День\" FROM once",
+        Vec::new(),
+    );
+    assert!(
+        crate::search::note_date::take_now_used(),
+        "период спрашивает текущий момент"
+    );
 
-    run("TABLE WITHOUT ID dateformat(now, \"HH:mm\") AS \"Часы\" FROM once", Vec::new());
-    assert!(crate::search::note_date::take_now_used(), "now спрашивает текущий момент");
+    run(
+        "TABLE WITHOUT ID dateformat(now, \"HH:mm\") AS \"Часы\" FROM once",
+        Vec::new(),
+    );
+    assert!(
+        crate::search::note_date::take_now_used(),
+        "now спрашивает текущий момент"
+    );
 }
 
 #[test]
 fn every_sets_how_often_the_block_recounts_itself() {
     let rows = vec![note("Дела.md", 1, Vec::new())];
-    assert_eq!(run("TABLE EVERY 30s", rows.clone_rows()).refresh_seconds, Some(30));
-    assert_eq!(run("TASK EVERY 5 minutes", rows.clone_rows()).refresh_seconds, Some(300));
+    assert_eq!(
+        run("TABLE EVERY 30s", rows.clone_rows()).refresh_seconds,
+        Some(30)
+    );
+    assert_eq!(
+        run("TASK EVERY 5 minutes", rows.clone_rows()).refresh_seconds,
+        Some(300)
+    );
     assert_eq!(run("TABLE", rows).refresh_seconds, None);
 }
 
 #[test]
 fn every_explains_a_wrong_interval_and_leaves_a_field_named_every_alone() {
     assert!(parse("TABLE EVERY 0s").unwrap_err().contains("секунды"));
-    assert!(parse("TABLE EVERY 30 попугаев").unwrap_err().contains("промежуток"));
-    assert!(parse("TABLE EVERY 30s EVERY 1 minute").unwrap_err().contains("дважды"));
+    assert!(parse("TABLE EVERY 30 попугаев")
+        .unwrap_err()
+        .contains("промежуток"));
+    assert!(parse("TABLE EVERY 30s EVERY 1 minute")
+        .unwrap_err()
+        .contains("дважды"));
 
     let field = run(
         "TABLE WITHOUT ID every",
@@ -646,97 +739,145 @@ fn every_explains_a_wrong_interval_and_leaves_a_field_named_every_alone() {
 
 #[test]
 fn situation_01_delta_positive() {
-    let output = run("TABLE WITHOUT ID delta(10, 4) AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(10, 4) AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "+6");
 }
 
 #[test]
 fn situation_02_delta_negative() {
-    let output = run("TABLE WITHOUT ID delta(4, 10) AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(4, 10) AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "-6");
 }
 
 #[test]
 fn situation_03_delta_minus_one() {
-    let output = run("TABLE WITHOUT ID delta(0, 1) AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(0, 1) AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "-1");
 }
 
 #[test]
 fn situation_04_delta_zero_shows_zero() {
-    let output = run("TABLE WITHOUT ID delta(7, 7) AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(7, 7) AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "0");
 }
 
 #[test]
 fn situation_05_delta_zero_custom_dash() {
-    let output = run("TABLE WITHOUT ID delta(7, 7, \"—\") AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(7, 7, \"—\") AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "\u{2014}");
 }
 
 #[test]
 fn situation_06_delta_zero_custom_text() {
-    let output = run("TABLE WITHOUT ID delta(7, 7, \"ровно\") AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(7, 7, \"ровно\") AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "ровно");
 }
 
 #[test]
 fn situation_07_delta_null_before() {
-    let output = run("TABLE WITHOUT ID delta(10, null) AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(10, null) AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "\u{2014}");
 }
 
 #[test]
 fn situation_08_delta_null_before_custom() {
-    let output = run("TABLE WITHOUT ID delta(10, null, \"нет данных\") AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(10, null, \"нет данных\") AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "нет данных");
 }
 
 #[test]
 fn situation_09_delta_null_current() {
-    let output = run("TABLE WITHOUT ID delta(null, 10) AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(null, 10) AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "\u{2014}");
 }
 
 #[test]
 fn situation_10_delta_both_null() {
-    let output = run("TABLE WITHOUT ID delta(null, null) AS \"D\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID delta(null, null) AS \"D\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "\u{2014}");
 }
 
 #[test]
 fn situation_11_previous_ever_is_null() {
-    let output = run("TABLE WITHOUT ID previous(ever) AS \"P\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID previous(ever) AS \"P\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "");
 }
 
 #[test]
 fn situation_12_previous_zero_duration_is_null() {
-    let output = run("TABLE WITHOUT ID previous(span(today, today)) AS \"P\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID previous(span(today, today)) AS \"P\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "");
 }
 
 #[test]
 fn situation_13_count_list_without_period() {
-    let output = run("TABLE WITHOUT ID count(list(1, 2, 3, 4, 5)) AS \"C\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID count(list(1, 2, 3, 4, 5)) AS \"C\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "5");
 }
 
 #[test]
 fn situation_14_count_empty_list_without_period() {
-    let output = run("TABLE WITHOUT ID count(list()) AS \"C\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID count(list()) AS \"C\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "0");
 }
 
 #[test]
 fn situation_15_count_with_null_period_returns_null() {
-    let output = run("TABLE WITHOUT ID count(list(today, today), null) AS \"C\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID count(list(today, today), null) AS \"C\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "");
 }
 
 #[test]
 fn situation_16_count_with_previous_ever_returns_null() {
-    let output = run("TABLE WITHOUT ID count(list(today), previous(ever)) AS \"C\" FROM once", Vec::new());
+    let output = run(
+        "TABLE WITHOUT ID count(list(today), previous(ever)) AS \"C\" FROM once",
+        Vec::new(),
+    );
     assert_eq!(plain(&output.rows[0]), "");
 }
 

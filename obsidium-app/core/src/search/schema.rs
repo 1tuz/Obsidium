@@ -31,12 +31,14 @@ pub struct TokenStatistics {
 
 pub fn token_statistics(text: &str) -> TokenStatistics {
     let mut frequencies = HashMap::new();
-    indexing_tokenizer().token_stream(text).process(&mut |token| {
-        if token.text.chars().count() >= 2 {
-            let frequency = frequencies.entry(token.text.clone()).or_insert(0u32);
-            *frequency = frequency.saturating_add(1);
-        }
-    });
+    indexing_tokenizer()
+        .token_stream(text)
+        .process(&mut |token| {
+            if token.text.chars().count() >= 2 {
+                let frequency = frequencies.entry(token.text.clone()).or_insert(0u32);
+                *frequency = frequency.saturating_add(1);
+            }
+        });
     TokenStatistics { frequencies }
 }
 

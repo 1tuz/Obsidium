@@ -17,7 +17,9 @@ pub fn headings(source: &str) -> Vec<Heading> {
 
     for (event, range) in Parser::new_ext(source, Options::all()).into_offset_iter() {
         match event {
-            Event::Start(Tag::Heading { level: found_level, .. }) => {
+            Event::Start(Tag::Heading {
+                level: found_level, ..
+            }) => {
                 level = Some(found_level as u8);
                 start = range.start;
                 title.clear();
@@ -48,7 +50,10 @@ pub fn headings(source: &str) -> Vec<Heading> {
 }
 
 pub fn enclosing(headings: &[Heading], offset: usize) -> Option<&Heading> {
-    headings.iter().rev().find(|heading| heading.start <= offset)
+    headings
+        .iter()
+        .rev()
+        .find(|heading| heading.start <= offset)
 }
 
 pub fn matching<'a>(headings: &'a [Heading], wanted: &str) -> Vec<&'a Heading> {
@@ -79,7 +84,10 @@ mod tests {
             [(1, "Один"), (2, "Два"), (3, "Три"), (2, "Два")]
         );
         assert_eq!(line(NOTE, &list[0]), "# Один\n");
-        assert_eq!(&NOTE[list[1].content.clone()], "\nещё\n\n### Три\n\nглубже\n\n");
+        assert_eq!(
+            &NOTE[list[1].content.clone()],
+            "\nещё\n\n### Три\n\nглубже\n\n"
+        );
         assert_eq!(&NOTE[list[2].content.clone()], "\nглубже\n\n");
         assert_eq!(&NOTE[list[3].content.clone()], "\nдубль\n");
     }

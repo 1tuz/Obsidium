@@ -13,7 +13,7 @@ describe('bookQuotes', () => {
   it('formats book quote with numbered ref link at the end', () => {
     const md = formatBookQuote('Hello  world', 'epubcfi(/6/4!/4)', undefined, 2);
     expect(md).toBe(
-      `> [!quote] Hello world ${formatReaderQuoteRef(2)}(aquilum-reader:cfi=epubcfi%28%2F6%2F4%21%2F4%29)\n`,
+      `> [!quote] Hello world ${formatReaderQuoteRef(2)}(obsidium-reader:cfi=epubcfi%28%2F6%2F4%21%2F4%29)\n`,
     );
     expect(parseReaderQuoteBlock(md.trim())).toEqual({
       quoteText: 'Hello world',
@@ -33,6 +33,11 @@ describe('bookQuotes', () => {
     });
   });
 
+  it('reads old and new reader link schemes', () => {
+    expect(parseReaderQuoteHref('aquilum-reader:cfi=old')).toEqual({ cfi: 'old' });
+    expect(parseReaderQuoteHref('obsidium-reader:cfi=new')).toEqual({ cfi: 'new' });
+  });
+
   it('parses legacy inline quote links without [!quote]', () => {
     const parsed = parseReaderQuoteLine('> [Hello world](aquilum-reader:cfi=abc)');
     expect(parsed).toEqual({
@@ -44,7 +49,7 @@ describe('bookQuotes', () => {
   it('escapes brackets in quote text before the ref link', () => {
     const md = formatBookQuote('[note]', 'epubcfi(/6/4!/4)', undefined, 1);
     expect(md).toBe(
-      `> [!quote] \\[note\\] ${formatReaderQuoteRef(1)}(aquilum-reader:cfi=epubcfi%28%2F6%2F4%21%2F4%29)\n`,
+      `> [!quote] \\[note\\] ${formatReaderQuoteRef(1)}(obsidium-reader:cfi=epubcfi%28%2F6%2F4%21%2F4%29)\n`,
     );
     expect(parseReaderQuoteBlock(md.trim())?.quoteText).toBe('[note]');
   });

@@ -10,8 +10,8 @@ pub mod parser;
 pub mod rows;
 pub mod service;
 pub mod source;
-pub mod syntax;
 pub mod span;
+pub mod syntax;
 #[cfg(test)]
 mod tests;
 pub mod value;

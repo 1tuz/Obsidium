@@ -58,11 +58,11 @@ use tauri::window::Color;
 use tauri::{Emitter, Manager, Theme, WindowEvent};
 
 pub fn run_mcp_stdio_bridge() -> i32 {
-    mcp::run_stdio_bridge(env!("AQUILUM_APP_IDENTIFIER"))
+    mcp::run_stdio_bridge(env!("OBSIDIUM_APP_IDENTIFIER"))
 }
 
 pub fn run_mcp_stdio_headless() -> i32 {
-    mcp::run_stdio_headless(env!("AQUILUM_APP_IDENTIFIER"))
+    mcp::run_stdio_headless(env!("OBSIDIUM_APP_IDENTIFIER"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -90,7 +90,7 @@ pub fn run() {
     let builder = builder.on_page_load(|webview, payload| {
         if payload.event() == tauri::webview::PageLoadEvent::Finished && webview.label() == "main" {
             if let Err(error) = webview.window().show() {
-                eprintln!("[aquilum] окно не показано: {error}");
+                eprintln!("[obsidium] окно не показано: {error}");
             }
         }
     });
@@ -285,7 +285,7 @@ fn allow_pinch_gestures(window: &tauri::WebviewWindow) {
                 .and_then(|settings| settings.SetIsPinchZoomEnabled(true))
         };
         if let Err(error) = enabled {
-            eprintln!("[aquilum:input] pinch gestures stay disabled: {error}");
+            eprintln!("[obsidium:input] pinch gestures stay disabled: {error}");
         }
     });
 }

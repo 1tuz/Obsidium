@@ -51,9 +51,15 @@ impl Source {
                 _ => None,
             };
         }
-        [Self::Me, Self::Agent, Self::External, Self::Links, Self::Start]
-            .into_iter()
-            .find(|source| source.label() == label)
+        [
+            Self::Me,
+            Self::Agent,
+            Self::External,
+            Self::Links,
+            Self::Start,
+        ]
+        .into_iter()
+        .find(|source| source.label() == label)
     }
 
     pub fn origin_ms(self) -> Option<u64> {
@@ -235,7 +241,9 @@ fn common_suffix(left: &str, right: &str) -> usize {
         .zip(right.bytes().rev())
         .take_while(|(left, right)| left == right)
         .count();
-    while !left.is_char_boundary(left.len() - length) || !right.is_char_boundary(right.len() - length) {
+    while !left.is_char_boundary(left.len() - length)
+        || !right.is_char_boundary(right.len() - length)
+    {
         length -= 1;
     }
     length
@@ -571,7 +579,10 @@ mod tests {
 
     #[test]
     fn restore_and_revert_labels_roundtrip() {
-        for source in [Source::Restore(1_790_000_000_123), Source::Revert(1_790_000_000_123)] {
+        for source in [
+            Source::Restore(1_790_000_000_123),
+            Source::Revert(1_790_000_000_123),
+        ] {
             assert_eq!(Source::from_label(&source.file_label()), Some(source));
         }
         assert_eq!(Source::from_label("restore-"), None);

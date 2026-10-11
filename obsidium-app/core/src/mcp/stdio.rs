@@ -152,14 +152,13 @@ fn transport_error(message: &str, reason: &str) -> Option<String> {
 }
 
 fn endpoint(app_identifier: &str) -> Option<Endpoint> {
-    let from_env = (
-        std::env::var("AQUILUM_MCP_PORT")
-            .ok()
-            .and_then(|value| value.parse::<u16>().ok()),
+    if let Some(endpoint) = endpoint_from_env(
+        std::env::var("OBSIDIUM_MCP_PORT").ok(),
+        std::env::var("OBSIDIUM_MCP_TOKEN").ok(),
+        std::env::var("AQUILUM_MCP_PORT").ok(),
         std::env::var("AQUILUM_MCP_TOKEN").ok(),
-    );
-    if let (Some(port), Some(token)) = from_env {
-        return Some(Endpoint { port, token });
+    ) {
+        return Some(endpoint);
     }
 
     let settings = std::fs::read_to_string(settings_path(app_identifier)?).ok()?;
@@ -170,6 +169,25 @@ fn endpoint(app_identifier: &str) -> Option<Endpoint> {
     Some(Endpoint {
         port: u16::try_from(mcp.get("port").and_then(Value::as_u64)?).ok()?,
         token: mcp.get("token").and_then(Value::as_str)?.to_owned(),
+    })
+}
+
+fn endpoint_from_env(
+    obsidium_port: Option<String>,
+    obsidium_token: Option<String>,
+    aquilum_port: Option<String>,
+    aquilum_token: Option<String>,
+) -> Option<Endpoint> {
+    [
+        (obsidium_port, obsidium_token),
+        (aquilum_port, aquilum_token),
+    ]
+    .into_iter()
+    .find_map(|(port, token)| {
+        Some(Endpoint {
+            port: port?.parse().ok()?,
+            token: token?,
+        })
     })
 }
 

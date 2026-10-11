@@ -61,7 +61,10 @@ mod tests {
 
     #[test]
     fn stops_reading_at_the_closing_title_instead_of_the_whole_page() {
-        let source = page("<html><head><title>Коротко</title></head><body>", 4 * 1024 * 1024);
+        let source = page(
+            "<html><head><title>Коротко</title></head><body>",
+            4 * 1024 * 1024,
+        );
 
         let head = read_until_title(source);
 

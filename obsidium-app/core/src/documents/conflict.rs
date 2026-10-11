@@ -78,7 +78,11 @@ fn one_line(value: &str) -> String {
 }
 
 pub fn copy_stem(stem: &str, moment: &LocalMinute) -> String {
-    format!("{stem} (конфликт {} {})", moment.date, moment.time.replace(':', "-"))
+    format!(
+        "{stem} (конфликт {} {})",
+        moment.date,
+        moment.time.replace(':', "-")
+    )
 }
 
 pub fn copy_content(
@@ -108,12 +112,22 @@ pub fn copy_content(
         format!("> **Заметка.** `{note_path}`"),
     ];
     if let Some(hash) = &report.disk_hash {
-        lines.push(format!("> **Отпечаток файла на диске.** `{}`", one_line(hash)));
+        lines.push(format!(
+            "> **Отпечаток файла на диске.** `{}`",
+            one_line(hash)
+        ));
     }
     if let Some(hash) = &report.synced_hash {
-        lines.push(format!("> **Отпечаток последней сверки.** `{}`", one_line(hash)));
+        lines.push(format!(
+            "> **Отпечаток последней сверки.** `{}`",
+            one_line(hash)
+        ));
     }
-    lines.extend([String::new(), "## Текст, который не попал в заметку".to_owned(), String::new()]);
+    lines.extend([
+        String::new(),
+        "## Текст, который не попал в заметку".to_owned(),
+        String::new(),
+    ]);
     let mut content = lines.join("\n");
     content.push_str(body);
     if !body.ends_with('\n') {

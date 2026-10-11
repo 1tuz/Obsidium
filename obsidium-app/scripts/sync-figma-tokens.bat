@@ -5,7 +5,7 @@ chcp 65001 >nul
 cd /d "%~dp0.."
 
 echo ========================================
-echo Aquilum - Figma token synchronization
+echo Obsidium - Figma token synchronization
 echo ========================================
 echo.
 echo Working directory:

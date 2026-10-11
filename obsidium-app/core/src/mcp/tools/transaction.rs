@@ -4,7 +4,7 @@ use super::{optional_text, require_write, tool, version_name_property, workspace
 use crate::app_core::Core;
 use crate::files::document::{hash_bytes, read_file_snapshot_impl, write_file_atomic_impl};
 use crate::files::gate;
-use crate::history::{Source, AQUILUM_FOLDER};
+use crate::history::{Source, OBSIDIUM_FOLDER};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -364,7 +364,7 @@ fn persist(vault: &Vault, transaction: &StoredTransaction) -> Result<(), String>
 fn transaction_path(vault: &Vault, id: &str) -> PathBuf {
     vault
         .root
-        .join(AQUILUM_FOLDER)
+        .join(OBSIDIUM_FOLDER)
         .join(TRANSACTIONS_FOLDER)
         .join(format!("{id}.json"))
 }

@@ -75,10 +75,12 @@ fn version_eight_database_receives_the_base_view_table() {
     let connection = rusqlite::Connection::open_in_memory().expect("database");
     migrate(&connection).expect("latest schema");
     connection
-        .execute_batch("DROP TABLE base_view_states;
+        .execute_batch(
+            "DROP TABLE base_view_states;
             ALTER TABLE tabs DROP COLUMN pane_id;
             ALTER TABLE sessions DROP COLUMN layout_json;
-            PRAGMA user_version = 8;")
+            PRAGMA user_version = 8;",
+        )
         .expect("legacy version");
 
     migrate(&connection).expect("upgrade");

@@ -43,6 +43,25 @@ fn atomic_write_replaces_the_complete_file() {
 }
 
 #[test]
+fn atomic_edit_preserves_crlf_line_endings() {
+    let directory = tempfile::tempdir().expect("temp directory");
+    let path = directory.path().join("note.md");
+    fs::write(&path, "первая\r\nвторая\r\nтретья").expect("fixture");
+    let original = read_file_snapshot_impl(&path).expect("snapshot");
+
+    let result = write_file_atomic_impl(
+        &path,
+        &original.content.replace("вторая", "обновлено"),
+        Some(&original.hash),
+    )
+    .expect("save edit");
+
+    let saved = fs::read(&path).expect("saved bytes");
+    assert_eq!(saved, "первая\r\nобновлено\r\nтретья".as_bytes());
+    assert_eq!(result.hash, hash_bytes(&saved));
+}
+
+#[test]
 fn obsidian_fixture_round_trips_unknown_data_and_unicode_paths() {
     let directory = tempfile::tempdir().expect("temp directory");
     let vault = directory.path().join("Vault with spaces");
@@ -182,6 +201,7 @@ fn workspace_filters_and_sorts_entries() {
             "Beta",
             "doc.pdf",
             "Gamma",
+            "notes.txt",
             "novel.epub",
             "photo.png",
             "Projects.base"
@@ -203,7 +223,10 @@ fn vault_snippets_list_only_css_files_inside_the_vault() {
     let found = list_vault_snippets_impl(directory.path()).expect("list snippets");
 
     assert_eq!(
-        found.iter().map(|item| item.name.as_str()).collect::<Vec<_>>(),
+        found
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>(),
         vec!["Alpha.CSS", "zebra.css"]
     );
 }
@@ -253,5 +276,8 @@ fn a_snapshot_of_an_lf_file_reports_the_same_hash_twice() {
 #[test]
 fn a_lone_carriage_return_is_normalised_too() {
     assert_eq!(normalize_line_endings("одна\rдве".to_owned()), "одна\nдве");
-    assert_eq!(normalize_line_endings("без переносов".to_owned()), "без переносов");
+    assert_eq!(
+        normalize_line_endings("без переносов".to_owned()),
+        "без переносов"
+    );
 }

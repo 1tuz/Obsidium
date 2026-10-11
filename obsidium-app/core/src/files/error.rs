@@ -40,9 +40,9 @@ impl From<crate::app_core::TaskFailed> for FileCommandError {
 impl std::fmt::Display for FileCommandError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Io { message }
-            | Self::InvalidUtf8 { message }
-            | Self::Task { message } => formatter.write_str(message),
+            Self::Io { message } | Self::InvalidUtf8 { message } | Self::Task { message } => {
+                formatter.write_str(message)
+            }
             Self::Conflict { .. } => formatter.write_str("файл изменился на диске"),
             Self::AlreadyExists { path } => write!(formatter, "уже существует: {path}"),
         }

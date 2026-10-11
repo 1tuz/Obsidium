@@ -19,8 +19,12 @@ pub fn call(name: &str, arguments: Vec<Value>) -> Result<Value, String> {
         "length" => Ok(Value::Number(text::length(first(&arguments)) as f64)),
         "contains" => Ok(Value::Bool(text::contains(&arguments))),
         "containsword" => Ok(Value::Bool(text::contains_word(&arguments))),
-        "lower" => Ok(text::text_of(first(&arguments), |value| value.to_lowercase())),
-        "upper" => Ok(text::text_of(first(&arguments), |value| value.to_uppercase())),
+        "lower" => Ok(text::text_of(first(&arguments), |value| {
+            value.to_lowercase()
+        })),
+        "upper" => Ok(text::text_of(first(&arguments), |value| {
+            value.to_uppercase()
+        })),
         "join" => Ok(text::join(&arguments)),
         "split" => Ok(text::split(&arguments)),
         "replace" => Ok(text::replace(&arguments)),
@@ -41,8 +45,12 @@ pub fn call(name: &str, arguments: Vec<Value>) -> Result<Value, String> {
         "ceil" => Ok(numbers::numeric(&arguments, f64::ceil)),
         "trunc" => Ok(numbers::numeric(&arguments, f64::trunc)),
         "abs" => Ok(numbers::numeric(&arguments, f64::abs)),
-        "sum" => Ok(Value::Number(numbers::numbers(first(&arguments)).iter().sum())),
-        "product" => Ok(Value::Number(numbers::numbers(first(&arguments)).iter().product())),
+        "sum" => Ok(Value::Number(
+            numbers::numbers(first(&arguments)).iter().sum(),
+        )),
+        "product" => Ok(Value::Number(
+            numbers::numbers(first(&arguments)).iter().product(),
+        )),
         "average" => Ok(numbers::average(first(&arguments))),
         "min" => Ok(numbers::extreme(first(&arguments), true)),
         "max" => Ok(numbers::extreme(first(&arguments), false)),
@@ -77,15 +85,62 @@ pub fn call(name: &str, arguments: Vec<Value>) -> Result<Value, String> {
 
 pub(in crate::search::dataview) fn available() -> String {
     [
-        "link", "default", "choice", "object", "typeof",
-        "length", "contains", "containsword", "lower", "upper", "join", "split", "replace",
-        "substring", "startswith", "endswith", "padleft", "padright", "truncate",
-        "number", "string", "round", "floor", "ceil", "trunc", "abs", "sum", "product",
-        "average", "min", "max",
-        "list", "reverse", "sort", "unique", "flat", "slice", "firstvalue", "lastvalue",
-        "nonnull", "filter", "map", "any", "all",
-        "date", "dur", "dateformat", "striptime",
-        "span", "bar", "percent", "remaining", "within", "count", "previous", "delta",
+        "link",
+        "default",
+        "choice",
+        "object",
+        "typeof",
+        "length",
+        "contains",
+        "containsword",
+        "lower",
+        "upper",
+        "join",
+        "split",
+        "replace",
+        "substring",
+        "startswith",
+        "endswith",
+        "padleft",
+        "padright",
+        "truncate",
+        "number",
+        "string",
+        "round",
+        "floor",
+        "ceil",
+        "trunc",
+        "abs",
+        "sum",
+        "product",
+        "average",
+        "min",
+        "max",
+        "list",
+        "reverse",
+        "sort",
+        "unique",
+        "flat",
+        "slice",
+        "firstvalue",
+        "lastvalue",
+        "nonnull",
+        "filter",
+        "map",
+        "any",
+        "all",
+        "date",
+        "dur",
+        "dateformat",
+        "striptime",
+        "span",
+        "bar",
+        "percent",
+        "remaining",
+        "within",
+        "count",
+        "previous",
+        "delta",
     ]
     .join(", ")
 }
@@ -96,8 +151,8 @@ pub fn first(arguments: &[Value]) -> &Value {
 
 #[cfg(test)]
 mod tests {
-    use super::call;
     use super::super::value::{Link, Value};
+    use super::call;
 
     fn text(value: &str) -> Value {
         Value::Text(value.to_owned())

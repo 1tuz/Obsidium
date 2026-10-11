@@ -20,6 +20,7 @@ pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
            link_type TEXT NOT NULL,
            byte_offset INTEGER NOT NULL,
            offset_utf16 INTEGER NOT NULL,
+           link_type TEXT NOT NULL DEFAULT 'wiki',
            FOREIGN KEY(source_path) REFERENCES wiki_documents(path) ON DELETE CASCADE,
            PRIMARY KEY(source_path, byte_offset)
          ) WITHOUT ROWID;
@@ -68,6 +69,7 @@ pub fn index_document(
             "wiki",
             link.target_range.start as i64,
             link.offset_utf16 as i64,
+            "wiki",
         ])?;
     }
     for link in extract_markdown(body) {
@@ -81,6 +83,7 @@ pub fn index_document(
             "markdown",
             link.target_range.start as i64,
             link.offset_utf16 as i64,
+            "markdown",
         ])?;
     }
     Ok(())
@@ -147,5 +150,48 @@ mod tests {
         remove_document(&transaction, &path).unwrap();
         transaction.commit().unwrap();
         assert_eq!(count(&connection), 0);
+    }
+
+    #[test]
+    fn adds_link_types_to_existing_schema_and_indexes_both_markdown_forms() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE wiki_documents (
+                   path TEXT PRIMARY KEY, relative_key TEXT NOT NULL, title_key TEXT NOT NULL
+                 ) WITHOUT ROWID;
+                 CREATE TABLE wiki_links (
+                   source_path TEXT NOT NULL, target_key TEXT NOT NULL, target_kind TEXT NOT NULL,
+                   byte_offset INTEGER NOT NULL, offset_utf16 INTEGER NOT NULL,
+                   PRIMARY KEY(source_path, byte_offset)
+                 ) WITHOUT ROWID;
+                 INSERT INTO wiki_links VALUES('old.md', 'target', 'name', 0, 0);",
+            )
+            .unwrap();
+
+        open_schema(&connection).unwrap();
+        let legacy_type: String = connection
+            .query_row("SELECT link_type FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(legacy_type, "wiki");
+
+        let mut connection = connection;
+        let transaction = connection.transaction().unwrap();
+        index_document(
+            &transaction,
+            Path::new("C:/vault"),
+            Path::new("C:/vault/Source.md"),
+            "[[Wiki]] and [Markdown](Markdown.md)",
+        )
+        .unwrap();
+        transaction.commit().unwrap();
+        let kinds = connection
+            .prepare("SELECT link_type FROM wiki_links WHERE source_path='C:/vault/Source.md' ORDER BY byte_offset")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(kinds, ["wiki", "markdown"]);
     }
 }

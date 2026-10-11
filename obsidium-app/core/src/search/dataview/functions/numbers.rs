@@ -1,5 +1,5 @@
-use super::first;
 use super::super::value::Value;
+use super::first;
 
 pub fn numeric(arguments: &[Value], apply: fn(f64) -> f64) -> Value {
     match first(arguments).as_number() {

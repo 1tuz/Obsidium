@@ -209,19 +209,25 @@ function text(value: YamlValue | undefined, fallback = ''): string {
 }
 
 function filter(value: YamlValue | undefined): BaseFilter | undefined {
+  if (value === undefined) return undefined;
   if (typeof value === 'string') return value;
-  if (!isObject(value)) return undefined;
-  const result: Exclude<BaseFilter, string> = {};
-  if (Array.isArray(value.and)) result.and = value.and.map(filter).filter(Boolean) as BaseFilter[];
-  if (Array.isArray(value.or)) result.or = value.or.map(filter).filter(Boolean) as BaseFilter[];
-  if (value.not !== undefined) {
-    if (Array.isArray(value.not)) {
-      result.not = value.not.map(filter).filter(Boolean) as BaseFilter[];
-    } else {
-      result.not = filter(value.not);
-    }
+  if (!isObject(value)) return { unsupported: true };
+  const operators = Object.keys(value);
+  if (operators.length !== 1) return { unsupported: true };
+  const operator = operators[0];
+  if (operator === 'and' || operator === 'or') {
+    const operands = value[operator];
+    if (!Array.isArray(operands)) return { unsupported: true };
+    const filters = operands.map((operand) => filter(operand) ?? { unsupported: true as const });
+    return operator === 'and' ? { and: filters } : { or: filters };
   }
-  return Object.keys(result).length > 0 ? result : undefined;
+  if (operator === 'not') {
+    const operand = value.not;
+    return Array.isArray(operand)
+      ? { not: operand.map((item) => filter(item) ?? { unsupported: true }) }
+      : { not: filter(operand) ?? { unsupported: true } };
+  }
+  return { unsupported: true };
 }
 
 function groupBy(value: YamlValue | undefined): BaseGroupBy | undefined {

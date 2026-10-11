@@ -126,19 +126,31 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn paths_differing_only_by_cyrillic_case_are_the_same() {
-        assert!(same_path(Path::new("C:/База/Идея.md"), Path::new(r"c:\БАЗА\идея.md")));
-        assert!(!same_path(Path::new("C:/База/Идея.md"), Path::new("C:/База/Идеи.md")));
+        assert!(same_path(
+            Path::new("C:/База/Идея.md"),
+            Path::new(r"c:\БАЗА\идея.md")
+        ));
+        assert!(!same_path(
+            Path::new("C:/База/Идея.md"),
+            Path::new("C:/База/Идеи.md")
+        ));
         assert_eq!(
             strip_root(Path::new("C:/БАЗА"), Path::new("c:/база/Проекты/Идея.md")),
             Some(Path::new("Проекты/Идея.md"))
         );
-        assert_eq!(strip_root(Path::new("C:/База"), Path::new("C:/Другая/Идея.md")), None);
+        assert_eq!(
+            strip_root(Path::new("C:/База"), Path::new("C:/Другая/Идея.md")),
+            None
+        );
     }
 
     #[test]
     fn relative_paths_use_forward_slashes_and_lose_only_the_markdown_extension() {
         let root = Path::new("vault");
-        assert_eq!(relative_slash_path(root, &root.join("Проекты").join("Идея.md")), "Проекты/Идея.md");
+        assert_eq!(
+            relative_slash_path(root, &root.join("Проекты").join("Идея.md")),
+            "Проекты/Идея.md"
+        );
         assert_eq!(strip_markdown_extension("Проекты/Идея.MD"), "Проекты/Идея");
         assert_eq!(strip_markdown_extension("рисунок.png"), "рисунок.png");
     }
@@ -154,8 +166,14 @@ mod tests {
     fn note_history_versions_never_reach_search() {
         let root = Path::new("C:/vault");
         let version = "1790000000000_aaaaaaaa_agent.md";
-        assert!(is_hidden(root, &Path::new("C:/vault/.aquilum/history/Идея.md").join(version)));
-        assert!(is_hidden(root, &Path::new("C:/vault/.trash/.aquilum/history/Идея.md").join(version)));
+        assert!(is_hidden(
+            root,
+            &Path::new("C:/vault/.aquilum/history/Идея.md").join(version)
+        ));
+        assert!(is_hidden(
+            root,
+            &Path::new("C:/vault/.trash/.aquilum/history/Идея.md").join(version)
+        ));
     }
 
     #[test]

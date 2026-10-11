@@ -1,4 +1,4 @@
-# Aquilum Knowledge Base: Book Page & Editor Architecture
+# Obsidium Knowledge Base: Book Page & Editor Architecture
 
 Статус: актуально на 2026-08-09.
 

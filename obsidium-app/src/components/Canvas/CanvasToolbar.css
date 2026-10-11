@@ -1,0 +1,60 @@
+.q-canvas-toolbar {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-space-8);
+  padding: var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-lg);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+}
+
+.q-canvas-toolbar__tools,
+.q-canvas-toolbar__history {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--q-space-4);
+}
+
+.q-canvas-toolbar__history {
+  padding-left: var(--q-space-8);
+  border-left: var(--q-border-1) solid var(--q-border-default);
+}
+
+.q-canvas-toolbar__setting {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--q-space-8);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+  white-space: nowrap;
+}
+
+.q-canvas-toolbar__setting select {
+  min-width: 0;
+  max-width: 100%;
+  height: var(--q-size-32);
+  padding: 0 var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+  font: inherit;
+}
+
+.q-canvas-toolbar :focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-2);
+}
+
+@media (max-width: 640px) {
+  .q-canvas-toolbar__setting {
+    flex: 1 1 9rem;
+    justify-content: space-between;
+  }
+}

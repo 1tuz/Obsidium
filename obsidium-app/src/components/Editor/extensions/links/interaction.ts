@@ -3,7 +3,7 @@ import type { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import type { LinkDisposition } from '../../../../modules/links';
-import { READER_LINK_SCHEME } from '../../../../modules/docs/bookQuotes';
+import { isReaderQuoteHref } from '../../../../modules/docs/bookQuotes';
 import { linkLabelRange } from './flow';
 import { findAncestor } from '../syntaxAncestor';
 
@@ -50,7 +50,7 @@ export function readerRefLinkClickAllowed(
   clickPos: number,
   url: string,
 ): boolean {
-  if (!url.startsWith(READER_LINK_SCHEME)) return true;
+  if (!isReaderQuoteHref(url)) return true;
   const head = state.selection.main.head;
   const labelClick = linkLabelAt(state, clickPos);
   const labelCaret = linkLabelAt(state, head);

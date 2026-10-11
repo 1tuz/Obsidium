@@ -2,7 +2,7 @@ import { EditorView } from '@codemirror/view';
 import { HighlightStyle } from '@codemirror/language';
 import { tags as defaultTags } from '@lezer/highlight';
 
-export const aquilumEditorTheme = EditorView.theme({
+export const obsidiumEditorTheme = EditorView.theme({
     "&": {
         color: "var(--q-editor-text)",
         backgroundColor: "transparent",
@@ -103,7 +103,7 @@ const headingStyles = headingTags.map((tag, index) => ({
     fontFamily: "var(--q-editor-heading-font)",
     fontSize: `var(--q-editor-heading-${index + 1}-size)`,
     fontWeight: "var(--q-editor-heading-weight)",
-    color: "var(--q-editor-text)",
+    color: "var(--q-reading-heading, var(--q-editor-text))",
 }));
 
 export const markdownStyles = HighlightStyle.define([

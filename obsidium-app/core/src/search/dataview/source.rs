@@ -1,7 +1,7 @@
-use crate::search::paths::relative_slash_path;
 use super::ast::Source;
 use crate::search::error::SearchError;
 use crate::search::fields::paths_with_tag;
+use crate::search::paths::relative_slash_path;
 use crate::search::wiki::{candidate_sources, outgoing_links, resolve_many};
 use rusqlite::Connection;
 use std::collections::HashSet;
@@ -157,10 +157,12 @@ fn note_path(
     origin: &Path,
     target: &str,
 ) -> Result<Option<PathBuf>, SearchError> {
-    Ok(resolve_many(connection, root, origin, &[target.to_owned()])?
-        .into_iter()
-        .next()
-        .flatten())
+    Ok(
+        resolve_many(connection, root, origin, &[target.to_owned()])?
+            .into_iter()
+            .next()
+            .flatten(),
+    )
 }
 
 fn all_paths(connection: &Connection) -> Result<Vec<String>, SearchError> {

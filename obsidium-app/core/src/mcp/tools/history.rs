@@ -1,13 +1,13 @@
 use super::notes::window;
 use super::workspace::requested_vault;
-use super::{offset, 
-    limit, open_after_write, optional_text, require_write, text, tool, version_name_property,
-    workspace_property, write_retrying,
+use super::{
+    limit, offset, open_after_write, optional_text, require_write, text, tool,
+    version_name_property, workspace_property, write_retrying,
 };
+use crate::app_core::Core;
 use crate::files::gate;
 use crate::history::{version_at, Source};
 use serde_json::{json, Value};
-use crate::app_core::Core;
 
 const LIST_LIMIT: usize = 200;
 const READ_LIMIT: usize = 8_000;
@@ -82,7 +82,12 @@ fn note_history(core: &Core, arguments: &Value) -> Result<Value, String> {
     let note = vault.note(&text(arguments, "note")?)?;
     let offset = offset(arguments);
     let history = &core.history;
-    let page = history.page(&|| core.known_roots(), &note, offset, limit(arguments, 50, LIST_LIMIT));
+    let page = history.page(
+        &|| core.known_roots(),
+        &note,
+        offset,
+        limit(arguments, 50, LIST_LIMIT),
+    );
     let end = offset.saturating_add(page.versions.len());
     Ok(json!({
         "path": vault.relative(&note),
@@ -125,9 +130,13 @@ fn restore_version(core: &Core, arguments: &Value) -> Result<Value, String> {
         .version(&|| core.known_roots(), &note, Some(&id))
         .ok_or_else(|| missing_version(&id))?;
     let version_name = optional_text(arguments, "versionName");
-    let (changed, _) = write_retrying(core, &note, Source::Restore(from_ms), version_name.as_deref(), |_| {
-        Ok(texts.text.clone())
-    })?;
+    let (changed, _) = write_retrying(
+        core,
+        &note,
+        Source::Restore(from_ms),
+        version_name.as_deref(),
+        |_| Ok(texts.text.clone()),
+    )?;
     if changed {
         open_after_write(core, &vault, &note, arguments);
     }
@@ -140,10 +149,12 @@ fn name_version(core: &Core, arguments: &Value) -> Result<Value, String> {
     let note = vault.note(&text(arguments, "note")?)?;
     let version = optional_text(arguments, "version");
     let name = optional_text(arguments, "name").unwrap_or_default();
-    let named = gate::name_version(core, &note, version.as_deref(), &name)
-        .ok_or_else(|| match &version {
-            Some(id) => missing_version(id),
-            None => "У заметки ещё нет версий: называть нечего".to_owned(),
-        })?;
+    let named =
+        gate::name_version(core, &note, version.as_deref(), &name).ok_or_else(
+            || match &version {
+                Some(id) => missing_version(id),
+                None => "У заметки ещё нет версий: называть нечего".to_owned(),
+            },
+        )?;
     Ok(json!({ "path": vault.relative(&note), "version": named, "name": name.trim() }))
 }

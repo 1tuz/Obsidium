@@ -1,8 +1,8 @@
 use super::error::SearchError;
 use super::index::SearchIndex;
+use super::models::IndexRevision;
 use super::progress::IndexProgress;
 use super::sync::IndexSynchronizer;
-use super::models::IndexRevision;
 use super::IndexNotifier;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -61,14 +61,19 @@ impl WorkerHandle {
             index_notifier,
         };
         let thread = std::thread::Builder::new()
-            .name("aquilum-search-index".to_owned())
+            .name("obsidium-search-index".to_owned())
             .spawn(move || {
-                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&context, receiver)));
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    run(&context, receiver)
+                }));
                 let failure = match outcome {
                     Ok(Ok(())) => None,
                     Ok(Err(error)) => Some(error),
                     Err(panic) => Some(SearchError::Task {
-                        message: format!("поток индексации упал: {}", panic_message(panic.as_ref())),
+                        message: format!(
+                            "поток индексации упал: {}",
+                            panic_message(panic.as_ref())
+                        ),
                     }),
                 };
                 if let Some(error) = failure {

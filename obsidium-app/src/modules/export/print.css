@@ -5,15 +5,21 @@
     --q-print-link: var(--q-blue-600);
     --q-print-surface: var(--q-gray-100);
     --q-print-paper: var(--q-white-alpha-main);
-    --q-print-block-gap: calc(var(--q-editor-line-height) * var(--q-editor-font-size));
+    --q-print-font-family: var(--q-editor-font-family);
+    --q-print-font-size: var(--q-editor-font-size);
+    --q-print-line-height: var(--q-editor-line-height);
+    --q-print-page-width: none;
+    --q-print-block-gap: calc(var(--q-print-line-height) * var(--q-print-font-size));
 
     display: none;
     color: var(--q-print-text);
     background-color: var(--q-print-paper);
-    font-family: var(--q-editor-font-family);
-    font-size: var(--q-editor-font-size);
+    max-width: var(--q-print-page-width);
+    margin-inline: auto;
+    font-family: var(--q-print-font-family);
+    font-size: var(--q-print-font-size);
     font-weight: var(--q-editor-font-weight);
-    line-height: var(--q-editor-line-height);
+    line-height: var(--q-print-line-height);
     tab-size: var(--q-editor-tab-size);
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -192,6 +198,12 @@
     }
 
     .q-print-root {
+        --q-print-text: var(--q-gray-900);
+        --q-print-muted: var(--q-gray-600);
+        --q-print-faint: var(--q-gray-300);
+        --q-print-link: var(--q-blue-700);
+        --q-print-surface: var(--q-gray-100);
+        --q-print-paper: var(--q-white-alpha-main);
         display: block;
     }
 }

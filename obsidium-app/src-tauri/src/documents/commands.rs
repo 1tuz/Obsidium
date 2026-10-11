@@ -1,12 +1,12 @@
 use super::hub::{HubError, LegacyReplica, OpenedDocument, PullResult};
 use super::session::{SessionError, SYSTEM_CLIENT};
+use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::files::commands::WriteSource;
 use crate::history::Source;
 use serde::Serialize;
 use serde_json::Value;
 use std::path::Path;
-use crate::app_core::Core;
 use std::sync::Arc;
 use tauri::State;
 
@@ -28,16 +28,25 @@ impl From<HubError> for DocumentCommandError {
             HubError::NotOpen => Self::NotOpen,
             HubError::Stale => Self::Stale,
             HubError::Session(SessionError::Missing) => Self::Missing,
-            HubError::Session(SessionError::Change(error)) => Self::InvalidChanges { message: error.to_string() },
-            HubError::Session(SessionError::Disk { code: "invalid_utf8", message }) => Self::InvalidUtf8 { message },
-            HubError::Session(error) => Self::Io { message: error.to_string() },
+            HubError::Session(SessionError::Change(error)) => Self::InvalidChanges {
+                message: error.to_string(),
+            },
+            HubError::Session(SessionError::Disk {
+                code: "invalid_utf8",
+                message,
+            }) => Self::InvalidUtf8 { message },
+            HubError::Session(error) => Self::Io {
+                message: error.to_string(),
+            },
         }
     }
 }
 
 impl From<crate::app_core::TaskFailed> for DocumentCommandError {
     fn from(error: crate::app_core::TaskFailed) -> Self {
-        Self::Task { message: error.to_string() }
+        Self::Task {
+            message: error.to_string(),
+        }
     }
 }
 
@@ -48,7 +57,12 @@ pub async fn document_open(
     tz_offset_minutes: i64,
 ) -> Result<OpenedDocument, DocumentCommandError> {
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(core.documents.open(&core, Path::new(&path), tz_offset_minutes)?)).await
+    run_blocking(move || {
+        Ok(core
+            .documents
+            .open(&core, Path::new(&path), tz_offset_minutes)?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -60,11 +74,20 @@ pub async fn document_push(
     changes: Vec<Value>,
 ) -> Result<bool, DocumentCommandError> {
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(core.documents.push(&core, Path::new(&path), version, &client, &changes)?)).await
+    run_blocking(move || {
+        Ok(core
+            .documents
+            .push(&core, Path::new(&path), version, &client, &changes)?)
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn document_pull(core: State<'_, Arc<Core>>, path: String, version: u64) -> Result<PullResult, DocumentCommandError> {
+pub async fn document_pull(
+    core: State<'_, Arc<Core>>,
+    path: String,
+    version: u64,
+) -> Result<PullResult, DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || Ok(core.documents.pull(Path::new(&path), version)?)).await
 }
@@ -80,7 +103,14 @@ pub async fn document_replace_text(
     let source = Source::from(source.unwrap_or_default());
     let core = Arc::clone(&core);
     run_blocking(move || {
-        Ok(core.documents.replace_text(&core, Path::new(&path), &text, SYSTEM_CLIENT, source, base_version)?)
+        Ok(core.documents.replace_text(
+            &core,
+            Path::new(&path),
+            &text,
+            SYSTEM_CLIENT,
+            source,
+            base_version,
+        )?)
     })
     .await
 }
@@ -95,17 +125,32 @@ pub async fn document_revert(
 ) -> Result<bool, DocumentCommandError> {
     let source = Source::from(WriteSource::Revert { from_ms });
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(core.documents.revert(&core, Path::new(&path), &version_text, &previous_text, source)?)).await
+    run_blocking(move || {
+        Ok(core.documents.revert(
+            &core,
+            Path::new(&path),
+            &version_text,
+            &previous_text,
+            source,
+        )?)
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn document_import_legacy(core: State<'_, Arc<Core>>, replicas: Vec<LegacyReplica>) -> Result<usize, DocumentCommandError> {
+pub async fn document_import_legacy(
+    core: State<'_, Arc<Core>>,
+    replicas: Vec<LegacyReplica>,
+) -> Result<usize, DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || Ok(core.documents.import_legacy(&replicas))).await
 }
 
 #[tauri::command]
-pub async fn document_read(core: State<'_, Arc<Core>>, path: String) -> Result<OpenedDocument, DocumentCommandError> {
+pub async fn document_read(
+    core: State<'_, Arc<Core>>,
+    path: String,
+) -> Result<OpenedDocument, DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || Ok(core.documents.read(&core, Path::new(&path))?)).await
 }
@@ -117,11 +162,19 @@ pub async fn document_resolve_positions(
     positions: Vec<Vec<u8>>,
 ) -> Result<Vec<Option<usize>>, DocumentCommandError> {
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(core.documents.resolve_positions(Path::new(&path), &positions)?)).await
+    run_blocking(move || {
+        Ok(core
+            .documents
+            .resolve_positions(Path::new(&path), &positions)?)
+    })
+    .await
 }
 
 #[tauri::command]
-pub async fn document_release(core: State<'_, Arc<Core>>, path: String) -> Result<(), DocumentCommandError> {
+pub async fn document_release(
+    core: State<'_, Arc<Core>>,
+    path: String,
+) -> Result<(), DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
         core.documents.release(&core, Path::new(&path));
@@ -141,7 +194,9 @@ pub async fn document_flush_all(core: State<'_, Arc<Core>>) -> Result<(), Docume
 }
 
 #[tauri::command]
-pub async fn document_reconcile_all(core: State<'_, Arc<Core>>) -> Result<(), DocumentCommandError> {
+pub async fn document_reconcile_all(
+    core: State<'_, Arc<Core>>,
+) -> Result<(), DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
         core.documents.reconcile_all(&core);

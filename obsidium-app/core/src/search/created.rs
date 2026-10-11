@@ -150,10 +150,13 @@ body";
     #[test]
     fn an_edited_declaration_replaces_the_stored_one_even_when_later() {
         let stored = declared(NOTE).expect("declared date");
-        let edited = declared("---
+        let edited = declared(
+            "---
 created: 08-10-2024
 ---
-body").expect("edited date");
+body",
+        )
+        .expect("edited date");
 
         assert!(edited.nanos > stored.nanos);
         assert_eq!(edited.source, CreatedSource::Frontmatter);
@@ -167,36 +170,51 @@ created: 07-10-2024 17:17
 
 Тип: #term
 ";
-        let plain = declared("---
+        let plain = declared(
+            "---
 created: 07-10-2024
 ---
-body").expect("date only");
+body",
+        )
+        .expect("date only");
 
         let with_time = declared(migrated).expect("date and time");
 
         assert_eq!(with_time.source, CreatedSource::Frontmatter);
-        assert_eq!(with_time.nanos - plain.nanos, (17 * 3600 + 17 * 60) * 1_000_000_000);
+        assert_eq!(
+            with_time.nanos - plain.nanos,
+            (17 * 3600 + 17 * 60) * 1_000_000_000
+        );
     }
 
     #[test]
     fn a_note_without_a_declaration_keeps_using_its_file() {
-        assert!(declared("---
+        assert!(declared(
+            "---
 type: term
 ---
-body").is_none());
+body"
+        )
+        .is_none());
         assert!(declared("plain note").is_none());
     }
 
     #[test]
     fn an_unparsable_declaration_is_ignored_rather_than_guessed() {
-        assert!(declared("---
+        assert!(declared(
+            "---
 created: вторая мировая
 ---
-body").is_none());
-        assert!(declared("---
+body"
+        )
+        .is_none());
+        assert!(declared(
+            "---
 created: 10/07/2024
 ---
-body").is_none());
+body"
+        )
+        .is_none());
     }
 
     #[test]

@@ -1,9 +1,9 @@
-use super::dates::{as_date, date};
-use super::first;
 use super::super::constants::{DEFAULT_DASH, DEFAULT_ZERO_DELTA};
 use super::super::duration;
 use super::super::span;
 use super::super::value::Value;
+use super::dates::{as_date, date};
+use super::first;
 
 pub fn time_span(arguments: &[Value]) -> Value {
     let start = as_date(first(arguments));
@@ -66,7 +66,12 @@ pub fn count(arguments: &[Value]) -> Value {
             .count();
         Value::Number(found as f64)
     } else {
-        Value::Number(moments.iter().filter(|moment| !matches!(moment, Value::Null)).count() as f64)
+        Value::Number(
+            moments
+                .iter()
+                .filter(|moment| !matches!(moment, Value::Null))
+                .count() as f64,
+        )
     }
 }
 

@@ -1,6 +1,6 @@
-use crate::search::paths::strip_markdown_extension;
 use super::duration::Duration;
 use crate::search::note_date;
+use crate::search::paths::strip_markdown_extension;
 use std::cmp::Ordering;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,11 +43,7 @@ impl Value {
             Value::Progress(part) => format!("{}%", format_number((part * 10.0).round() / 10.0)),
             Value::Text(value) => value.clone(),
             Value::Link(link) => link.label(),
-            Value::List(items) => items
-                .iter()
-                .map(Value::text)
-                .collect::<Vec<_>>()
-                .join(", "),
+            Value::List(items) => items.iter().map(Value::text).collect::<Vec<_>>().join(", "),
             Value::Object(fields) => fields
                 .iter()
                 .map(|(key, value)| format!("{key}: {}", value.text()))
@@ -117,11 +113,12 @@ impl Value {
             (Value::Date(left), Value::Date(right)) => left == right,
             (Value::Duration(left), Value::Duration(right)) => left == right,
             (Value::List(left), Value::List(right)) => {
-                left.len() == right.len()
-                    && left.iter().zip(right.iter()).all(|(l, r)| l.equals(r))
+                left.len() == right.len() && left.iter().zip(right.iter()).all(|(l, r)| l.equals(r))
             }
-            _ => self.text().eq_ignore_ascii_case(&other.text())
-                || self.text().to_lowercase() == other.text().to_lowercase(),
+            _ => {
+                self.text().eq_ignore_ascii_case(&other.text())
+                    || self.text().to_lowercase() == other.text().to_lowercase()
+            }
         }
     }
 }
@@ -176,7 +173,10 @@ mod tests {
 
     #[test]
     fn a_link_without_a_label_shows_the_note_name() {
-        let link = Link { target: "Книги/Пороки.md".to_owned(), display: None };
+        let link = Link {
+            target: "Книги/Пороки.md".to_owned(),
+            display: None,
+        };
         assert_eq!(Value::Link(link).text(), "Пороки");
     }
 
@@ -203,7 +203,10 @@ mod tests {
 
     #[test]
     fn numbers_compare_as_numbers_not_as_text() {
-        assert_eq!(Value::Number(10.0).compare(&Value::Number(5.0)), Ordering::Greater);
+        assert_eq!(
+            Value::Number(10.0).compare(&Value::Number(5.0)),
+            Ordering::Greater
+        );
         assert_eq!(text("10").compare(&text("5")), Ordering::Less);
     }
 

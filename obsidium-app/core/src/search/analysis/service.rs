@@ -49,7 +49,9 @@ impl SearchService {
             })?;
         let document = canonical_path(&PathBuf::from(document));
         if !document.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Document is outside workspace"));
+            return Err(SearchError::invalid_workspace(
+                "Document is outside workspace",
+            ));
         }
         let limit = limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
         match method {
@@ -106,7 +108,10 @@ impl SearchService {
         cacheable: bool,
     ) -> Result<Arc<GraphSnapshot>, SearchError> {
         if !cacheable {
-            return Ok(Arc::new(GraphSnapshot::load(&Connection::open(metadata_path)?, root)?));
+            return Ok(Arc::new(GraphSnapshot::load(
+                &Connection::open(metadata_path)?,
+                root,
+            )?));
         }
         let cached_graph = {
             let cache = self.analysis_graph.read().map_err(SearchError::task)?;
@@ -120,7 +125,10 @@ impl SearchService {
         if let Some(graph) = cached_graph {
             return Ok(graph);
         }
-        let loaded = Arc::new(GraphSnapshot::load(&Connection::open(metadata_path)?, root)?);
+        let loaded = Arc::new(GraphSnapshot::load(
+            &Connection::open(metadata_path)?,
+            root,
+        )?);
         let mut cache = self.analysis_graph.write().map_err(SearchError::task)?;
         if let Some(cached) = cache.as_ref().filter(|cached| {
             cached.root == root && cached.generation == generation && cached.revision == revision

@@ -1,18 +1,24 @@
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { resolveVaultAssetUrl } from '../docs/vaultAssets';
+import type { MarkdownReadingSettings } from '../settings';
 import { escapeHtml, renderMarkdownToHtml } from './markdownToHtml';
+import { printReadingProperties } from './printSettings';
 import './print.css';
 
 interface PdfExportRequest {
   title: string;
   markdown: string;
   workspacePath: string | null;
+  markdownReading?: MarkdownReadingSettings;
 }
 
 function mountPrintRoot(request: PdfExportRequest): HTMLElement {
   const root = document.createElement('article');
   root.className = 'q-print-root';
+  Object.entries(printReadingProperties(request.markdownReading) ?? {}).forEach(([property, value]) => {
+    root.style.setProperty(property, value);
+  });
   root.innerHTML = `<h1 class="q-print-title">${escapeHtml(request.title)}</h1>`
     + renderMarkdownToHtml(request.markdown, {
       resolveImageUrl: (target) => resolveVaultAssetUrl(request.workspacePath, target, target),

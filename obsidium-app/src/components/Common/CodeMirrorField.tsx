@@ -10,10 +10,10 @@ import { EditorState, Prec, type Extension } from '@codemirror/state';
 import { EditorView, placeholder as placeholderText, type ViewUpdate } from '@codemirror/view';
 import { CodeMirrorView } from './CodeMirrorView';
 import {
-  aquilumCodeMirrorTheme,
-  aquilumFieldSetup,
-  aquilumHorizontalFieldTheme,
-  aquilumSingleLineExtensions,
+  obsidiumCodeMirrorTheme,
+  obsidiumFieldSetup,
+  obsidiumHorizontalFieldTheme,
+  obsidiumSingleLineExtensions,
   normalizeSingleLineText,
   syncDocument,
 } from './codeMirror';
@@ -101,8 +101,8 @@ export const CodeMirrorField = forwardRef<CodeMirrorFieldRef, CodeMirrorFieldPro
 
     const fieldExtensions = useMemo<Extension[]>(() => [
       placeholder ? placeholderText(placeholder) : [],
-      aquilumFieldSetup,
-      aquilumCodeMirrorTheme,
+      obsidiumFieldSetup,
+      obsidiumCodeMirrorTheme,
       EditorView.contentAttributes.of({
         'aria-label': ariaLabel,
         'aria-multiline': String(mode === 'multiline'),
@@ -123,8 +123,8 @@ export const CodeMirrorField = forwardRef<CodeMirrorFieldRef, CodeMirrorFieldPro
           return false;
         },
       })),
-      mode === 'single-line' ? aquilumSingleLineExtensions : [],
-      mode === 'single-line' && !lineWrapping ? aquilumHorizontalFieldTheme : [],
+      mode === 'single-line' ? obsidiumSingleLineExtensions : [],
+      mode === 'single-line' && !lineWrapping ? obsidiumHorizontalFieldTheme : [],
       lineWrapping ? EditorView.lineWrapping : [],
       ...extensions,
     ], [ariaLabel, disabled, extensions, lineWrapping, mode, placeholder, spellCheck]);

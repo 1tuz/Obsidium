@@ -192,7 +192,8 @@ mod tests {
                 && ambiguous.contains("Документы/NeuroNet"),
             "{ambiguous}"
         );
-        assert!(workspace_by_tail(&known, "Нет такой").is_err());
+        let unknown = workspace_by_tail(&known, "Нет такой").unwrap_err();
+        assert!(unknown.contains("Obsidium"), "{unknown}");
         assert!(
             workspace_by_tail(&known, "voxel/Knowledge").is_err(),
             "хвост сравнивается целыми папками"

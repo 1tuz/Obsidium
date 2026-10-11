@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::ipc::Channel;
 use tauri::AppHandle;
 
@@ -21,7 +21,10 @@ pub async fn check_for_update(app: AppHandle) -> Result<Option<String>, String> 
 }
 
 #[tauri::command]
-pub async fn install_update(app: AppHandle, on_progress: Channel<UpdateProgress>) -> Result<(), String> {
+pub async fn install_update(
+    app: AppHandle,
+    on_progress: Channel<UpdateProgress>,
+) -> Result<(), String> {
     if INSTALLING.swap(true, Ordering::SeqCst) {
         return Ok(());
     }
@@ -52,7 +55,11 @@ mod release {
             .map_err(|error| error.to_string())
     }
 
-    pub async fn install(app: &AppHandle, update: Update, on_progress: Channel<UpdateProgress>) -> Result<(), String> {
+    pub async fn install(
+        app: &AppHandle,
+        update: Update,
+        on_progress: Channel<UpdateProgress>,
+    ) -> Result<(), String> {
         let installing = on_progress.clone();
         let core = Arc::clone(app.state::<Arc<Core>>().inner());
         update
@@ -87,7 +94,11 @@ mod release {
         Err(UNAVAILABLE.to_string())
     }
 
-    pub async fn install(_app: &AppHandle, _update: Update, _on_progress: Channel<UpdateProgress>) -> Result<(), String> {
+    pub async fn install(
+        _app: &AppHandle,
+        _update: Update,
+        _on_progress: Channel<UpdateProgress>,
+    ) -> Result<(), String> {
         Err(UNAVAILABLE.to_string())
     }
 }

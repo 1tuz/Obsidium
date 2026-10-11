@@ -5,7 +5,7 @@
 
 ## Назначение
 
-Aquilum читает EPUB/MOBI/AZW3/FB2 из vault (`Files/…`), хранит **грубый прогресс**
+Obsidium читает EPUB/MOBI/AZW3/FB2 из vault (`Files/…`), хранит **грубый прогресс**
 в markdown frontmatter страницы книги и **точную закладку** (CFI) локально в SQLite.
 Виджет `[!book]` на других заметках показывает карточку книги и открывает ту же
 читалку, не дублируя прогресс в теле callout.
@@ -26,7 +26,7 @@ obsidium-app/src/components/Editor/hooks/
 obsidium-app/src/modules/docs/
 ├── books.ts            import EPUB → Files/, pick dialog
 ├── bookProgress.ts     synthetic pages N/M (bytes / 1024)
-├── bookQuotes.ts       aquilum-reader: ссылки и blockquote-цитаты
+├── bookQuotes.ts       obsidium-reader: ссылки и blockquote-цитаты; прежняя схема читается
 ├── readerState.ts      CFI в SQLite (debounce 400 ms)
 ├── bookPageRuntime.ts  in-memory bus для UI
 ├── persistBookReaderMeta.ts  bus + FM pages / reader_position / read_percent
@@ -75,7 +75,7 @@ src-tauri/src/ui_state/reader.rs  SQLite reader_state
 |---|---|---|
 | Кнопка «Читать» на странице книги | текущий `.md` | FM `book_file` |
 | Виджет `[!book]` → «Читать» | wiki-цель (absolute path) | FM целевой страницы |
-| Клик по цитате `aquilum-reader:` | нет (quote peek) | из href или текущая книга |
+| Клик по цитате `obsidium-reader:` | нет (quote peek) | из href или текущая книга |
 
 `resolveReaderOpenTarget` при обычном чтении:
 
@@ -95,7 +95,7 @@ src-tauri/src/ui_state/reader.rs  SQLite reader_state
 нумерованной ссылкой в конце:
 
 ```md
-> [!quote] текст цитаты [1](aquilum-reader:book=Files%2F….epub&cfi=…)
+> [!quote] текст цитаты [1](obsidium-reader:book=Files%2F….epub&cfi=…)
 ```
 
 Номер в ссылке — тот же, что читалка рисует на странице книги. Клик по ссылке: открытие на CFI +

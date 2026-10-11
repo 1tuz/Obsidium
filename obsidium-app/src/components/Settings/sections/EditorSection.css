@@ -1,0 +1,89 @@
+.q-markdown-reading-styles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--q-gap-sm);
+  width: min(30rem, 48vw);
+}
+
+.q-markdown-reading-style {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--q-gap-xs);
+  min-width: 0;
+  padding: var(--q-gap-xs);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface);
+  color: var(--q-text-primary);
+  cursor: pointer;
+}
+
+.q-markdown-reading-style[aria-pressed='true'] {
+  border-color: var(--q-border-accent);
+  box-shadow: 0 0 0 var(--q-border-1) var(--q-border-accent-subtle);
+}
+
+.q-markdown-reading-style__page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--q-gap-xs);
+  min-height: var(--q-size-36);
+  padding-inline: var(--q-gap-sm);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-gray-50);
+}
+
+.q-markdown-reading-style__page span {
+  width: 70%;
+  height: var(--q-border-1);
+  border-radius: var(--q-radius-full);
+  background: var(--q-gray-600);
+}
+
+.q-markdown-reading-style__page span:nth-child(2) {
+  width: 90%;
+}
+
+.q-markdown-reading-style__page span:nth-child(3) {
+  width: 55%;
+}
+
+.q-markdown-reading-style[data-style='theme'] .q-markdown-reading-style__page {
+  background: var(--q-bg-surface-subtle);
+}
+
+.q-markdown-reading-style[data-style='ivory'] .q-markdown-reading-style__page {
+  background: var(--q-amber-50);
+}
+
+.q-markdown-reading-style[data-style='parchment'] .q-markdown-reading-style__page {
+  background: var(--q-amber-100);
+}
+
+.q-markdown-reading-style[data-style='sepia'] .q-markdown-reading-style__page {
+  background: var(--q-amber-200);
+}
+
+.q-markdown-reading-style[data-style='dark-paper'] .q-markdown-reading-style__page {
+  background: var(--q-gray-800);
+}
+
+.q-markdown-reading-style[data-style='dark-paper'] .q-markdown-reading-style__page span {
+  background: var(--q-gray-200);
+}
+
+.q-markdown-reading-style__label {
+  overflow: hidden;
+  font-size: var(--q-font-size-ui-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 42rem) {
+  .q-markdown-reading-styles {
+    width: min(21rem, 58vw);
+  }
+}

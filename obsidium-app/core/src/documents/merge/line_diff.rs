@@ -24,7 +24,10 @@ struct CommonSubsequenceTable {
 impl CommonSubsequenceTable {
     fn build(left: &[&str], right: &[&str]) -> Self {
         let columns = right.len() + 1;
-        let mut table = Self { columns, cells: vec![0; (left.len() + 1) * columns] };
+        let mut table = Self {
+            columns,
+            cells: vec![0; (left.len() + 1) * columns],
+        };
         for row in (0..left.len()).rev() {
             for column in (0..right.len()).rev() {
                 let value = if left[row] == right[column] {
@@ -44,7 +47,11 @@ impl CommonSubsequenceTable {
 }
 
 fn empty_hunk(at: usize) -> LineHunk {
-    LineHunk { from: at, to: at, lines: Vec::new() }
+    LineHunk {
+        from: at,
+        to: at,
+        lines: Vec::new(),
+    }
 }
 
 fn aligned_hunks(base: &[&str], next: &[&str], offset: usize) -> Vec<LineHunk> {
@@ -59,7 +66,8 @@ fn aligned_hunks(base: &[&str], next: &[&str], offset: usize) -> Vec<LineHunk> {
             base_index += 1;
             next_index += 1;
         } else if table.at(base_index + 1, next_index) >= table.at(base_index, next_index + 1) {
-            open.get_or_insert_with(|| empty_hunk(offset + base_index)).to = offset + base_index + 1;
+            open.get_or_insert_with(|| empty_hunk(offset + base_index))
+                .to = offset + base_index + 1;
             base_index += 1;
         } else {
             open.get_or_insert_with(|| empty_hunk(offset + base_index))
@@ -69,7 +77,8 @@ fn aligned_hunks(base: &[&str], next: &[&str], offset: usize) -> Vec<LineHunk> {
         }
     }
     if base_index < base.len() {
-        open.get_or_insert_with(|| empty_hunk(offset + base_index)).to = offset + base.len();
+        open.get_or_insert_with(|| empty_hunk(offset + base_index))
+            .to = offset + base.len();
     }
     if next_index < next.len() {
         open.get_or_insert_with(|| empty_hunk(offset + base_index))
@@ -82,7 +91,9 @@ fn aligned_hunks(base: &[&str], next: &[&str], offset: usize) -> Vec<LineHunk> {
 
 pub fn line_diff(base: &[&str], next: &[&str]) -> LineDiff {
     let limit = base.len().min(next.len());
-    let head = (0..limit).take_while(|&index| base[index] == next[index]).count();
+    let head = (0..limit)
+        .take_while(|&index| base[index] == next[index])
+        .count();
     let tail = (0..limit - head)
         .take_while(|&index| base[base.len() - 1 - index] == next[next.len() - 1 - index])
         .count();
@@ -90,23 +101,37 @@ pub fn line_diff(base: &[&str], next: &[&str]) -> LineDiff {
     let base_middle = &base[head..base.len() - tail];
     let next_middle = &next[head..next.len() - tail];
     if base_middle.is_empty() && next_middle.is_empty() {
-        return LineDiff { hunks: Vec::new(), coarse: false };
+        return LineDiff {
+            hunks: Vec::new(),
+            coarse: false,
+        };
     }
     if base_middle.len() > COARSE_MERGE_THRESHOLD || next_middle.len() > COARSE_MERGE_THRESHOLD {
         let lines = next_middle.iter().map(|line| (*line).to_owned()).collect();
         return LineDiff {
-            hunks: vec![LineHunk { from: head, to: base.len() - tail, lines }],
+            hunks: vec![LineHunk {
+                from: head,
+                to: base.len() - tail,
+                lines,
+            }],
             coarse: true,
         };
     }
-    LineDiff { hunks: aligned_hunks(base_middle, next_middle, head), coarse: false }
+    LineDiff {
+        hunks: aligned_hunks(base_middle, next_middle, head),
+        coarse: false,
+    }
 }
 
 pub fn apply_hunks(base: &[&str], hunks: &[LineHunk], from: usize, to: usize) -> Vec<String> {
     let mut result = Vec::new();
     let mut cursor = from;
     for hunk in hunks {
-        result.extend(base[cursor..hunk.from].iter().map(|line| (*line).to_owned()));
+        result.extend(
+            base[cursor..hunk.from]
+                .iter()
+                .map(|line| (*line).to_owned()),
+        );
         result.extend(hunk.lines.iter().cloned());
         cursor = hunk.to;
     }

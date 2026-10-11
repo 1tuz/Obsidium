@@ -9,9 +9,9 @@ use self::score::{Candidate, SegmentTerms};
 use self::source::{load_source, stored_text, title};
 use self::terms::{candidate_query, select_terms};
 use super::models::AnalysisResult;
-use crate::search::paths::identity;
 use crate::search::error::SearchError;
 use crate::search::index::SearchIndex;
+use crate::search::paths::identity;
 use crate::settings::models::{Bm25fParams, SearchIndexSettings};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
@@ -69,10 +69,14 @@ pub fn analyze(
         let reader = searcher.segment_reader(segment_ord);
         let title_norms = reader.get_fieldnorms_reader(index.fields.title)?;
         let body_norms = reader.get_fieldnorms_reader(index.fields.body)?;
-        let mut postings = SegmentTerms::open(reader, index.fields.title, index.fields.body, &terms)?;
+        let mut postings =
+            SegmentTerms::open(reader, index.fields.title, index.fields.body, &terms)?;
 
         for doc_id in doc_ids {
-            let address = DocAddress { segment_ord, doc_id };
+            let address = DocAddress {
+                segment_ord,
+                doc_id,
+            };
             let candidate = searcher.doc::<TantivyDocument>(address)?;
             let path = stored_text(&candidate, index.fields.id).unwrap_or_default();
             if path.is_empty() {

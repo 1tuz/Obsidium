@@ -56,10 +56,16 @@ mod tests {
     fn merges_paths_and_keeps_the_deepest_scope() {
         let (sender, receiver) = mpsc::channel();
         sender
-            .send(WatchBatch::new(vec![PathBuf::from("b.md")], WatchScope::Structure))
+            .send(WatchBatch::new(
+                vec![PathBuf::from("b.md")],
+                WatchScope::Structure,
+            ))
             .unwrap();
         sender
-            .send(WatchBatch::new(vec![PathBuf::from("a.md")], WatchScope::Content))
+            .send(WatchBatch::new(
+                vec![PathBuf::from("a.md")],
+                WatchScope::Content,
+            ))
             .unwrap();
         drop(sender);
 

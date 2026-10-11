@@ -109,11 +109,16 @@ impl HistoryService {
 
         let versions = store::versions(&located.dir);
         let names = store::names(&located.dir);
-        let latest_text = versions.last().and_then(|v| store::read_version(&located.dir, v));
+        let latest_text = versions
+            .last()
+            .and_then(|v| store::read_version(&located.dir, v));
         let previous_text = (versions.len() >= 2)
             .then(|| store::read_version(&located.dir, &versions[versions.len() - 2]))
             .flatten();
-        let disk = write.disk_before.as_ref().map(|(text, at)| Before { text, at: *at });
+        let disk = write
+            .disk_before
+            .as_ref()
+            .map(|(text, at)| Before { text, at: *at });
 
         let plan = milestone::plan(
             &self.device,
@@ -205,13 +210,7 @@ impl HistoryService {
         name_version(&self.device, &located.dir, target, name)
     }
 
-    pub fn page(
-        &self,
-        roots: Roots<'_>,
-        note: &Path,
-        offset: usize,
-        limit: usize,
-    ) -> HistoryPage {
+    pub fn page(&self, roots: Roots<'_>, note: &Path, offset: usize, limit: usize) -> HistoryPage {
         let mut state = self.lock();
         let Some(located) = locate(&mut state, roots, note) else {
             return HistoryPage::default();
@@ -237,12 +236,7 @@ impl HistoryService {
         }
     }
 
-    pub fn version(
-        &self,
-        roots: Roots<'_>,
-        note: &Path,
-        id: Option<&str>,
-    ) -> Option<VersionTexts> {
+    pub fn version(&self, roots: Roots<'_>, note: &Path, id: Option<&str>) -> Option<VersionTexts> {
         let mut state = self.lock();
         let located = locate(&mut state, roots, note)?;
         let versions = store::versions(&located.dir);
@@ -267,7 +261,12 @@ impl HistoryService {
         };
         let note = state.notes.remove(&source.key);
         state.notes.remove(&target.key);
-        move_history(&source.dir, &target.dir, Placement::Workspace, &source.vault);
+        move_history(
+            &source.dir,
+            &target.dir,
+            Placement::Workspace,
+            &source.vault,
+        );
         if let Some(mut note) = note {
             note.dir = target.dir;
             state.notes.insert(target.key, note);
@@ -312,15 +311,17 @@ impl HistoryService {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
 fn locate(state: &mut State, roots: Roots<'_>, note: &Path) -> Option<Located> {
     let find = |roots: &[PathBuf]| {
-        roots.iter().find_map(|root| {
-            relative_inside(root, note).map(|relative| (root.clone(), relative))
-        })
+        roots
+            .iter()
+            .find_map(|root| relative_inside(root, note).map(|relative| (root.clone(), relative)))
     };
     let (vault, relative) = find(&state.roots).or_else(|| {
         state.roots = roots();
@@ -358,7 +359,10 @@ fn move_history(from: &Path, to: &Path, placement: Placement, base: &Path) {
 }
 
 fn report(dir: &Path, what: &str, error: &str) {
-    eprintln!("[aquilum:history] история {} {what}: {error}", dir.display());
+    eprintln!(
+        "[obsidium:history] история {} {what}: {error}",
+        dir.display()
+    );
 }
 
 fn device_id(app_data: &Path) -> String {
@@ -372,7 +376,7 @@ fn device_id(app_data: &Path) -> String {
     }
     let device = uuid::Uuid::new_v4().simple().to_string()[..8].to_owned();
     if let Err(error) = fs::create_dir_all(app_data).and_then(|()| fs::write(&path, &device)) {
-        eprintln!("[aquilum:history] идентификатор устройства не сохранён: {error}");
+        eprintln!("[obsidium:history] идентификатор устройства не сохранён: {error}");
     }
     device
 }
@@ -418,7 +422,17 @@ mod tests {
             fs::create_dir_all(note.parent().unwrap()).unwrap();
             fs::write(note, text).unwrap();
             let hash = crate::files::document::hash_bytes(text.as_bytes());
-            history.saved(&|| self.roots(), note, NoteWrite { disk_before: before, text, hash: &hash, source, name: None });
+            history.saved(
+                &|| self.roots(),
+                note,
+                NoteWrite {
+                    disk_before: before,
+                    text,
+                    hash: &hash,
+                    source,
+                    name: None,
+                },
+            );
         }
 
         fn history_of(&self, relative: &str) -> PathBuf {
@@ -429,12 +443,28 @@ mod tests {
     fn texts(dir: &Path) -> Vec<(String, Source)> {
         versions(dir)
             .into_iter()
-            .map(|version| (fs::read_to_string(dir.join(&version.id)).unwrap(), version.source))
+            .map(|version| {
+                (
+                    fs::read_to_string(dir.join(&version.id)).unwrap(),
+                    version.source,
+                )
+            })
             .collect()
     }
 
-    fn write<'a>(text: &'a str, source: Source, hash: &'a str, name: Option<&'a str>) -> NoteWrite<'a> {
-        NoteWrite { disk_before: None, text, hash, source, name }
+    fn write<'a>(
+        text: &'a str,
+        source: Source,
+        hash: &'a str,
+        name: Option<&'a str>,
+    ) -> NoteWrite<'a> {
+        NoteWrite {
+            disk_before: None,
+            text,
+            hash,
+            source,
+            name,
+        }
     }
 
     fn rename(history: &HistoryService, fixture: &Fixture, from: &Path, to: &Path) {
@@ -455,7 +485,10 @@ mod tests {
 
         assert_eq!(
             texts(&fixture.history_of("Идея.md")),
-            [("было".to_owned(), Source::Start), ("было и стало".to_owned(), Source::Me)]
+            [
+                ("было".to_owned(), Source::Start),
+                ("было и стало".to_owned(), Source::Me)
+            ]
         );
     }
 
@@ -470,7 +503,10 @@ mod tests {
 
         assert_eq!(
             texts(&fixture.history_of("Агент.md")),
-            [("от агента".to_owned(), Source::Agent), ("от агента и снова".to_owned(), Source::Agent)]
+            [
+                ("от агента".to_owned(), Source::Agent),
+                ("от агента и снова".to_owned(), Source::Agent)
+            ]
         );
     }
 
@@ -487,7 +523,10 @@ mod tests {
 
         assert_eq!(
             texts(&fixture.history_of("Проекты/Новое.md")),
-            [("текст".to_owned(), Source::Agent), ("текст дальше".to_owned(), Source::Agent)]
+            [
+                ("текст".to_owned(), Source::Agent),
+                ("текст дальше".to_owned(), Source::Agent)
+            ]
         );
         assert!(!fixture.history_of("Старое.md").exists());
     }
@@ -505,7 +544,10 @@ mod tests {
 
         assert_eq!(
             texts(&fixture.history_of("Идея.md")),
-            [("текст".to_owned(), Source::Agent), ("текст!".to_owned(), Source::Agent)]
+            [
+                ("текст".to_owned(), Source::Agent),
+                ("текст!".to_owned(), Source::Agent)
+            ]
         );
         let names = fs::read_dir(fixture.history_of(""))
             .unwrap()
@@ -526,13 +568,20 @@ mod tests {
         fs::rename(fixture.vault.join("Старая"), fixture.vault.join("Новая")).unwrap();
 
         for name in ["А.md", "Б.md"] {
-            history.moved(&|| fixture.roots(), &fixture.vault.join("Старая").join(name), &fixture.vault.join("Новая").join(name));
+            history.moved(
+                &|| fixture.roots(),
+                &fixture.vault.join("Старая").join(name),
+                &fixture.vault.join("Новая").join(name),
+            );
         }
 
         assert!(!fixture.history_of("Старая").exists());
         assert_eq!(
             texts(&fixture.history_of("Новая/Б.md")),
-            [("Б.md".to_owned(), Source::Agent), ("Б.md!".to_owned(), Source::Agent)]
+            [
+                ("Б.md".to_owned(), Source::Agent),
+                ("Б.md!".to_owned(), Source::Agent)
+            ]
         );
     }
 
@@ -550,13 +599,23 @@ mod tests {
         let in_trash = history_dir(&trash_path(&fixture.vault), Path::new("Удаляемая.md"));
         assert_eq!(
             texts(&in_trash),
-            [("начало".to_owned(), Source::Agent), ("начало и середина".to_owned(), Source::Me)]
+            [
+                ("начало".to_owned(), Source::Agent),
+                ("начало и середина".to_owned(), Source::Me)
+            ]
         );
         assert!(!fixture.vault.join(".aquilum").exists());
 
-        let restored = restore_from_trash_impl(&fixture.vault, &trashed).unwrap().root;
+        let restored = restore_from_trash_impl(&fixture.vault, &trashed)
+            .unwrap()
+            .root;
         history.restored(&|| fixture.roots(), &trashed, &restored);
-        fixture.save(&history, &restored, "начало и середина от агента", Source::Agent);
+        fixture.save(
+            &history,
+            &restored,
+            "начало и середина от агента",
+            Source::Agent,
+        );
 
         assert_eq!(
             texts(&fixture.history_of("Удаляемая.md")),
@@ -583,17 +642,25 @@ mod tests {
             trashed.push(moved);
         }
 
-        let restored = restore_from_trash_impl(&fixture.vault, &trashed[1]).unwrap().root;
+        let restored = restore_from_trash_impl(&fixture.vault, &trashed[1])
+            .unwrap()
+            .root;
         history.restored(&|| fixture.roots(), &trashed[1], &restored);
 
         assert_eq!(
             texts(&fixture.history_of("Идея.md")),
-            [("вторая".to_owned(), Source::Agent), ("вторая!".to_owned(), Source::Agent)]
+            [
+                ("вторая".to_owned(), Source::Agent),
+                ("вторая!".to_owned(), Source::Agent)
+            ]
         );
         let first = history_dir(&trash_path(&fixture.vault), Path::new("Идея.md"));
         assert_eq!(
             texts(&first),
-            [("первая".to_owned(), Source::Agent), ("первая!".to_owned(), Source::Agent)]
+            [
+                ("первая".to_owned(), Source::Agent),
+                ("первая!".to_owned(), Source::Agent)
+            ]
         );
     }
 
@@ -631,15 +698,36 @@ mod tests {
         let page = history.page(&|| fixture.roots(), &note, 0, 1);
 
         assert_eq!(page.total, 3);
-        let third = history.version(&|| fixture.roots(), &note, Some(&page.versions[0].id)).unwrap();
-        assert_eq!((third.text.as_str(), third.previous.as_deref()), ("третья", Some("вторая")));
-        let second = history.page(&|| fixture.roots(), &note, 1, 1).versions.remove(0);
+        let third = history
+            .version(&|| fixture.roots(), &note, Some(&page.versions[0].id))
+            .unwrap();
         assert_eq!(
-            history.version(&|| fixture.roots(), &note, Some(&second.id)).unwrap().previous.as_deref(),
+            (third.text.as_str(), third.previous.as_deref()),
+            ("третья", Some("вторая"))
+        );
+        let second = history
+            .page(&|| fixture.roots(), &note, 1, 1)
+            .versions
+            .remove(0);
+        assert_eq!(
+            history
+                .version(&|| fixture.roots(), &note, Some(&second.id))
+                .unwrap()
+                .previous
+                .as_deref(),
             Some("первая")
         );
-        let first = history.page(&|| fixture.roots(), &note, 2, 1).versions.remove(0);
-        assert_eq!(history.version(&|| fixture.roots(), &note, Some(&first.id)).unwrap().previous, None);
+        let first = history
+            .page(&|| fixture.roots(), &note, 2, 1)
+            .versions
+            .remove(0);
+        assert_eq!(
+            history
+                .version(&|| fixture.roots(), &note, Some(&first.id))
+                .unwrap()
+                .previous,
+            None
+        );
     }
 
     #[test]
@@ -652,11 +740,19 @@ mod tests {
         fs::write(&note, "книга и заметка позиция 1").unwrap();
 
         let history = fixture.service();
-        fixture.save(&history, &note, "книга и заметка позиция 2", Source::Reading);
+        fixture.save(
+            &history,
+            &note,
+            "книга и заметка позиция 2",
+            Source::Reading,
+        );
 
         assert_eq!(
             texts(&fixture.history_of("Книга.md")),
-            [("книга".to_owned(), Source::Agent), ("книга и заметка".to_owned(), Source::Agent)]
+            [
+                ("книга".to_owned(), Source::Agent),
+                ("книга и заметка".to_owned(), Source::Agent)
+            ]
         );
     }
 
@@ -682,7 +778,11 @@ mod tests {
         );
         let page = history.page(&roots, &note, 0, 10);
         assert_eq!(page.versions[0].from_ms, Some(first.at_ms));
-        let current = page.versions.iter().map(|version| version.is_current).collect::<Vec<_>>();
+        let current = page
+            .versions
+            .iter()
+            .map(|version| version.is_current)
+            .collect::<Vec<_>>();
         assert_eq!(current, [true, false, true]);
     }
 
@@ -696,13 +796,26 @@ mod tests {
         fixture.save(&history, &note, "вторая", Source::Agent);
         let first = history.page(&roots, &note, 1, 1).versions.remove(0);
 
-        assert_eq!(history.name(&roots, &note, Some(&first.id), "Начало"), Some(first.id.clone()));
-        assert_eq!(history.name(&roots, &note, Some("0000000000000_aaaaaaaa_me.md"), "Нет"), None);
+        assert_eq!(
+            history.name(&roots, &note, Some(&first.id), "Начало"),
+            Some(first.id.clone())
+        );
+        assert_eq!(
+            history.name(&roots, &note, Some("0000000000000_aaaaaaaa_me.md"), "Нет"),
+            None
+        );
         let live = history.name(&roots, &note, None, "Черновик").unwrap();
 
         let page = history.page(&roots, &note, 0, 10);
-        let named = page.versions.iter().map(|version| version.name.clone()).collect::<Vec<_>>();
-        assert_eq!(named, [Some("Черновик".to_owned()), Some("Начало".to_owned())]);
+        let named = page
+            .versions
+            .iter()
+            .map(|version| version.name.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            named,
+            [Some("Черновик".to_owned()), Some("Начало".to_owned())]
+        );
         assert_eq!(page.versions[0].id, live);
     }
 
@@ -713,8 +826,16 @@ mod tests {
         let note = fixture.vault.join("Заметка.md");
         let roots = || fixture.roots();
 
-        history.saved(&roots, &note, write("от агента", Source::Agent, "1", Some("План")));
-        history.saved(&roots, &note, write("от агента", Source::Agent, "1", Some("План, ещё раз")));
+        history.saved(
+            &roots,
+            &note,
+            write("от агента", Source::Agent, "1", Some("План")),
+        );
+        history.saved(
+            &roots,
+            &note,
+            write("от агента", Source::Agent, "1", Some("План, ещё раз")),
+        );
 
         let page = history.page(&roots, &note, 0, 10);
         assert_eq!(page.total, 1);
@@ -729,8 +850,16 @@ mod tests {
         fixture.save(&history, &note, "текст", Source::Agent);
         fs::write(fixture.vault.join("Секрет.md"), "не отсюда").unwrap();
 
-        assert!(history.version(&|| fixture.roots(), &note, Some("../../../Секрет.md")).is_none());
-        assert!(history.version(&|| fixture.roots(), &note, Some("0000000000000_aaaaaaaa_me.md")).is_none());
+        assert!(history
+            .version(&|| fixture.roots(), &note, Some("../../../Секрет.md"))
+            .is_none());
+        assert!(history
+            .version(
+                &|| fixture.roots(),
+                &note,
+                Some("0000000000000_aaaaaaaa_me.md")
+            )
+            .is_none());
     }
 
     #[test]
@@ -741,7 +870,11 @@ mod tests {
         fs::create_dir_all(&fixture.data).unwrap();
         fs::write(&stray, "текст").unwrap();
 
-        history.saved(&|| fixture.roots(), &stray, write("текст!", Source::Agent, "hash", None));
+        history.saved(
+            &|| fixture.roots(),
+            &stray,
+            write("текст!", Source::Agent, "hash", None),
+        );
 
         assert!(!fixture.vault.join(".aquilum").exists());
         assert!(!fixture.data.join(".aquilum").exists());

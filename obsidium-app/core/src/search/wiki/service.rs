@@ -1,12 +1,10 @@
 use super::repository::candidate_sources;
 use super::target::title_key;
-use super::{
-    backlinks, outgoing_links, plan_for_rename, resolve_many, LinkRewrite,
-};
+use super::{backlinks, outgoing_links, plan_for_rename, resolve_many, LinkRewrite};
 use crate::search::error::SearchError;
-use crate::search::paths::markdown_files;
 use crate::search::models::{Backlink, OutgoingLink, WikiLinkResolution};
 use crate::search::paths::canonical_path;
+use crate::search::paths::markdown_files;
 use crate::search::service::SearchService;
 use rusqlite::Connection;
 use std::collections::HashSet;
@@ -17,7 +15,9 @@ impl SearchService {
         let (root, metadata_path) = self.index_paths(workspace)?;
         let document = canonical_path(Path::new(document));
         if !document.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Document is outside workspace"));
+            return Err(SearchError::invalid_workspace(
+                "Document is outside workspace",
+            ));
         }
         backlinks(&Connection::open(metadata_path)?, &root, &document)
     }
@@ -53,7 +53,9 @@ impl SearchService {
         let (root, metadata_path) = self.index_paths(workspace)?;
         let document = canonical_path(Path::new(document));
         if !document.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Document is outside workspace"));
+            return Err(SearchError::invalid_workspace(
+                "Document is outside workspace",
+            ));
         }
         outgoing_links(&Connection::open(metadata_path)?, &root, &document)
     }
@@ -73,7 +75,9 @@ impl SearchService {
         })?;
         let source = canonical_path(Path::new(source));
         if !source.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Source is outside workspace"));
+            return Err(SearchError::invalid_workspace(
+                "Source is outside workspace",
+            ));
         }
         Ok(WikiLinkResolution {
             paths: resolve_many(&Connection::open(metadata_path)?, &root, &source, targets)?
@@ -100,12 +104,16 @@ impl SearchService {
         })?;
         let Some((root, metadata_path, updating)) = found else {
             if self.active_root().is_some() {
-                return Err(SearchError::invalid_workspace("Rename is outside workspace"));
+                return Err(SearchError::invalid_workspace(
+                    "Rename is outside workspace",
+                ));
             }
             return Ok(Vec::new());
         };
         if !new_path.starts_with(&root) {
-            return Err(SearchError::invalid_workspace("Rename is outside workspace"));
+            return Err(SearchError::invalid_workspace(
+                "Rename is outside workspace",
+            ));
         }
         let connection = Connection::open(metadata_path)?;
         let sources = if updating {
@@ -133,5 +141,4 @@ impl SearchService {
             fallback_candidates.as_deref(),
         )
     }
-
 }

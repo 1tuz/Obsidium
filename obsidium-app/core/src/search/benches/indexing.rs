@@ -3,10 +3,13 @@ use std::fs;
 use std::time::Instant;
 
 #[test]
-#[ignore = "run with AQUILUM_BENCH_SIZES=1000,10000,100000 cargo test --release benchmark_indexing -- --ignored --nocapture"]
+#[ignore = "run with OBSIDIUM_BENCH_SIZES=1000,10000,100000 cargo test --release benchmark_indexing -- --ignored --nocapture"]
 fn benchmark_indexing() {
-    let sizes = std::env::var("AQUILUM_BENCH_SIZES").unwrap_or_else(|_| "1000".to_owned());
-    for count in sizes.split(',').filter_map(|value| value.trim().parse::<usize>().ok()) {
+    let sizes = std::env::var("OBSIDIUM_BENCH_SIZES").unwrap_or_else(|_| "1000".to_owned());
+    for count in sizes
+        .split(',')
+        .filter_map(|value| value.trim().parse::<usize>().ok())
+    {
         run_case(count);
     }
 }
@@ -88,7 +91,14 @@ fn benchmark_save_breakdown() {
         write_note(&bench.vault, 7, 60 + round);
         let transaction = connection.transaction().unwrap();
         let started = Instant::now();
-        crate::search::index_document::apply_path(&bench.vault, &bench.search_index, &writer, &transaction, &saved).unwrap();
+        crate::search::index_document::apply_path(
+            &bench.vault,
+            &bench.search_index,
+            &writer,
+            &transaction,
+            &saved,
+        )
+        .unwrap();
         steps[0].push(started.elapsed());
         let started = Instant::now();
         writer.commit().unwrap();
@@ -130,4 +140,3 @@ fn benchmark_save_breakdown() {
     println!("BENCH-SAVE {line}");
     record("save_breakdown", &line);
 }
-
