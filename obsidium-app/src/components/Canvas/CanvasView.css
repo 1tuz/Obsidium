@@ -29,6 +29,7 @@
   --q-bg-surface-subtle: var(--q-canvas-card);
   --q-text-primary: var(--q-canvas-ink);
   --q-text-secondary: color-mix(in srgb, var(--q-canvas-ink) 78%, transparent);
+  --q-icon-button-icon: var(--q-canvas-ink);
   --q-border-default: var(--q-canvas-border);
   --q-border-accent: var(--q-canvas-edge);
 }
@@ -75,6 +76,33 @@
   align-items: center;
   gap: var(--q-space-4);
   white-space: nowrap;
+}
+
+.q-canvas__palette {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-4);
+}
+
+.q-canvas__palette button {
+  width: var(--q-size-24);
+  min-width: var(--q-size-24);
+  min-height: var(--q-size-24);
+  padding: 0;
+  cursor: pointer;
+}
+
+.q-canvas__palette button:not(.q-canvas__color-swatch) {
+  width: auto;
+  padding: 0 var(--q-space-4);
+}
+
+.q-canvas__palette .q-canvas__color-swatch {
+  width: var(--q-size-16);
+  min-width: var(--q-size-16);
+  height: var(--q-size-16);
+  min-height: var(--q-size-16);
+  border-radius: 50%;
 }
 
 .q-canvas__controls input[type='color'] {
@@ -195,6 +223,14 @@
   cursor: grabbing;
 }
 
+.q-canvas[data-active-tool='select'] .q-canvas__object {
+  cursor: default;
+}
+
+.q-canvas[data-active-tool='draw'] .q-canvas__stage {
+  cursor: crosshair;
+}
+
 .q-canvas__object > .q-canvas-card {
   border-color: var(--q-canvas-border, var(--q-border-default));
   background: var(--q-canvas-card, var(--q-bg-surface));
@@ -203,6 +239,27 @@
 
 .q-canvas__object--ellipse > .q-canvas-card {
   border-radius: 50%;
+}
+
+.q-canvas__object--freehand > .q-canvas-card {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.q-canvas__freehand {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.q-canvas__freehand polyline {
+  fill: none;
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .q-canvas__object.is-selected > .q-canvas-card {

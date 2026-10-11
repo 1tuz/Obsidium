@@ -1,12 +1,12 @@
 import { t } from '../../i18n';
-import { Circle, FileCode, FileText, GitBranch, Image, Link2, MousePointer2, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
+import { Circle, FileCode, FileText, GitBranch, Image, Link2, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import './CanvasToolbar.css';
 
 export type CanvasPaperStyle = 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
 export type CanvasGrid = 'none' | 'dots' | 'lines';
-export type CanvasTool = 'select' | 'text' | 'file' | 'link' | 'group' | 'edge' | 'rectangle' | 'ellipse';
+export type CanvasTool = 'select' | 'text' | 'file' | 'link' | 'group' | 'edge' | 'rectangle' | 'ellipse' | 'draw';
 
 interface CanvasToolbarProps {
   paperStyle: CanvasPaperStyle;
@@ -25,14 +25,15 @@ interface CanvasToolbarProps {
 }
 
 const tools = [
-  { id: 'select', label: 'select', icon: MousePointer2 },
-  { id: 'text', label: 'text', icon: Type },
-  { id: 'file', label: 'file', icon: FileText },
-  { id: 'link', label: 'link', icon: Link2 },
-  { id: 'group', label: 'group', icon: Users },
-  { id: 'edge', label: 'edge', icon: GitBranch },
-  { id: 'rectangle', label: 'rectangle', icon: Square },
-  { id: 'ellipse', label: 'ellipse', icon: Circle },
+  { id: 'select', label: 'select', icon: MousePointer2, shortcut: 'V' },
+  { id: 'text', label: 'text', icon: Type, shortcut: 'T' },
+  { id: 'file', label: 'file', icon: FileText, shortcut: 'F' },
+  { id: 'link', label: 'link', icon: Link2, shortcut: 'L' },
+  { id: 'group', label: 'group', icon: Users, shortcut: 'G' },
+  { id: 'edge', label: 'edge', icon: GitBranch, shortcut: 'A' },
+  { id: 'rectangle', label: 'rectangle', icon: Square, shortcut: 'R' },
+  { id: 'ellipse', label: 'ellipse', icon: Circle, shortcut: 'E' },
+  { id: 'draw', label: 'draw', icon: Pencil, shortcut: 'P' },
 ] as const;
 
 export function CanvasToolbar({
@@ -53,10 +54,11 @@ export function CanvasToolbar({
   return (
     <div className="q-canvas-toolbar" role="toolbar" aria-label={t('canvas.toolbar.label')}>
       <div className="q-canvas-toolbar__tools" role="group" aria-label={t('canvas.toolbar.tools')}>
-        {tools.map(({ id, label, icon }) => (
+        {tools.map(({ id, label, icon, shortcut }) => (
           <IconButton
             key={id}
             label={t(`canvas.toolbar.tool.${label}`)}
+            title={`${t(`canvas.toolbar.tool.${label}`)} (${shortcut})`}
             size="medium"
             aria-pressed={activeTool === id}
             onClick={() => onToolChange(id)}

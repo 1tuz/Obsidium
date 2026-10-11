@@ -1,8 +1,12 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { CanvasToolbar } from './CanvasToolbar';
+
+const canvasStyles = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasView.css'), 'utf8');
 
 describe('CanvasToolbar', () => {
   let renderer: MountedDom | null = null;
@@ -10,6 +14,10 @@ describe('CanvasToolbar', () => {
   afterEach(() => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
+  });
+
+  it('uses the canvas ink token for tool icons on paper surfaces', () => {
+    expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style\]\s*\{[^}]*--q-icon-button-icon:\s*var\(--q-canvas-ink\);/s);
   });
 
   it('dispatches tool, paper, grid and history actions with accessible controls', async () => {
@@ -45,6 +53,7 @@ describe('CanvasToolbar', () => {
     await actAndSettle(() => button('Text card').click());
     await actAndSettle(() => button('Connection').click());
     await actAndSettle(() => button('Ellipse').click());
+    await actAndSettle(() => button('Freehand').click());
     await actAndSettle(() => button('Find and add a note').click());
     const selects = renderer!.container.querySelectorAll('select');
     selects[0].value = 'sepia';
@@ -59,6 +68,7 @@ describe('CanvasToolbar', () => {
     expect(onToolChange).toHaveBeenCalledWith('text');
     expect(onToolChange).toHaveBeenCalledWith('edge');
     expect(onToolChange).toHaveBeenCalledWith('ellipse');
+    expect(onToolChange).toHaveBeenCalledWith('draw');
     expect(onAddNote).toHaveBeenCalledOnce();
     expect(onPaperStyleChange).toHaveBeenCalledWith('sepia');
     expect(onGridChange).toHaveBeenCalledWith('dots');
@@ -66,7 +76,8 @@ describe('CanvasToolbar', () => {
     expect(onRedo).not.toHaveBeenCalled();
     expect(onExportSvg).toHaveBeenCalledOnce();
     expect(onExportPng).toHaveBeenCalledOnce();
-    expect(button('Select').getAttribute('aria-pressed')).toBe('true');
+    expect(button('Select and move').getAttribute('aria-pressed')).toBe('true');
+    expect(button('Freehand').title).toBe('Freehand (P)');
     expect(button('Redo').disabled).toBe(true);
   });
 });
