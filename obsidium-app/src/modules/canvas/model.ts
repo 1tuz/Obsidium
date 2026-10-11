@@ -15,6 +15,7 @@ export type CanvasFileNode = CanvasNode & { type: 'file'; file: string };
 export type CanvasLinkNode = CanvasNode & { type: 'link'; url: string };
 export type CanvasGroupNode = CanvasNode & { type: 'group'; label?: string };
 export type CanvasTypedNode = CanvasTextNode | CanvasFileNode | CanvasLinkNode | CanvasGroupNode;
+export type CanvasPoint = { x: number; y: number };
 
 export type CanvasEdge = {
   id: string;
@@ -124,6 +125,41 @@ export const parseCanvasDocument = (source: string): CanvasParseResult => {
 };
 
 export const serializeCanvasDocument = (document: CanvasDocument): string => JSON.stringify(document, null, 2);
+
+export function createCanvasFreehandNode(id: string, points: readonly CanvasPoint[]): CanvasTextNode {
+  const first = points[0] ?? { x: 0, y: 0 };
+  const bounds = points.reduce((value, point) => ({
+    left: Math.min(value.left, point.x),
+    top: Math.min(value.top, point.y),
+    right: Math.max(value.right, point.x),
+    bottom: Math.max(value.bottom, point.y),
+  }), { left: first.x, top: first.y, right: first.x, bottom: first.y });
+  const left = Math.floor(bounds.left) - 8;
+  const top = Math.floor(bounds.top) - 8;
+  const right = Math.ceil(bounds.right) + 8;
+  const bottom = Math.ceil(bounds.bottom) + 8;
+  return {
+    id,
+    type: 'text',
+    x: left,
+    y: top,
+    width: Math.max(16, right - left),
+    height: Math.max(16, bottom - top),
+    text: '',
+    obsidium: {
+      shape: 'freehand',
+      points: points.map((point) => ({ x: Math.round(point.x - left), y: Math.round(point.y - top) })),
+    },
+  };
+}
+
+export function canvasFreehandPoints(node: CanvasTypedNode): CanvasPoint[] {
+  const obsidium = node.obsidium;
+  if (!isRecord(obsidium) || obsidium.shape !== 'freehand' || !Array.isArray(obsidium.points)) return [];
+  return obsidium.points.filter((point): point is CanvasPoint => isRecord(point)
+    && typeof point.x === 'number' && Number.isFinite(point.x)
+    && typeof point.y === 'number' && Number.isFinite(point.y));
+}
 
 export const addCanvasNode = (document: CanvasDocument, node: CanvasTypedNode): CanvasDocument => ({
   ...document,

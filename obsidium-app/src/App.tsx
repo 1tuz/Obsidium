@@ -676,7 +676,7 @@ export default function App() {
                     onClose={() => closeTab(paneActiveTab.path, paneActiveTab.tabId)}
                   />
                 ) : null}
-                {livePanes.filter((tab) => tab.paneId === paneId).map((tab) => (
+                {livePanes.filter((tab) => tab.paneId === paneId && !(activeCanvasPath && tab.tabId === paneActiveTab?.tabId)).map((tab) => (
                   isCanvasPath(tab.path) ? (
                     <Suspense key={`${tab.tabId}:${tab.path}`} fallback={null}>
                       <CanvasView

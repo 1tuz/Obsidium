@@ -328,6 +328,7 @@ describe('App editor lifecycle', () => {
 
     const toolbar = renderer!.container.querySelector('[data-testid="canvas-toolbar"]');
     expect(toolbar).not.toBeNull();
+    expect(renderer!.container.querySelectorAll('[data-testid="canvas-toolbar"]')).toHaveLength(1);
     expect(toolbar?.closest('main')?.classList.contains('q-offstage')).toBe(false);
   });
 

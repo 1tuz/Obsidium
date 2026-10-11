@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   addCanvasEdge,
+  canvasFreehandPoints,
+  createCanvasFreehandNode,
   duplicateCanvasNode,
   parseCanvasDocument,
   removeCanvasEdge,
@@ -78,6 +80,17 @@ describe('Canvas JSON model', () => {
     expect(parsed.value.edges).toEqual([]);
     expect(updated.edges[0]).toMatchObject({ label: 'next', color: '1', privateField: true });
     expect(removeCanvasEdge(updated, 'e').edges).toEqual([]);
+  });
+
+  it('stores freehand strokes in a portable text node extension', () => {
+    const stroke = createCanvasFreehandNode('stroke-1', [{ x: 20.4, y: 30.2 }, { x: 80.1, y: 42.8 }]);
+    const parsed = parseCanvasDocument(serializeCanvasDocument({ nodes: [stroke], edges: [] }));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.nodes[0]).toMatchObject({ type: 'text', text: '', obsidium: { shape: 'freehand' } });
+    expect(canvasFreehandPoints(parsed.value.nodes[0])).toEqual([{ x: 8, y: 8 }, { x: 68, y: 21 }]);
+    expect(canvasFreehandPoints({ ...stroke, obsidium: { shape: 'freehand', points: [{ x: 'bad', y: 1 }] } })).toEqual([]);
+    expect(createCanvasFreehandNode('empty-stroke', []).width).toBe(16);
   });
 
   it('parses the 1,000-node performance board fixture', () => {
