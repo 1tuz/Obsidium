@@ -29,7 +29,7 @@ export function Icon({ icon, size = 24, strokeWidth = 2, className }: IconProps)
       xmlns="http://www.w3.org/2000/svg"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox={renderedSet === 'phosphor' ? '0 0 256 256' : '0 0 24 24'}
       fill={renderedSet === 'phosphor' ? 'currentColor' : 'none'}
       stroke={renderedSet === 'phosphor' ? undefined : 'currentColor'}
       strokeWidth={renderedSet === 'phosphor' ? undefined : strokeWidth}

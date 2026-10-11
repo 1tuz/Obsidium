@@ -79,6 +79,7 @@ describe('icon catalog', () => {
     await act(async () => setIconSet('phosphor'));
     expect(svg.dataset.iconSet).toBe('phosphor');
     expect(svg.getAttribute('fill')).toBe('currentColor');
+    expect(svg.getAttribute('viewBox')).toBe('0 0 256 256');
     button.remove();
   });
 });
