@@ -16,6 +16,7 @@ import { Input } from '../../Common/Input';
 import { useThemeMode } from '../../../hooks/useThemeMode';
 import { Button } from '../../Common/Button';
 import { ThemePaletteDialog } from './ThemePaletteDialog';
+import { Icon } from '../../Common/Icon';
 import './UiSection.css';
 
 interface UiSectionProps extends SettingsSectionProps {
@@ -36,6 +37,26 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
   return (
     <>
       <Section title={t('settings.ui.display')}>
+        <Row label={t('settings.ui.iconSet')} description={t('settings.ui.iconSetHint')}>
+          <div className="q-icon-set-picker" role="group" aria-label={t('settings.ui.iconSet')}>
+            {([
+              ['lucide', 'search'],
+              ['tabler', 'graph'],
+              ['phosphor', 'book'],
+            ] as const).map(([iconSet, icon]) => (
+              <button
+                key={iconSet}
+                type="button"
+                data-icon-set-choice={iconSet}
+                aria-pressed={config.ui.iconSet === iconSet}
+                onClick={() => patchUi({ iconSet })}
+              >
+                <Icon icon={icon} size={18} />
+                <span>{t(`settings.ui.iconSet${iconSet[0].toUpperCase()}${iconSet.slice(1)}`)}</span>
+              </button>
+            ))}
+          </div>
+        </Row>
         <Row
           label={t('settings.ui.scale')}
           description={t('settings.ui.scaleHint', { reset: formatShortcut(SHORTCUTS.ZOOM_RESET) })}

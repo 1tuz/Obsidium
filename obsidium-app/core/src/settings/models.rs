@@ -174,6 +174,7 @@ impl Default for ReaderSettings {
 pub struct UiSettings {
     #[serde(alias = "theme")]
     pub appearance: String,
+    pub icon_set: String,
     pub palette: String,
     #[serde(default = "legacy_accent_mode")]
     pub accent_mode: String,
@@ -213,6 +214,7 @@ impl Default for UiSettings {
     fn default() -> Self {
         Self {
             appearance: "system".to_string(),
+            icon_set: "lucide".to_string(),
             palette: "obsidium".to_string(),
             accent_mode: "palette".to_string(),
             motion: "off".to_string(),

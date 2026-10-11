@@ -1,7 +1,7 @@
 {
   "name": "aquilum-app",
   "private": true,
-  "version": "0.4.3",
+  "version": "0.4.4",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -41,6 +41,8 @@
     "@lezer/common": "^1.5.2",
     "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.7.1",
+    "@phosphor-icons/core": "^2.1.1",
+    "@tabler/icons": "^3.49.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
