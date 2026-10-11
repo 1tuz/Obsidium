@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { normalizeConfig, type AppConfig } from './index';
 
 describe('normalizeConfig', () => {
+  it('defaults old icon settings to Lucide and keeps a valid selected set', () => {
+    const config = {
+      builtins: {},
+      ui: { fontFamily: 'Inter', fontWeight: 400, iconSet: 'unknown' },
+      editor: { fontFamily: 'iA Writer Mono', fontWeight: 400 },
+      reader: { fontFamily: 'iA Writer Quattro', fontWeight: 400 },
+    } as unknown as AppConfig;
+
+    expect(normalizeConfig(config).ui.iconSet).toBe('lucide');
+    expect(normalizeConfig({ ...config, ui: { ...config.ui, iconSet: 'tabler' } }).ui.iconSet).toBe('tabler');
+  });
+
   it('fills Markdown reading defaults for existing settings and preserves stored values', () => {
     const config = {
       builtins: {},

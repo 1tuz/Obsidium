@@ -638,7 +638,7 @@ export default function App() {
                   />
                 </Suspense>
               )}
-              <main className={graphActive || activeCanvasPath ? 'q-app-editor q-offstage' : 'q-app-editor'}>
+              <main className={graphActive ? 'q-app-editor q-offstage' : 'q-app-editor'}>
                 {activeBasePath && (
                   <Suspense fallback={null}>
                     <BaseView

@@ -51,6 +51,29 @@ describe('UiSection', () => {
     expect(renderer!.container.textContent).not.toContain(t('settings.ui.primaryColor'));
   });
 
+  it('offers the three icon sets with live previews and saves the selected set', () => {
+    const config = {
+      ui: {
+        appearance: 'dark', palette: 'obsidium', accentMode: 'palette', motion: 'off', iconSet: 'lucide',
+        enabledSnippets: {}, language: 'ru', primaryColor: '#1471eb',
+        fontFamily: 'Inter', fontWeight: 400, fontSizeBase: 14,
+      },
+    } as unknown as AppConfig;
+    const onChange = vi.fn();
+
+    act(() => {
+      renderer = mountDom(
+        <UiSection config={config} onChange={onChange} workspacePath={null} homePage="" onHomePageChange={vi.fn()} />,
+      );
+    });
+
+    const buttons = [...renderer!.container.querySelectorAll<HTMLButtonElement>('[data-icon-set-choice]')];
+    expect(buttons.map((button) => button.dataset.iconSetChoice)).toEqual(['lucide', 'tabler', 'phosphor']);
+    expect(buttons.every((button) => button.querySelector('svg'))).toBe(true);
+    act(() => buttons[2]?.click());
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ ui: expect.objectContaining({ iconSet: 'phosphor' }) }));
+  });
+
   it('opens the palette chooser in a separate dialog and selects a palette', () => {
     const config = {
       ui: {

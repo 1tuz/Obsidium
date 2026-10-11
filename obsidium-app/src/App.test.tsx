@@ -124,8 +124,13 @@ vi.mock('./components/Layout/Sidebar', () => ({
       <button id="toggle-theme" onClick={onToggleTheme} />
       <button id="open-a" onClick={() => onFileSelect('C:\\notes\\a.md')} />
       <button id="open-b" onClick={() => onFileSelect('C:\\notes\\b.md')} />
+      <button id="open-canvas" onClick={() => onFileSelect('C:\\notes\\board.canvas')} />
     </div>
   ) : null,
+}));
+
+vi.mock('./components/Canvas/CanvasView', () => ({
+  CanvasView: () => <div data-testid="canvas-toolbar" role="toolbar" />,
 }));
 
 vi.mock('./components/Editor/NewTab', () => ({
@@ -314,6 +319,16 @@ describe('App editor lifecycle', () => {
     click('open-graph');
     expect(graphLifecycle).toEqual(['mount']);
     expect(attribute('graph', 'data-inactive')).toBe('false');
+  });
+
+  it('shows the active Canvas board and toolbar in the editor area', async () => {
+    await renderWithSession();
+
+    await actAndSettle(() => find('open-canvas')[0].click());
+
+    const toolbar = renderer!.container.querySelector('[data-testid="canvas-toolbar"]');
+    expect(toolbar).not.toBeNull();
+    expect(toolbar?.closest('main')?.classList.contains('q-offstage')).toBe(false);
   });
 
   it('opens global search with the physical Ctrl+O shortcut', () => {

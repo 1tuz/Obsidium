@@ -110,6 +110,7 @@ mod tests {
         assert_eq!(config.mcp.token, "secret");
         assert_eq!(config.mcp.port, 8787);
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
+        assert_eq!(config.ui.icon_set, "lucide");
         assert_eq!(config.editor.save_debounce_ms, 1000);
         assert!(config.analysis.enable_bm25f);
         assert!(config.builtins.editing_toolbar);
@@ -143,6 +144,21 @@ mod tests {
         assert_eq!(stored.editor.markdown_reading.font_size_px, 21);
         assert_eq!(stored.editor.markdown_reading.line_height, 1.85);
         assert_eq!(stored.editor.markdown_reading.page_width_ch, 72);
+    }
+
+    #[test]
+    fn icon_set_setting_survives_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        config.ui.icon_set = "phosphor".to_string();
+
+        manager.update_config(config).unwrap();
+
+        assert_eq!(
+            SettingsManager::new(dir.path()).get_config().ui.icon_set,
+            "phosphor"
+        );
     }
 
     #[test]

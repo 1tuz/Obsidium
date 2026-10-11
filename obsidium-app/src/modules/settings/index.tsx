@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { setTheme } from '../theme';
+import { setIconSet, type IconSet } from '../iconSet';
 import { normalizeReadingTheme, type ReadingThemeId } from '../theme/reading';
 import { setLanguage } from '../../i18n';
 import { setFilesFolder } from '../docs/vaultFiles';
@@ -101,6 +102,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettings = {
 
 interface UiSettings extends FontSettings {
   appearance: 'system' | 'light' | 'dark';
+  iconSet: 'lucide' | 'tabler' | 'phosphor';
   palette: string;
   accentMode: 'palette' | 'custom';
   motion: 'system' | 'on' | 'off';
@@ -199,10 +201,14 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
 }
 
 export function normalizeConfig(config: AppConfig): AppConfig {
+  const iconSet = config.ui.iconSet as IconSet | undefined;
   return {
     ...config,
     builtins: { ...DEFAULT_BUILTINS, ...config.builtins },
-    ui: knownFont('ui', config.ui),
+    ui: {
+      ...knownFont('ui', config.ui),
+      iconSet: iconSet === 'tabler' || iconSet === 'phosphor' ? iconSet : 'lucide',
+    },
     editor: {
       ...knownFont('editor', config.editor),
       markdownReading: { ...DEFAULT_MARKDOWN_READING_SETTINGS, ...config.editor.markdownReading },
@@ -271,6 +277,7 @@ export function useSettingsStore() {
 
 function applySettingsToDom(config: AppConfig) {
   const root = document.documentElement;
+  void setIconSet(config.ui.iconSet).catch((error) => console.error('Failed to load icon set:', error));
   setLanguage(config.ui.language);
   setFilesFolder(config.files.folder);
   setTheme(
