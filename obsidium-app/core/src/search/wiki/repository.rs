@@ -20,7 +20,6 @@ pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
            link_type TEXT NOT NULL,
            byte_offset INTEGER NOT NULL,
            offset_utf16 INTEGER NOT NULL,
-           link_type TEXT NOT NULL DEFAULT 'wiki',
            FOREIGN KEY(source_path) REFERENCES wiki_documents(path) ON DELETE CASCADE,
            PRIMARY KEY(source_path, byte_offset)
          ) WITHOUT ROWID;
@@ -69,7 +68,6 @@ pub fn index_document(
             "wiki",
             link.target_range.start as i64,
             link.offset_utf16 as i64,
-            "wiki",
         ])?;
     }
     for link in extract_markdown(body) {
@@ -83,7 +81,6 @@ pub fn index_document(
             "markdown",
             link.target_range.start as i64,
             link.offset_utf16 as i64,
-            "markdown",
         ])?;
     }
     Ok(())
