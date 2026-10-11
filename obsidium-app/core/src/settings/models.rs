@@ -308,13 +308,6 @@ impl Default for BuiltinPluginSettings {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct GraphSettings {
-    pub preferences: Option<serde_json::Value>,
-    pub presets: Option<serde_json::Value>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppConfig {
