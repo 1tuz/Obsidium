@@ -9,7 +9,7 @@ curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/install.
 ```
 
 Скрипт выбирает DMG Apple Silicon (`arm64`) через GitHub Releases API и устанавливает `Obsidium.app`
-в `~/Applications`. При обновлении удаляет старый `Aquilum.app`. Удаление:
+в `~/Applications`. При обновлении удаляет старый `Obsidium.app`. Удаление:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/1tuz/Obsidium/main/scripts/uninstall.sh | bash
@@ -89,7 +89,7 @@ Linux- и Windows-пакеты в отдельный macOS-релиз не по�
 
 Код открыт под **AGPL-3.0-only** (`LICENSE` в корне, поле `license` в `package.json` и
 `Cargo.toml`). AGPL выбрана потому, что, в отличие от GPL, обязывает открыть изменённый код и
-тех, кто отдаёт приложение пользователям как сетевой сервис: взять Aquilum, доработать и
+тех, кто отдаёт приложение пользователям как сетевой сервис: взять Obsidium, доработать и
 продавать закрытым SaaS нельзя. `-only`, а не `-or-later`: условия не меняются будущими
 версиями лицензии без решения автора. Автор как единственный правообладатель сохраняет право
 выдавать отдельную коммерческую лицензию; если начнём принимать чужие pull request, без

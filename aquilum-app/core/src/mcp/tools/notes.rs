@@ -1,16 +1,17 @@
 use super::super::vault::Vault;
 use super::workspace::{indexed_vault, requested_vault, workspace_vault};
-use super::{offset, 
-    content, flag, limit, open_after_write, optional_content, optional_names, optional_text,
-    require_write, shorten, text, tool, version_name_property, workspace_property, write_retrying,
+use super::{
+    content, flag, limit, offset, open_after_write, optional_content, optional_names,
+    optional_text, require_write, shorten, text, tool, version_name_property, workspace_property,
+    write_retrying,
 };
+use crate::app_core::Core;
 use crate::files::document::{ensure_directory_impl, read_text};
 use crate::files::gate;
 use crate::history::Source;
 use crate::search::headings::{self, Heading};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use crate::app_core::Core;
 
 const READ_LIMIT: usize = 8_000;
 const MANY_READ_LIMIT: usize = 2_000;
@@ -126,11 +127,7 @@ pub fn definitions() -> Vec<Value> {
     ]
 }
 
-pub fn call(
-    core: &Core,
-    name: &str,
-    arguments: &Value,
-) -> Option<Result<Value, String>> {
+pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, String>> {
     Some(match name {
         "read_note" => read_note(core, arguments),
         "create_note" => create_note(core, arguments),
@@ -313,7 +310,8 @@ fn create_one(
     if let Some(parent) = path.parent() {
         ensure_directory_impl(parent).map_err(|error| error.to_string())?;
     }
-    gate::create(core, &path, initial, Source::Agent, version_name).map_err(|error| error.to_string())?;
+    gate::create(core, &path, initial, Source::Agent, version_name)
+        .map_err(|error| error.to_string())?;
     Ok(path)
 }
 
@@ -366,9 +364,13 @@ fn update_note(core: &Core, arguments: &Value) -> Result<Value, String> {
         all: flag(arguments, "all", false),
     };
     let version_name = optional_text(arguments, "versionName");
-    let (changed, next) = write_retrying(core, &note, Source::Agent, version_name.as_deref(), |current| {
-        compose(current, &edit)
-    })?;
+    let (changed, next) = write_retrying(
+        core,
+        &note,
+        Source::Agent,
+        version_name.as_deref(),
+        |current| compose(current, &edit),
+    )?;
     if !changed {
         return Ok(json!({ "path": vault.relative(&note), "changed": false }));
     }
@@ -425,7 +427,11 @@ fn join_blocks(before: &str, after: &str) -> String {
     if before.trim().is_empty() {
         return after.to_owned();
     }
-    format!("{}\n\n{}", before.trim_end_matches('\n'), after.trim_start_matches('\n'))
+    format!(
+        "{}\n\n{}",
+        before.trim_end_matches('\n'),
+        after.trim_start_matches('\n')
+    )
 }
 
 fn write_section(
@@ -457,14 +463,19 @@ fn rename_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     let note = vault.note(&text(arguments, "note")?)?;
     let title = text(arguments, "title")?;
     if title.contains(['/', '\\']) {
-        return Err("Название не должно содержать разделители пути — используйте move_note".to_owned());
+        return Err(
+            "Название не должно содержать разделители пути — используйте move_note".to_owned(),
+        );
     }
     let target = note.with_file_name(format!("{}.md", title.trim_end_matches(".md")));
     if target == note {
         return Ok(json!({ "path": vault.relative(&note), "renamed": false }));
     }
     if target.exists() {
-        return Err(format!("Заметка уже существует: {}", vault.relative(&target)));
+        return Err(format!(
+            "Заметка уже существует: {}",
+            vault.relative(&target)
+        ));
     }
 
     let result = gate::rename(core, &note, &target).map_err(|error| error.to_string())?;
@@ -494,7 +505,10 @@ fn move_note(core: &Core, arguments: &Value) -> Result<Value, String> {
         return move_inside_vault(core, &vault, &note, target);
     }
     if target.exists() {
-        return Err(format!("В целевой базе уже есть {}", destination.relative(&target)));
+        return Err(format!(
+            "В целевой базе уже есть {}",
+            destination.relative(&target)
+        ));
     }
     if let Some(parent) = target.parent() {
         ensure_directory_impl(parent).map_err(|error| error.to_string())?;
@@ -529,7 +543,10 @@ fn move_inside_vault(
         return Ok(json!({ "path": vault.relative(note), "moved": false }));
     }
     if target.exists() {
-        return Err(format!("Заметка уже существует: {}", vault.relative(&target)));
+        return Err(format!(
+            "Заметка уже существует: {}",
+            vault.relative(&target)
+        ));
     }
     if let Some(parent) = target.parent() {
         ensure_directory_impl(parent).map_err(|error| error.to_string())?;
@@ -668,7 +685,10 @@ mod tests {
 
     #[test]
     fn appends_to_an_empty_note_without_leading_blank_lines() {
-        assert_eq!(compose("", &edit("append", "Первый текст")).unwrap(), "Первый текст");
+        assert_eq!(
+            compose("", &edit("append", "Первый текст")).unwrap(),
+            "Первый текст"
+        );
     }
 
     #[test]
@@ -684,7 +704,10 @@ mod tests {
     fn refuses_to_replace_several_occurrences_unless_asked() {
         let note = "маркер и ещё маркер\n";
         let error = compose(note, &replacing("маркер", "замена", false)).unwrap_err();
-        assert!(error.contains("2"), "в ошибке названо число вхождений: {error}");
+        assert!(
+            error.contains("2"),
+            "в ошибке названо число вхождений: {error}"
+        );
         assert_eq!(
             compose(note, &replacing("маркер", "замена", true)).unwrap(),
             "замена и ещё замена\n"
@@ -696,7 +719,10 @@ mod tests {
         let updated = compose(SECTIONS, &under("underHeading", "## Два", "вставка")).unwrap();
         assert!(updated.contains("## Два\n\nвставка\n\nещё"));
         assert!(updated.contains("### Три\n\nглубже"));
-        assert!(updated.ends_with('\n'), "финальный перевод строки не теряется");
+        assert!(
+            updated.ends_with('\n'),
+            "финальный перевод строки не теряется"
+        );
         assert!(compose(SECTIONS, &under("underHeading", "Нет такого", "вставка")).is_err());
     }
 
@@ -713,7 +739,10 @@ mod tests {
     fn replacing_a_section_stops_at_the_next_heading_of_the_same_level() {
         let updated = compose(SECTIONS, &under("replaceSection", "## Два", "новое")).unwrap();
         assert!(updated.contains("## Два\n\nновое"));
-        assert!(!updated.contains("глубже"), "вложенный раздел входит в заменяемый");
+        assert!(
+            !updated.contains("глубже"),
+            "вложенный раздел входит в заменяемый"
+        );
         assert!(updated.starts_with("# Один\n\nтекст\n"));
     }
 
@@ -721,7 +750,10 @@ mod tests {
     fn refuses_an_ambiguous_heading() {
         let note = "## Два\n\nпервый\n\n## Два\n\nвторой\n";
         let error = compose(note, &under("replaceSection", "Два", "новое")).unwrap_err();
-        assert!(error.contains("2"), "в ошибке названо число заголовков: {error}");
+        assert!(
+            error.contains("2"),
+            "в ошибке названо число заголовков: {error}"
+        );
     }
 
     #[test]

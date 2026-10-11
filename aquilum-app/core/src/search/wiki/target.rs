@@ -64,7 +64,9 @@ pub fn markdown_target_key(root: &Path, source: &Path, target: &str) -> Option<S
 fn has_scheme(path: &str) -> bool {
     path.find(':').is_some_and(|colon| {
         let mut scheme = path[..colon].chars();
-        scheme.next().is_some_and(|value| value.is_ascii_alphabetic())
+        scheme
+            .next()
+            .is_some_and(|value| value.is_ascii_alphabetic())
             && scheme.all(|value| value.is_ascii_alphanumeric() || matches!(value, '+' | '-' | '.'))
     })
 }
@@ -140,7 +142,10 @@ mod tests {
             markdown_target_key(root, &source, "My%20Note.md"),
             Some("folder/my note".to_owned())
         );
-        assert_eq!(markdown_target_key(root, &source, "/Root.md"), Some("root".to_owned()));
+        assert_eq!(
+            markdown_target_key(root, &source, "/Root.md"),
+            Some("root".to_owned())
+        );
         assert_eq!(markdown_target_key(root, &source, "../../outside.md"), None);
         assert_eq!(
             markdown_target_key(root, &source, "https://example.com/a.md"),

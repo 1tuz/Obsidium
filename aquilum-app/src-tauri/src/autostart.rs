@@ -4,7 +4,7 @@ pub fn repoint_to_current_exe(app: &tauri::AppHandle) {
     let launcher = app.autolaunch();
     if launcher.is_enabled().unwrap_or(false) {
         if let Err(error) = launcher.enable() {
-            eprintln!("[aquilum:autostart] не удалось обновить путь автозапуска: {error}");
+            eprintln!("[obsidium:autostart] не удалось обновить путь автозапуска: {error}");
         }
     }
 }

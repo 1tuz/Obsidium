@@ -42,6 +42,14 @@
     transition: opacity var(--q-duration-normal) var(--q-ease-out);
 }
 
+.q-editor-content[data-reading-style] {
+    --q-reading-gutter: clamp(var(--q-space-16), 5vw, var(--q-space-64));
+
+    max-width: calc(var(--q-editor-max-width) + 2 * var(--q-reading-gutter));
+    padding: var(--q-space-24) var(--q-reading-gutter);
+    box-sizing: border-box;
+}
+
 @starting-style {
     .q-editor-content {
         opacity: 0;

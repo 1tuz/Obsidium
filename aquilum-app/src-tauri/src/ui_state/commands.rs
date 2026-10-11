@@ -1,19 +1,21 @@
-use crate::app_core::Core;
-use std::sync::Arc;
 use super::error::UiStateError;
-use crate::blocking::run_blocking;
 use super::models::{
-    KnownWorkspace, LoadedReaderState, LoadedSession, OpenSessionInput, SaveReaderStateInput,
-    SaveBaseViewStateInput, SaveStateBatchInput,
+    KnownWorkspace, LoadedReaderState, LoadedSession, OpenSessionInput, SaveBaseViewStateInput,
+    SaveReaderStateInput, SaveStateBatchInput,
 };
 use super::paths::{canonical_workspace, normalize_relative};
+use crate::app_core::Core;
+use crate::blocking::run_blocking;
 use crate::documents::DocumentHub;
 use std::path::Path;
+use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
 #[tauri::command]
-pub async fn list_ui_workspaces(core: State<'_, Arc<Core>>) -> Result<Vec<KnownWorkspace>, UiStateError> {
+pub async fn list_ui_workspaces(
+    core: State<'_, Arc<Core>>,
+) -> Result<Vec<KnownWorkspace>, UiStateError> {
     let service = core.ui_state.clone();
     run_blocking(move || service.list_workspaces()).await
 }
@@ -90,11 +92,20 @@ pub async fn save_ui_state_batch(
 
 fn anchor_views(hub: &DocumentHub, input: &mut SaveStateBatchInput) {
     for view in &mut input.views {
-        let Some(path) = view.path.as_deref() else { continue };
-        let offsets = [view.fallback_anchor, view.fallback_head, view.fallback_scroll_anchor]
-            .map(|offset| offset.max(0) as usize);
-        let Some(encoded) = hub.encode_positions(Path::new(path), &offsets) else { continue };
-        let [anchor, head, scroll] = <[Option<Vec<u8>>; 3]>::try_from(encoded).expect("three positions");
+        let Some(path) = view.path.as_deref() else {
+            continue;
+        };
+        let offsets = [
+            view.fallback_anchor,
+            view.fallback_head,
+            view.fallback_scroll_anchor,
+        ]
+        .map(|offset| offset.max(0) as usize);
+        let Some(encoded) = hub.encode_positions(Path::new(path), &offsets) else {
+            continue;
+        };
+        let [anchor, head, scroll] =
+            <[Option<Vec<u8>>; 3]>::try_from(encoded).expect("three positions");
         view.cursor_anchor = anchor.unwrap_or_default();
         view.cursor_head = head.unwrap_or_default();
         view.scroll_anchor = scroll.unwrap_or_default();
@@ -148,10 +159,7 @@ pub async fn cleanup_ui_state(
 }
 
 #[tauri::command]
-pub async fn reset_ui_state(
-    core: State<'_, Arc<Core>>,
-    now_ms: i64,
-) -> Result<(), UiStateError> {
+pub async fn reset_ui_state(core: State<'_, Arc<Core>>, now_ms: i64) -> Result<(), UiStateError> {
     let service = core.ui_state.clone();
     run_blocking(move || service.reset(now_ms)).await
 }
@@ -178,10 +186,7 @@ pub async fn save_ui_reader_state(
     let service = core.ui_state.clone();
     run_blocking(move || {
         let book_file = normalize_relative(&input.book_file)?;
-        service.save_reader_state(&SaveReaderStateInput {
-            book_file,
-            ..input
-        })
+        service.save_reader_state(&SaveReaderStateInput { book_file, ..input })
     })
     .await
 }

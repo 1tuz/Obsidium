@@ -43,7 +43,9 @@ pub fn validate_batch(input: &SaveStateBatchInput) -> Result<(), UiStateError> {
             }
         }
         if let Some(layout) = &session.layout {
-            if session.tabs.is_some() { validate_layout(layout, tabs)?; }
+            if session.tabs.is_some() {
+                validate_layout(layout, tabs)?;
+            }
         }
         if session.tabs.is_some()
             && session

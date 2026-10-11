@@ -1,11 +1,25 @@
-use crate::search::paths::{is_markdown, strip_root};
 use super::attachments::MEDIA_EXTENSIONS;
 use super::error::FileCommandError;
 use super::models::{FileItem, FileItemType};
+use crate::search::paths::{is_markdown, strip_root};
 use std::fs;
 use std::path::Path;
 
 const DOCUMENT_EXTENSIONS: &[&str] = &["pdf", "epub", "mobi", "azw3", "fb2"];
+const TEXT_EXTENSIONS: &[&str] = &[
+    "canvas", "css", "csv", "html", "ini", "js", "json", "log", "ps1", "py", "rs", "sh", "sql",
+    "toml", "ts", "txt", "xml", "yaml", "yml",
+];
+
+fn is_text(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| {
+            TEXT_EXTENSIONS
+                .iter()
+                .any(|known| known.eq_ignore_ascii_case(extension))
+        })
+}
 
 fn is_attachment(extension: &str) -> bool {
     MEDIA_EXTENSIONS.contains(&extension) || DOCUMENT_EXTENSIONS.contains(&extension)
@@ -60,7 +74,7 @@ pub fn read_directory_impl(path: &Path) -> Result<Vec<FileItem>, FileCommandErro
 
         let is_markdown = extension == "md";
         let is_base = extension == "base";
-        if !is_markdown && !is_base && !is_attachment(extension.as_str()) {
+        if !is_markdown && !is_base && !is_text(&path) && !is_attachment(extension.as_str()) {
             continue;
         }
 
@@ -134,7 +148,49 @@ pub fn existing_files_impl(paths: Vec<String>) -> Vec<String> {
         .into_iter()
         .filter(|value| {
             let path = Path::new(value);
-            path.is_file() && (is_markdown(path) || is_base(path))
+            path.is_file() && (is_markdown(path) || is_base(path) || is_text(path))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{existing_files_impl, read_directory_impl};
+    use std::fs;
+
+    #[test]
+    fn lists_and_restores_tabs_for_standard_text_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let yaml = directory.path().join("config.yml");
+        let pdf = directory.path().join("guide.pdf");
+        fs::write(&yaml, "name: test").unwrap();
+        fs::write(&pdf, b"pdf").unwrap();
+
+        let listed = read_directory_impl(directory.path()).unwrap();
+        assert!(listed.iter().any(|item| item.id == yaml.to_string_lossy()));
+        assert!(listed.iter().any(|item| item.id == pdf.to_string_lossy()));
+        assert_eq!(
+            existing_files_impl(vec![
+                yaml.to_string_lossy().into_owned(),
+                pdf.to_string_lossy().into_owned(),
+            ]),
+            vec![yaml.to_string_lossy().into_owned()]
+        );
+    }
+
+    #[test]
+    fn lists_and_restores_json_canvas_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let canvas = directory.path().join("board.canvas");
+        fs::write(&canvas, r#"{"nodes":[],"edges":[]}"#).unwrap();
+
+        let listed = read_directory_impl(directory.path()).unwrap();
+        assert!(listed
+            .iter()
+            .any(|item| item.id == canvas.to_string_lossy()));
+        assert_eq!(
+            existing_files_impl(vec![canvas.to_string_lossy().into_owned()]),
+            vec![canvas.to_string_lossy().into_owned()]
+        );
+    }
 }

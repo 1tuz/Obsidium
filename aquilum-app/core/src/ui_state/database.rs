@@ -20,5 +20,4 @@ impl UiStateDatabase {
         migrate(&connection)?;
         Ok(Self { connection })
     }
-
 }

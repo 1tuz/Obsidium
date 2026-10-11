@@ -2,8 +2,8 @@
 mod autostart;
 mod blocking;
 mod export;
-mod window_state;
 mod updater;
+mod window_state;
 
 use aquilum_core::{app_core, migration};
 
@@ -58,11 +58,11 @@ use tauri::window::Color;
 use tauri::{Emitter, Manager, Theme, WindowEvent};
 
 pub fn run_mcp_stdio_bridge() -> i32 {
-    mcp::run_stdio_bridge(env!("AQUILUM_APP_IDENTIFIER"))
+    mcp::run_stdio_bridge(env!("OBSIDIUM_APP_IDENTIFIER"))
 }
 
 pub fn run_mcp_stdio_headless() -> i32 {
-    mcp::run_stdio_headless(env!("AQUILUM_APP_IDENTIFIER"))
+    mcp::run_stdio_headless(env!("OBSIDIUM_APP_IDENTIFIER"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -90,7 +90,7 @@ pub fn run() {
     let builder = builder.on_page_load(|webview, payload| {
         if payload.event() == tauri::webview::PageLoadEvent::Finished && webview.label() == "main" {
             if let Err(error) = webview.window().show() {
-                eprintln!("[aquilum] окно не показано: {error}");
+                eprintln!("[obsidium] окно не показано: {error}");
             }
         }
     });
@@ -102,11 +102,12 @@ pub fn run() {
             migration::migrate_legacy_data(&app_data_dir);
 
             let handle = app.handle().clone();
-            let events: Arc<dyn app_core::EventSink> = Arc::new(move |event: app_core::CoreEvent| {
-                if let Err(error) = handle.emit(event.name(), &event) {
-                    eprintln!("[aquilum] событие {} не отправлено: {error}", event.name());
-                }
-            });
+            let events: Arc<dyn app_core::EventSink> =
+                Arc::new(move |event: app_core::CoreEvent| {
+                    if let Err(error) = handle.emit(event.name(), &event) {
+                        eprintln!("[obsidium] событие {} не отправлено: {error}", event.name());
+                    }
+                });
             let core = app_core::Core::open(&app_data_dir, events);
             core.apply_mcp_settings();
             app.manage(core);
@@ -115,12 +116,18 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "windows")]
                 allow_pinch_gestures(&window);
-                paint_canvas(&window, &app.state::<Arc<app_core::Core>>().settings.get_config().ui.appearance);
+                paint_canvas(
+                    &window,
+                    &app.state::<Arc<app_core::Core>>()
+                        .settings
+                        .get_config()
+                        .ui
+                        .appearance,
+                );
                 window_state_manager.restore(&window);
                 window_state_manager.initialize(&window);
             }
             app.manage(window_state_manager);
-
 
             #[cfg(all(desktop, not(debug_assertions)))]
             autostart::repoint_to_current_exe(app.handle());
@@ -177,7 +184,15 @@ pub fn run() {
             search::commands::run_dataview_query,
             search::analysis::commands::analyze_document,
             search::graph::commands::get_graph_snapshot,
+            search::graph::commands::get_graph_modified_date_delta,
+            search::graph::commands::get_graph_topology_delta,
+            search::graph::commands::get_graph_timeline_range,
+            search::graph::commands::get_graph_timeline_events,
+            search::graph::commands::get_graph_timeline_snapshot,
             search::graph::commands::get_graph_paths,
+            search::graph::commands::set_graph_positions,
+            search::graph::commands::get_graph_filter_nodes,
+            search::graph::commands::get_graph_cluster_ids,
             wikixiv::commands::wikixiv_search,
             link_title::commands::fetch_page_title,
             ui_state::commands::list_ui_workspaces,
@@ -227,7 +242,10 @@ pub fn run() {
             app.state::<Arc<app_core::Core>>().shutdown();
         }
         #[cfg(target_os = "macos")]
-        tauri::RunEvent::Reopen { has_visible_windows: false, .. } => {
+        tauri::RunEvent::Reopen {
+            has_visible_windows: false,
+            ..
+        } => {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
@@ -246,8 +264,10 @@ fn paint_canvas(window: &tauri::WebviewWindow, theme: &str) {
         "light" => false,
         _ => matches!(window.theme(), Ok(Theme::Dark)),
     };
-    if let Err(error) = window.set_background_color(Some(if dark { DARK_CANVAS } else { LIGHT_CANVAS })) {
-        eprintln!("[aquilum] фон окна не задан: {error}");
+    if let Err(error) =
+        window.set_background_color(Some(if dark { DARK_CANVAS } else { LIGHT_CANVAS }))
+    {
+        eprintln!("[obsidium] фон окна не задан: {error}");
     }
 }
 
@@ -265,7 +285,7 @@ fn allow_pinch_gestures(window: &tauri::WebviewWindow) {
                 .and_then(|settings| settings.SetIsPinchZoomEnabled(true))
         };
         if let Err(error) = enabled {
-            eprintln!("[aquilum:input] pinch gestures stay disabled: {error}");
+            eprintln!("[obsidium:input] pinch gestures stay disabled: {error}");
         }
     });
 }

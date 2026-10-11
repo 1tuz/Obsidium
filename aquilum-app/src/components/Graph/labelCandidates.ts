@@ -20,6 +20,10 @@ export interface LabelScene {
   sizeScale: number;
   spread: number;
   createdFrom: number;
+  createdTo?: number;
+  modifiedFrom: number;
+  modifiedTo?: number;
+  includedNodes?: Uint8Array | null;
   hovered: number;
 }
 
@@ -85,7 +89,13 @@ export class CandidatePicker {
       centerY + reachY,
       (node) => {
         if (node === scene.hovered) return;
-        if (nodes.createdDay(node) < scene.createdFrom) return;
+        if (scene.includedNodes && scene.includedNodes[node] !== 1) return;
+        const created = nodes.createdDay(node);
+        const modified = nodes.modifiedDay(node);
+        if (Number.isFinite(created) && created < scene.createdFrom) return;
+        if (Number.isFinite(created) && scene.createdTo !== undefined && created > scene.createdTo) return;
+        if (Number.isFinite(modified) && modified < scene.modifiedFrom) return;
+        if (Number.isFinite(modified) && scene.modifiedTo !== undefined && modified > scene.modifiedTo) return;
         this.order.push(this.claim(scene, fades, node, true));
       },
     );

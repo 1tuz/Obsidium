@@ -1,7 +1,7 @@
-use super::first;
 use super::super::dateformat;
 use super::super::duration;
 use super::super::value::Value;
+use super::first;
 use crate::search::note_date;
 pub fn date(value: &Value) -> Value {
     match value {

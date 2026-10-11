@@ -1,9 +1,9 @@
 use super::error::FileCommandError;
 use super::models::{FileSnapshot, FileWriteResult};
+use crate::search::paths::same_path;
 use atomic_write_file::AtomicWriteFile;
 use std::fs;
 use std::io::{ErrorKind, Write};
-use crate::search::paths::same_path;
 use std::path::Path;
 
 pub fn hash_bytes(bytes: &[u8]) -> String {
@@ -53,9 +53,7 @@ pub fn read_file_hash_impl(path: &Path) -> Result<String, FileCommandError> {
     Ok(hash_bytes(&fs::read(path)?))
 }
 
-pub fn read_file_stat_impl(
-    path: &Path,
-) -> Result<super::models::FileStat, FileCommandError> {
+pub fn read_file_stat_impl(path: &Path) -> Result<super::models::FileStat, FileCommandError> {
     let meta = fs::metadata(path)?;
     if !meta.is_file() {
         return Err(FileCommandError::Io {
@@ -83,6 +81,17 @@ pub fn write_file_atomic_impl(
     content: &str,
     expected_hash: Option<&str>,
 ) -> Result<FileWriteResult, FileCommandError> {
+    let existing = match fs::read(path) {
+        Ok(bytes) => Some(bytes),
+        Err(error) if error.kind() == ErrorKind::NotFound => None,
+        Err(error) => return Err(error.into()),
+    };
+    let content =
+        if !content.contains('\r') && existing.as_deref().is_some_and(uses_crlf_line_endings) {
+            content.replace('\n', "\r\n")
+        } else {
+            content.to_owned()
+        };
     let bytes = content.as_bytes();
     let hash = hash_bytes(bytes);
     let mut file = AtomicWriteFile::open(path)?;
@@ -94,6 +103,21 @@ pub fn write_file_atomic_impl(
 
     file.commit()?;
     Ok(FileWriteResult { hash })
+}
+
+fn uses_crlf_line_endings(bytes: &[u8]) -> bool {
+    let mut has_line_ending = false;
+    for (index, byte) in bytes.iter().enumerate() {
+        if *byte == b'\n' {
+            has_line_ending = true;
+            if index == 0 || bytes[index - 1] != b'\r' {
+                return false;
+            }
+        } else if *byte == b'\r' && bytes.get(index + 1) != Some(&b'\n') {
+            return false;
+        }
+    }
+    has_line_ending
 }
 
 pub fn create_binary_file_impl(
@@ -125,10 +149,7 @@ pub fn create_binary_file_impl(
     })
 }
 
-pub fn create_file_impl(
-    path: &Path,
-    content: &str,
-) -> Result<FileWriteResult, FileCommandError> {
+pub fn create_file_impl(path: &Path, content: &str) -> Result<FileWriteResult, FileCommandError> {
     create_binary_file_impl(path, content.as_bytes())
 }
 

@@ -20,9 +20,21 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
     let index = SearchIndex::open(&directory.path().join("index")).unwrap();
     let mut writer = index.index.writer(15_000_000).unwrap();
     let documents = [
-        (&source_path, "source", "aquilum architecture indexing".to_owned()),
-        (&vault.join("title.md"), "aquilum architecture", "notes".to_owned()),
-        (&vault.join("short.md"), "short", "aquilum architecture".to_owned()),
+        (
+            &source_path,
+            "source",
+            "aquilum architecture indexing".to_owned(),
+        ),
+        (
+            &vault.join("title.md"),
+            "aquilum architecture",
+            "notes".to_owned(),
+        ),
+        (
+            &vault.join("short.md"),
+            "short",
+            "aquilum architecture".to_owned(),
+        ),
         (
             &vault.join("long.md"),
             "long",
@@ -67,8 +79,14 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
         .iter()
         .find(|result| result.title == "aquilum architecture")
         .unwrap();
-    let short = results.iter().find(|result| result.title == "short").unwrap();
-    let long = results.iter().find(|result| result.title == "long").unwrap();
+    let short = results
+        .iter()
+        .find(|result| result.title == "short")
+        .unwrap();
+    let long = results
+        .iter()
+        .find(|result| result.title == "long")
+        .unwrap();
     assert!(title_match.raw_score > long.raw_score);
     assert!(short.raw_score > long.raw_score);
     assert!(results.iter().all(|result| result.confidence.is_none()));
@@ -114,12 +132,18 @@ fn reasons_show_surface_words_not_stems() {
         .find(|result| result.path.contains("match.md"))
         .expect("expected match result");
     assert!(
-        matched.reasons.iter().any(|reason| reason == "книга" || reason == "новая"),
+        matched
+            .reasons
+            .iter()
+            .any(|reason| reason == "книга" || reason == "новая"),
         "expected surface words in reasons, got {:?}",
         matched.reasons
     );
     assert!(
-        !matched.reasons.iter().any(|reason| reason == "книг" || reason == "нов"),
+        !matched
+            .reasons
+            .iter()
+            .any(|reason| reason == "книг" || reason == "нов"),
         "stems must not appear in tooltip reasons, got {:?}",
         matched.reasons
     );

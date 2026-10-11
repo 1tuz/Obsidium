@@ -1,0 +1,151 @@
+.q-editor-content[data-reading-style="paper-white"],
+.q-canvas[data-paper-style="paper-white"] {
+  --q-reading-paper: #FAF9F6;
+  --q-reading-ink: #292824;
+  --q-reading-heading: #24231F;
+  --q-reading-link: #285B79;
+  --q-reading-highlight: #FBE7A1;
+  --q-reading-highlight-text: #342B14;
+  --q-reading-table: #F4F2ED;
+  --q-reading-code: #EFEEE9;
+  --q-reading-code-text: #302F2B;
+  --q-reading-border: #D8D5CD;
+  --q-reading-selection: #B9D2E4;
+  --q-reading-selection-text: #202C35;
+}
+
+.q-editor-content[data-reading-style="ivory"],
+.q-canvas[data-paper-style="ivory"] {
+  --q-reading-paper: #FAF8F3;
+  --q-reading-ink: #2C2923;
+  --q-reading-heading: #29251F;
+  --q-reading-link: #285A75;
+  --q-reading-highlight: #F5E3A4;
+  --q-reading-highlight-text: #332A16;
+  --q-reading-table: #F2EFE8;
+  --q-reading-code: #EEEAE1;
+  --q-reading-code-text: #302D27;
+  --q-reading-border: #D7D1C4;
+  --q-reading-selection: #B8CEDB;
+  --q-reading-selection-text: #202C33;
+}
+
+.q-editor-content[data-reading-style="parchment"],
+.q-canvas[data-paper-style="parchment"] {
+  --q-reading-paper: #F5F0E8;
+  --q-reading-ink: #302A22;
+  --q-reading-heading: #2C251E;
+  --q-reading-link: #28566E;
+  --q-reading-highlight: #EEDC9C;
+  --q-reading-highlight-text: #302612;
+  --q-reading-table: #EEE8DD;
+  --q-reading-code: #EAE3D7;
+  --q-reading-code-text: #332C23;
+  --q-reading-border: #D1C7B6;
+  --q-reading-selection: #B9C9D0;
+  --q-reading-selection-text: #202A2F;
+}
+
+.q-editor-content[data-reading-style="sepia"],
+.q-canvas[data-paper-style="sepia"] {
+  --q-reading-paper: #E8DFC8;
+  --q-reading-ink: #30291F;
+  --q-reading-heading: #2A231B;
+  --q-reading-link: #31566A;
+  --q-reading-highlight: #E1CC89;
+  --q-reading-highlight-text: #2D2412;
+  --q-reading-table: #E1D6BC;
+  --q-reading-code: #DCD1B7;
+  --q-reading-code-text: #332B20;
+  --q-reading-border: #C5B99F;
+  --q-reading-selection: #AFC2C7;
+  --q-reading-selection-text: #1E292C;
+}
+
+.q-editor-content[data-reading-style="dark-paper"],
+.q-canvas[data-paper-style="dark-paper"] {
+  --q-reading-paper: #2E2E2E;
+  --q-reading-ink: #E9E6DF;
+  --q-reading-heading: #F6F2E9;
+  --q-reading-link: #A4D0E8;
+  --q-reading-highlight: #6C592E;
+  --q-reading-highlight-text: #FFF4CF;
+  --q-reading-table: #383735;
+  --q-reading-code: #3A3936;
+  --q-reading-code-text: #EEEAE2;
+  --q-reading-border: #5A564D;
+  --q-reading-selection: #526474;
+  --q-reading-selection-text: #F6F2E8;
+}
+
+.q-editor-content[data-reading-style],
+.q-canvas[data-paper-style] {
+  --q-reading-book-font: Georgia, "Times New Roman", serif;
+  --q-reading-code-keyword: #7A3E65;
+  --q-reading-code-string: #355F3A;
+  --q-reading-code-number: #7A4D00;
+  --q-reading-code-comment: #57554F;
+  --q-reading-code-function: #285B79;
+  --q-reading-code-type: #38615E;
+  --q-reading-code-property: #81472F;
+  --q-editor-bg: var(--q-reading-paper);
+  --q-editor-text: var(--q-reading-ink);
+  --q-text-primary: var(--q-reading-ink);
+  --q-text-secondary: var(--q-reading-ink);
+  --q-text-tertiary: var(--q-reading-ink);
+  --q-text-muted: var(--q-reading-ink);
+  --q-text-accent: var(--q-reading-link);
+  --q-text-link: var(--q-reading-link);
+  --q-text-link-hover: var(--q-reading-link);
+  --q-bg-surface-hover: var(--q-reading-table);
+  --q-bg-accent: var(--q-reading-highlight);
+  --q-border-accent: var(--q-reading-link);
+  --q-block-bg: var(--q-reading-code);
+  --q-block-border: var(--q-reading-border);
+  --q-editor-code-bg: var(--q-reading-code);
+  --q-editor-code-keyword: var(--q-reading-code-keyword);
+  --q-editor-code-string: var(--q-reading-code-string);
+  --q-editor-code-number: var(--q-reading-code-number);
+  --q-editor-code-comment: var(--q-reading-code-comment);
+  --q-editor-code-function: var(--q-reading-code-function);
+  --q-editor-code-type: var(--q-reading-code-type);
+  --q-editor-code-property: var(--q-reading-code-property);
+  --q-editor-table-border: var(--q-reading-border);
+  --q-editor-table-add-bg: var(--q-reading-table);
+  --q-editor-table-add-border: var(--q-reading-border);
+  --q-editor-table-selection-bg: var(--q-reading-selection);
+  --q-selection-bg: var(--q-reading-selection);
+  --q-selection-text: var(--q-reading-selection-text);
+  color: var(--q-reading-ink);
+  background-color: var(--q-reading-paper);
+}
+
+.q-editor-content[data-reading-style="dark-paper"] {
+  --q-reading-code-keyword: #D6A9D0;
+  --q-reading-code-string: #ABD6A1;
+  --q-reading-code-number: #E7C27C;
+  --q-reading-code-comment: #B8B4AC;
+  --q-reading-code-function: #A4D0E8;
+  --q-reading-code-type: #9AD3CA;
+  --q-reading-code-property: #E6AE91;
+}
+
+.q-editor-content[data-reading-style][data-reading-font="book"] {
+  --q-editor-font-family: var(--q-reading-book-font);
+}
+
+.q-editor-content[data-reading-style] .cm-content :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--q-reading-heading);
+}
+
+.q-editor-content[data-reading-style] .q-md-code {
+  color: var(--q-reading-code-text);
+}
+
+.q-editor-content[data-reading-style][data-reading-texture="subtle"] {
+  background-image: repeating-linear-gradient(0deg, rgb(80 64 40 / 1.2%) 0, transparent 1px, transparent 4px);
+}
+
+.q-editor-content[data-reading-style][data-reading-texture="visible"] {
+  background-image: repeating-linear-gradient(0deg, rgb(80 64 40 / 2.4%) 0, transparent 1px, transparent 3px);
+}

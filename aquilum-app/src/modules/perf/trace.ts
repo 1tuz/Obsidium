@@ -37,7 +37,7 @@ export function createTracer<Stage extends string>(options: Options<Stage>): Tra
     seen.push(total);
     totals.set(trace.label, seen);
 
-    const lines = [`[aquilum:${options.name}] ${trace.label} — ${round(total)} мс${repeats(seen)}`];
+    const lines = [`[obsidium:${options.name}] ${trace.label} — ${round(total)} мс${repeats(seen)}`];
     for (const stage of options.order) {
       const marks = trace.marks.filter((mark) => mark.stage === stage);
       if (marks.length === 0) continue;

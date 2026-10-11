@@ -12,7 +12,11 @@ pub fn note_tasks(body: &str) -> Vec<Task> {
         .into_iter()
         .filter_map(|(index, line)| {
             let (done, text) = checkbox(line.trim_start())?;
-            Some(Task { line: index + 1, done, text })
+            Some(Task {
+                line: index + 1,
+                done,
+                text,
+            })
         })
         .collect()
 }
@@ -34,7 +38,11 @@ mod tests {
     use super::{note_tasks, Task};
 
     fn task(line: usize, done: bool, text: &str) -> Task {
-        Task { line, done, text: text.to_owned() }
+        Task {
+            line,
+            done,
+            text: text.to_owned(),
+        }
     }
 
     #[test]
@@ -54,7 +62,10 @@ mod tests {
     #[test]
     fn a_nested_task_keeps_its_line_and_loses_its_marker() {
         let found = note_tasks("# Заголовок\n\n    - [ ] вложенная\n3. [x] нумерованная");
-        assert_eq!(found, vec![task(3, false, "вложенная"), task(4, true, "нумерованная")]);
+        assert_eq!(
+            found,
+            vec![task(3, false, "вложенная"), task(4, true, "нумерованная")]
+        );
     }
 
     #[test]
@@ -72,7 +83,11 @@ mod tests {
     fn a_task_follows_the_list_markers_of_the_editor() {
         assert_eq!(
             note_tasks("- [ ] дефис\n1. [ ] точка\n1) [x] скобка\n* [ ] звезда\n+ [ ] плюс"),
-            vec![task(1, false, "дефис"), task(2, false, "точка"), task(3, true, "скобка")]
+            vec![
+                task(1, false, "дефис"),
+                task(2, false, "точка"),
+                task(3, true, "скобка")
+            ]
         );
     }
 

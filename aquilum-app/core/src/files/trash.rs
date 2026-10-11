@@ -1,10 +1,10 @@
-use crate::search::paths::slash_path;
 use super::error::FileCommandError;
 use super::relocate::{
     relocate, remove_empty_ancestors, remove_empty_folders, remove_files, Placement, Relocated,
 };
-use crate::history::AQUILUM_FOLDER;
+use crate::history::OBSIDIUM_FOLDER;
 use crate::search::paths::canonical_path;
+use crate::search::paths::slash_path;
 use serde::Serialize;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -43,8 +43,9 @@ pub fn trash_path(workspace: &Path) -> PathBuf {
 
 pub fn trash_state_impl(workspace: &Path) -> Result<TrashState, FileCommandError> {
     let path = trash_path(workspace);
-    let (count, bytes) = trashed_notes(&path)
-        .fold((0, 0), |(count, bytes), (_, metadata)| (count + 1, bytes + metadata.len()));
+    let (count, bytes) = trashed_notes(&path).fold((0, 0), |(count, bytes), (_, metadata)| {
+        (count + 1, bytes + metadata.len())
+    });
     Ok(TrashState {
         path: path.to_string_lossy().into_owned(),
         count,
@@ -52,10 +53,7 @@ pub fn trash_state_impl(workspace: &Path) -> Result<TrashState, FileCommandError
     })
 }
 
-pub fn cleanup_trash_impl(
-    workspace: &Path,
-    retention_days: u32,
-) -> Result<u64, FileCommandError> {
+pub fn cleanup_trash_impl(workspace: &Path, retention_days: u32) -> Result<u64, FileCommandError> {
     let trash = trash_path(workspace);
     if retention_days == 0 || !trash.is_dir() {
         return Ok(0);
@@ -82,7 +80,9 @@ pub fn empty_trash_impl(workspace: &Path) -> Result<u64, FileCommandError> {
     if !trash.is_dir() {
         return Ok(0);
     }
-    let files = trashed_files(&trash).map(|(path, _)| path).collect::<Vec<_>>();
+    let files = trashed_files(&trash)
+        .map(|(path, _)| path)
+        .collect::<Vec<_>>();
     let removed = remove_files(&files);
     remove_empty_folders(&trash);
     Ok(removed)
@@ -139,15 +139,16 @@ pub fn restore_from_trash_impl(
             message: format!("в корзине нет {}", relative.display()),
         });
     }
-    let restored = relocate(&trashed, &canonical_path(workspace).join(relative), Placement::Workspace)?;
+    let restored = relocate(
+        &trashed,
+        &canonical_path(workspace).join(relative),
+        Placement::Workspace,
+    )?;
     remove_empty_ancestors(&trashed, &trash);
     Ok(restored)
 }
 
-pub fn move_to_trash_impl(
-    workspace: &Path,
-    entry: &Path,
-) -> Result<Relocated, FileCommandError> {
+pub fn move_to_trash_impl(workspace: &Path, entry: &Path) -> Result<Relocated, FileCommandError> {
     let target = trash_path(workspace).join(place_in_trash(workspace, entry));
     relocate(entry, &target, Placement::Trash)
 }
@@ -185,14 +186,15 @@ fn is_copy_marker(component: &Component<'_>) -> bool {
         return false;
     };
     let name = name.to_string_lossy();
-    name.strip_prefix('.')
-        .is_some_and(|number| !number.is_empty() && number.bytes().all(|byte| byte.is_ascii_digit()))
+    name.strip_prefix('.').is_some_and(|number| {
+        !number.is_empty() && number.bytes().all(|byte| byte.is_ascii_digit())
+    })
 }
 
 pub fn trashed_notes(trash: &Path) -> impl Iterator<Item = (PathBuf, fs::Metadata)> + '_ {
     trashed_files(trash).filter(move |(path, _)| {
         let original = original_path(trash, path);
-        !original.starts_with(AQUILUM_FOLDER)
+        !original.starts_with(OBSIDIUM_FOLDER)
     })
 }
 
@@ -202,14 +204,19 @@ fn trashed_files(trash: &Path) -> impl Iterator<Item = (PathBuf, fs::Metadata)> 
         .into_iter()
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_file())
-        .filter_map(|entry| entry.metadata().ok().map(|metadata| (entry.into_path(), metadata)))
+        .filter_map(|entry| {
+            entry
+                .metadata()
+                .ok()
+                .map(|metadata| (entry.into_path(), metadata))
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        cleanup_trash_impl, empty_trash_impl, ensure_trash_impl, list_trash_impl, move_to_trash_impl,
-        restore_from_trash_impl, trash_page_impl, trash_path, trash_state_impl,
+        cleanup_trash_impl, empty_trash_impl, ensure_trash_impl, list_trash_impl,
+        move_to_trash_impl, restore_from_trash_impl, trash_page_impl, trash_path, trash_state_impl,
     };
     use std::fs;
     use std::path::Path;
@@ -304,12 +311,19 @@ mod tests {
 
         assert!(!folder.exists());
         assert_eq!(moved, trash_path(directory.path()).join("Проекты"));
-        assert_eq!(fs::read_to_string(moved.join("Заметка.md")).unwrap(), "текст");
+        assert_eq!(
+            fs::read_to_string(moved.join("Заметка.md")).unwrap(),
+            "текст"
+        );
         assert_eq!(
             fs::read_to_string(moved.join("Глубже").join("Вторая.md")).unwrap(),
             "ещё"
         );
-        assert_eq!(trash_state_impl(directory.path()).unwrap().count, 2, "считаются и вложенные файлы");
+        assert_eq!(
+            trash_state_impl(directory.path()).unwrap().count,
+            2,
+            "считаются и вложенные файлы"
+        );
     }
 
     #[test]
@@ -333,7 +347,10 @@ mod tests {
         }
         assert_eq!(cleanup_trash_impl(directory.path(), 30).unwrap(), 2);
         assert!(!moved.exists(), "папка уходит целиком, вместе с вложенными");
-        assert!(trash_path(directory.path()).exists(), "сама корзина остаётся");
+        assert!(
+            trash_path(directory.path()).exists(),
+            "сама корзина остаётся"
+        );
     }
 
     #[test]
@@ -346,17 +363,30 @@ mod tests {
         let second = move_to_trash_impl(directory.path(), &note).unwrap().root;
 
         assert_eq!(fs::read_to_string(&first).unwrap(), "первая");
-        assert_eq!(second, trash_path(directory.path()).join(".1").join("Идея.md"));
+        assert_eq!(
+            second,
+            trash_path(directory.path()).join(".1").join("Идея.md")
+        );
         assert_eq!(fs::read_to_string(&second).unwrap(), "вторая");
         let originals = list_trash_impl(directory.path())
             .unwrap()
             .into_iter()
             .map(|item| item.original)
             .collect::<Vec<_>>();
-        assert_eq!(originals, ["Идея.md", "Идея.md"], "обе копии помнят один прежний путь");
+        assert_eq!(
+            originals,
+            ["Идея.md", "Идея.md"],
+            "обе копии помнят один прежний путь"
+        );
 
-        let restored = restore_from_trash_impl(directory.path(), &second).unwrap().root;
-        assert_eq!(restored.file_name().unwrap(), "Идея.md", "копия возвращается под своим именем");
+        let restored = restore_from_trash_impl(directory.path(), &second)
+            .unwrap()
+            .root;
+        assert_eq!(
+            restored.file_name().unwrap(),
+            "Идея.md",
+            "копия возвращается под своим именем"
+        );
         assert!(!trash_path(directory.path()).join(".1").exists());
     }
 
@@ -374,7 +404,10 @@ mod tests {
 
         assert!(!folder.exists());
         assert_eq!(fs::read_to_string(moved.join("А.md")).unwrap(), "раньше");
-        assert_eq!(fs::read_to_string(moved.join(".1").join("А.md")).unwrap(), "новая А");
+        assert_eq!(
+            fs::read_to_string(moved.join(".1").join("А.md")).unwrap(),
+            "новая А"
+        );
         assert_eq!(fs::read_to_string(moved.join("Б.md")).unwrap(), "позже");
     }
 
@@ -385,12 +418,17 @@ mod tests {
         aged_file(&note, 1);
         let trashed = move_to_trash_impl(directory.path(), &note).unwrap().root;
 
-        let restored = restore_from_trash_impl(directory.path(), &trashed).unwrap().root;
+        let restored = restore_from_trash_impl(directory.path(), &trashed)
+            .unwrap()
+            .root;
 
         let root = crate::search::paths::canonical_path(directory.path());
         assert_eq!(restored, root.join("Проекты").join("Идея.md"));
         assert_eq!(fs::read_to_string(&restored).unwrap(), "мусор");
-        assert!(!trash_path(directory.path()).join("Проекты").exists(), "опустевшая папка в корзине убрана");
+        assert!(
+            !trash_path(directory.path()).join("Проекты").exists(),
+            "опустевшая папка в корзине убрана"
+        );
     }
 
     #[test]
@@ -401,7 +439,9 @@ mod tests {
         let trashed = move_to_trash_impl(directory.path(), &note).unwrap().root;
         fs::write(&note, "новая").unwrap();
 
-        let restored = restore_from_trash_impl(directory.path(), &trashed).unwrap().root;
+        let restored = restore_from_trash_impl(directory.path(), &trashed)
+            .unwrap()
+            .root;
 
         assert_eq!(fs::read_to_string(&note).unwrap(), "новая");
         assert_eq!(restored.file_name().unwrap(), "Идея (1).md");
@@ -431,7 +471,10 @@ mod tests {
 
         let list = list_trash_impl(directory.path()).unwrap();
 
-        let originals = list.iter().map(|item| item.original.as_str()).collect::<Vec<_>>();
+        let originals = list
+            .iter()
+            .map(|item| item.original.as_str())
+            .collect::<Vec<_>>();
         assert_eq!(originals, ["Б.md", "Старое/А.md"]);
         assert!(list[0].deleted_at_ms > list[1].deleted_at_ms);
         assert_eq!(list[0].bytes, "мусор".len() as u64);
@@ -450,8 +493,14 @@ mod tests {
 
         assert_eq!(page.total, 3);
         assert_eq!(page.files.len(), 1);
-        assert_eq!(page.files[0].original, list_trash_impl(directory.path()).unwrap()[1].original);
-        assert!(trash_page_impl(directory.path(), 5, 10).unwrap().files.is_empty());
+        assert_eq!(
+            page.files[0].original,
+            list_trash_impl(directory.path()).unwrap()[1].original
+        );
+        assert!(trash_page_impl(directory.path(), 5, 10)
+            .unwrap()
+            .files
+            .is_empty());
     }
 
     #[test]
@@ -465,7 +514,10 @@ mod tests {
         assert_eq!(empty_trash_impl(directory.path()).unwrap(), 2);
         assert_eq!(trash_state_impl(directory.path()).unwrap().count, 0);
         assert!(trash_path(directory.path()).exists());
-        assert_eq!(fs::read_dir(trash_path(directory.path())).unwrap().count(), 0);
+        assert_eq!(
+            fs::read_dir(trash_path(directory.path())).unwrap().count(),
+            0
+        );
     }
 
     #[test]

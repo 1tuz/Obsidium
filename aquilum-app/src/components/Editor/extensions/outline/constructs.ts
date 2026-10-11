@@ -149,7 +149,7 @@ export function analyzeOutlineLines(lines: readonly string[]): AnalyzedOutlineIt
 export const outlineMarkdownConfig: MarkdownConfig = {
     remove: ['SetextHeading'],
     parseBlock: [{
-        name: 'AquilumOutline',
+        name: 'ObsidiumOutline',
         before: 'IndentedCode',
         parse(_context, line) {
             if (matchOutlineItem(line.text.slice(line.pos))) {

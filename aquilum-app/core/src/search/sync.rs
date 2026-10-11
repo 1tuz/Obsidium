@@ -1,11 +1,11 @@
 use super::error::SearchError;
 use super::fields;
-use super::tasks;
 use super::index::SearchIndex;
 use super::index_document::{apply_path, apply_prepared, prepare_file, probe, PreparedFile, Probe};
 use super::metadata::{self, FileState, PathKey};
 use super::paths::{is_hidden, is_markdown, is_visible_entry};
 use super::progress::IndexProgress;
+use super::tasks;
 use super::wiki;
 use rusqlite::{params, Connection, Transaction};
 use std::collections::{HashMap, HashSet};
@@ -55,7 +55,9 @@ impl IndexSynchronizer {
         let mut known = metadata::load(&self.connection)?;
         let force_reindex = known.len() as u64 != self.index.document_count();
         let mut transaction = self.connection.transaction()?;
+        super::graph::timeline::mark_rescan(&transaction)?;
         let mut pending = 0;
+        let mut timeline_paths = Vec::new();
         let mut processed = 0;
         let mut prepare_batch = Vec::<PendingPrepare>::with_capacity(PREPARE_BATCH_SIZE);
 
@@ -87,6 +89,7 @@ impl IndexSynchronizer {
                         &transaction,
                         &mut prepare_batch,
                         &mut pending,
+                        &mut timeline_paths,
                     )?;
                 }
             }
@@ -98,13 +101,16 @@ impl IndexSynchronizer {
                     &transaction,
                     &mut prepare_batch,
                     &mut pending,
+                    &mut timeline_paths,
                 )?;
                 if pending > 0 {
+                    super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
                     commit(&mut self.writer, &self.index, &self.progress)?;
                 }
                 transaction.commit()?;
                 transaction = self.connection.transaction()?;
                 pending = 0;
+                timeline_paths.clear();
                 processed = 0;
             }
         }
@@ -115,17 +121,22 @@ impl IndexSynchronizer {
             &transaction,
             &mut prepare_batch,
             &mut pending,
+            &mut timeline_paths,
         )?;
-        if pending > 0 {
-            commit(&mut self.writer, &self.index, &self.progress)?;
-        }
         remove_stale(
             &self.index,
             &mut self.writer,
             &transaction,
             &known,
             &self.progress,
+            &mut timeline_paths,
         )?;
+        if !timeline_paths.is_empty() {
+            super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
+        }
+        if pending > 0 {
+            commit(&mut self.writer, &self.index, &self.progress)?;
+        }
         transaction.commit()?;
         metadata::maintain(&self.connection)?;
         self.progress.completed(self.index.document_count());
@@ -146,15 +157,21 @@ impl IndexSynchronizer {
     pub fn apply_paths(&mut self, paths: HashSet<PathBuf>) -> Result<bool, SearchError> {
         let transaction = self.connection.transaction()?;
         let mut changed = false;
+        let mut timeline_paths = Vec::new();
         for path in paths {
             if !path.starts_with(&self.root) || !is_markdown(&path) || is_hidden(&self.root, &path)
             {
                 continue;
             }
             let writer = ensure_writer(&mut self.writer, &self.index)?;
-            changed |= apply_path(&self.root, &self.index, writer, &transaction, &path)?;
+            let path_changed = apply_path(&self.root, &self.index, writer, &transaction, &path)?;
+            changed |= path_changed;
+            if path_changed {
+                timeline_paths.push(path.to_string_lossy().into_owned());
+            }
         }
         if changed {
+            super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
             commit(&mut self.writer, &self.index, &self.progress)?;
         }
         transaction.commit()?;
@@ -172,7 +189,8 @@ fn ensure_writer<'w>(
     if slot.is_none() {
         *slot = Some(index.index.writer(INDEX_MEMORY_BUDGET)?);
     }
-    slot.as_mut().ok_or_else(|| SearchError::task("index writer is missing"))
+    slot.as_mut()
+        .ok_or_else(|| SearchError::task("index writer is missing"))
 }
 
 fn flush_prepare_batch(
@@ -182,6 +200,7 @@ fn flush_prepare_batch(
     transaction: &Transaction<'_>,
     batch: &mut Vec<PendingPrepare>,
     pending: &mut usize,
+    timeline_paths: &mut Vec<String>,
 ) -> Result<(), SearchError> {
     if batch.is_empty() {
         return Ok(());
@@ -191,8 +210,10 @@ fn flush_prepare_batch(
         let Some(file) = file else {
             continue;
         };
-        let changed = apply_prepared(root, index, writer, transaction, &key, probe, file)? as usize;
-        *pending += changed;
+        if apply_prepared(root, index, writer, transaction, &key, probe, file)? {
+            *pending += 1;
+            timeline_paths.push(key);
+        }
     }
     Ok(())
 }
@@ -218,7 +239,9 @@ fn prepare_parallel(batch: Vec<PendingPrepare>) -> Vec<(String, Probe, Option<Pr
     thread::scope(|scope| {
         let handles: Vec<_> = chunks
             .into_iter()
-            .map(|chunk| scope.spawn(move || chunk.into_iter().map(prepare_one).collect::<Vec<_>>()))
+            .map(|chunk| {
+                scope.spawn(move || chunk.into_iter().map(prepare_one).collect::<Vec<_>>())
+            })
             .collect();
         handles
             .into_iter()
@@ -239,6 +262,7 @@ fn remove_stale(
     transaction: &Transaction<'_>,
     known: &HashMap<PathKey, FileState>,
     progress: &IndexProgress,
+    timeline_paths: &mut Vec<String>,
 ) -> Result<(), SearchError> {
     let mut cursor = String::new();
     loop {
@@ -250,11 +274,13 @@ fn remove_stale(
             if !known.contains_key(&metadata::key(&path)) {
                 continue;
             }
-            ensure_writer(writer, index)?.delete_term(Term::from_field_text(index.fields.id, &path));
+            ensure_writer(writer, index)?
+                .delete_term(Term::from_field_text(index.fields.id, &path));
             wiki::remove_document(transaction, Path::new(&path))?;
             fields::remove_document(transaction, Path::new(&path))?;
             tasks::remove_document(transaction, Path::new(&path))?;
             transaction.execute("DELETE FROM documents WHERE path=?1", params![path])?;
+            timeline_paths.push(path);
             removed += 1;
         }
         if removed > 0 {
@@ -294,11 +320,12 @@ mod tests {
         fs::create_dir_all(&vault).unwrap();
         let note = vault.join("Заметка.md");
         fs::write(&note, "первое слово").unwrap();
+        let metadata_path = directory.path().join("documents.sqlite3");
         let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
         let mut synchronizer = IndexSynchronizer::new(
             vault.clone(),
             Arc::clone(&index),
-            &directory.path().join("documents.sqlite3"),
+            &metadata_path,
             Arc::new(IndexProgress::new(0, 1)),
         )
         .unwrap();
@@ -306,17 +333,58 @@ mod tests {
         assert!(!synchronizer.holds_writer(), "открытие не создаёт писателя");
 
         synchronizer.full_scan(&cancelled).unwrap();
-        assert!(synchronizer.holds_writer(), "новая заметка записана писателем");
+        let timeline_connection = rusqlite::Connection::open(&metadata_path).unwrap();
+        assert_eq!(
+            super::super::graph::timeline::rescan_epoch(&timeline_connection).unwrap(),
+            1
+        );
+        let initial_latest = super::super::graph::timeline::range(&timeline_connection)
+            .unwrap()
+            .latest_event;
+        assert!(initial_latest > 0, "индексация заметки записала дельту");
+        assert!(
+            synchronizer.holds_writer(),
+            "новая заметка записана писателем"
+        );
         synchronizer.release_writer().unwrap();
         assert!(!synchronizer.holds_writer());
-        drop(index.index.writer::<tantivy::TantivyDocument>(15_000_000).expect("блокировка индекса отпущена"));
+        drop(
+            index
+                .index
+                .writer::<tantivy::TantivyDocument>(15_000_000)
+                .expect("блокировка индекса отпущена"),
+        );
 
         synchronizer.full_scan(&cancelled).unwrap();
-        assert!(!synchronizer.holds_writer(), "неизменённая база писателя не создаёт");
+        assert_eq!(
+            super::super::graph::timeline::rescan_epoch(&timeline_connection).unwrap(),
+            2
+        );
+        assert!(
+            !synchronizer.holds_writer(),
+            "неизменённая база писателя не создаёт"
+        );
+        assert_eq!(
+            super::super::graph::timeline::range(&timeline_connection)
+                .unwrap()
+                .latest_event,
+            initial_latest,
+            "повторная индексация не создаёт новую дельту"
+        );
 
-        fs::write(&note, "второе слово").unwrap();
+        fs::write(&note, "второе слово [[Target]]").unwrap();
         synchronizer.apply_paths(HashSet::from([note])).unwrap();
         assert!(synchronizer.holds_writer());
-        assert!(!index.search("второе", 5).unwrap().1.is_empty(), "правка видна поиску сразу");
+        assert!(
+            !index.search("второе", 5).unwrap().1.is_empty(),
+            "правка видна поиску сразу"
+        );
+        assert!(
+            super::super::graph::timeline::range(&timeline_connection)
+                .unwrap()
+                .latest_event
+                > initial_latest,
+            "изменение ссылок записано в историю графа"
+        );
     }
 }

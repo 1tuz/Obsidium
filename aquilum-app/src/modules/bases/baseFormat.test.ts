@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseBase, serializeBase } from './baseFormat';
+import { evaluateBaseFilter } from './filter';
 
 describe('parseBase', () => {
   it('reads Obsidian-style filters, grouping and view order while preserving source', () => {
@@ -38,5 +39,12 @@ describe('parseBase', () => {
     const base = parseBase(source);
     expect(base.unsupportedKeys).toContain('pluginField');
     expect(serializeBase(base)).toBe(source);
+  });
+
+  it('marks an unknown filter operator unsupported without filtering rows', () => {
+    const base = parseBase('filters:\n  file.hasLink: Note\n');
+
+    expect(evaluateBaseFilter(base.filters, { path: '/vault/note.md', fields: {} }, '/vault'))
+      .toEqual({ match: true, unsupported: true });
   });
 });

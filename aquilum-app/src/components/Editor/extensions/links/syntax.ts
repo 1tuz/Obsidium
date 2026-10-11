@@ -50,7 +50,7 @@ const OPENING_PAREN = 40;
 
 export const plainBracketMarkdownConfig: MarkdownConfig = {
   parseInline: [{
-    name: 'AquilumPlainBracket',
+    name: 'ObsidiumPlainBracket',
     before: 'Link',
     parse(context, next, position) {
       if (next !== CLOSING_BRACKET) return -1;

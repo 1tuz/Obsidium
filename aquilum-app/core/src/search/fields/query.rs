@@ -73,8 +73,8 @@ pub fn candidates(
 pub fn paths_with_tag(connection: &Connection, tag: &str) -> Result<HashSet<String>, SearchError> {
     let wanted = value_lower(tag.trim_start_matches('#'));
     let nested = format!("{wanted}/");
-    let mut statement =
-        connection.prepare("SELECT path, text_lower, items FROM note_fields WHERE key_lower='tags'")?;
+    let mut statement = connection
+        .prepare("SELECT path, text_lower, items FROM note_fields WHERE key_lower='tags'")?;
     let rows = statement.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,

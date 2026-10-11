@@ -4,4 +4,4 @@ pub mod store;
 
 pub use milestone::Source;
 pub use service::{HistoryService, NoteWrite};
-pub use store::{version_at, AQUILUM_FOLDER};
+pub use store::{version_at, OBSIDIUM_FOLDER};

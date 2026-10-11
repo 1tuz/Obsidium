@@ -1,4 +1,4 @@
-//! The Aquilum core: notes on disk, documents, search, history, settings and UI state, with no
+//! The Obsidium core: notes on disk, documents, search, history, settings and UI state, with no
 //! knowledge of the UI that hosts it. The Tauri shell and a future native UI both call it directly.
 
 pub mod app_core;

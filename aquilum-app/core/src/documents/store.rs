@@ -16,7 +16,10 @@ impl fmt::Display for StoreError {
         match self {
             Self::Sqlite(error) => write!(formatter, "{error}"),
             Self::UnsupportedSchema(version) => {
-                write!(formatter, "documents store schema {version} is newer than this build")
+                write!(
+                    formatter,
+                    "documents store schema {version} is newer than this build"
+                )
             }
         }
     }
@@ -50,7 +53,8 @@ impl DocumentStore {
              PRAGMA synchronous = NORMAL;
              PRAGMA busy_timeout = 2000;",
         )?;
-        let version = connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
+        let version =
+            connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
         match version {
             0 => connection.execute_batch(&format!(
                 "CREATE TABLE replicas (key TEXT PRIMARY KEY, state BLOB NOT NULL);
@@ -76,12 +80,15 @@ impl DocumentStore {
     pub fn load(&self, key: &str) -> StoreResult<Vec<Vec<u8>>> {
         let mut blobs: Vec<Vec<u8>> = self
             .connection
-            .query_row("SELECT state FROM replicas WHERE key = ?1", [key], |row| row.get(0))
+            .query_row("SELECT state FROM replicas WHERE key = ?1", [key], |row| {
+                row.get(0)
+            })
             .optional()?
             .into_iter()
             .collect();
-        let mut statement =
-            self.connection.prepare_cached("SELECT data FROM replica_updates WHERE key = ?1 ORDER BY seq")?;
+        let mut statement = self
+            .connection
+            .prepare_cached("SELECT data FROM replica_updates WHERE key = ?1 ORDER BY seq")?;
         for update in statement.query_map([key], |row| row.get::<_, Vec<u8>>(0))? {
             blobs.push(update?);
         }
@@ -131,7 +138,10 @@ impl DocumentStore {
         let transaction = self.connection.transaction()?;
         forget_in(&transaction, to)?;
         for table in ["replicas", "replica_updates", "sync_points"] {
-            transaction.execute(&format!("UPDATE {table} SET key = ?2 WHERE key = ?1"), params![from, to])?;
+            transaction.execute(
+                &format!("UPDATE {table} SET key = ?2 WHERE key = ?1"),
+                params![from, to],
+            )?;
         }
         transaction.commit()?;
         Ok(())
@@ -143,7 +153,12 @@ impl DocumentStore {
             .query_row(
                 "SELECT file_hash, text_hash FROM sync_points WHERE key = ?1",
                 [key],
-                |row| Ok(SyncPoint { file_hash: row.get(0)?, text_hash: row.get(1)? }),
+                |row| {
+                    Ok(SyncPoint {
+                        file_hash: row.get(0)?,
+                        text_hash: row.get(1)?,
+                    })
+                },
             )
             .optional();
         match found {

@@ -46,8 +46,26 @@ export function isMarkdownPath(path: string): boolean {
   return path.toLowerCase().endsWith('.md');
 }
 
+export function isCanvasPath(path: string): boolean {
+  return path.toLowerCase().endsWith('.canvas');
+}
+
 export function isBasePath(path: string): boolean {
   return path.toLowerCase().endsWith('.base');
+}
+
+const TEXT_EXTENSIONS = new Set([
+  'canvas', 'css', 'csv', 'html', 'ini', 'js', 'json', 'log', 'md', 'ps1', 'py', 'rs',
+  'sh', 'sql', 'toml', 'ts', 'txt', 'xml', 'yaml', 'yml',
+]);
+
+export function isTextFilePath(path: string): boolean {
+  const extension = path.split('.').pop()?.toLowerCase();
+  return extension !== undefined && TEXT_EXTENSIONS.has(extension);
+}
+
+export function isPdfPath(path: string): boolean {
+  return path.toLowerCase().endsWith('.pdf');
 }
 
 export function readDirectory(path: string): Promise<WorkspaceItem[]> {

@@ -38,14 +38,18 @@ fn scan(root: &Path) -> HashMap<String, String> {
         };
         let relative = slash_path(relative);
         let name = entry.file_name().to_string_lossy().to_lowercase();
-        index.entry(relative.to_lowercase()).or_insert_with(|| relative.clone());
+        index
+            .entry(relative.to_lowercase())
+            .or_insert_with(|| relative.clone());
         index.entry(name).or_insert(relative);
     }
     index
 }
 
 fn index() -> MutexGuard<'static, Option<(PathBuf, HashMap<String, String>)>> {
-    INDEX.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    INDEX
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 pub fn forget_attachments() {
@@ -127,7 +131,10 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let root = directory.path();
         fs::write(root.join("Note.md"), b"x").unwrap();
-        assert_eq!(resolve_attachments_impl(root, vec!["new.png".to_owned()]), vec![None]);
+        assert_eq!(
+            resolve_attachments_impl(root, vec!["new.png".to_owned()]),
+            vec![None]
+        );
 
         let added = root.join("new.png");
         fs::write(&added, b"x").unwrap();

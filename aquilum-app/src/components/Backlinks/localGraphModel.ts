@@ -24,7 +24,7 @@ export interface LocalGraphGateway {
 export interface LocalGraphOptions {
   workspacePath: string;
   documentPath: string;
-  depth: 1 | 2;
+  depth: 1 | 2 | 3 | 4;
   incoming: boolean;
   outgoing: boolean;
   maxNodes?: number;

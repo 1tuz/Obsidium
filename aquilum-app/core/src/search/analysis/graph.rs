@@ -1,6 +1,6 @@
 use super::models::AnalysisResult;
-use crate::search::paths::identity;
 use crate::search::error::SearchError;
+use crate::search::paths::identity;
 use crate::search::wiki;
 use rusqlite::Connection;
 use std::cmp::Ordering;
@@ -75,7 +75,12 @@ impl GraphSnapshot {
         }
         documents
             .iter()
-            .map(|document| counts.get(identity(document).as_str()).copied().unwrap_or(0))
+            .map(|document| {
+                counts
+                    .get(identity(document).as_str())
+                    .copied()
+                    .unwrap_or(0)
+            })
             .collect()
     }
 
@@ -92,7 +97,7 @@ impl GraphSnapshot {
             }
             if let Some(candidates) = self.neighbours.get(neighbour) {
                 for candidate in candidates {
-                    if candidate != &current {
+                    if candidate != &current && !current_neighbours.contains(candidate) {
                         let entry =
                             shared
                                 .entry(candidate.clone())
@@ -187,8 +192,6 @@ mod tests {
 
         connect("A", "X");
         connect("A", "Y");
-        connect("A", "B");
-        connect("A", "C");
         connect("X", "C");
         connect("Y", "C");
         connect("X", "B");
@@ -213,6 +216,35 @@ mod tests {
         assert_eq!(result.reasons, vec!["X".to_owned(), "Y".to_owned()]);
         let expected = 1.0 / 3_f64.ln() + 1.0 / 2_f64.ln();
         assert!((result.raw_score - expected).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn excludes_notes_already_directly_connected_to_the_query() {
+        let a = node("A");
+        let b = node("B");
+        let x = node("X");
+        let neighbours = HashMap::from([
+            (a.clone(), HashSet::from([b.clone(), x.clone()])),
+            (b.clone(), HashSet::from([a.clone(), x.clone()])),
+            (x.clone(), HashSet::from([a.clone(), b.clone()])),
+        ]);
+        let outgoing = HashMap::from([
+            (a.clone(), HashSet::from([b.clone(), x.clone()])),
+            (x.clone(), HashSet::from([b.clone()])),
+        ]);
+        let paths = ["A", "B", "X"]
+            .into_iter()
+            .map(|name| (node(name), format!("C:/vault/{name}.md")))
+            .collect();
+        let graph = GraphSnapshot {
+            neighbours,
+            outgoing,
+            paths,
+        };
+
+        let results = graph.adamic_adar(Path::new("C:/vault/A.md"), 10);
+
+        assert!(results.iter().all(|result| result.title != "B"));
     }
 
     #[test]
@@ -291,7 +323,8 @@ mod tests {
             outgoing,
             paths: HashMap::new(),
         };
-        let documents = ["A", "B", "X"].map(|name| std::path::PathBuf::from(format!("C:/vault/{name}.md")));
+        let documents =
+            ["A", "B", "X"].map(|name| std::path::PathBuf::from(format!("C:/vault/{name}.md")));
         assert_eq!(graph.incoming_counts(&documents), vec![2, 1, 0]);
     }
 }

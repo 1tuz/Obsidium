@@ -45,6 +45,32 @@ describe('HighlightMap', () => {
     expect(map.stateOf(1)).toBe(1);
   });
 
+  it('lights a supplied route and dims nodes outside it', () => {
+    const { map } = mapOver(4, [0, 1, 1, 2]);
+
+    map.lightNodes([0, 1, 3]);
+    settle(map);
+
+    expect(markOf(map, 0)).toBe(1);
+    expect(markOf(map, 1)).toBe(2);
+    expect(map.stateOf(2)).toBe(0);
+    expect(markOf(map, 3)).toBe(1);
+    expect(map.stateOf(0)).toBe(1);
+    expect(map.stateOf(1)).toBeLessThan(1);
+    expect(map.stateOf(3)).toBe(1);
+    expect(map.dimming).toBe(1);
+  });
+
+  it('settles node intensity and dimming immediately when motion is disabled', () => {
+    const { map, adjacency } = mapOver(3, [0, 1, 1, 2]);
+
+    map.lightUp(adjacency, 1, 1);
+
+    expect(map.advance(0, false)).toBe(false);
+    expect(map.stateOf(1)).toBe(1);
+    expect(map.dimming).toBe(1);
+  });
+
   it('dims the rest by the same animation, not by a separate one', () => {
     const { map, adjacency } = mapOver(3, [0, 1, 1, 2]);
 

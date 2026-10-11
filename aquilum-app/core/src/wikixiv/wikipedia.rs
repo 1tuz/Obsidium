@@ -46,8 +46,11 @@ struct SearchItem {
     snippet: Option<String>,
 }
 
-
-pub fn summary(client: &HttpClient, lang: &str, title: &str) -> Result<Option<WikixivHit>, HttpError> {
+pub fn summary(
+    client: &HttpClient,
+    lang: &str,
+    title: &str,
+) -> Result<Option<WikixivHit>, HttpError> {
     let title = title.trim();
     if title.is_empty() {
         return Ok(None);
@@ -112,7 +115,10 @@ pub fn search_intitle(
 
 fn search_item_to_hit(lang: &str, item: SearchItem) -> WikixivHit {
     WikixivHit {
-        url: format!("https://{lang}.wikipedia.org/wiki/{}", encode_path(&item.title)),
+        url: format!(
+            "https://{lang}.wikipedia.org/wiki/{}",
+            encode_path(&item.title)
+        ),
         title: item.title,
         snippet: truncate(strip_html(item.snippet.as_deref().unwrap_or_default())),
         thumbnail_url: None,
@@ -135,9 +141,7 @@ fn page_to_hit(lang: &str, page: RestPage) -> Option<WikixivHit> {
         .content_urls
         .and_then(|u| u.desktop)
         .and_then(|d| d.page)
-        .unwrap_or_else(|| {
-            format!("https://{lang}.wikipedia.org/wiki/{}", encode_path(&title))
-        });
+        .unwrap_or_else(|| format!("https://{lang}.wikipedia.org/wiki/{}", encode_path(&title)));
     Some(WikixivHit {
         title,
         url,
@@ -149,7 +153,11 @@ fn page_to_hit(lang: &str, page: RestPage) -> Option<WikixivHit> {
 }
 
 fn truncate(text: impl AsRef<str>) -> String {
-    let cleaned = text.as_ref().split_whitespace().collect::<Vec<_>>().join(" ");
+    let cleaned = text
+        .as_ref()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     let mut out = String::new();
     for ch in cleaned.chars() {
         if out.chars().count() >= SNIPPET_CHARS {
@@ -203,7 +211,8 @@ mod tests {
 
     #[test]
     fn skips_disambiguation() {
-        let body = r#"{"type":"disambiguation","title":"Mercury","extract":"Mercury may refer to:"}"#;
+        let body =
+            r#"{"type":"disambiguation","title":"Mercury","extract":"Mercury may refer to:"}"#;
         assert!(parse_page("en", body).is_none());
     }
 

@@ -36,6 +36,17 @@ describe('DateFilter', () => {
     expect(filter.dirtyRows().rowCount).toBe(0);
   });
 
+  it('reveals added notes and fades removed-note ghosts away', () => {
+    const filter = new DateFilter();
+
+    filter.adopt(new Float32Array([10, 20]), 2, 1, 0, [1], 1);
+
+    expect([...filter.data.subarray(0, 3)]).toEqual([255, 0, 255]);
+    expect(filter.advance(0, false)).toBe(false);
+    expect([...filter.data.subarray(0, 3)]).toEqual([255, 255, 0]);
+    expect(filter.visible).toBe(2);
+  });
+
   it('fades a hidden note out over several frames instead of at once', () => {
     const { filter, createdDays } = filterOver([10, 20, 30]);
 
@@ -49,6 +60,15 @@ describe('DateFilter', () => {
 
     settle(filter);
     expect(filter.data[0]).toBe(0);
+  });
+
+  it('finishes visibility changes in one step when motion is disabled', () => {
+    const { filter, createdDays } = filterOver([10, 20, 30]);
+
+    filter.retarget(createdDays, 3, 25);
+
+    expect(filter.advance(0, false)).toBe(false);
+    expect([...filter.data.subarray(0, 3)]).toEqual([0, 0, 255]);
   });
 
   it('fades a note back in when the threshold lets it through again', () => {
@@ -98,6 +118,38 @@ describe('DateFilter', () => {
 
     expect(filter.data[0]).toBe(255);
     expect(filter.visible).toBe(2);
+  });
+
+  it('applies creation and modification thresholds independently', () => {
+    const filter = new DateFilter();
+    const createdDays = new Float32Array([10, 30, 20, Number.NaN]);
+    const modifiedDays = new Float32Array([30, 10, 25, Number.NaN]);
+    filter.adopt(createdDays, 4, 1, 20, [], 0, modifiedDays, 20);
+
+    expect(filter.visible).toBe(2);
+    expect([...filter.data.subarray(0, 4)]).toEqual([0, 0, 255, 255]);
+  });
+
+  it('intersects inclusive creation and modification upper bounds and keeps undated notes', () => {
+    const filter = new DateFilter();
+    const createdDays = new Float32Array([10, 20, 30, Number.NaN]);
+    const modifiedDays = new Float32Array([30, 20, 10, Number.NaN]);
+    filter.adopt(createdDays, 4, 1, Number.NEGATIVE_INFINITY, [], 0,
+      modifiedDays, Number.NEGATIVE_INFINITY, null, 20, 20);
+
+    expect(filter.visible).toBe(2);
+    expect([...filter.data.subarray(0, 4)]).toEqual([0, 255, 0, 255]);
+  });
+
+  it('intersects metadata matches with both date thresholds', () => {
+    const filter = new DateFilter();
+    const createdDays = new Float32Array([10, 30, 20]);
+    const modifiedDays = new Float32Array([30, 10, 25]);
+    const included = new Uint8Array([1, 1, 0]);
+    filter.adopt(createdDays, 3, 1, 20, [], 0, modifiedDays, 20, included);
+
+    expect(filter.visible).toBe(0);
+    expect([...filter.data.subarray(0, 3)]).toEqual([0, 0, 0]);
   });
 
   it('marks only the rows it touched as dirty', () => {

@@ -7,6 +7,7 @@ interface GraphStatusProps {
   status: string;
   edgeCount: number | null;
   drawnEdges: number;
+  metricsStale?: boolean;
   onScaleReadout: (element: HTMLSpanElement | null) => void;
 }
 
@@ -14,6 +15,7 @@ export function GraphStatus({
   status,
   edgeCount,
   drawnEdges,
+  metricsStale = false,
   onScaleReadout,
 }: GraphStatusProps) {
   return (
@@ -23,6 +25,7 @@ export function GraphStatus({
       {edgeCount !== null && edgeCount > drawnEdges && (
         <span>{t('graph.drawnEdges', { count: drawnEdges })}</span>
       )}
+      {metricsStale && <span aria-live="polite">{t('graph.metricsUpdating')}</span>}
       <span ref={onScaleReadout} />
     </div>
   );

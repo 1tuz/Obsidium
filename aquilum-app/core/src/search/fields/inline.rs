@@ -1,12 +1,15 @@
-use crate::search::analyzer::frontmatter_body;
-use crate::search::markdown::{lines_outside_fences, list_item_body};
 use super::parse::{note_fields, scalar_or_list};
 use super::value::Field;
+use crate::search::analyzer::frontmatter_body;
+use crate::search::markdown::{lines_outside_fences, list_item_body};
 
 pub fn indexed_fields(text: &str) -> Vec<Field> {
     let mut found = note_fields(text);
     for (key, value) in inline_pairs(text) {
-        if found.iter().any(|field| field.key.eq_ignore_ascii_case(&key)) {
+        if found
+            .iter()
+            .any(|field| field.key.eq_ignore_ascii_case(&key))
+        {
             continue;
         }
         found.push(scalar_or_list(key, &value));

@@ -19,10 +19,10 @@ pub mod validation;
 
 pub use service::UiStateService;
 
-#[cfg(test)]
-mod migration_tests;
 mod base_views;
 #[cfg(test)]
-mod tests;
+mod migration_tests;
 #[cfg(test)]
 mod pane_tests;
+#[cfg(test)]
+mod tests;

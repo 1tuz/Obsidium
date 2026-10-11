@@ -1,9 +1,11 @@
 pub mod adjacency;
+pub mod cluster;
 pub mod encode;
 pub mod force;
 pub mod layout;
+pub mod model;
 pub mod rank;
 pub mod separate;
 pub mod service;
 pub mod snapshot;
-
+pub mod timeline;

@@ -107,7 +107,11 @@ pub fn parse(text: &str) -> Option<Duration> {
 }
 
 fn unit(name: &str, amount: f64) -> Option<Duration> {
-    let name = if name.len() > 1 { name.trim_end_matches('s') } else { name };
+    let name = if name.len() > 1 {
+        name.trim_end_matches('s')
+    } else {
+        name
+    };
     let months = |count: f64| Duration {
         months: count as i64,
         nanos: 0,
@@ -167,8 +171,20 @@ mod tests {
     fn reads_the_forms_dataview_writes() {
         assert_eq!(parse("1 week"), parse("7 days"));
         assert_eq!(parse("2 weeks"), parse("14d"));
-        assert_eq!(parse("1 year"), Some(Duration { months: 12, nanos: 0 }));
-        assert_eq!(parse("1y 6mo"), Some(Duration { months: 18, nanos: 0 }));
+        assert_eq!(
+            parse("1 year"),
+            Some(Duration {
+                months: 12,
+                nanos: 0
+            })
+        );
+        assert_eq!(
+            parse("1y 6mo"),
+            Some(Duration {
+                months: 18,
+                nanos: 0
+            })
+        );
         assert!(parse("1 фунт").is_none());
         assert!(parse("неделя").is_none());
     }
@@ -206,7 +222,14 @@ mod tests {
         assert_eq!(parse("90 minutes").unwrap().text(), "1 час");
         assert_eq!(parse("3 days 5 hours").unwrap().text(), "3 дня");
         assert_eq!(parse("45 seconds").unwrap().text(), "45 сек.");
-        assert_eq!(Duration { months: 0, nanos: 500_000_000 }.text(), "0 сек.");
+        assert_eq!(
+            Duration {
+                months: 0,
+                nanos: 500_000_000
+            }
+            .text(),
+            "0 сек."
+        );
         assert_eq!(Duration::zero().text(), "конец");
     }
 

@@ -44,13 +44,25 @@ fn without_terminator(edit: TextEdit, text_length: usize) -> TextEdit {
         } else {
             format!("\n{}", drop_terminator(&edit.insert))
         };
-        return TextEdit { from: text_length, to: text_length, insert };
+        return TextEdit {
+            from: text_length,
+            to: text_length,
+            insert,
+        };
     }
     if !edit.insert.is_empty() {
         let insert = drop_terminator(&edit.insert).to_owned();
-        return TextEdit { from: edit.from, to: text_length, insert };
+        return TextEdit {
+            from: edit.from,
+            to: text_length,
+            insert,
+        };
     }
-    TextEdit { from: edit.from.saturating_sub(1), to: text_length, insert: String::new() }
+    TextEdit {
+        from: edit.from.saturating_sub(1),
+        to: text_length,
+        insert: String::new(),
+    }
 }
 
 fn with_tail_joined(mut edits: Vec<TextEdit>, text: &str) -> Vec<TextEdit> {

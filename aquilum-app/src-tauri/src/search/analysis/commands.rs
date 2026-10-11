@@ -1,10 +1,9 @@
-use crate::app_core::Core;
-use std::sync::Arc;
 use super::models::{AnalysisMethod, AnalysisResult};
+use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::search::error::SearchError;
+use std::sync::Arc;
 use tauri::State;
-
 
 #[tauri::command]
 pub async fn analyze_document(

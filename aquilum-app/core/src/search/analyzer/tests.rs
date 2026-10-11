@@ -3,15 +3,17 @@ use tantivy::tokenizer::TokenStream;
 
 fn tokens(text: &str) -> Vec<String> {
     let mut out = Vec::new();
-    indexing_tokenizer().token_stream(text).process(&mut |token| {
-        out.push(token.text.clone());
-    });
+    indexing_tokenizer()
+        .token_stream(text)
+        .process(&mut |token| {
+            out.push(token.text.clone());
+        });
     out
 }
 
 #[test]
 fn index_version_tracks_text_and_link_parsing() {
-    assert_eq!(ANALYZER_VERSION, 11);
+    assert_eq!(ANALYZER_VERSION, 12);
 }
 
 #[test]
@@ -27,7 +29,9 @@ Foundation trilogy content."#;
     let got = tokens(input);
     assert!(got.iter().any(|t| t.contains("asimov") || t == "isaac"));
     assert!(got.iter().any(|t| t.contains("foundat") || t == "trilog"));
-    assert!(!got.iter().any(|t| t == "book" || t == "to-read" || t == "tags"));
+    assert!(!got
+        .iter()
+        .any(|t| t == "book" || t == "to-read" || t == "tags"));
     assert!(!got.iter().any(|t| t == "https" || t == "cover_url"));
 }
 
@@ -36,7 +40,9 @@ fn markdown_link_indexes_label_not_url() {
     let got = tokens("see [NeuroNet docs](https://example.ru/path) here");
     assert!(got.contains(&"neuronet".to_owned()) || got.iter().any(|t| t.contains("neuro")));
     assert!(got.iter().any(|t| t == "docs" || t.starts_with("doc")));
-    assert!(!got.iter().any(|t| t == "https" || t == "ru" || t == "example" || t == "path"));
+    assert!(!got
+        .iter()
+        .any(|t| t == "https" || t == "ru" || t == "example" || t == "path"));
     assert!(got.contains(&"see".to_owned()));
     assert!(got.contains(&"here".to_owned()));
 }

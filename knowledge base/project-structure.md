@@ -1,11 +1,11 @@
-# Структура проекта Aquilum
+# Структура проекта Obsidium
 
 ## Статус: ✅ Фаза 1 — Базовый сетап завершён
 
 ## Расположение
 
 ```
-D:\My programs\Aquilum\
+D:\My programs\Obsidium\
 ├── knowledge base\        ← документация проекта
 ├── .artifacts\            ← ВСЕ сборки (gitignore); dev ≠ release
 │   ├── cargo-dev\         ← только debug (tauri dev / cargo test)
@@ -27,6 +27,7 @@ D:\My programs\Aquilum\
 
 Правила изоляции сборок: [[build-artifacts-separation]].
 Релиз и автообновление: [[release-and-updates]].
+Открытие и сохранение стандартных файлов: [[standard-files]].
 
 ## Установленные зависимости
 

@@ -39,7 +39,7 @@ const ADD_CREATED_COLUMNS: &str =
 const REINDEX_FOR_FIELDS: &str = "UPDATE documents SET analyzer_version=0";
 
 pub fn open(path: &Path) -> Result<Connection, SearchError> {
-    let connection = Connection::open(path)?;
+    let mut connection = Connection::open(path)?;
     let version = connection.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
     let auto_vacuum = connection.query_row("PRAGMA auto_vacuum", [], |row| row.get::<_, i64>(0))?;
     if auto_vacuum != 2 {
@@ -79,6 +79,8 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
     super::wiki::open_schema(&connection)?;
     super::fields::open_schema(&connection)?;
     super::tasks::open_schema(&connection)?;
+    super::graph::timeline::open_schema(&connection)?;
+    super::graph::timeline::ensure_baseline(&mut connection)?;
     Ok(connection)
 }
 
@@ -134,8 +136,9 @@ pub fn current(
     transaction: &Transaction<'_>,
     path: &str,
 ) -> Result<Option<FileState>, SearchError> {
-    let mut statement = transaction
-        .prepare(&format!("SELECT {FILE_STATE_COLUMNS} FROM documents WHERE path=?1"))?;
+    let mut statement = transaction.prepare(&format!(
+        "SELECT {FILE_STATE_COLUMNS} FROM documents WHERE path=?1"
+    ))?;
     let mut rows = statement.query([path])?;
     match rows.next()? {
         Some(row) => Ok(Some(file_state(row, 0)?)),

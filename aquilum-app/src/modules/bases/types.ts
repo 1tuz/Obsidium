@@ -1,5 +1,6 @@
 export type BaseScalar = string | number | boolean | null;
 export type BaseFilter = string | {
+  unsupported?: true;
   and?: BaseFilter[];
   or?: BaseFilter[];
   not?: BaseFilter | BaseFilter[];

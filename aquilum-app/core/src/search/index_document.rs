@@ -1,10 +1,10 @@
-use super::paths::relative_slash_path;
 use super::created::{self, CreatedAt, CreatedSource};
 use super::error::SearchError;
 use super::fields;
-use super::tasks;
 use super::index::SearchIndex;
 use super::metadata::{self, FileState, Fingerprint, PathKey};
+use super::paths::relative_slash_path;
+use super::tasks;
 use super::wiki;
 use super::ANALYZER_VERSION;
 use rusqlite::{params, Transaction};
@@ -92,6 +92,14 @@ pub fn apply_path(
 ) -> Result<bool, SearchError> {
     let key = path.to_string_lossy();
     if !path.is_file() {
+        let existed = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM documents WHERE path=?1)",
+            [key.as_ref()],
+            |row| row.get::<_, bool>(0),
+        )?;
+        if !existed {
+            return Ok(false);
+        }
         writer.delete_term(Term::from_field_text(index.fields.id, &key));
         wiki::remove_document(transaction, path)?;
         fields::remove_document(transaction, path)?;
@@ -125,7 +133,11 @@ fn classify(
     let up_to_date = previous
         .as_ref()
         .is_some_and(|value| value.analyzer_version == ANALYZER_VERSION);
-    if !force && up_to_date && previous.as_ref().is_some_and(|value| value.fingerprint == fingerprint)
+    if !force
+        && up_to_date
+        && previous
+            .as_ref()
+            .is_some_and(|value| value.fingerprint == fingerprint)
     {
         return None;
     }
@@ -232,12 +244,19 @@ mod tests {
     fn a_crlf_note_is_indexed_as_lf() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("Заметка.md");
-        std::fs::write(&path, "строка
+        std::fs::write(
+            &path,
+            "строка
 вторая
-").unwrap();
+",
+        )
+        .unwrap();
         let prepared = super::prepare_file(path, (1, 1)).unwrap();
-        assert_eq!(prepared.body, "строка
+        assert_eq!(
+            prepared.body,
+            "строка
 вторая
-");
+"
+        );
     }
 }

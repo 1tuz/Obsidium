@@ -7,12 +7,7 @@ pub type ToolCaller<'a> = &'a dyn Fn(&str, &Value) -> Result<Value, String>;
 const LEGACY_PROTOCOL_VERSION: &str = "2025-06-18";
 const MODERN_PROTOCOL_VERSION: &str = "2026-07-28";
 const SERVER_NAME: &str = "obsidium";
-const LEGACY_PROTOCOL_VERSIONS: &[&str] = &[
-    "2025-11-25",
-    "2025-06-18",
-    "2025-03-26",
-    "2024-11-05",
-];
+const LEGACY_PROTOCOL_VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
 const METHOD_NOT_FOUND: i32 = -32601;
 const INVALID_PARAMS: i32 = -32602;
@@ -105,7 +100,10 @@ fn modern_result(mut result: Value, cacheable: bool) -> Value {
     let Some(object) = result.as_object_mut() else {
         return result;
     };
-    object.insert("resultType".to_owned(), Value::String("complete".to_owned()));
+    object.insert(
+        "resultType".to_owned(),
+        Value::String("complete".to_owned()),
+    );
     object.insert(
         "_meta".to_owned(),
         json!({ "io.modelcontextprotocol/serverInfo": server_info() }),
@@ -118,11 +116,14 @@ fn modern_result(mut result: Value, cacheable: bool) -> Value {
 }
 
 fn discover_result() -> Value {
-    modern_result(json!({
-        "supportedVersions": [MODERN_PROTOCOL_VERSION],
-        "capabilities": { "tools": { "listChanged": false } },
-        "instructions": tools::INSTRUCTIONS,
-    }), true)
+    modern_result(
+        json!({
+            "supportedVersions": [MODERN_PROTOCOL_VERSION],
+            "capabilities": { "tools": { "listChanged": false } },
+            "instructions": tools::INSTRUCTIONS,
+        }),
+        true,
+    )
 }
 
 fn dispatch(
@@ -154,13 +155,21 @@ fn dispatch(
         "ping" if era == ProtocolEra::Legacy => Ok(json!({})),
         "tools/list" => {
             let result = json!({ "tools": tools::definitions() });
-            Ok(if era == ProtocolEra::Modern { modern_result(result, true) } else { result })
+            Ok(if era == ProtocolEra::Modern {
+                modern_result(result, true)
+            } else {
+                result
+            })
         }
         "tools/call" => {
             let request = serde_json::from_value::<ToolCall>(params.unwrap_or(Value::Null))
                 .map_err(|error| (INVALID_PARAMS, error.to_string()))?;
             let result = tool_result(call(&request.name, &request.arguments));
-            Ok(if era == ProtocolEra::Modern { modern_result(result, false) } else { result })
+            Ok(if era == ProtocolEra::Modern {
+                modern_result(result, false)
+            } else {
+                result
+            })
         }
         _ => Err((METHOD_NOT_FOUND, format!("Неизвестный метод: {method}"))),
     }
@@ -228,10 +237,16 @@ mod tests {
             r#"{"jsonrpc":"2.0","id":"d","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}"#,
         ).unwrap();
         assert_eq!(response["result"]["resultType"], "complete");
-        assert_eq!(response["result"]["supportedVersions"][0], MODERN_PROTOCOL_VERSION);
+        assert_eq!(
+            response["result"]["supportedVersions"][0],
+            MODERN_PROTOCOL_VERSION
+        );
         assert_eq!(response["result"]["ttlMs"], 0);
         assert_eq!(response["result"]["cacheScope"], "private");
-        assert_eq!(response["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"], SERVER_NAME);
+        assert_eq!(
+            response["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
+            SERVER_NAME
+        );
     }
 
     #[test]
@@ -252,7 +267,10 @@ mod tests {
         ).unwrap();
         assert_eq!(response["error"]["code"], UNSUPPORTED_PROTOCOL_VERSION);
         assert_eq!(response["error"]["data"]["requested"], "2027-01-01");
-        assert_eq!(response["error"]["data"]["supported"][0], MODERN_PROTOCOL_VERSION);
+        assert_eq!(
+            response["error"]["data"]["supported"][0],
+            MODERN_PROTOCOL_VERSION
+        );
     }
 
     #[test]
@@ -297,13 +315,17 @@ mod tests {
         .unwrap();
         let response: Value = serde_json::from_str(&raw).unwrap();
         assert_eq!(response["result"]["isError"], true);
-        assert_eq!(response["result"]["content"][0]["text"], "Заметка не найдена");
+        assert_eq!(
+            response["result"]["content"][0]["text"],
+            "Заметка не найдена"
+        );
         assert!(response["error"].is_null());
     }
 
     #[test]
     fn successful_tool_calls_expose_structured_content() {
-        let successful = |_name: &str, _arguments: &Value| Ok(json!({ "path": "Note.md", "changed": true }));
+        let successful =
+            |_name: &str, _arguments: &Value| Ok(json!({ "path": "Note.md", "changed": true }));
         let raw = handle_message(
             r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"update_note","arguments":{}}}"#,
             &successful,
@@ -319,7 +341,9 @@ mod tests {
     fn every_tool_declares_a_json_schema() {
         for tool in tools::definitions() {
             assert!(tool["name"].as_str().is_some_and(|name| !name.is_empty()));
-            assert!(tool["description"].as_str().is_some_and(|value| !value.is_empty()));
+            assert!(tool["description"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty()));
             assert_eq!(tool["inputSchema"]["type"], "object");
         }
     }

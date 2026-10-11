@@ -56,6 +56,10 @@ export function nodeTextureRows(nodeCount: number): number {
   return Math.max(1, Math.ceil(nodeCount / NODE_TEXTURE_WIDTH));
 }
 
+export function pageRankHighlightCount(nodeCount: number): number {
+  return nodeCount > 0 ? Math.max(1, Math.ceil(nodeCount / 20)) : 0;
+}
+
 export function nodeTexels(snapshot: GraphSnapshot, rows: number): Float32Array {
   const texels = new Float32Array(NODE_TEXTURE_WIDTH * rows * 4);
   for (let node = 0; node < snapshot.nodeCount; node += 1) {

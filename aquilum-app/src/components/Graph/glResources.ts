@@ -76,6 +76,14 @@ export function bindEdgeEndpoints(gl: WebGL2RenderingContext, program: WebGLProg
   gl.vertexAttribDivisor(location, 1);
 }
 
+export function bindEdgeTransitionTarget(gl: WebGL2RenderingContext, program: WebGLProgram): void {
+  const location = gl.getAttribLocation(program, 'aTransitionTarget');
+  if (location < 0) return;
+  gl.enableVertexAttribArray(location);
+  gl.vertexAttribPointer(location, 1, gl.FLOAT, false, 0, 0);
+  gl.vertexAttribDivisor(location, 1);
+}
+
 export class UniformCache {
   private readonly cache = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>();
 

@@ -1,7 +1,7 @@
 [package]
 name = "aquilum-core"
 version = "0.2.8"
-description = "Aquilum core: documents, files, search, history and settings without any UI"
+description = "Obsidium core: documents, files, search, history and settings without any UI"
 authors = ["Dmitriy Chaplinskiy"]
 license = "AGPL-3.0-only"
 edition = "2021"

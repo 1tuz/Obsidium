@@ -37,7 +37,10 @@ function createMockCanvas(): MockCanvas {
 function createMockTarget(): PointerTarget {
   return {
     panBy: vi.fn(),
+    panToBy: vi.fn(),
     dragging: vi.fn(),
+    nodeAt: vi.fn(() => -1),
+    moveNode: vi.fn(),
     zoomBy: vi.fn(),
     pointerAt: vi.fn(),
     select: vi.fn(),
@@ -117,6 +120,70 @@ describe('attachPointerControls', () => {
     expect(target.dragging).toHaveBeenCalledWith(false);
     expect(target.select).not.toHaveBeenCalled();
 
+    detach();
+  });
+
+  it('uses animated pan for wheel gestures while pointer drag stays immediate', () => {
+    const { canvas, emit } = createMockCanvas();
+    const target = createMockTarget();
+    const detach = attachPointerControls(canvas, target);
+
+    emit('wheel', {
+      offsetX: 100,
+      offsetY: 150,
+      deltaX: 12,
+      deltaY: -8,
+      deltaMode: 0,
+      ctrlKey: false,
+      metaKey: false,
+      timeStamp: 100,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    });
+
+    expect(target.panToBy).toHaveBeenCalledWith(-12, 8);
+    expect(target.panBy).not.toHaveBeenCalled();
+
+    detach();
+  });
+
+  it('moves a node when dragging begins over one', () => {
+    const { canvas, emit } = createMockCanvas();
+    const target = createMockTarget();
+    target.nodeAt = vi.fn(() => 3);
+    const detach = attachPointerControls(canvas, target);
+
+    emit('pointerdown', {
+      pointerId: 1,
+      clientX: 50,
+      clientY: 50,
+      offsetX: 40,
+      offsetY: 30,
+      button: 0,
+      pointerType: 'mouse',
+    });
+    emit('pointermove', {
+      pointerId: 1,
+      clientX: 60,
+      clientY: 70,
+      offsetX: 50,
+      offsetY: 50,
+      button: 0,
+      pointerType: 'mouse',
+    });
+
+    expect(target.moveNode).toHaveBeenCalledWith(3, 50, 50);
+    expect(target.panBy).not.toHaveBeenCalled();
+
+    emit('pointerup', {
+      pointerId: 1,
+      clientX: 60,
+      clientY: 70,
+      offsetX: 50,
+      offsetY: 50,
+      button: 0,
+      pointerType: 'mouse',
+    });
     detach();
   });
 

@@ -72,7 +72,11 @@ pub fn builtin(name: &str) -> Option<Value> {
         ),
         "season" => {
             let (first, length) = season_of(month);
-            let first_year = if first == 12 && month < 3 { year - 1 } else { year };
+            let first_year = if first == 12 && month < 3 {
+                year - 1
+            } else {
+                year
+            };
             of(
                 month_start(first_year, first),
                 month_start(first_year, first + length),
@@ -127,8 +131,14 @@ mod tests {
     #[test]
     fn the_progress_of_a_finished_span_is_full_and_of_a_future_one_is_empty() {
         let now = note_date::now();
-        assert_eq!(passed(&of(now - 2 * NANOS_PER_DAY, now - NANOS_PER_DAY)), Some(100.0));
-        assert_eq!(passed(&of(now + NANOS_PER_DAY, now + 2 * NANOS_PER_DAY)), Some(0.0));
+        assert_eq!(
+            passed(&of(now - 2 * NANOS_PER_DAY, now - NANOS_PER_DAY)),
+            Some(100.0)
+        );
+        assert_eq!(
+            passed(&of(now + NANOS_PER_DAY, now + 2 * NANOS_PER_DAY)),
+            Some(0.0)
+        );
     }
 
     #[test]
@@ -156,7 +166,10 @@ mod tests {
         let now = note_date::now();
         for name in ["day", "week", "month", "season", "year"] {
             let (start, end) = bounds(&builtin(name).expect(name)).expect("границы");
-            assert!(start <= now && now < end, "период «{name}» не содержит сейчас");
+            assert!(
+                start <= now && now < end,
+                "период «{name}» не содержит сейчас"
+            );
         }
     }
 

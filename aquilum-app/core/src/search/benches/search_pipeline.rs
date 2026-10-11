@@ -4,10 +4,13 @@ use std::fs;
 use std::time::Instant;
 
 #[test]
-#[ignore = "run with AQUILUM_BENCH_SIZES=1000,10000,100000 cargo test --release benchmark_search_pipeline -- --ignored --nocapture"]
+#[ignore = "run with OBSIDIUM_BENCH_SIZES=1000,10000,100000 cargo test --release benchmark_search_pipeline -- --ignored --nocapture"]
 fn benchmark_search_pipeline() {
-    let sizes = std::env::var("AQUILUM_BENCH_SIZES").unwrap_or_else(|_| "1000".to_owned());
-    for count in sizes.split(',').filter_map(|value| value.trim().parse::<usize>().ok()) {
+    let sizes = std::env::var("OBSIDIUM_BENCH_SIZES").unwrap_or_else(|_| "1000".to_owned());
+    for count in sizes
+        .split(',')
+        .filter_map(|value| value.trim().parse::<usize>().ok())
+    {
         run_case(count);
     }
 }

@@ -28,7 +28,9 @@ pub fn setup() -> (UiStateDatabase, Uuid, Uuid, Uuid) {
 #[test]
 fn lists_known_workspaces_most_recently_seen_first() {
     let (mut database, _workspace_id, _document_id, _epoch) = setup();
-    database.resolve_workspace("C:/archive", 9).expect("archive");
+    database
+        .resolve_workspace("C:/archive", 9)
+        .expect("archive");
     database.resolve_workspace("C:/drafts", 5).expect("drafts");
 
     let paths = database
@@ -66,7 +68,10 @@ fn listed_paths_drop_the_windows_verbatim_prefix() {
         display_workspace(r"\\?\D:\База знаний копия\NeuroNet"),
         r"D:\База знаний копия\NeuroNet"
     );
-    assert_eq!(display_workspace(r"\\?\UNC\server\share"), r"\\server\share");
+    assert_eq!(
+        display_workspace(r"\\?\UNC\server\share"),
+        r"\\server\share"
+    );
     assert_eq!(display_workspace("/home/user/notes"), "/home/user/notes");
 }
 

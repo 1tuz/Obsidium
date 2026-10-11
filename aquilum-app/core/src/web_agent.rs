@@ -8,7 +8,7 @@ pub fn web_agent(purpose: &str) -> Agent {
         .timeout_connect(TIMEOUT)
         .timeout_read(TIMEOUT)
         .user_agent(&format!(
-            "Aquilum/{} (local-first notes; {purpose})",
+            "Obsidium/{} (local-first notes; {purpose})",
             env!("CARGO_PKG_VERSION")
         ))
         .build()

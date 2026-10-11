@@ -59,7 +59,10 @@ impl Head {
             return if coding.trim().eq_ignore_ascii_case("chunked") {
                 Ok(Body::Chunked)
             } else {
-                Err(refused(501, "Поддерживается только Transfer-Encoding: chunked"))
+                Err(refused(
+                    501,
+                    "Поддерживается только Transfer-Encoding: chunked",
+                ))
             };
         }
         match self.header("content-length") {

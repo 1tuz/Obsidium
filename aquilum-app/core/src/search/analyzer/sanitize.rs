@@ -85,7 +85,8 @@ fn take_bare_url(text: &str, start: usize) -> Option<usize> {
     };
     let mut end = start + prefix_len;
     for ch in text[end..].chars() {
-        if ch.is_whitespace() || matches!(ch, ')' | ']' | '(' | '[' | '"' | '\'' | '<' | '>' | '`') {
+        if ch.is_whitespace() || matches!(ch, ')' | ']' | '(' | '[' | '"' | '\'' | '<' | '>' | '`')
+        {
             break;
         }
         if matches!(ch, '.' | ',' | ';' | ':' | '!' | '?') {

@@ -57,7 +57,7 @@
 }
 
 .q-boards-tree summary:hover,
-.q-boards-tree__board > button:hover {
+.q-boards-tree__view:hover {
   background: var(--q-sidebar-item-hover-bg);
 }
 
@@ -98,14 +98,23 @@
   flex: 0 0 auto;
 }
 
-.q-boards-tree__board > button {
+.q-boards-tree__view {
   display: flex;
+  align-items: center;
+  gap: var(--q-space-4);
+  min-width: 0;
+  border-radius: var(--q-sidebar-item-radius);
+  background: transparent;
+}
+
+.q-boards-tree__view > button {
+  display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: var(--q-space-6);
   min-width: 0;
   padding: var(--q-space-4) var(--q-space-8);
   border: 0;
-  border-radius: var(--q-sidebar-item-radius);
   background: transparent;
   color: var(--q-sidebar-text);
   font: inherit;
@@ -113,7 +122,7 @@
   cursor: pointer;
 }
 
-.q-boards-tree__board > button span {
+.q-boards-tree__view > button span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

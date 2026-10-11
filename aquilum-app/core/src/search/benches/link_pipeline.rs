@@ -10,18 +10,28 @@ use std::time::{Duration, Instant};
 const RUNS: u32 = 3;
 
 #[test]
-#[ignore = "run with AQUILUM_BENCH_VAULT=<папка базы> or AQUILUM_BENCH_SIZES=1000 cargo test --release benchmark_link_pipeline -- --ignored --nocapture"]
+#[ignore = "run with OBSIDIUM_BENCH_VAULT=<папка базы> or OBSIDIUM_BENCH_SIZES=1000 cargo test --release benchmark_link_pipeline -- --ignored --nocapture"]
 fn benchmark_link_pipeline() {
-    if let Ok(vault) = std::env::var("AQUILUM_BENCH_VAULT") {
+    if let Ok(vault) = std::env::var("OBSIDIUM_BENCH_VAULT") {
         let threads_before = process_threads();
-        let bench = index_vault(tempfile::tempdir().unwrap(), canonical_path(Path::new(&vault)));
+        let bench = index_vault(
+            tempfile::tempdir().unwrap(),
+            canonical_path(Path::new(&vault)),
+        );
         run_case(bench, &vault, threads_before);
         return;
     }
-    let sizes = std::env::var("AQUILUM_BENCH_SIZES").unwrap_or_else(|_| "1000".to_owned());
-    for count in sizes.split(',').filter_map(|value| value.trim().parse::<usize>().ok()) {
+    let sizes = std::env::var("OBSIDIUM_BENCH_SIZES").unwrap_or_else(|_| "1000".to_owned());
+    for count in sizes
+        .split(',')
+        .filter_map(|value| value.trim().parse::<usize>().ok())
+    {
         let threads_before = process_threads();
-        run_case(open_bench_index(count), &format!("synthetic-{count}"), threads_before);
+        run_case(
+            open_bench_index(count),
+            &format!("synthetic-{count}"),
+            threads_before,
+        );
     }
 }
 
@@ -63,7 +73,14 @@ fn run_case(mut bench: BenchIndex, label: &str, threads_before: usize) {
     let search_settings = crate::settings::models::SearchIndexSettings::default();
     let bm25f_params = crate::settings::models::Bm25fParams::default();
     let bm25f = best(|| {
-        bm25f::analyze(&bench.search_index, &documents[0], 20, &bm25f_params, &search_settings).unwrap();
+        bm25f::analyze(
+            &bench.search_index,
+            &documents[0],
+            20,
+            &bm25f_params,
+            &search_settings,
+        )
+        .unwrap();
     });
     let search20 = best(|| {
         bench.search_index.search("кадр замер frame", 21).unwrap();

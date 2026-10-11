@@ -10,16 +10,76 @@ import { FontSettingsRows } from '../FontSettingsRows';
 import { Row } from '../Row';
 import { Section } from '../Section';
 import { NumberControl } from '../controls/NumberControl';
+import { SegmentedControl } from '../../Common/SegmentedControl';
 import type { SettingsSectionProps } from '../types';
+import './EditorSection.css';
 
 export function EditorSection({ config, onChange }: SettingsSectionProps) {
   const patchEditor = (partial: Partial<AppConfig['editor']>) => onChange({
     ...config,
     editor: { ...config.editor, ...partial },
   });
+  const reading = config.editor.markdownReading;
+  const patchReading = (partial: Partial<AppConfig['editor']['markdownReading']>) => patchEditor({
+    markdownReading: { ...reading, ...partial },
+  });
 
   return (
     <>
+      <Section title={t('settings.editor.readingStyle')}>
+        <Row label={t('settings.editor.paperStyle')} description={t('settings.editor.paperStyleHint')}>
+          <div className="q-markdown-reading-styles" role="group" aria-label={t('settings.editor.paperStyle')}>
+            {(['theme', 'paper-white', 'ivory', 'parchment', 'sepia', 'dark-paper'] as const).map((style) => (
+              <button
+                key={style}
+                type="button"
+                className="q-markdown-reading-style"
+                data-style={style}
+                aria-label={t(`settings.editor.styles.${style}`)}
+                aria-pressed={reading.style === style}
+                onClick={() => patchReading({ style })}
+              >
+                <span className="q-markdown-reading-style__page" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span className="q-markdown-reading-style__label">{t(`settings.editor.styles.${style}`)}</span>
+              </button>
+            ))}
+          </div>
+        </Row>
+        <Row label={t('settings.editor.paperTexture')}>
+          <SegmentedControl
+            value={reading.texture}
+            onChange={(texture) => patchReading({ texture: texture as AppConfig['editor']['markdownReading']['texture'] })}
+            options={[
+              { value: 'off', label: t('settings.editor.textureOff') },
+              { value: 'subtle', label: t('settings.editor.textureSubtle') },
+              { value: 'visible', label: t('settings.editor.textureVisible') },
+            ]}
+          />
+        </Row>
+        <Row label={t('settings.editor.readingFont')}>
+          <SegmentedControl
+            value={reading.font}
+            onChange={(font) => patchReading({ font: font as AppConfig['editor']['markdownReading']['font'] })}
+            options={[
+              { value: 'standard', label: t('settings.editor.fontStandard') },
+              { value: 'book', label: t('settings.editor.fontBook') },
+            ]}
+          />
+        </Row>
+        <Row label={t('settings.editor.readingFontSize')}>
+          <NumberControl ariaLabel={t('settings.editor.readingFontSize')} value={reading.fontSizePx} min={14} max={24} onChange={(fontSizePx) => patchReading({ fontSizePx })} />
+        </Row>
+        <Row label={t('settings.editor.readingLineHeight')}>
+          <NumberControl ariaLabel={t('settings.editor.readingLineHeight')} value={reading.lineHeight} min={1.35} max={2.1} step={0.05} onChange={(lineHeight) => patchReading({ lineHeight })} />
+        </Row>
+        <Row label={t('settings.editor.readingPageWidth')}>
+          <NumberControl ariaLabel={t('settings.editor.readingPageWidth')} value={reading.pageWidthCh} min={45} max={90} onChange={(pageWidthCh) => patchReading({ pageWidthCh })} />
+        </Row>
+      </Section>
       <Section title={t('settings.font.section')}>
         <FontSettingsRows
           scope="editor"

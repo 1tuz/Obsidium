@@ -128,7 +128,11 @@ mod tests {
         assert_eq!(field(BOOK, "Путь к файлу").kind, FieldKind::Text);
         let note = "---\nrating: 4.5\npages: 0/0\n---\n";
         assert_eq!(field(note, "rating").kind, FieldKind::Number);
-        assert_eq!(field(note, "pages").kind, FieldKind::Text, "«0/0» — не число");
+        assert_eq!(
+            field(note, "pages").kind,
+            FieldKind::Text,
+            "«0/0» — не число"
+        );
     }
 
     #[test]
@@ -151,7 +155,10 @@ mod tests {
         let tags = field("---\ntags: []\n---\n", "tags");
         assert_eq!(tags.kind, FieldKind::List);
         assert!(tags.items.is_empty());
-        assert_eq!(tags.text, "", "пустой список не считается заполненным полем");
+        assert_eq!(
+            tags.text, "",
+            "пустой список не считается заполненным полем"
+        );
     }
 
     #[test]
@@ -161,7 +168,8 @@ mod tests {
         assert_eq!(tags.kind, FieldKind::List);
         assert_eq!(tags.items, vec!["fiction", "classic sci-fi"]);
         assert_eq!(
-            field(note, "author").text, "Ефремов",
+            field(note, "author").text,
+            "Ефремов",
             "ключ после списка читается как обычно"
         );
     }

@@ -37,6 +37,38 @@
   user-select: none;
 }
 
+.q-graph-timeline {
+  position: absolute;
+  z-index: 2;
+  right: var(--q-space-16);
+  bottom: var(--q-space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-8);
+  max-width: min(720px, calc(100% - var(--q-space-32)));
+  padding: var(--q-space-8);
+  border: 1px solid var(--q-border-default);
+  border-radius: var(--q-rounded-md);
+  background-color: var(--q-graph-status-bg);
+  color: var(--q-graph-status-fg);
+}
+
+.q-graph-timeline__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-8);
+  min-width: min(420px, calc(100vw - var(--q-space-64)));
+}
+
+.q-graph-timeline__controls input[type="range"] {
+  flex: 1;
+  min-width: 80px;
+}
+
+.q-graph-timeline__controls > span {
+  white-space: nowrap;
+}
+
 
 .q-graph-message {
   position: absolute;

@@ -46,7 +46,10 @@ impl WorkspaceWatcher {
     }
 
     pub fn watch(&self, root: &Path) -> Result<(), String> {
-        let mut running = self.running.lock().unwrap_or_else(|error| error.into_inner());
+        let mut running = self
+            .running
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         if running.as_ref().is_some_and(|active| active.root == root) {
             return Ok(());
         }
@@ -71,7 +74,7 @@ impl WorkspaceWatcher {
         let thread_stopping = Arc::clone(&stopping);
         let sink = Arc::clone(&self.sink);
         let thread = std::thread::Builder::new()
-            .name("aquilum-fs-watch".to_owned())
+            .name("obsidium-fs-watch".to_owned())
             .spawn(move || deliver(watcher, &receiver, &thread_stopping, sink.as_ref()))
             .map_err(|error| format!("не удалось запустить поток наблюдателя: {error}"))?;
 
@@ -84,7 +87,10 @@ impl WorkspaceWatcher {
     }
 
     pub fn stop(&self) {
-        let mut running = self.running.lock().unwrap_or_else(|error| error.into_inner());
+        let mut running = self
+            .running
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         if let Some(previous) = running.take() {
             previous.stop();
         }

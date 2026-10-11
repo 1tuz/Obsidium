@@ -31,8 +31,11 @@ impl SearchService {
         let mut output =
             execute::run(&query, rows).map_err(|message| SearchError::Query { message })?;
         if output.refresh_seconds.is_none() && crate::search::note_date::take_now_used() {
-            output.refresh_seconds =
-                Some(if over_notes { OVER_NOTES_SECONDS } else { OWN_SECONDS });
+            output.refresh_seconds = Some(if over_notes {
+                OVER_NOTES_SECONDS
+            } else {
+                OWN_SECONDS
+            });
         }
         Ok(output)
     }
@@ -86,7 +89,10 @@ fn filter_task_paths(
     let task_paths: HashSet<String> = statement
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<Result<_, _>>()?;
-    Ok(paths.into_iter().filter(|path| task_paths.contains(path)).collect())
+    Ok(paths
+        .into_iter()
+        .filter(|path| task_paths.contains(path))
+        .collect())
 }
 
 fn task_completed_filter(query: &Query) -> Option<bool> {
@@ -102,13 +108,20 @@ fn task_completed_filter(query: &Query) -> Option<bool> {
 
 fn expr_completed_filter(expr: &Expr) -> Option<bool> {
     match expr {
-        Expr::Unary { operator: UnaryOp::Not, operand } => {
+        Expr::Unary {
+            operator: UnaryOp::Not,
+            operand,
+        } => {
             if is_completed_var(operand) {
                 return Some(false);
             }
             None
         }
-        Expr::Binary { operator: BinaryOp::Equal, left, right } => {
+        Expr::Binary {
+            operator: BinaryOp::Equal,
+            left,
+            right,
+        } => {
             if is_completed_var(left) {
                 if let Expr::Literal(Value::Bool(b)) = **right {
                     return Some(b);
@@ -120,7 +133,11 @@ fn expr_completed_filter(expr: &Expr) -> Option<bool> {
             }
             None
         }
-        Expr::Binary { operator: BinaryOp::NotEqual, left, right } => {
+        Expr::Binary {
+            operator: BinaryOp::NotEqual,
+            left,
+            right,
+        } => {
             if is_completed_var(left) {
                 if let Expr::Literal(Value::Bool(b)) = **right {
                     return Some(!b);
@@ -132,9 +149,11 @@ fn expr_completed_filter(expr: &Expr) -> Option<bool> {
             }
             None
         }
-        Expr::Binary { operator: BinaryOp::And, left, right } => {
-            expr_completed_filter(left).or_else(|| expr_completed_filter(right))
-        }
+        Expr::Binary {
+            operator: BinaryOp::And,
+            left,
+            right,
+        } => expr_completed_filter(left).or_else(|| expr_completed_filter(right)),
         Expr::Variable(name) if is_completed_name(name) => Some(true),
         _ => None,
     }
@@ -165,12 +184,19 @@ fn filter_candidate_paths(
     }
     let candidates = crate::search::fields::candidates(connection, &equals, &[])?;
     let candidate_set: HashSet<String> = candidates.into_iter().collect();
-    Ok(paths.into_iter().filter(|path| candidate_set.contains(path)).collect())
+    Ok(paths
+        .into_iter()
+        .filter(|path| candidate_set.contains(path))
+        .collect())
 }
 
 fn collect_field_equals(expr: &Expr, equals: &mut Vec<(String, String)>) {
     match expr {
-        Expr::Binary { operator: BinaryOp::Equal, left, right } => {
+        Expr::Binary {
+            operator: BinaryOp::Equal,
+            left,
+            right,
+        } => {
             if let (Expr::Variable(key), Expr::Literal(val)) = (&**left, &**right) {
                 if is_frontmatter_field(key) {
                     if let Some(text) = literal_to_text(val) {
@@ -185,7 +211,11 @@ fn collect_field_equals(expr: &Expr, equals: &mut Vec<(String, String)>) {
                 }
             }
         }
-        Expr::Binary { operator: BinaryOp::And, left, right } => {
+        Expr::Binary {
+            operator: BinaryOp::And,
+            left,
+            right,
+        } => {
             collect_field_equals(left, equals);
             collect_field_equals(right, equals);
         }

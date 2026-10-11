@@ -15,18 +15,174 @@ const LARGE_COMPONENT: usize = 20_000;
 const MIN_SPREAD: f64 = 0.6;
 const MAX_SPREAD: f64 = 2.5;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Mode {
+    Force,
+    Hierarchical,
+    Ring,
+}
+
+impl Mode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Force => "force",
+            Self::Hierarchical => "hierarchical",
+            Self::Ring => "ring",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "force" => Some(Self::Force),
+            "hierarchical" => Some(Self::Hierarchical),
+            "ring" => Some(Self::Ring),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Options {
+    pub mode: Mode,
+    pub attraction: f64,
+    pub repulsion: f64,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            mode: Mode::Force,
+            attraction: 1.0,
+            repulsion: 1.0,
+        }
+    }
+}
+
+pub fn compute_incremental(
+    paths: &[String],
+    edges: &[u32],
+    repulsion: f64,
+    cached: &HashMap<String, (f32, f32)>,
+) -> Vec<f32> {
+    compute_incremental_with_options(
+        paths,
+        edges,
+        Options {
+            repulsion,
+            ..Options::default()
+        },
+        cached,
+    )
+}
+
+pub fn compute_incremental_with_options(
+    paths: &[String],
+    edges: &[u32],
+    options: Options,
+    cached: &HashMap<String, (f32, f32)>,
+) -> Vec<f32> {
+    let mut positions = vec![f32::NAN; paths.len() * 2];
+    let mut missing = Vec::new();
+    for (node, path) in paths.iter().enumerate() {
+        if let Some((x, y)) = cached
+            .get(path)
+            .filter(|(x, y)| x.is_finite() && y.is_finite())
+        {
+            positions[node * 2] = *x;
+            positions[node * 2 + 1] = *y;
+        } else {
+            missing.push(node);
+        }
+    }
+    if missing.is_empty() {
+        return positions;
+    }
+    if missing.len() == paths.len() {
+        return compute_with_options(paths.len(), edges, options);
+    }
+
+    let adjacency = Adjacency::build(paths.len(), edges);
+    let mut outer_radius = positions
+        .chunks_exact(2)
+        .filter(|pair| pair[0].is_finite() && pair[1].is_finite())
+        .map(|pair| f64::from(pair[0]).hypot(f64::from(pair[1])))
+        .fold(0.0f64, f64::max);
+    for node in missing {
+        let neighbors = adjacency.neighbours(node as u32);
+        let mut center_x = 0.0f64;
+        let mut center_y = 0.0f64;
+        let mut count = 0usize;
+        for neighbor in neighbors {
+            let slot = *neighbor as usize * 2;
+            if positions[slot].is_finite() && positions[slot + 1].is_finite() {
+                center_x += f64::from(positions[slot]);
+                center_y += f64::from(positions[slot + 1]);
+                count += 1;
+            }
+        }
+        let seed = paths[node]
+            .bytes()
+            .fold(0xcbf29ce484222325u64, |hash, byte| {
+                (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+            });
+        let angle = (seed as f64) * GOLDEN_ANGLE;
+        let distance = NODE_SPACING * (1.0 + (seed % 7) as f64 * 0.15);
+        if count > 0 {
+            center_x /= count as f64;
+            center_y /= count as f64;
+            center_x += distance * angle.cos();
+            center_y += distance * angle.sin();
+        } else {
+            outer_radius += distance;
+            center_x = outer_radius * angle.cos();
+            center_y = outer_radius * angle.sin();
+        }
+        positions[node * 2] = center_x as f32;
+        positions[node * 2 + 1] = center_y as f32;
+    }
+    positions
+}
+
 pub fn compute(node_count: usize, edges: &[u32], repulsion: f64) -> Vec<f32> {
+    compute_with_options(
+        node_count,
+        edges,
+        Options {
+            repulsion,
+            ..Options::default()
+        },
+    )
+}
+
+pub fn compute_with_options(node_count: usize, edges: &[u32], options: Options) -> Vec<f32> {
     let mut positions = vec![0.0f32; node_count * 2];
     if node_count == 0 {
         return positions;
     }
+    if options.mode != Mode::Force {
+        return compute_non_force(node_count, edges, options);
+    }
+    let repulsion = options.repulsion;
     let adjacency = Adjacency::build(node_count, edges);
     let groups = group_by_component(node_count, edges);
     let (core, rest) = groups.split_first().expect("at least one component");
-    let (orphans, clusters): (Vec<_>, Vec<_>) =
-        rest.iter().partition(|members| members.len() == 1);
-    let core_radius = place_core(core, &adjacency, repulsion, &mut positions);
-    place_belt(&clusters, &orphans, &adjacency, repulsion, core_radius, &mut positions);
+    let (orphans, clusters): (Vec<_>, Vec<_>) = rest.iter().partition(|members| members.len() == 1);
+    let core_radius = place_core(
+        core,
+        &adjacency,
+        repulsion,
+        options.attraction,
+        &mut positions,
+    );
+    place_belt(
+        &clusters,
+        &orphans,
+        &adjacency,
+        repulsion,
+        options.attraction,
+        core_radius,
+        &mut positions,
+    );
     clear_the_promised_gap(&mut positions);
     let spread = repulsion.clamp(MIN_SPREAD, MAX_SPREAD) as f32;
     for value in positions.iter_mut() {
@@ -35,8 +191,76 @@ pub fn compute(node_count: usize, edges: &[u32], repulsion: f64) -> Vec<f32> {
     positions
 }
 
+fn compute_non_force(node_count: usize, edges: &[u32], options: Options) -> Vec<f32> {
+    let groups = group_by_component(node_count, edges);
+    let mut positions = vec![0.0f32; node_count * 2];
+    match options.mode {
+        Mode::Force => unreachable!(),
+        Mode::Ring => {
+            let spread = options
+                .repulsion
+                .clamp(MIN_SPREAD, MAX_SPREAD)
+                .max(MIN_NODE_GAP);
+            let radius = node_count.max(1) as f64 * NODE_SPACING / (2.0 * PI * spread);
+            place_ring(
+                &(0..node_count as u32).collect::<Vec<_>>(),
+                0.0,
+                0.0,
+                radius,
+                &mut positions,
+            );
+        }
+        Mode::Hierarchical => {
+            let adjacency = Adjacency::build(node_count, edges);
+            let mut component_x = 0.0;
+            let mut depth = vec![usize::MAX; node_count];
+            for members in groups {
+                let root = members[0];
+                let mut queue = std::collections::VecDeque::from([root]);
+                depth[root as usize] = 0;
+                while let Some(node) = queue.pop_front() {
+                    for neighbour in adjacency.neighbours(node) {
+                        if depth[*neighbour as usize] == usize::MAX {
+                            depth[*neighbour as usize] = depth[node as usize] + 1;
+                            queue.push_back(*neighbour);
+                        }
+                    }
+                }
+                let max_depth = members
+                    .iter()
+                    .map(|node| depth[*node as usize])
+                    .max()
+                    .unwrap_or(0);
+                let mut rows = vec![Vec::new(); max_depth + 1];
+                for node in members {
+                    rows[depth[node as usize]].push(node);
+                }
+                let max_width = rows.iter().map(Vec::len).max().unwrap_or(1);
+                for (level, row) in rows.iter_mut().enumerate() {
+                    row.sort_unstable();
+                    let width = row.len() as f64;
+                    let left = component_x + (max_width as f64 - width) * NODE_SPACING * 0.5;
+                    for (slot, node) in row.iter().enumerate() {
+                        let index = *node as usize * 2;
+                        positions[index] = (left + slot as f64 * NODE_SPACING) as f32;
+                        positions[index + 1] = (level as f64 * NODE_SPACING) as f32;
+                    }
+                }
+                component_x += (max_width as f64 + 2.0) * NODE_SPACING;
+            }
+        }
+    }
+    for value in &mut positions {
+        *value *= options.repulsion.clamp(MIN_SPREAD, MAX_SPREAD) as f32;
+    }
+    positions
+}
+
 fn clear_the_promised_gap(positions: &mut [f32]) {
-    let mut relaxed = positions.iter().map(|value| f64::from(*value)).collect::<Vec<_>>();
+    let mut relaxed = positions
+        .iter()
+        .map(|value| f64::from(*value))
+        .collect::<Vec<_>>();
     separate::separate(&mut relaxed, MIN_NODE_GAP, SEPARATION_PASSES);
     for (slot, value) in relaxed.iter().enumerate() {
         positions[slot] = *value as f32;
@@ -63,13 +287,15 @@ fn place_core(
     members: &[u32],
     adjacency: &Adjacency,
     repulsion: f64,
+    attraction: f64,
     positions: &mut [f32],
 ) -> f64 {
     if members.len() < 3 {
         return place_ring(members, 0.0, 0.0, NODE_SPACING, positions);
     }
     let spread = NODE_SPACING * (members.len() as f64).sqrt() * 0.75;
-    let Some(coordinates) = shaped_component(members, adjacency, spread, repulsion) else {
+    let Some(coordinates) = shaped_component(members, adjacency, spread, repulsion, attraction)
+    else {
         return place_ring(members, 0.0, 0.0, spread, positions);
     };
     let mut radius = 0.0f64;
@@ -87,6 +313,7 @@ fn shaped_component(
     adjacency: &Adjacency,
     spread: f64,
     repulsion: f64,
+    attraction: f64,
 ) -> Option<Vec<f64>> {
     let mut coordinates = pivot_mds(members, adjacency)?;
     let scale = spread / rms_radius(&coordinates).max(f64::EPSILON);
@@ -106,6 +333,7 @@ fn shaped_component(
             ticks,
             spacing: NODE_SPACING,
             repulsion,
+            attraction,
         },
     );
     normalize_spacing(&mut coordinates, &edges);
@@ -174,6 +402,7 @@ fn place_belt(
     orphans: &[&Vec<u32>],
     adjacency: &Adjacency,
     repulsion: f64,
+    attraction: f64,
     core_radius: f64,
     positions: &mut [f32],
 ) {
@@ -182,7 +411,7 @@ fn place_belt(
     let mut seat = 0usize;
     for members in clusters {
         let spread = NODE_SPACING * (members.len() as f64).sqrt() * 0.6;
-        let shape = shaped_component(members, adjacency, spread, repulsion);
+        let shape = shaped_component(members, adjacency, spread, repulsion, attraction);
         let own = match &shape {
             Some(coordinates) => outer_radius(coordinates),
             None => spread.max(NODE_SPACING),
@@ -285,14 +514,27 @@ fn pivot_mds(members: &[u32], adjacency: &Adjacency) -> Option<Vec<f64>> {
         .map(|value| (*value as f64) * (*value as f64))
         .collect::<Vec<_>>();
     let column_means = (0..pivot_count)
-        .map(|round| squared[round * size..(round + 1) * size].iter().sum::<f64>() / size as f64)
+        .map(|round| {
+            squared[round * size..(round + 1) * size]
+                .iter()
+                .sum::<f64>()
+                / size as f64
+        })
         .collect::<Vec<_>>();
     let grand_mean = column_means.iter().sum::<f64>() / pivot_count as f64;
 
     let mut gram = vec![0.0f64; pivot_count * pivot_count];
     let mut row = vec![0.0f64; pivot_count];
     for slot in 0..size {
-        centered_row(&squared, size, pivot_count, slot, &column_means, grand_mean, &mut row);
+        centered_row(
+            &squared,
+            size,
+            pivot_count,
+            slot,
+            &column_means,
+            grand_mean,
+            &mut row,
+        );
         for left in 0..pivot_count {
             for right in left..pivot_count {
                 gram[left * pivot_count + right] += row[left] * row[right];
@@ -312,7 +554,15 @@ fn pivot_mds(members: &[u32], adjacency: &Adjacency) -> Option<Vec<f64>> {
 
     let mut coordinates = vec![0.0f64; size * 2];
     for slot in 0..size {
-        centered_row(&squared, size, pivot_count, slot, &column_means, grand_mean, &mut row);
+        centered_row(
+            &squared,
+            size,
+            pivot_count,
+            slot,
+            &column_means,
+            grand_mean,
+            &mut row,
+        );
         let mut x = 0.0;
         let mut y = 0.0;
         for round in 0..pivot_count {
@@ -472,7 +722,9 @@ fn normalize(vector: &mut [f64]) -> Option<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{compute, MIN_NODE_GAP, NODE_SPACING, ORPHAN_SPACING};
+    use super::{
+        compute, compute_with_options, Mode, Options, MIN_NODE_GAP, NODE_SPACING, ORPHAN_SPACING,
+    };
 
     fn distance(positions: &[f32], left: usize, right: usize) -> f32 {
         let dx = positions[left * 2] - positions[right * 2];
@@ -614,7 +866,10 @@ mod tests {
             farthest < core + ORPHAN_SPACING as f32 * 10.0,
             "orphans reached {farthest} while the core ends at {core}"
         );
-        assert_eq!(lonely, 0, "some notes without links ended up far from the rest");
+        assert_eq!(
+            lonely, 0,
+            "some notes without links ended up far from the rest"
+        );
     }
 
     #[test]
@@ -731,7 +986,92 @@ mod tests {
         let loose = median_neighbour_gap(&compute(36, &edges, 2.5), &edges);
 
         assert!(loose > tight * 3.0, "{tight} against {loose}");
-        assert!(tight > 0.5, "neighbours must never collapse onto each other: {tight}");
+        assert!(
+            tight > 0.5,
+            "neighbours must never collapse onto each other: {tight}"
+        );
+    }
+
+    #[test]
+    fn hierarchical_layout_is_deterministic_for_chains_cycles_and_orphans() {
+        let edges = [0, 1, 1, 2, 3, 4, 4, 5, 5, 3];
+        let options = Options {
+            mode: Mode::Hierarchical,
+            ..Options::default()
+        };
+        let first = compute_with_options(8, &edges, options);
+        assert_eq!(first, compute_with_options(8, &edges, options));
+        assert_eq!(first[0], 0.0);
+        assert_eq!(first[1], 0.0);
+        assert_eq!(first[3], 1.0);
+        assert_eq!(first[5], 2.0);
+        assert!(first[12] > first[8]);
+        assert!(first[14] > first[12]);
+    }
+
+    #[test]
+    fn ring_layout_places_all_nodes_on_one_deterministic_ring() {
+        let positions = compute_with_options(
+            6,
+            &[0, 1, 2, 3],
+            Options {
+                mode: Mode::Ring,
+                ..Options::default()
+            },
+        );
+        let radius = positions[0].hypot(positions[1]);
+        for pair in positions.chunks_exact(2) {
+            assert!((pair[0].hypot(pair[1]) - radius).abs() < 1e-5);
+        }
+        assert_eq!(
+            positions,
+            compute_with_options(
+                6,
+                &[0, 1, 2, 3],
+                Options {
+                    mode: Mode::Ring,
+                    ..Options::default()
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn default_force_options_preserve_the_original_layout() {
+        let edges = [0, 1, 1, 2, 2, 3, 3, 0, 1, 3];
+        assert_eq!(
+            compute(4, &edges, 1.0),
+            compute_with_options(4, &edges, Options::default())
+        );
+    }
+
+    #[test]
+    fn attraction_changes_link_spacing_independently_from_repulsion() {
+        let edges = [0, 1, 1, 2, 2, 3, 3, 4];
+        let weak = compute_with_options(
+            5,
+            &edges,
+            Options {
+                attraction: 0.5,
+                ..Options::default()
+            },
+        );
+        let strong = compute_with_options(
+            5,
+            &edges,
+            Options {
+                attraction: 2.0,
+                ..Options::default()
+            },
+        );
+        let mean_link_length = |positions: &[f32]| {
+            edges
+                .chunks_exact(2)
+                .map(|edge| distance(positions, edge[0] as usize, edge[1] as usize))
+                .sum::<f32>()
+                / (edges.len() / 2) as f32
+        };
+        assert_ne!(mean_link_length(&weak), mean_link_length(&strong));
     }
 
     fn median_neighbour_gap(positions: &[f32], edges: &[u32]) -> f32 {
@@ -745,7 +1085,9 @@ mod tests {
 
     fn extent(positions: &[f32], axis: usize) -> f32 {
         let values = positions.iter().skip(axis).step_by(2);
-        let min = values.clone().fold(f32::INFINITY, |left, right| left.min(*right));
+        let min = values
+            .clone()
+            .fold(f32::INFINITY, |left, right| left.min(*right));
         let max = values.fold(f32::NEG_INFINITY, |left, right| left.max(*right));
         (max - min).max(1e-6)
     }
@@ -800,5 +1142,41 @@ mod repulsion {
             strong > weak * 1.1,
             "repulsion has no visible effect: {weak} against {strong}"
         );
+    }
+}
+
+#[cfg(test)]
+mod incremental {
+    use super::compute_incremental;
+    use std::collections::HashMap;
+
+    #[test]
+    fn preserves_existing_coordinates_and_places_only_new_nodes() {
+        let paths = vec!["a".to_owned(), "b".to_owned(), "c".to_owned()];
+        let cached = HashMap::from([
+            ("a".to_owned(), (10.0, 11.0)),
+            ("b".to_owned(), (20.0, 21.0)),
+        ]);
+
+        let positions = compute_incremental(&paths, &[1, 2], 1.0, &cached);
+
+        assert_eq!(&positions[0..2], &[10.0, 11.0]);
+        assert_eq!(&positions[2..4], &[20.0, 21.0]);
+        assert!(positions[4].is_finite() && positions[5].is_finite());
+        assert_ne!(&positions[4..6], &[20.0, 21.0]);
+    }
+
+    #[test]
+    fn cached_positions_follow_stable_paths_when_node_order_changes() {
+        let paths = vec!["b".to_owned(), "a".to_owned()];
+        let cached = HashMap::from([
+            ("a".to_owned(), (10.0, 11.0)),
+            ("b".to_owned(), (20.0, 21.0)),
+        ]);
+
+        let positions = compute_incremental(&paths, &[0, 1], 1.0, &cached);
+
+        assert_eq!(&positions[0..2], &[20.0, 21.0]);
+        assert_eq!(&positions[2..4], &[10.0, 11.0]);
     }
 }

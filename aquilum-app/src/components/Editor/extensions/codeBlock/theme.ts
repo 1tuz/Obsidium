@@ -1,6 +1,33 @@
 import { EditorView } from '@codemirror/view';
 
 export const codeBlockTheme = EditorView.theme({
+  '.q-md-code-controls': {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 'var(--q-gap-sm)',
+    padding: 'var(--q-space-8) var(--q-block-padding) 0',
+    backgroundColor: 'var(--q-block-bg)',
+    borderInline: 'var(--q-border-1) solid var(--q-block-border)',
+    borderTop: 'var(--q-border-1) solid var(--q-block-border)',
+    borderTopLeftRadius: 'var(--q-block-radius)',
+    borderTopRightRadius: 'var(--q-block-radius)',
+  },
+  '.q-md-code-controls__language, .q-md-code-controls__copy': {
+    minHeight: 'var(--q-size-24)',
+    padding: '0 var(--q-padding-xs)',
+    border: 'var(--q-border-1) solid var(--q-border-default)',
+    borderRadius: 'var(--q-radius-md)',
+    backgroundColor: 'var(--q-bg-surface-overlay)',
+    color: 'var(--q-text-primary)',
+    fontFamily: 'var(--q-font-family-ui)',
+    fontSize: 'var(--q-font-size-ui-sm)',
+  },
+  '.q-md-code-controls__language:focus-visible, .q-md-code-controls__copy:focus-visible': {
+    outline: 'var(--q-border-2) solid var(--q-border-focus)',
+    outlineOffset: 'var(--q-border-2)',
+  },
+  '.q-md-code-controls__copy': { cursor: 'pointer' },
   '.cm-line.q-md-code-line': {
     position: 'relative',
     boxSizing: 'border-box',

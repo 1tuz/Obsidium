@@ -2,7 +2,7 @@ import { unifiedMergeView } from '@codemirror/merge';
 import { EditorState } from '@codemirror/state';
 import { drawSelection, EditorView } from '@codemirror/view';
 import type { VersionTexts } from '../../modules/history';
-import { aquilumCodeMirrorTheme } from '../Common/codeMirror';
+import { obsidiumCodeMirrorTheme } from '../Common/codeMirror';
 
 const DIFF_TIMEOUT_MS = 300;
 
@@ -21,7 +21,7 @@ export function createVersionEditor(parent: HTMLElement, texts: VersionTexts): E
     state: EditorState.create({
       doc: texts.text,
       extensions: [
-        aquilumCodeMirrorTheme,
+        obsidiumCodeMirrorTheme,
         drawSelection(),
         EditorView.lineWrapping,
         EditorState.readOnly.of(true),

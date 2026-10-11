@@ -48,6 +48,10 @@ fn refuses_malformed_sections() {
 
 #[test]
 fn computes_the_length_after_the_edits_in_utf16_units() {
-    let edits = vec![TextEdit { from: 0, to: 2, insert: "🎉🎉".into() }];
+    let edits = vec![TextEdit {
+        from: 0,
+        to: 2,
+        insert: "🎉🎉".into(),
+    }];
     assert_eq!(length_after(&edits, 13), 15);
 }

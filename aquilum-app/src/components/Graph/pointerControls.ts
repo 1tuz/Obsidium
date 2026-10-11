@@ -4,7 +4,10 @@ const DRAG_THRESHOLD_PIXELS = 2;
 
 export interface PointerTarget {
   panBy(dx: number, dy: number): void;
+  panToBy(dx: number, dy: number): void;
   dragging(active: boolean): void;
+  nodeAt(paddingBoxX: number, paddingBoxY: number): number;
+  moveNode(node: number, paddingBoxX: number, paddingBoxY: number): void;
   zoomBy(factor: number, paddingBoxX: number, paddingBoxY: number): void;
   pointerAt(paddingBoxX: number, paddingBoxY: number): void;
   select(paddingBoxX: number, paddingBoxY: number): void;
@@ -33,6 +36,7 @@ export function attachPointerControls(
 ): () => void {
   const pointers = new Map<number, Point>();
   let dragged = false;
+  let grabbedNode = -1;
   let gestureScale = 1;
   const wheelGestures = new WheelGestureReader();
 
@@ -52,7 +56,7 @@ export function attachPointerControls(
     event.stopPropagation();
     const gesture = wheelGestures.read(event, event.timeStamp);
     if (gesture.kind === 'pan') {
-      target.panBy(gesture.dx, gesture.dy);
+      target.panToBy(gesture.dx, gesture.dy);
       return;
     }
     target.zoomBy(gesture.factor, event.offsetX, event.offsetY);
@@ -62,8 +66,13 @@ export function attachPointerControls(
     if (event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (pointers.size === 1) dragged = false;
-    else startDragging();
+    if (pointers.size === 1) {
+      dragged = false;
+      grabbedNode = target.nodeAt(event.offsetX, event.offsetY);
+    } else {
+      grabbedNode = -1;
+      startDragging();
+    }
   };
 
   const handlePointerMove = (event: PointerEvent) => {
@@ -77,7 +86,11 @@ export function attachPointerControls(
     const dx = after.x - before.x;
     const dy = after.y - before.y;
     if (Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD_PIXELS) startDragging();
-    target.panBy(dx, dy);
+    if (pointers.size === 1 && grabbedNode >= 0) {
+      target.moveNode(grabbedNode, event.offsetX, event.offsetY);
+    } else {
+      target.panBy(dx, dy);
+    }
     if (pointers.size < 2 || before.radius === 0) return;
     const anchor = paddingBoxOf(after.x, after.y);
     target.zoomBy(after.radius / before.radius, anchor.x, anchor.y);
@@ -89,6 +102,7 @@ export function attachPointerControls(
     if (pointers.size > 0) return;
     if (dragged) {
       target.dragging(false);
+      grabbedNode = -1;
       return;
     }
     target.select(event.offsetX, event.offsetY);
@@ -97,6 +111,7 @@ export function attachPointerControls(
   const handlePointerCancel = (event: PointerEvent) => {
     if (!pointers.delete(event.pointerId)) return;
     if (pointers.size === 0 && dragged) target.dragging(false);
+    if (pointers.size === 0) grabbedNode = -1;
   };
 
   const handleGestureStart = (event: Event) => {

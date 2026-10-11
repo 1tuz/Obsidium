@@ -14,10 +14,21 @@ use super::constants::{
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum CellPart {
-    Text { text: String },
-    Link { target: String, text: String },
-    Progress { percent: f64 },
-    Check { done: bool, target: String, line: usize },
+    Text {
+        text: String,
+    },
+    Link {
+        target: String,
+        text: String,
+    },
+    Progress {
+        percent: f64,
+    },
+    Check {
+        done: bool,
+        target: String,
+        line: usize,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -46,11 +57,18 @@ struct Entry {
 
 impl Entry {
     fn scope(&self) -> Scope<'_> {
-        Scope { note: self.note.as_deref(), vars: &self.vars, local: None }
+        Scope {
+            note: self.note.as_deref(),
+            vars: &self.vars,
+            local: None,
+        }
     }
 
     fn var(&self, name: &str) -> Option<&Value> {
-        self.vars.iter().find(|(key, _)| key == name).map(|(_, value)| value)
+        self.vars
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value)
     }
 
     fn title_cell(&self) -> Cell {
@@ -71,13 +89,23 @@ impl Entry {
 
 pub fn run(query: &Query, rows: Vec<Row>) -> Result<QueryOutput, String> {
     let entries: Vec<Entry> = if matches!(query.source, Some(Source::Once)) {
-        vec![Entry { note: None, vars: Vec::new() }]
+        vec![Entry {
+            note: None,
+            vars: Vec::new(),
+        }]
     } else {
         rows.into_iter()
-            .map(|row| Entry { note: Some(Rc::new(row)), vars: Vec::new() })
+            .map(|row| Entry {
+                note: Some(Rc::new(row)),
+                vars: Vec::new(),
+            })
             .collect()
     };
-    let entries = if matches!(query.shape, Shape::Tasks { .. }) { tasks_of(entries) } else { entries };
+    let entries = if matches!(query.shape, Shape::Tasks { .. }) {
+        tasks_of(entries)
+    } else {
+        entries
+    };
     let mut entries = apply_clauses(query, entries)?;
     let total = entries.len();
     let truncated = total > MAX_ROWS;
@@ -100,7 +128,9 @@ pub fn run(query: &Query, rows: Vec<Row>) -> Result<QueryOutput, String> {
 fn tasks_of(entries: Vec<Entry>) -> Vec<Entry> {
     let mut spread = Vec::new();
     for entry in entries {
-        let Some(note) = entry.note.clone() else { continue };
+        let Some(note) = entry.note.clone() else {
+            continue;
+        };
         for task in &note.tasks {
             spread.push(Entry {
                 note: Some(note.clone()),
@@ -120,10 +150,20 @@ fn task_list(entries: &[Entry], show_path: bool, total: usize, truncated: bool) 
     for entry in entries {
         let mut parts = vec![CellPart::Check {
             done: entry.var(TASK_DONE).is_some_and(|value| value.truthy()),
-            target: entry.note.as_ref().map(|note| note.relative.clone()).unwrap_or_default(),
-            line: entry.var(TASK_LINE).and_then(|value| value.as_number()).unwrap_or(0.0) as usize,
+            target: entry
+                .note
+                .as_ref()
+                .map(|note| note.relative.clone())
+                .unwrap_or_default(),
+            line: entry
+                .var(TASK_LINE)
+                .and_then(|value| value.as_number())
+                .unwrap_or(0.0) as usize,
         }];
-        let text = entry.var(TASK_TEXT).map(|value| value.text()).unwrap_or_default();
+        let text = entry
+            .var(TASK_TEXT)
+            .map(|value| value.text())
+            .unwrap_or_default();
         match entry.note.as_ref().filter(|_| show_path) {
             Some(note) => parts.push(CellPart::Link {
                 target: note.relative.clone(),
@@ -212,7 +252,10 @@ fn group(entries: Vec<Entry>, value: &Expr, name: &str) -> Result<Vec<Entry>, St
         .into_iter()
         .map(|(key, items)| Entry {
             note: None,
-            vars: vec![(name.to_owned(), key), (ROWS.to_owned(), Value::List(items))],
+            vars: vec![
+                (name.to_owned(), key),
+                (ROWS.to_owned(), Value::List(items)),
+            ],
         })
         .collect())
 }
@@ -231,7 +274,10 @@ fn flatten(entries: Vec<Entry>, value: &Expr, name: &str) -> Result<Vec<Entry>, 
                 Some((_, existing)) => *existing = item,
                 None => vars.push((name.to_owned(), item)),
             }
-            spread.push(Entry { note: entry.note.clone(), vars });
+            spread.push(Entry {
+                note: entry.note.clone(),
+                vars,
+            });
         }
     }
     Ok(spread)
@@ -297,7 +343,9 @@ fn list(
                 let computed = cell(evaluate(expression, &entry.scope())?);
                 if show_path {
                     let mut parts = entry.title_cell().parts;
-                    parts.push(CellPart::Text { text: ": ".to_owned() });
+                    parts.push(CellPart::Text {
+                        text: ": ".to_owned(),
+                    });
                     parts.extend(computed.parts);
                     Cell { parts }
                 } else {
@@ -323,7 +371,9 @@ fn cell(value: Value) -> Cell {
     let mut parts = Vec::new();
     push_parts(&value, &mut parts);
     if parts.is_empty() {
-        parts.push(CellPart::Text { text: String::new() });
+        parts.push(CellPart::Text {
+            text: String::new(),
+        });
     }
     Cell { parts }
 }
@@ -338,7 +388,9 @@ fn push_parts(value: &Value, parts: &mut Vec<CellPart>) {
         Value::List(items) => {
             for (index, item) in items.iter().enumerate() {
                 if index > 0 {
-                    parts.push(CellPart::Text { text: ", ".to_owned() });
+                    parts.push(CellPart::Text {
+                        text: ", ".to_owned(),
+                    });
                 }
                 push_parts(item, parts);
             }

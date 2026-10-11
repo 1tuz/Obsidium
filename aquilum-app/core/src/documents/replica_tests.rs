@@ -1,7 +1,11 @@
 use super::*;
 
 fn edit(from: usize, to: usize, insert: &str) -> TextEdit {
-    TextEdit { from, to, insert: insert.into() }
+    TextEdit {
+        from,
+        to,
+        insert: insert.into(),
+    }
 }
 
 #[test]
@@ -59,7 +63,10 @@ fn rejects_garbage_instead_of_corrupting_the_document() {
 const YJS_UPDATE: &str = "0105cf8bf2ee080004010a636f64656d6972726f7204f09f988084cf8bf2ee08010d20d09fd180d0b8d0b2d0b5d18281cf8bf2ee08080284cf8bf2ee080a0ad0b8d18020f09d849e0ac4cf8bf2ee0801cf8bf2ee0802012101cf8bf2ee08010902";
 
 fn from_hex(hex: &str) -> Vec<u8> {
-    (0..hex.len()).step_by(2).map(|at| u8::from_str_radix(&hex[at..at + 2], 16).expect("hex")).collect()
+    (0..hex.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(&hex[at..at + 2], 16).expect("hex"))
+        .collect()
 }
 
 #[test]

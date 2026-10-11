@@ -31,9 +31,12 @@ impl UiStateService {
     }
 
     pub fn reset(&self, now_ms: i64) -> Result<(), UiStateError> {
-        let mut storage = self.storage.lock().map_err(|error| UiStateError::Database {
-            message: error.to_string(),
-        })?;
+        let mut storage = self
+            .storage
+            .lock()
+            .map_err(|error| UiStateError::Database {
+                message: error.to_string(),
+            })?;
         *storage = Storage::Unavailable("сбрасывается".to_owned());
         let set_aside = set_aside_database(&self.path, now_ms);
         *storage = open_storage(&self.path);
@@ -160,9 +163,14 @@ impl UiStateService {
         self.with_database(|database| database.load_base_view(workspace_id, base_file))
     }
 
-    pub fn save_base_view(&self, input: &super::models::SaveBaseViewStateInput) -> Result<(), UiStateError> {
+    pub fn save_base_view(
+        &self,
+        input: &super::models::SaveBaseViewStateInput,
+    ) -> Result<(), UiStateError> {
         if input.base_file.trim().is_empty() {
-            return Err(UiStateError::InvalidInput { message: "base file path must not be empty".to_owned() });
+            return Err(UiStateError::InvalidInput {
+                message: "base file path must not be empty".to_owned(),
+            });
         }
         self.with_database(|database| database.save_base_view(input))
     }

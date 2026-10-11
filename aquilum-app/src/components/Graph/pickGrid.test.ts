@@ -13,7 +13,11 @@ function snapshot(positions: number[]): GraphSnapshot {
     createdDays: new Float32Array(nodeCount),
     modifiedDays: new Float32Array(nodeCount),
     degrees: new Uint32Array(nodeCount),
+    nodeIds: new Uint32Array(nodeCount * 2),
+    clusterIds: new Uint32Array(nodeCount),
     edges: new Uint32Array(0),
+    edgeDirections: new Uint32Array(0),
+    edgeTypes: new Uint32Array(0),
   };
 }
 

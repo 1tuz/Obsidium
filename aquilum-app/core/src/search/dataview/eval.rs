@@ -22,7 +22,11 @@ pub struct Scope<'a> {
 
 impl<'a> Scope<'a> {
     fn inner(&'a self, local: &'a Local<'a>) -> Scope<'a> {
-        Scope { note: self.note, vars: self.vars, local: Some(local) }
+        Scope {
+            note: self.note,
+            vars: self.vars,
+            local: Some(local),
+        }
     }
 
     fn lookup(&self, name: &str) -> Option<Value> {
@@ -33,7 +37,11 @@ impl<'a> Scope<'a> {
             }
             local = found.outer;
         }
-        if let Some((_, value)) = self.vars.iter().find(|(key, _)| key.eq_ignore_ascii_case(name)) {
+        if let Some((_, value)) = self
+            .vars
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+        {
             return Some(value.clone());
         }
         self.note.and_then(|note| note.field(name)).map(field_value)
@@ -64,9 +72,14 @@ pub fn evaluate(expr: &Expr, scope: &Scope<'_>) -> Result<Value, String> {
                 },
             })
         }
-        Expr::Binary { operator, left, right } => binary(*operator, left, right, scope),
+        Expr::Binary {
+            operator,
+            left,
+            right,
+        } => binary(*operator, left, right, scope),
         Expr::Lambda { .. } => Err(
-            "Стрелочная функция бывает только аргументом «filter», «map», «any» или «all»".to_owned(),
+            "Стрелочная функция бывает только аргументом «filter», «map», «any» или «all»"
+                .to_owned(),
         ),
     }
 }
@@ -84,7 +97,11 @@ pub fn note_object(row: &Row) -> Value {
             ("size".to_owned(), Value::Number(row.size as f64)),
         ]),
     )];
-    fields.extend(row.fields.iter().map(|field| (field.key.clone(), field_value(field))));
+    fields.extend(
+        row.fields
+            .iter()
+            .map(|field| (field.key.clone(), field_value(field))),
+    );
     Value::Object(fields)
 }
 
@@ -109,9 +126,14 @@ fn variable(name: &str, scope: &Scope<'_>) -> Value {
 
 fn field_value(field: &crate::search::fields::Field) -> Value {
     match field.kind {
-        FieldKind::List => {
-            Value::List(field.items.iter().cloned().map(Value::Text).collect::<Vec<_>>())
-        }
+        FieldKind::List => Value::List(
+            field
+                .items
+                .iter()
+                .cloned()
+                .map(Value::Text)
+                .collect::<Vec<_>>(),
+        ),
         FieldKind::Number => match field.text.trim().parse::<f64>() {
             Ok(number) => Value::Number(number),
             Err(_) => Value::Text(field.text.clone()),
@@ -149,11 +171,17 @@ fn member(value: &Value, name: &str) -> Value {
             None => Value::Null,
         },
         (Value::List(items), "length") => Value::Number(items.len() as f64),
-        (Value::List(items), _) => Value::List(items.iter().map(|item| member(item, name)).collect()),
+        (Value::List(items), _) => {
+            Value::List(items.iter().map(|item| member(item, name)).collect())
+        }
         (Value::Object(fields), _) => fields
             .iter()
             .find(|(key, _)| key == name)
-            .or_else(|| fields.iter().find(|(key, _)| key.eq_ignore_ascii_case(name)))
+            .or_else(|| {
+                fields
+                    .iter()
+                    .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            })
             .map(|(_, found)| found.clone())
             .unwrap_or(Value::Null),
         (Value::Date(nanos), "year") => Value::Number(note_date::to_civil(*nanos).0 as f64),
@@ -179,14 +207,17 @@ fn file_property(name: &str, row: &Row) -> Result<Value, String> {
         },
         other => {
             return Err(format!(
-                "У файла нет поля «{other}»: есть link, path, name, folder, ctime, mtime, size, tags"
-            ))
+            "У файла нет поля «{other}»: есть link, path, name, folder, ctime, mtime, size, tags"
+        ))
         }
     })
 }
 
 fn note_link(row: &Row) -> Value {
-    Value::Link(Link { target: row.relative.clone(), display: None })
+    Value::Link(Link {
+        target: row.relative.clone(),
+        display: None,
+    })
 }
 
 fn at_index(base: &Value, index: &Value) -> Value {
@@ -204,8 +235,9 @@ fn at_index(base: &Value, index: &Value) -> Value {
 }
 
 fn call(name: &str, arguments: &[Expr], scope: &Scope<'_>) -> Result<Value, String> {
-    if let Some(Expr::Lambda { parameters, body }) =
-        arguments.iter().find(|argument| matches!(argument, Expr::Lambda { .. }))
+    if let Some(Expr::Lambda { parameters, body }) = arguments
+        .iter()
+        .find(|argument| matches!(argument, Expr::Lambda { .. }))
     {
         let over = match arguments.first() {
             Some(first) => evaluate(first, scope)?,
@@ -238,7 +270,11 @@ fn apply_lambda(
     };
     let mut results = Vec::with_capacity(items.len());
     for item in &items {
-        let local = Local { name: parameter, value: item, outer: scope.local };
+        let local = Local {
+            name: parameter,
+            value: item,
+            outer: scope.local,
+        };
         results.push(evaluate(body, &scope.inner(&local))?);
     }
 
@@ -262,14 +298,23 @@ fn apply_lambda(
     })
 }
 
-fn binary(operator: BinaryOp, left: &Expr, right: &Expr, scope: &Scope<'_>) -> Result<Value, String> {
+fn binary(
+    operator: BinaryOp,
+    left: &Expr,
+    right: &Expr,
+    scope: &Scope<'_>,
+) -> Result<Value, String> {
     if operator == BinaryOp::And {
         let left = evaluate(left, scope)?;
-        return Ok(Value::Bool(left.truthy() && evaluate(right, scope)?.truthy()));
+        return Ok(Value::Bool(
+            left.truthy() && evaluate(right, scope)?.truthy(),
+        ));
     }
     if operator == BinaryOp::Or {
         let left = evaluate(left, scope)?;
-        return Ok(Value::Bool(left.truthy() || evaluate(right, scope)?.truthy()));
+        return Ok(Value::Bool(
+            left.truthy() || evaluate(right, scope)?.truthy(),
+        ));
     }
 
     let left = evaluate(left, scope)?;

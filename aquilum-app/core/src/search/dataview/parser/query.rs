@@ -60,7 +60,10 @@ const MIN_REFRESH_SECONDS: u32 = 1;
 
 fn at_every(cursor: &Cursor<'_>) -> bool {
     cursor.at_word("every")
-        && matches!(cursor.peek_after().map(|token| &token.piece), Some(Piece::Number(_)))
+        && matches!(
+            cursor.peek_after().map(|token| &token.piece),
+            Some(Piece::Number(_))
+        )
 }
 
 fn every_seconds(cursor: &mut Cursor<'_>) -> Result<u32, String> {
@@ -84,7 +87,10 @@ fn every_seconds(cursor: &mut Cursor<'_>) -> Result<u32, String> {
 
 fn at_title(cursor: &Cursor<'_>) -> bool {
     cursor.at_word("title")
-        && matches!(cursor.peek_after().map(|token| &token.piece), Some(Piece::Text(_)))
+        && matches!(
+            cursor.peek_after().map(|token| &token.piece),
+            Some(Piece::Text(_))
+        )
 }
 
 fn title_text(cursor: &mut Cursor<'_>) -> Result<String, String> {
@@ -157,10 +163,7 @@ fn column(cursor: &mut Cursor<'_>) -> Result<Column, String> {
     Ok(Column { title, value })
 }
 
-fn named_expression(
-    cursor: &mut Cursor<'_>,
-    fallback: &str,
-) -> Result<(Expr, String), String> {
+fn named_expression(cursor: &mut Cursor<'_>, fallback: &str) -> Result<(Expr, String), String> {
     let from = cursor.offset();
     let value = expression(cursor)?;
     let to = cursor.previous_end();
@@ -272,8 +275,8 @@ fn wiki_target(cursor: &mut Cursor<'_>) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::parse;
     use super::super::super::ast::{Clause, Direction, Expr, Shape, Source};
+    use super::super::parse;
 
     const BACKLINKS: &str = r#"TABLE WITHOUT ID
 link(file.link, title) AS "Ссылающиеся заметки"
@@ -311,7 +314,10 @@ SORT file.ctime DESC"#;
         let Shape::Table { columns, show_path } = &query.shape else {
             panic!("это таблица");
         };
-        assert!(show_path, "без «WITHOUT ID» первая колонка — ссылка на заметку");
+        assert!(
+            show_path,
+            "без «WITHOUT ID» первая колонка — ссылка на заметку"
+        );
         assert_eq!(columns[0].title, "file.ctime");
         assert_eq!(columns[1].title, "rating * 2");
     }
@@ -332,7 +338,8 @@ SORT file.ctime DESC"#;
 
     #[test]
     fn clauses_keep_the_order_they_were_written_in() {
-        let query = parse("LIST FROM \"Книги\" WHERE rating > 3 SORT title LIMIT 10").expect("разобран");
+        let query =
+            parse("LIST FROM \"Книги\" WHERE rating > 3 SORT title LIMIT 10").expect("разобран");
         assert!(matches!(query.clauses[0], Clause::Where(_)));
         assert!(matches!(query.clauses[1], Clause::Sort(_)));
         assert!(matches!(query.clauses[2], Clause::Limit(10)));
@@ -356,11 +363,17 @@ SORT file.ctime DESC"#;
     fn list_takes_an_optional_value() {
         assert!(matches!(
             parse("LIST").unwrap().shape,
-            Shape::List { value: None, show_path: true }
+            Shape::List {
+                value: None,
+                show_path: true
+            }
         ));
         assert!(matches!(
             parse("LIST WITHOUT ID title").unwrap().shape,
-            Shape::List { value: Some(_), show_path: false }
+            Shape::List {
+                value: Some(_),
+                show_path: false
+            }
         ));
     }
 

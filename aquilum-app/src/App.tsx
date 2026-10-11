@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
+import { TextFilePane } from "./components/Editor/TextFilePane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { PaneLayoutView } from "./components/Layout/PaneLayoutView";
 import { WindowControls } from "./components/Layout/WindowControls";
@@ -36,7 +37,9 @@ import { DEFAULT_BUILTINS, DEFAULT_LIVE_TABS, useSettingsStore } from "./modules
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isBasePath, isMarkdownPath } from "./modules/documents/fileGateway";
+import { isBasePath, isCanvasPath, isMarkdownPath, isTextFilePath } from "./modules/documents/fileGateway";
+import { createCanvasFile } from "./modules/canvas/createCanvasFile";
+import { flushCanvasDocuments } from "./modules/canvas/persistence";
 import { fileStem } from "./modules/paths";
 import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
@@ -63,6 +66,8 @@ const CommandPalette = lazy(() => import("./components/Commands/CommandPalette")
   .then((module) => ({ default: module.CommandPalette })));
 const BaseView = lazy(() => import("./components/Bases/BaseView")
   .then((module) => ({ default: module.BaseView })));
+const CanvasView = lazy(() => import("./components/Canvas/CanvasView")
+  .then((module) => ({ default: module.CanvasView })));
 
 export default function App() {
   const search = useOverlay();
@@ -228,6 +233,20 @@ export default function App() {
     activateFile(path, { disposition, paneId });
   }, [activateFile, activeFile, activePaneId, push]);
 
+  const createNewCanvas = useCallback(async () => {
+    if (!workspacePath) return;
+    const path = await createCanvasFile(workspacePath);
+    if (path) openNote(path);
+  }, [openNote, workspacePath]);
+
+  const openCanvas = useCallback(() => {
+    if (activeFile && isCanvasPath(activeFile)) {
+      openNote(activeFile);
+      return;
+    }
+    void createNewCanvas();
+  }, [activeFile, createNewCanvas, openNote]);
+
   const handleOpenExternalUrl = useCallback((url: string) => {
     void openExternalUrl(url).catch((error) => {
       console.error('Failed to open external URL', error);
@@ -259,7 +278,10 @@ export default function App() {
   useWindowDocumentSync();
 
   useTauriSubscription(
-    () => getCurrentWindow().onCloseRequested(() => flushDocuments()),
+    () => getCurrentWindow().onCloseRequested(async (event) => {
+      const results = await Promise.all([flushDocuments(), flushCanvasDocuments()]);
+      if (!results[1]) event.preventDefault();
+    }),
     "window close",
   );
 
@@ -462,6 +484,12 @@ export default function App() {
       run: templates.show,
     },
     {
+      id: 'canvas.new',
+      title: t('commands.newCanvas'),
+      enabled: () => Boolean(workspacePath),
+      run: createNewCanvas,
+    },
+    {
       id: 'search.global',
       title: t('commands.search'),
       shortcut: SHORTCUTS.GLOBAL_SEARCH,
@@ -485,7 +513,7 @@ export default function App() {
     { id: 'theme.toggle', title: t('commands.theme'), run: toggleTheme },
   ]), [
     commandPalette.toggle, config, createNewFile, openGraph, search.show, settings.show,
-    templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
+    templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme, createNewCanvas,
     workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile, kanbanEnabled,
   ]);
 
@@ -619,31 +647,49 @@ export default function App() {
                   />
                 ) : null}
                 {livePanes.filter((tab) => tab.paneId === paneId).map((tab) => (
-                  <EditorPane
-                    key={`${tab.tabId}:${paneId}:${searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.nonce : ''}`}
-                    paneId={paneId}
-                    inactive={tab.tabId !== paneActiveTab?.tabId}
-                    focused={tab.tabId === activeTabId}
-                    canGoBack={canGoBack}
-                    canGoForward={canGoForward}
-                    onNavigate={restoreNavigation}
-                    tab={tab}
-                    remountNonce={searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.nonce : ''}
-                    workspacePath={workspacePath}
-                    ensureLinksReady={ensureLinksReady}
-                    linkRevision={linkIndexRevision}
-                    loadedView={loadedView}
-                    isViewLoaded={isViewLoaded}
-                    viewRevision={viewRevision}
-                    stateError={stateError}
-                    revealOffset={searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.offset : undefined}
-                    onViewStateChange={onViewStateChange}
-                    onFileMissing={closeTab}
-                    onOpenWikiLink={(target, disposition) => handleOpenWikiLink(target, disposition, paneId)}
-                    onOpenExternalUrl={handleOpenExternalUrl}
-                    focusMode={focusMode}
-                    onToggleFocusMode={toggleFocusMode}
-                  />
+                  isCanvasPath(tab.path) ? (
+                    <Suspense key={`${tab.tabId}:${tab.path}`} fallback={null}>
+                      <CanvasView
+                        path={tab.path}
+                        workspacePath={workspacePath ?? ''}
+                        inactive={tab.tabId !== paneActiveTab?.tabId}
+                        indexRevision={linkIndexRevision}
+                        onOpenFile={(path) => openNote(path, { paneId })}
+                      />
+                    </Suspense>
+                  ) : isTextFilePath(tab.path) && !isMarkdownPath(tab.path) ? (
+                    <TextFilePane
+                      key={`${tab.tabId}:${tab.path}`}
+                      path={tab.path}
+                      inactive={tab.tabId !== paneActiveTab?.tabId}
+                    />
+                  ) : (
+                    <EditorPane
+                      key={`${tab.tabId}:${paneId}:${searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.nonce : ''}`}
+                      paneId={paneId}
+                      inactive={tab.tabId !== paneActiveTab?.tabId}
+                      focused={tab.tabId === activeTabId}
+                      canGoBack={canGoBack}
+                      canGoForward={canGoForward}
+                      onNavigate={restoreNavigation}
+                      tab={tab}
+                      remountNonce={searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.nonce : ''}
+                      workspacePath={workspacePath}
+                      ensureLinksReady={ensureLinksReady}
+                      linkRevision={linkIndexRevision}
+                      loadedView={loadedView}
+                      isViewLoaded={isViewLoaded}
+                      viewRevision={viewRevision}
+                      stateError={stateError}
+                      revealOffset={searchReveal?.paneId === paneId && searchReveal.path === tab.path ? searchReveal.offset : undefined}
+                      onViewStateChange={onViewStateChange}
+                      onFileMissing={closeTab}
+                      onOpenWikiLink={(target, disposition) => handleOpenWikiLink(target, disposition, paneId)}
+                      onOpenExternalUrl={handleOpenExternalUrl}
+                      focusMode={focusMode}
+                      onToggleFocusMode={toggleFocusMode}
+                    />
+                  )
                 ))}
               </main>
             </>
@@ -670,6 +716,8 @@ export default function App() {
             : undefined}
           onOpenBoards={focusMode || !kanbanEnabled ? undefined : toggleBoards}
           onOpenFiles={focusMode ? undefined : openFileManager}
+          onOpenCanvas={focusMode ? undefined : openCanvas}
+          canvasActive={Boolean(activeFile && isCanvasPath(activeFile))}
           boardsActive={sidebarPanel === 'boards' && leftSidebarVisible}
           filesActive={sidebarPanel === 'files' && leftSidebarVisible}
         />

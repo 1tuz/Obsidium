@@ -13,12 +13,10 @@ fn parse_uuid(value: String) -> Result<Uuid, UiStateError> {
 
 impl UiStateDatabase {
     pub fn list_workspaces(&self) -> Result<Vec<KnownWorkspace>, UiStateError> {
-        let mut statement = self
-            .connection
-            .prepare(
-                "SELECT id, path, last_seen_ms, home_page FROM workspaces
+        let mut statement = self.connection.prepare(
+            "SELECT id, path, last_seen_ms, home_page FROM workspaces
                  ORDER BY last_seen_ms DESC",
-            )?;
+        )?;
         let rows = statement.query_map([], |row| {
             Ok((
                 row.get::<_, String>(0)?,

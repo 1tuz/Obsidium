@@ -4,7 +4,11 @@ import { Chip } from '../Common/Chip';
 import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
 import { getBacklinks, getOutgoingLinks, type LinkDisposition } from '../../modules/links';
-import { buildLocalGraph, type LocalGraphResult } from './localGraphModel';
+import {
+  buildLocalGraph,
+  type LocalGraphOptions,
+  type LocalGraphResult,
+} from './localGraphModel';
 import './LocalGraph.css';
 
 interface LocalGraphProps {
@@ -16,7 +20,7 @@ interface LocalGraphProps {
   onOpen: (path: string, disposition: LinkDisposition) => void;
 }
 
-type Depth = 1 | 2;
+type Depth = LocalGraphOptions['depth'];
 
 type PositionedNode = LocalGraphResult['nodes'][number] & { x: number; y: number };
 
@@ -100,6 +104,8 @@ export function LocalGraph({
         <span className="q-local-graph__spacer" />
         <Chip label="1" selected={depth === 1} onClick={() => setDepth(1)} />
         <Chip label="2" selected={depth === 2} onClick={() => setDepth(2)} />
+        <Chip label="3" selected={depth === 3} onClick={() => setDepth(3)} />
+        <Chip label="4" selected={depth === 4} onClick={() => setDepth(4)} />
       </div>
 
       {failed ? (

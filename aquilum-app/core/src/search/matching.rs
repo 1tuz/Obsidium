@@ -25,11 +25,13 @@ pub fn query_terms(input: &str) -> Vec<String> {
 
 pub fn analyzed_query_terms(input: &str) -> Vec<String> {
     let mut terms = Vec::new();
-    indexing_tokenizer().token_stream(input).process(&mut |token| {
-        if !token.text.is_empty() {
-            terms.push(token.text.clone());
-        }
-    });
+    indexing_tokenizer()
+        .token_stream(input)
+        .process(&mut |token| {
+            if !token.text.is_empty() {
+                terms.push(token.text.clone());
+            }
+        });
     terms.sort();
     terms.dedup();
     terms

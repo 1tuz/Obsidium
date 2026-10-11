@@ -58,9 +58,10 @@ impl WindowStateManager {
         if self.state.lock().unwrap().is_some() {
             return;
         }
-        let size = window.inner_size().ok().map(|size| {
-            size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0))
-        });
+        let size = window
+            .inner_size()
+            .ok()
+            .map(|size| size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0)));
         let Some(size) = size else {
             return;
         };
@@ -76,10 +77,16 @@ impl WindowStateManager {
 
     pub fn observe(&self, window: &Window) {
         let maximized = window.is_maximized().unwrap_or(false);
-        let size = window.inner_size().ok().map(|size| size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0)));
+        let size = window
+            .inner_size()
+            .ok()
+            .map(|size| size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0)));
         let mut state = self.state.lock().unwrap();
         let next = match (*state, maximized, size) {
-            (Some(previous), true, _) => WindowState { maximized: true, ..previous },
+            (Some(previous), true, _) => WindowState {
+                maximized: true,
+                ..previous
+            },
             (_, false, Some(size)) => WindowState {
                 width: size.width,
                 height: size.height,
@@ -111,7 +118,7 @@ impl WindowStateManager {
             return;
         };
         if let Err(error) = write_file_atomic_impl(&self.path, &json, None) {
-            eprintln!("[aquilum:window] размер окна не сохранён: {error}");
+            eprintln!("[obsidium:window] размер окна не сохранён: {error}");
         }
     }
 }

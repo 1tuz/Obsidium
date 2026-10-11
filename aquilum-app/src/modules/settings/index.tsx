@@ -5,6 +5,7 @@ import { setLanguage } from '../../i18n';
 import { setFilesFolder } from '../docs/vaultFiles';
 import { pxToRem } from '../scaling';
 import { fontStack, IA_WRITER_QUATTRO, knownFont, type FontFamily } from '../../fonts/catalog';
+import type { GraphPreferences, GraphPresets } from '../../components/Graph/graphDisplay';
 
 export interface FontSettings {
   fontFamily: FontFamily;
@@ -36,6 +37,7 @@ interface EditorSettings extends FontSettings {
   saveDebounceMs: number;
   lineHeight: number;
   maxWidthCh: number;
+  markdownReading: MarkdownReadingSettings;
   smartDashes: boolean;
   listCallouts: boolean;
   autoLinkTitle: boolean;
@@ -43,6 +45,28 @@ interface EditorSettings extends FontSettings {
   linkSuggestMinChars: number;
   liveTabs: number;
 }
+
+export type MarkdownReadingStyle = 'theme' | 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
+export type MarkdownReadingTexture = 'off' | 'subtle' | 'visible';
+export type MarkdownReadingFont = 'standard' | 'book';
+
+export interface MarkdownReadingSettings {
+  style: MarkdownReadingStyle;
+  texture: MarkdownReadingTexture;
+  font: MarkdownReadingFont;
+  fontSizePx: number;
+  lineHeight: number;
+  pageWidthCh: number;
+}
+
+export const DEFAULT_MARKDOWN_READING_SETTINGS: MarkdownReadingSettings = {
+  style: 'theme',
+  texture: 'off',
+  font: 'standard',
+  fontSizePx: 18,
+  lineHeight: 1.7,
+  pageWidthCh: 65,
+};
 
 export const DEFAULT_EDITOR_MAX_WIDTH_CH = 65;
 export const DEFAULT_LIVE_TABS = 3;
@@ -137,6 +161,10 @@ export interface AppConfig {
   templates: { folder: string };
   files: { folder: string };
   updates: { auto: boolean };
+  graph?: {
+    preferences: GraphPreferences | null;
+    presets: GraphPresets | null;
+  };
 }
 
 interface SettingsContextValue {
@@ -167,12 +195,15 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
   root.style.setProperty('--q-editor-font-size', pxToRem(font.fontSizeBase));
 }
 
-function withKnownFonts(config: AppConfig): AppConfig {
+export function normalizeConfig(config: AppConfig): AppConfig {
   return {
     ...config,
     builtins: { ...DEFAULT_BUILTINS, ...config.builtins },
     ui: knownFont('ui', config.ui),
-    editor: knownFont('editor', config.editor),
+    editor: {
+      ...knownFont('editor', config.editor),
+      markdownReading: { ...DEFAULT_MARKDOWN_READING_SETTINGS, ...config.editor.markdownReading },
+    },
     reader: knownFont('reader', config.reader),
   };
 }
@@ -188,7 +219,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     const pending = invoke<AppConfig>('get_settings')
       .then((loadedConfig) => {
-        const newConfig = withKnownFonts(loadedConfig);
+        const newConfig = normalizeConfig(loadedConfig);
         applySettingsToDom(newConfig);
         setConfig(newConfig);
         return newConfig;
