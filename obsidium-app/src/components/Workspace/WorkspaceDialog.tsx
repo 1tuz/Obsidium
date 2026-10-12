@@ -1,13 +1,16 @@
 import { t } from '../../i18n';
 import { useCallback, useEffect, useState } from 'react';
-import { Check, FolderOpen, Library, X } from 'lucide';
+import { Check, File, FolderOpen, Library, MoreHorizontal, Settings2, X } from 'lucide';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { Dialog, DialogFooter } from '../Common/Dialog';
 import { EmptyState } from '../Common/EmptyState';
 import { IconButton } from '../Common/IconButton';
+import { Menu } from '../Common/Menu';
 import { ScrollArea } from '../Common/ScrollArea';
+import { useContextMenu } from '../Common/useContextMenu';
 import {
   forgetWorkspace,
   listWorkspaces,
@@ -29,6 +32,7 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgetTarget, setForgetTarget] = useState<KnownWorkspace | null>(null);
+  const [managing, setManaging] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -46,6 +50,7 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
       setError(null);
       setForgetTarget(null);
       setWorkspaces(null);
+      setManaging(false);
       return;
     }
     void reload();
@@ -93,7 +98,7 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
     <>
       <Dialog
         open={open}
-        title={t('workspaces.title')}
+        title={t(managing ? 'workspaces.manageTitle' : 'workspaces.title')}
         closeLabel={t('workspaces.close')}
         className="q-workspace-dialog"
         onClose={onClose}
@@ -109,37 +114,16 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
           ) : workspaces?.map((workspace) => {
             const isCurrent = samePath(workspace.path, currentPath);
             return (
-              <div
+              <WorkspaceRow
                 key={workspace.id}
-                className={`q-workspace-row${isCurrent ? ' q-workspace-row--current' : ''}`}
-              >
-                <button
-                  type="button"
-                  className="q-workspace-row__main"
-                  disabled={pending || isCurrent}
-                  title={workspace.path}
-                  onClick={() => { void switchTo(workspace.path); }}
-                >
-                  <span className="q-workspace-row__icon" aria-hidden="true">
-                    {isCurrent ? <Icon icon={Check} /> : null}
-                  </span>
-                  <span className="q-workspace-row__text">
-                    <span className="q-workspace-row__name">{fileName(workspace.path)}</span>
-                    <span className="q-workspace-row__path">{workspace.path}</span>
-                  </span>
-                </button>
-                {isCurrent ? null : (
-                  <IconButton
-                    size="small"
-                    className="q-workspace-row__forget"
-                    label={t('workspaces.forget', { name: fileName(workspace.path) })}
-                    disabled={pending}
-                    onClick={() => setForgetTarget(workspace)}
-                  >
-                    <Icon icon={X} />
-                  </IconButton>
-                )}
-              </div>
+                workspace={workspace}
+                current={isCurrent}
+                pending={pending}
+                managing={managing}
+                onOpen={() => { void switchTo(workspace.path); }}
+                onForget={() => setForgetTarget(workspace)}
+                onError={setError}
+              />
             );
           })}
         </ScrollArea>
@@ -147,6 +131,16 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
         {error ? <p className="q-workspace-dialog__error" role="alert">{error}</p> : null}
 
         <DialogFooter>
+          {managing ? (
+            <Button variant="ghost" disabled={pending} onClick={() => setManaging(false)}>
+              {t('workspaces.back')}
+            </Button>
+          ) : (
+            <Button variant="ghost" disabled={pending} onClick={() => setManaging(true)}>
+              <Icon icon={Settings2} />
+              {t('workspaces.manage')}
+            </Button>
+          )}
           <Button disabled={pending} onClick={() => { void pickFolder(); }}>
             <Icon icon={FolderOpen} />
             {t('common.openFolder')}
@@ -165,5 +159,102 @@ export function WorkspaceDialog({ open, currentPath, onClose, onOpenWorkspace }:
         onConfirm={() => { void confirmForget(); }}
       />
     </>
+  );
+}
+
+interface WorkspaceRowProps {
+  workspace: KnownWorkspace;
+  current: boolean;
+  pending: boolean;
+  managing: boolean;
+  onOpen: () => void;
+  onForget: () => void;
+  onError: (message: string) => void;
+}
+
+function WorkspaceRow({ workspace, current, pending, managing, onOpen, onForget, onError }: WorkspaceRowProps) {
+  const menu = useContextMenu();
+  const menuItems = [
+    {
+      id: 'copy-id',
+      label: t('workspaces.copyId'),
+      icon: File,
+      onSelect: () => {
+        void navigator.clipboard.writeText(workspace.id).catch((reason) => {
+          console.error('Failed to copy workspace ID', reason);
+          onError(t('workspaces.copyFailed'));
+        });
+      },
+    },
+    {
+      id: 'reveal',
+      label: t('workspaces.reveal'),
+      icon: FolderOpen,
+      onSelect: () => {
+        void revealItemInDir(workspace.path).catch((reason) => {
+          console.error('Failed to reveal workspace folder', reason);
+          onError(t('workspaces.revealFailed'));
+        });
+      },
+    },
+    ...(!current ? [{
+      id: 'forget',
+      label: t('workspaces.forgetFromList'),
+      icon: X,
+      onSelect: onForget,
+    }] : []),
+  ];
+
+  return (
+    <div
+      className={`q-workspace-row${current ? ' q-workspace-row--current' : ''}`}
+      onContextMenu={managing ? menu.onContextMenu : undefined}
+    >
+      <button
+        type="button"
+        className="q-workspace-row__main"
+        disabled={pending || current}
+        title={workspace.path}
+        onClick={onOpen}
+      >
+        <span className="q-workspace-row__icon" aria-hidden="true">
+          {current ? <Icon icon={Check} /> : null}
+        </span>
+        <span className="q-workspace-row__text">
+          <span className="q-workspace-row__name">{fileName(workspace.path)}</span>
+          <span className="q-workspace-row__path">{workspace.path}</span>
+        </span>
+      </button>
+      {managing ? (
+        <IconButton
+          size="small"
+          className="q-workspace-row__menu"
+          label={t('workspaces.actionsFor', { name: fileName(workspace.path) })}
+          disabled={pending}
+          onClick={(event) => menu.onContextMenu(event)}
+        >
+          <Icon icon={MoreHorizontal} />
+        </IconButton>
+      ) : current ? null : (
+        <IconButton
+          size="small"
+          className="q-workspace-row__forget"
+          label={t('workspaces.forget', { name: fileName(workspace.path) })}
+          disabled={pending}
+          onClick={onForget}
+        >
+          <Icon icon={X} />
+        </IconButton>
+      )}
+      {managing ? (
+        <Menu
+          open={menu.open}
+          position={menu.position}
+          items={menuItems}
+          onClose={menu.close}
+          ariaLabel={t('workspaces.actions')}
+        />
+      ) : null}
+    </div>
   );
 }

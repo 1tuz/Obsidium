@@ -97,6 +97,10 @@
   transition: opacity var(--q-duration-fast) var(--q-ease-out);
 }
 
+.q-workspace-row__menu {
+  flex: 0 0 auto;
+}
+
 .q-workspace-row:hover .q-workspace-row__forget,
 .q-workspace-row__forget:focus-visible {
   opacity: 1;
