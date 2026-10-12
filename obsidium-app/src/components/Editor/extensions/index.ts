@@ -79,7 +79,7 @@ export function useEditorExtensions(
                 onOpenExternalUrl,
                 onReadBook: onReadBookCallout ?? (() => {}),
             }),
-            editorLinkExtension(onOpenWikiLink, onOpenExternalUrl, autoLinkTitle),
+            editorLinkExtension(onOpenWikiLink, onOpenExternalUrl, autoLinkTitle, workspacePath, notePath),
             codeBlockExtension,
             hashtagExtension,
             externalRevealExtension,
