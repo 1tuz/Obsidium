@@ -956,6 +956,18 @@
     "menu": { "open": "Открыть", "edit": "Редактировать", "duplicate": "Дублировать", "delete": "Удалить", "group": "Сгруппировать", "ungroup": "Разгруппировать" },
     "errors": { "read": "Не удалось открыть Canvas: {{reason}}", "fileOutsideWorkspace": "Можно добавлять только файлы из этой базы знаний.", "exportFailed": "Не удалось экспортировать доску." }
   },
+  "pdf": {
+    "reader": "Просмотр PDF",
+    "controls": "Управление PDF",
+    "previous": "Предыдущая страница",
+    "next": "Следующая страница",
+    "pageCount": "Страница {{page}} из {{count}}",
+    "loading": "Загрузка PDF…",
+    "page": "Страница {{page}}",
+    "zoomOut": "Уменьшить",
+    "zoomIn": "Увеличить",
+    "openFailed": "Не удалось открыть PDF."
+  },
   "book": {
     "replacePageCover": "Заменить обложку страницы",
     "randomCover": "Случайная обложка",

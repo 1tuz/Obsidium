@@ -19,6 +19,7 @@ const uiStateMocks = vi.hoisted(() => ({
   queueLayout: vi.fn(),
   queueTabsSnapshot: vi.fn(),
 }));
+const openerMocks = vi.hoisted(() => ({ openPath: vi.fn(async () => undefined) }));
 const settingsState = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
   loadConfig: vi.fn(async () => null as Record<string, unknown> | null),
@@ -67,14 +68,19 @@ vi.mock('./modules/ui-state', async (importOriginal) => {
 vi.mock('./components/Layout/Titlebar', () => ({
   Titlebar: ({
     onToggleRightSidebar,
+    activeFile,
   }: {
     onToggleRightSidebar: () => void;
+    activeFile: string | null;
   }) => (
     <>
       <button id="toggle-right-sidebar" onClick={onToggleRightSidebar} />
+      <span id="active-file" data-path={activeFile ?? ''} />
     </>
   ),
 }));
+
+vi.mock('@tauri-apps/plugin-opener', () => ({ openPath: openerMocks.openPath }));
 
 vi.mock('./components/Layout/WindowControls', () => ({
   WindowControls: () => null,
@@ -125,12 +131,17 @@ vi.mock('./components/Layout/Sidebar', () => ({
       <button id="open-a" onClick={() => onFileSelect('C:\\notes\\a.md')} />
       <button id="open-b" onClick={() => onFileSelect('C:\\notes\\b.md')} />
       <button id="open-canvas" onClick={() => onFileSelect('C:\\notes\\board.canvas')} />
+      <button id="open-pdf" onClick={() => onFileSelect('C:\\notes\\manual.pdf')} />
     </div>
   ) : null,
 }));
 
 vi.mock('./components/Canvas/CanvasView', () => ({
   CanvasView: () => <div data-testid="canvas-toolbar" role="toolbar" />,
+}));
+
+vi.mock('./components/Pdf/PdfViewer', () => ({
+  PdfViewer: ({ path }: { path: string }) => <div data-testid="pdf-viewer" data-path={path} />,
 }));
 
 vi.mock('./components/Editor/NewTab', () => ({
@@ -181,7 +192,10 @@ vi.mock('./components/Editor', () => ({
 
 function sessionStub(overrides: Record<string, unknown> = {}) {
   return {
-    loaded: { activeTabId: null },
+    loaded: {
+      activeTabId: null,
+      layout: { kind: 'pane', paneId: 'main', activeTabId: null },
+    },
     restoredTabs: () => [],
     markDocumentMissing: uiStateMocks.markDocumentMissing,
     queueActiveTab: uiStateMocks.queueActiveTab,
@@ -330,6 +344,18 @@ describe('App editor lifecycle', () => {
     expect(toolbar).not.toBeNull();
     expect(renderer!.container.querySelectorAll('[data-testid="canvas-toolbar"]')).toHaveLength(1);
     expect(toolbar?.closest('main')?.classList.contains('q-offstage')).toBe(false);
+  });
+
+  it('opens a PDF in the active tab instead of sending it to the external opener', async () => {
+    workspaceState.files = [{ id: 'C:\\notes\\manual.pdf', name: 'manual.pdf', type: 'file' }];
+    await renderWithSession();
+
+    await actAndSettle(() => find('open-pdf')[0].click());
+
+    expect(find('active-file')[0].getAttribute('data-path')).toBe('C:\\notes\\manual.pdf');
+    expect(renderer!.container.querySelector('[data-testid="pdf-viewer"]')?.getAttribute('data-path'))
+      .toBe('C:\\notes\\manual.pdf');
+    expect(openerMocks.openPath).not.toHaveBeenCalled();
   });
 
   it('opens global search with the physical Ctrl+O shortcut', () => {

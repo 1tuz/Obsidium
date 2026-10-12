@@ -37,7 +37,7 @@ import { DEFAULT_BUILTINS, DEFAULT_LIVE_TABS, useSettingsStore } from "./modules
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isBasePath, isCanvasPath, isMarkdownPath, isTextFilePath } from "./modules/documents/fileGateway";
+import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath } from "./modules/documents/fileGateway";
 import { createCanvasFile } from "./modules/canvas/createCanvasFile";
 import { flushCanvasDocuments } from "./modules/canvas/persistence";
 import { fileStem } from "./modules/paths";
@@ -70,6 +70,8 @@ const BaseView = lazy(() => import("./components/Bases/BaseView")
   .then((module) => ({ default: module.BaseView })));
 const CanvasView = lazy(() => import("./components/Canvas/CanvasView")
   .then((module) => ({ default: module.CanvasView })));
+const PdfViewer = lazy(() => import("./components/Pdf/PdfViewer")
+  .then((module) => ({ default: module.PdfViewer })));
 
 export default function App() {
   const search = useOverlay();
@@ -580,6 +582,8 @@ export default function App() {
       ? paneActiveTab.path : null;
     const activeCanvasPath = paneActiveTab?.kind === 'document' && isCanvasPath(paneActiveTab.path)
       ? paneActiveTab.path : null;
+    const activePdfPath = paneActiveTab?.kind === 'document' && isPdfPath(paneActiveTab.path)
+      ? paneActiveTab.path : null;
 
     return (
       <div
@@ -666,6 +670,11 @@ export default function App() {
                       indexRevision={linkIndexRevision}
                       onOpenFile={(path) => openNote(path, { paneId })}
                     />
+                  </Suspense>
+                )}
+                {activePdfPath && workspacePath && (
+                  <Suspense fallback={<div className="q-app-editor-boot" aria-busy="true" />}>
+                    <PdfViewer path={activePdfPath} workspacePath={workspacePath} />
                   </Suspense>
                 )}
                 {!activeBasePath && !activeCanvasPath && paneActiveTab?.kind === 'empty' ? (
