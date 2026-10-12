@@ -7,6 +7,7 @@ import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { absolutePath, fileName, parentDirectory, relativePath, samePath } from '../../modules/paths';
 import { openExternalUrl } from '../../modules/openExternalUrl';
 import { isCanvasPath, isFileCommandError, isMarkdownPath, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
+import { createUniqueFile } from '../../modules/documents/documentFactory';
 import { registerCanvasFlush } from '../../modules/canvas/persistence';
 import {
   addCanvasEdge,
@@ -28,6 +29,7 @@ import {
 import {
   commitCanvasHistory,
   alignCanvasNodes,
+  canvasRectBetweenPoints,
   createCanvasHistory,
   getCanvasGroupMemberIds,
   getCanvasEdgeGeometry,
@@ -51,6 +53,7 @@ type DragState =
   | { kind: 'move'; startX: number; startY: number; camera: Camera; document: CanvasDocument; selected: string[] }
   | { kind: 'resize'; startX: number; startY: number; camera: Camera; document: CanvasDocument; nodeId: string }
   | { kind: 'draw'; points: CanvasPoint[] }
+  | { kind: 'shape'; start: CanvasPoint; startX: number; startY: number; nodeId: string; moved?: boolean }
   | { kind: 'pan'; startX: number; startY: number; camera: Camera }
   | { kind: 'marquee'; startX: number; startY: number; currentX: number; currentY: number; additive: boolean }
   | { kind: 'camera'; startX: number; startY: number; camera: Camera };
@@ -77,18 +80,20 @@ const CANVAS_PRESET_COLORS: Record<string, string> = {
   '6': '--q-purple-600',
 };
 
+const slashCommands = [
+  { id: 'text', label: 'canvas.slash.text' },
+  { id: 'new-note', label: 'canvas.slash.newNote' },
+  { id: 'find-note', label: 'canvas.slash.findNote' },
+  { id: 'link', label: 'canvas.slash.link' },
+  { id: 'file', label: 'canvas.slash.file' },
+  { id: 'group', label: 'canvas.slash.group' },
+  { id: 'edge', label: 'canvas.slash.edge' },
+  { id: 'rectangle', label: 'canvas.slash.rectangle' },
+  { id: 'ellipse', label: 'canvas.slash.ellipse' },
+] as const;
+
 function newId(): string {
   return [...crypto.getRandomValues(new Uint8Array(8))].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-function colorInputValue(value: string): string {
-  const variable = value.match(/^var\((--[\w-]+)\)$/)?.[1];
-  if (variable) return colorInputValue(getComputedStyle(document.documentElement).getPropertyValue(variable).trim());
-  const hex = value.match(/^#([\da-f]{3}|[\da-f]{6,8})$/i)?.[1];
-  if (hex) return `#${hex.length === 3 ? [...hex].map((channel) => `${channel}${channel}`).join('') : hex.slice(0, 6)}`;
-  const rgb = value.match(/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
-  if (!rgb) return '';
-  return `#${rgb.slice(1).map((channel) => Number(channel).toString(16).padStart(2, '0')).join('')}`;
 }
 
 function canvasCssColor(value: unknown): string | undefined {
@@ -187,7 +192,7 @@ function canvasSvg(document: CanvasDocument, colors: { paper: string; ink: strin
       : '';
     const start = edge.fromEnd === 'arrow' ? ` marker-start="url(#arrow-start-${index})"` : '';
     const end = edge.toEnd === 'none' ? '' : ` marker-end="url(#arrow-end-${index})"`;
-    return `<marker id="arrow-start-${index}" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 z" fill="${escapeXml(resolvedColor)}" /></marker><marker id="arrow-end-${index}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="${escapeXml(resolvedColor)}" /></marker><path d="M ${geometry.from.x} ${geometry.from.y} L ${geometry.to.x} ${geometry.to.y}" stroke="${escapeXml(color)}" fill="none"${start}${end} />${label}`;
+    return `<marker id="arrow-start-${index}" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 z" fill="${escapeXml(resolvedColor)}" /></marker><marker id="arrow-end-${index}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="${escapeXml(resolvedColor)}" /></marker><path d="M ${geometry.from.x} ${geometry.from.y} L ${geometry.to.x} ${geometry.to.y}" stroke="${escapeXml(resolvedColor)}" fill="none" stroke-width="2"${start}${end} />${label}`;
   }).join('');
   const body = nodes.map((node) => {
     const title = node.type === 'text' ? node.text : node.type === 'file' ? node.file : node.type === 'link' ? node.url : node.label;
@@ -198,8 +203,8 @@ function canvasSvg(document: CanvasDocument, colors: { paper: string; ink: strin
     const frame = shape === 'freehand' && freehand.length > 1
       ? `<polyline points="${freehand.map((point) => `${point.x},${point.y}`).join(' ')}" fill="none" stroke="${escapeXml(resolvedFill)}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`
       : shape === 'ellipse'
-      ? `<ellipse cx="${node.x + node.width / 2}" cy="${node.y + node.height / 2}" rx="${node.width / 2}" ry="${node.height / 2}" fill="${escapeXml(resolvedFill)}" stroke="${escapeXml(colors.border)}" />`
-      : `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${escapeXml(resolvedFill)}" stroke="${escapeXml(colors.border)}" />`;
+      ? `<ellipse cx="${node.x + node.width / 2}" cy="${node.y + node.height / 2}" rx="${node.width / 2}" ry="${node.height / 2}" fill="${escapeXml(resolvedFill)}" stroke="${escapeXml(colors.border)}" stroke-width="2" />`
+      : `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${escapeXml(resolvedFill)}" stroke="${escapeXml(colors.border)}" stroke-width="2" />`;
     return `<g>${frame}<foreignObject x="${node.x + 12}" y="${node.y + 12}" width="${Math.max(1, node.width - 24)}" height="${Math.max(1, node.height - 24)}"><div xmlns="http://www.w3.org/1999/xhtml" style="font:16px sans-serif;white-space:pre-wrap;overflow:hidden;color:${escapeXml(colors.ink)}">${escapeXml(String(title ?? ''))}</div></foreignObject></g>`;
   }).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${width}" height="${height}" viewBox="${left} ${top} ${width} ${height}" style="color:${escapeXml(colors.ink)};background:${escapeXml(colors.paper)}">${edges}${body}</svg>`;
@@ -213,17 +218,19 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'conflict' | 'error'>('saved');
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
   const [activeTool, setActiveTool] = useState<CanvasTool>('select');
+  const [nodeColor, setNodeColor] = useState('');
   const [selection, setSelection] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edgeSource, setEdgeSource] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [edgeColor, setEdgeColor] = useState('');
-  const [themeEdgeColor, setThemeEdgeColor] = useState('');
   const [drag, setDrag] = useState<DragState | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   const [notePickerOpen, setNotePickerOpen] = useState(false);
+  const [slashMenu, setSlashMenu] = useState<{ point: CanvasPoint; query: string } | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const slashInputRef = useRef<HTMLInputElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const documentRef = useRef<CanvasDocument | null>(null);
   const historyRef = useRef<CanvasHistory<CanvasDocument> | null>(null);
@@ -234,6 +241,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const saveQueueRef = useRef(Promise.resolve());
   const saveTimerRef = useRef<number | null>(null);
   const clipboardRef = useRef<CanvasClipboard>({ nodes: [], edges: [] });
+  const notePlacementRef = useRef<CanvasPoint | null>(null);
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
 
   const setCanvasDocument = useCallback((next: CanvasDocument, record = true) => {
@@ -420,11 +428,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const paperStyle = document ? readPaperStyle(document) : 'paper-white';
   const grid = document ? readGrid(document) : 'none';
   const selectedEdge = document?.edges.find((edge) => edge.id === selectedEdgeId);
+  const visibleSlashCommands = slashCommands.filter(({ label }) => t(label).toLowerCase().includes(slashMenu?.query.toLowerCase() ?? ''));
   const nodeIndex = useMemo(() => new Map((document?.nodes ?? []).map((node) => [node.id, node])), [document]);
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (stage) setThemeEdgeColor(colorInputValue(getComputedStyle(stage).getPropertyValue('--q-canvas-edge').trim()));
-  }, [paperStyle]);
+  const selectedColor = selectedEdge?.color ?? (selection.length === 1 ? nodeIndex.get(selection[0])?.color : nodeColor);
+  const toolbarColor = typeof selectedColor === 'string' && /^[1-6]$/.test(selectedColor) ? selectedColor : '';
   const updateNode = useCallback((nodeId: string, patch: Partial<CanvasTypedNode>, record = true) => {
     const current = documentRef.current;
     if (current) setCanvasDocument(updateCanvasNode(current, nodeId, patch), record);
@@ -473,7 +480,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const current = documentRef.current;
     if (!current) return;
     let node: CanvasTypedNode;
-    const base = { id: newId(), x: point.x, y: point.y, width: 280, height: 180 };
+    const base = { id: newId(), x: Math.round(point.x), y: Math.round(point.y), width: 280, height: 180, ...(nodeColor ? { color: nodeColor } : {}) };
     if (type === 'file' && file) node = { ...base, type, file };
     else if (type === 'link') node = { ...base, type, url: url ?? 'https://' };
     else node = {
@@ -485,22 +492,68 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     setCanvasDocument(addCanvasNode(current, node));
     setSelection([node.id]);
     if (node.type === 'text') setEditingId(node.id);
-  }, [setCanvasDocument]);
+  }, [nodeColor, setCanvasDocument]);
+
+  const beginShapeDrawing = useCallback((type: 'rectangle' | 'ellipse', event: { clientX: number; clientY: number; pointerId: number }) => {
+    const current = documentRef.current;
+    const point = worldPoint(event);
+    if (!current) return;
+    const start = { x: Math.round(point.x), y: Math.round(point.y) };
+    const node: CanvasTypedNode = {
+      id: newId(), type: 'text', ...start, width: 1, height: 1, text: '',
+      obsidium: { shape: type },
+      ...(nodeColor ? { color: nodeColor } : {}),
+    };
+    setCanvasDocument(addCanvasNode(current, node), false);
+    setSelection([node.id]);
+    setActiveTool('select');
+    const next: DragState = { kind: 'shape', start, startX: event.clientX, startY: event.clientY, nodeId: node.id };
+    dragRef.current = next;
+    setDrag(next);
+    stageRef.current?.focus();
+    stageRef.current?.setPointerCapture(event.pointerId);
+  }, [nodeColor, setCanvasDocument, worldPoint]);
 
   const addSearchedNote = useCallback((path: string) => {
     const current = documentRef.current;
     if (!current) return;
     try {
       const anchor = current.nodes.find((node) => selection.includes(node.id));
-      const point = {
+      const point = notePlacementRef.current ?? {
         x: anchor ? anchor.x + anchor.width + GRID_SIZE : (viewport.width / 2 - camera.x) / camera.zoom,
         y: anchor ? anchor.y : (viewport.height / 2 - camera.y) / camera.zoom,
       };
       addNode('file', point, relativePath(workspacePath, path));
+      notePlacementRef.current = null;
     } catch {
       setError(t('canvas.errors.fileOutsideWorkspace'));
     }
   }, [addNode, camera, selection, viewport, workspacePath]);
+
+  const createCanvasNote = useCallback(async (point: CanvasPoint) => {
+    try {
+      const path = await createUniqueFile(workspacePath, t('canvas.slash.defaultNoteTitle'));
+      if (path) addNode('file', point, relativePath(workspacePath, path));
+    } catch (cause) {
+      setError(String(cause));
+    }
+  }, [addNode, workspacePath]);
+
+  const runSlashCommand = useCallback(async (commandId: string) => {
+    const point = slashMenu?.point;
+    if (!point) return;
+    setSlashMenu(null);
+    if (commandId === 'text') addNode('text', point);
+    else if (commandId === 'new-note') await createCanvasNote(point);
+    else if (commandId === 'find-note') {
+      notePlacementRef.current = point;
+      setNotePickerOpen(true);
+    } else setActiveTool(commandId as CanvasTool);
+  }, [addNode, createCanvasNote, slashMenu]);
+
+  useEffect(() => {
+    if (slashMenu) slashInputRef.current?.focus();
+  }, [slashMenu]);
 
   const addGroup = useCallback(() => {
     const current = documentRef.current;
@@ -513,14 +566,15 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const right = Math.max(...selected.map((node) => node.x + node.width)) + margin;
     const bottom = Math.max(...selected.map((node) => node.y + node.height)) + margin;
     const group: CanvasTypedNode = {
-      id: newId(), type: 'group', x: left, y: top, width: right - left, height: bottom - top, label: t('canvas.toolbar.group'),
+      id: newId(), type: 'group', x: left, y: top, width: right - left, height: bottom - top,
+      label: t('canvas.toolbar.group'), ...(nodeColor ? { color: nodeColor } : {}),
     };
     const insertion = Math.min(...selected.map((node) => current.nodes.indexOf(node)));
     const nodes = [...current.nodes];
     nodes.splice(insertion, 0, group);
     setCanvasDocument({ ...current, nodes });
     setSelection([group.id]);
-  }, [selection, setCanvasDocument]);
+  }, [nodeColor, selection, setCanvasDocument]);
 
   const alignSelection = useCallback((alignment: CanvasAlignment) => {
     const current = documentRef.current;
@@ -537,7 +591,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const current = documentRef.current;
     if (current) setCanvasDocument(withBoardPreferences(current, { grid: nextGrid }));
   }, [setCanvasDocument]);
-
   const updateEdge = useCallback((edgeId: string, patch: Partial<CanvasEdge>) => {
     const current = documentRef.current;
     if (current) setCanvasDocument(updateCanvasEdge(current, edgeId, patch));
@@ -583,7 +636,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, []);
 
   const handleNodePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>, node: CanvasTypedNode) => {
-    if (event.button !== 0 || activeTool !== 'select') return;
+    if (event.button !== 0) return;
+    if (activeTool === 'rectangle' || activeTool === 'ellipse') {
+      event.stopPropagation();
+      beginShapeDrawing(activeTool, event);
+      return;
+    }
+    if (activeTool !== 'select') return;
     const target = event.target as HTMLElement;
     if (target.closest('textarea, a, button')) return;
     event.stopPropagation();
@@ -605,7 +664,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setDrag(nextDrag);
       stageRef.current?.setPointerCapture(event.pointerId);
     }
-  }, [activeTool, camera, selectNode]);
+  }, [activeTool, beginShapeDrawing, camera, selectNode]);
 
   const handleNodeClick = useCallback((event: TargetedMouseEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (activeTool === 'edge') {
@@ -660,6 +719,18 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       }, 120, 80, grid === 'none' ? undefined : GRID_SIZE);
       const current = documentRef.current;
       if (current) setCanvasDocument(updateCanvasNode(current, original.id, resized), false);
+    } else if (currentDrag.kind === 'shape') {
+      const rect = canvasRectBetweenPoints(currentDrag.start, worldPoint(event));
+      const current = documentRef.current;
+      if (current) {
+        const node = current.nodes.find((item) => item.id === currentDrag.nodeId);
+        if (node && isCanvasNode(node)) {
+          setCanvasDocument(updateCanvasNode(current, node.id, {
+            x: rect.x, y: rect.y, width: Math.max(24, rect.width), height: Math.max(24, rect.height),
+          }), false);
+        }
+      }
+      dragRef.current = { ...currentDrag, moved: true };
     } else if (currentDrag.kind === 'pan') {
       setCameraValue({ ...currentDrag.camera, x: currentDrag.camera.x + dx, y: currentDrag.camera.y + dy });
     } else if (currentDrag.kind === 'camera') {
@@ -675,7 +746,22 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   const handlePointerUp = useCallback(() => {
     const currentDrag = dragRef.current;
-    if (currentDrag?.kind === 'draw' && currentDrag.points.length > 0) {
+    if (currentDrag?.kind === 'shape') {
+      const current = documentRef.current;
+      const node = current?.nodes.find((item) => item.id === currentDrag.nodeId);
+      if (current && node && isCanvasNode(node)) {
+        const patch = currentDrag.moved
+          ? {}
+          : { x: currentDrag.start.x, y: currentDrag.start.y, width: 160, height: 100 };
+        const next = updateCanvasNode(current, node.id, patch);
+        setCanvasDocument(next, false);
+        if (historyRef.current) {
+          const committed = commitCanvasHistory(historyRef.current, next);
+          historyRef.current = committed;
+          setHistory(committed);
+        }
+      }
+    } else if (currentDrag?.kind === 'draw' && currentDrag.points.length > 0) {
       const current = documentRef.current;
       if (current) {
         const node = createCanvasFreehandNode(newId(), currentDrag.points);
@@ -713,6 +799,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const handleStagePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     const stage = stageRef.current;
     if (!stage || (event.target !== stage && event.target !== worldRef.current)) return;
+    stage.focus();
     const point = worldPoint(event);
     if (event.button === 1) {
       const next: DragState = { kind: 'pan', startX: event.clientX, startY: event.clientY, camera };
@@ -728,9 +815,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       stage.setPointerCapture(event.pointerId);
       return;
     }
+    if (event.button === 0 && (activeTool === 'rectangle' || activeTool === 'ellipse')) {
+      beginShapeDrawing(activeTool, event);
+      return;
+    }
     if (activeTool !== 'select') {
       if (activeTool === 'text') addNode(activeTool, point);
-      else if (activeTool === 'rectangle' || activeTool === 'ellipse') addNode(activeTool, point);
       else if (activeTool === 'link') {
         const url = window.prompt(t('canvas.toolbar.enterUrl'), 'https://');
         if (url) addNode(activeTool, point, undefined, url);
@@ -759,7 +849,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     dragRef.current = next;
     setDrag(next);
     stage.setPointerCapture(event.pointerId);
-  }, [activeTool, addGroup, addNode, camera, worldPoint, workspacePath]);
+  }, [activeTool, addGroup, addNode, beginShapeDrawing, camera, worldPoint, workspacePath]);
 
   const handleDrop = useCallback((event: TargetedDragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -797,7 +887,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const handleKeyDown = useCallback((event: TargetedKeyboardEvent<HTMLElement>) => {
     if ((event.target as HTMLElement).closest('textarea,input,select')) return;
     const command = event.metaKey || event.ctrlKey;
-    if (!command && !event.altKey && !event.shiftKey) {
+    if (event.key === '/' && !command) {
+      event.preventDefault();
+      setSlashMenu({
+        point: { x: (viewport.width / 2 - camera.x) / camera.zoom, y: (viewport.height / 2 - camera.y) / camera.zoom },
+        query: '',
+      });
+    } else if (!command && !event.altKey && !event.shiftKey) {
       const tool = ({
         v: 'select', t: 'text', f: 'file', l: 'link', g: 'group', a: 'edge',
         r: 'rectangle', e: 'ellipse', p: 'draw',
@@ -857,19 +953,26 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         setSelection([]);
       }
     } else if (event.key === 'Escape') {
-      setSelection([]); setEdgeSource(null); setEditingId(null); setMenu(null);
+      setSelection([]); setEdgeSource(null); setEditingId(null); setMenu(null); setSlashMenu(null);
     }
-  }, [redo, selectedEdgeId, selection, setCanvasDocument, undo]);
+  }, [camera, redo, selectedEdgeId, selection, setCanvasDocument, undo, viewport]);
 
-  const colorSelection = useCallback((color: string | undefined) => {
+  const onCanvasColorChange = useCallback((value: string) => {
+    const color = value || undefined;
+    setNodeColor(color ?? '');
+    setEdgeColor(color ?? '');
     const current = documentRef.current;
-    if (!current || selection.length === 0) return;
-    const selected = new Set(selection);
-    setCanvasDocument({
-      ...current,
-      nodes: current.nodes.map((node) => selected.has(node.id) ? { ...node, color } : node),
-    });
-  }, [selection, setCanvasDocument]);
+    if (!current) return;
+    if (selectedEdgeId) {
+      setCanvasDocument(updateCanvasEdge(current, selectedEdgeId, { color }));
+    } else if (selection.length) {
+      const selected = new Set(selection);
+      setCanvasDocument({
+        ...current,
+        nodes: current.nodes.map((node) => selected.has(node.id) ? { ...node, color } : node),
+      });
+    }
+  }, [selectedEdgeId, selection, setCanvasDocument]);
 
   const focusCanvas = useCallback((event: TargetedPointerEvent<HTMLElement>) => {
     if (!(event.target as HTMLElement).closest('input,textarea,select,button,[contenteditable="true"]')) {
@@ -961,16 +1064,25 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       aria-label={fileName(path)}
       onKeyDown={handleKeyDown}
       onPointerDownCapture={focusCanvas}
+      onPointerDown={(event) => {
+        if (!(event.target as HTMLElement).closest('.q-canvas__slash')) setSlashMenu(null);
+      }}
       tabIndex={0}
     >
       <CanvasToolbar
         paperStyle={paperStyle}
         grid={grid}
         activeTool={activeTool}
+        color={toolbarColor}
         canUndo={Boolean(history?.past.length)}
         canRedo={Boolean(history?.future.length)}
         onPaperStyleChange={onPaperStyleChange}
         onGridChange={onGridChange}
+        onColorChange={onCanvasColorChange}
+        onOpenSlash={() => setSlashMenu({
+          point: { x: (viewport.width / 2 - camera.x) / camera.zoom, y: (viewport.height / 2 - camera.y) / camera.zoom },
+          query: '',
+        })}
         onToolChange={setActiveTool}
         onUndo={undo}
         onRedo={redo}
@@ -983,33 +1095,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         <span>{Math.round(camera.zoom * 100)}%</span>
         <button type="button" onClick={() => setCameraValue({ ...camera, zoom: Math.min(MAX_ZOOM, camera.zoom * 1.2) })} aria-label={t('canvas.toolbar.zoomIn')}>+</button>
         <button type="button" onClick={() => setCameraValue({ x: 0, y: 0, zoom: 1 })}>{t('canvas.toolbar.resetView')}</button>
-        <label>{t('canvas.toolbar.edgeColor')}<input type="color" value={edgeColor || themeEdgeColor} onChange={(event) => setEdgeColor(event.currentTarget.value)} /></label>
-        {selection.length > 0 && <div className="q-canvas__palette" role="group" aria-label={t('canvas.toolbar.nodeColor')}>
-          <button type="button" onClick={() => colorSelection(undefined)} aria-label={t('canvas.toolbar.defaultColor')}>{t('canvas.toolbar.autoColor')}</button>
-          {Object.entries(CANVAS_PRESET_COLORS).map(([preset, variable]) => (
-            <button
-              key={preset}
-              type="button"
-              className="q-canvas__color-swatch"
-              style={{ background: `var(${variable})` }}
-              onClick={() => colorSelection(preset)}
-              aria-label={t('canvas.toolbar.colorPreset', { index: preset })}
-            />
-          ))}
-          <input
-            type="color"
-            aria-label={t('canvas.toolbar.customColor')}
-            value={colorInputValue(canvasCssColor(document.nodes.find((node) => node.id === selection[0])?.color ?? '') ?? themeEdgeColor)}
-            onChange={(event) => colorSelection(event.currentTarget.value)}
-          />
-        </div>}
         {selectedEdge && <>
           <label>{t('canvas.edgeLabel')}<input value={typeof selectedEdge.label === 'string' ? selectedEdge.label : ''} onInput={(event) => updateEdge(selectedEdge.id, { label: event.currentTarget.value })} /></label>
           <label>{t('canvas.fromDirection')}<select value={selectedEdge.fromEnd === 'arrow' ? 'arrow' : 'none'} onChange={(event) => updateEdge(selectedEdge.id, { fromEnd: event.currentTarget.value })}><option value="none">{t('canvas.direction.none')}</option><option value="arrow">{t('canvas.direction.arrow')}</option></select></label>
           <label>{t('canvas.toDirection')}<select value={selectedEdge.toEnd === 'none' ? 'none' : 'arrow'} onChange={(event) => updateEdge(selectedEdge.id, { toEnd: event.currentTarget.value })}><option value="none">{t('canvas.direction.none')}</option><option value="arrow">{t('canvas.direction.arrow')}</option></select></label>
           <label>{t('canvas.fromSide')}<select value={edgeSide(selectedEdge.fromSide)} onChange={(event) => updateEdge(selectedEdge.id, { fromSide: event.currentTarget.value === 'auto' ? undefined : event.currentTarget.value })}><option value="auto">{t('canvas.side.auto')}</option><option value="left">{t('canvas.side.left')}</option><option value="right">{t('canvas.side.right')}</option><option value="top">{t('canvas.side.top')}</option><option value="bottom">{t('canvas.side.bottom')}</option></select></label>
           <label>{t('canvas.toSide')}<select value={edgeSide(selectedEdge.toSide)} onChange={(event) => updateEdge(selectedEdge.id, { toSide: event.currentTarget.value === 'auto' ? undefined : event.currentTarget.value })}><option value="auto">{t('canvas.side.auto')}</option><option value="left">{t('canvas.side.left')}</option><option value="right">{t('canvas.side.right')}</option><option value="top">{t('canvas.side.top')}</option><option value="bottom">{t('canvas.side.bottom')}</option></select></label>
-          <input aria-label={t('canvas.toolbar.edgeColor')} type="color" value={colorInputValue(canvasCssColor(selectedEdge.color) ?? themeEdgeColor)} onChange={(event) => updateEdge(selectedEdge.id, { color: event.currentTarget.value })} />
           <button type="button" onClick={deleteSelectedEdge}>{t('canvas.menu.delete')}</button>
         </>}
         <span role="status" aria-live="polite">{t(`canvas.save.${saveState}`)}</span>
@@ -1023,6 +1114,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       <div
         className={`q-canvas__stage q-canvas__stage--${grid}`}
         ref={stageRef}
+        tabIndex={0}
         onPointerDown={handleStagePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -1176,12 +1268,44 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           </>}
           {document.nodes.find((item) => item.id === menu.nodeId)?.type === 'group' && <button role="menuitem" onClick={() => deleteNode(menu.nodeId)}>{t('canvas.menu.ungroup')}</button>}
         </div>}
+        {slashMenu && <div
+          className="q-canvas__slash"
+          style={{ left: Math.min(screenPoint(slashMenu.point).x, Math.max(0, viewport.width - 300)), top: Math.min(screenPoint(slashMenu.point).y, Math.max(0, viewport.height - 240)) }}
+          role="dialog"
+          aria-label={t('canvas.slash.label')}
+        >
+          <input
+            ref={slashInputRef}
+            type="search"
+            value={slashMenu.query}
+            aria-label={t('canvas.slash.search')}
+            placeholder={t('canvas.slash.search')}
+            onInput={(event) => setSlashMenu((current) => current ? { ...current, query: event.currentTarget.value } : null)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setSlashMenu(null);
+              else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                stageRef.current?.querySelector<HTMLButtonElement>('.q-canvas__slash button')?.focus();
+              } else if (event.key === 'Enter' && visibleSlashCommands[0]) void runSlashCommand(visibleSlashCommands[0].id);
+            }}
+          />
+          <div role="listbox" aria-label={t('canvas.slash.label')}>
+            {visibleSlashCommands.map((item) => <button
+              key={item.id}
+              type="button"
+              role="option"
+              aria-label={t(item.label)}
+              onClick={() => void runSlashCommand(item.id)}
+            >{t(item.label)}</button>)}
+            {visibleSlashCommands.length === 0 && <span role="status">{t('canvas.slash.noResults')}</span>}
+          </div>
+        </div>}
         <span className="q-canvas__selection-count" aria-live="polite">{edgeSource ? t('canvas.connectTarget') : selection.length ? t('canvas.selectionCount', { count: selection.length }) : ''}</span>
       </div>
       <CanvasNotePicker
         open={notePickerOpen}
         workspacePath={workspacePath}
-        onClose={() => setNotePickerOpen(false)}
+        onClose={() => { notePlacementRef.current = null; setNotePickerOpen(false); }}
         onSelect={addSearchedNote}
       />
     </section>

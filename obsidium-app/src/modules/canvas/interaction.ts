@@ -5,6 +5,17 @@ export type CanvasPoint = { x: number; y: number };
 export type CanvasEdgeGeometry = { from: CanvasPoint; to: CanvasPoint };
 export type CanvasAlignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom';
 
+export const canvasRectBetweenPoints = (start: CanvasPoint, end: CanvasPoint): CanvasRect => {
+  const left = Math.round(Math.min(start.x, end.x));
+  const top = Math.round(Math.min(start.y, end.y));
+  return {
+    x: left,
+    y: top,
+    width: Math.max(1, Math.round(Math.max(start.x, end.x)) - left),
+    height: Math.max(1, Math.round(Math.max(start.y, end.y)) - top),
+  };
+};
+
 const snap = (value: number, gridSize?: number): number =>
   gridSize && gridSize > 0 ? Math.round(value / gridSize) * gridSize : Math.round(value);
 

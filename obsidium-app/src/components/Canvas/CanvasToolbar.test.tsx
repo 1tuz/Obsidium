@@ -18,21 +18,27 @@ describe('CanvasToolbar', () => {
 
   it('uses the canvas ink token for tool icons on paper surfaces', () => {
     expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style\]\s*\{[^}]*--q-icon-button-icon:\s*var\(--q-canvas-ink\);/s);
+    expect(canvasStyles).toMatch(/--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink\) 26%, var\(--q-canvas-paper\)\)/);
+    expect(canvasStyles).toMatch(/\.q-canvas__stage--lines\s*\{[^}]*var\(--q-canvas-grid-line/);
+    expect(canvasStyles).toMatch(/\.q-canvas__object--rectangle[^}]*border-width:\s*var\(--q-canvas-shape-stroke-width/s);
   });
 
   it('dispatches tool, paper, grid and history actions with accessible controls', async () => {
     const onToolChange = vi.fn();
     const onPaperStyleChange = vi.fn();
     const onGridChange = vi.fn();
+    const onColorChange = vi.fn();
     const onUndo = vi.fn();
     const onRedo = vi.fn();
     const onExportSvg = vi.fn();
     const onExportPng = vi.fn();
     const onAddNote = vi.fn();
+    const onOpenSlash = vi.fn();
     act(() => {
       renderer = mountDom(
         <CanvasToolbar
           activeTool="select"
+          color=""
           paperStyle="ivory"
           grid="none"
           canUndo
@@ -40,6 +46,8 @@ describe('CanvasToolbar', () => {
           onToolChange={onToolChange}
           onPaperStyleChange={onPaperStyleChange}
           onGridChange={onGridChange}
+          onColorChange={onColorChange}
+          onOpenSlash={onOpenSlash}
           onUndo={onUndo}
           onRedo={onRedo}
           onAddNote={onAddNote}
@@ -55,11 +63,14 @@ describe('CanvasToolbar', () => {
     await actAndSettle(() => button('Ellipse').click());
     await actAndSettle(() => button('Freehand').click());
     await actAndSettle(() => button('Find and add a note').click());
+    await actAndSettle(() => renderer!.container.querySelector<HTMLButtonElement>('.q-canvas-toolbar__slash')!.click());
     const selects = renderer!.container.querySelectorAll('select');
     selects[0].value = 'sepia';
     await actAndSettle(() => { selects[0].dispatchEvent(new Event('change', { bubbles: true })); });
     selects[1].value = 'dots';
     await actAndSettle(() => { selects[1].dispatchEvent(new Event('change', { bubbles: true })); });
+    selects[2].value = '4';
+    await actAndSettle(() => { selects[2].dispatchEvent(new Event('change', { bubbles: true })); });
     await actAndSettle(() => button('Undo').click());
     await actAndSettle(() => button('Export as SVG').click());
     await actAndSettle(() => button('Export as PNG').click());
@@ -72,6 +83,8 @@ describe('CanvasToolbar', () => {
     expect(onAddNote).toHaveBeenCalledOnce();
     expect(onPaperStyleChange).toHaveBeenCalledWith('sepia');
     expect(onGridChange).toHaveBeenCalledWith('dots');
+    expect(onColorChange).toHaveBeenCalledWith('4');
+    expect(onOpenSlash).toHaveBeenCalledOnce();
     expect(onUndo).toHaveBeenCalledOnce();
     expect(onRedo).not.toHaveBeenCalled();
     expect(onExportSvg).toHaveBeenCalledOnce();

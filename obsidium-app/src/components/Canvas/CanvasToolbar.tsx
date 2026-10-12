@@ -12,10 +12,13 @@ interface CanvasToolbarProps {
   paperStyle: CanvasPaperStyle;
   grid: CanvasGrid;
   activeTool: CanvasTool;
+  color: string;
   canUndo: boolean;
   canRedo: boolean;
   onPaperStyleChange: (style: CanvasPaperStyle) => void;
   onGridChange: (grid: CanvasGrid) => void;
+  onColorChange: (color: string) => void;
+  onOpenSlash: () => void;
   onToolChange: (tool: CanvasTool) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -40,10 +43,13 @@ export function CanvasToolbar({
   paperStyle,
   grid,
   activeTool,
+  color,
   canUndo,
   canRedo,
   onPaperStyleChange,
   onGridChange,
+  onColorChange,
+  onOpenSlash,
   onToolChange,
   onUndo,
   onRedo,
@@ -70,6 +76,7 @@ export function CanvasToolbar({
       {onAddNote && <div className="q-canvas-toolbar__history" role="group">
         <IconButton label={t('canvas.toolbar.addNote')} size="medium" onClick={onAddNote}><Icon icon={Search} /></IconButton>
       </div>}
+      <button type="button" className="q-canvas-toolbar__slash" onClick={onOpenSlash}>{t('canvas.slash.open')}</button>
       <div className="q-canvas-toolbar__history" role="group" aria-label={t('canvas.toolbar.history')}>
         <IconButton label={t('canvas.toolbar.undo')} size="medium" disabled={!canUndo} onClick={onUndo}><Icon icon={Undo2} /></IconButton>
         <IconButton label={t('canvas.toolbar.redo')} size="medium" disabled={!canRedo} onClick={onRedo}><Icon icon={Redo2} /></IconButton>
@@ -93,6 +100,15 @@ export function CanvasToolbar({
         <select aria-label={t('canvas.toolbar.grid')} value={grid} onChange={(event) => onGridChange(event.currentTarget.value as CanvasGrid)}>
           {(['none', 'dots', 'lines'] as const).map(style => (
             <option key={style} value={style}>{t(`canvas.toolbar.gridStyle.${style}`)}</option>
+          ))}
+        </select>
+      </label>
+      <label className="q-canvas-toolbar__setting q-canvas-toolbar__color">
+        <span>{t('canvas.toolbar.colorLabel')}</span>
+        <select aria-label={t('canvas.toolbar.colorLabel')} value={color} onChange={(event) => onColorChange(event.currentTarget.value)}>
+          <option value="">{t('canvas.toolbar.color.default')}</option>
+          {(['1', '2', '3', '4', '5', '6'] as const).map((value) => (
+            <option key={value} value={value}>{t(`canvas.toolbar.color.${value}`)}</option>
           ))}
         </select>
       </label>

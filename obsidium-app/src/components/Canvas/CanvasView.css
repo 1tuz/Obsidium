@@ -23,6 +23,8 @@
   --q-canvas-card-raised: var(--q-reading-code);
   --q-canvas-border: var(--q-reading-border);
   --q-canvas-edge: var(--q-reading-link);
+  --q-canvas-grid-line: color-mix(in srgb, var(--q-canvas-ink) 26%, var(--q-canvas-paper));
+  --q-canvas-shape-stroke-width: var(--q-border-2);
   --q-bg-canvas: var(--q-canvas-paper);
   --q-bg-surface: var(--q-canvas-card);
   --q-bg-surface-raised: var(--q-canvas-card-raised);
@@ -76,39 +78,6 @@
   align-items: center;
   gap: var(--q-space-4);
   white-space: nowrap;
-}
-
-.q-canvas__palette {
-  display: flex;
-  align-items: center;
-  gap: var(--q-space-4);
-}
-
-.q-canvas__palette button {
-  width: var(--q-size-24);
-  min-width: var(--q-size-24);
-  min-height: var(--q-size-24);
-  padding: 0;
-  cursor: pointer;
-}
-
-.q-canvas__palette button:not(.q-canvas__color-swatch) {
-  width: auto;
-  padding: 0 var(--q-space-4);
-}
-
-.q-canvas__palette .q-canvas__color-swatch {
-  width: var(--q-size-16);
-  min-width: var(--q-size-16);
-  height: var(--q-size-16);
-  min-height: var(--q-size-16);
-  border-radius: 50%;
-}
-
-.q-canvas__controls input[type='color'] {
-  width: var(--q-size-32);
-  height: var(--q-size-28);
-  padding: 0;
 }
 
 .q-canvas__controls input:not([type='color']),
@@ -166,12 +135,12 @@
 }
 
 .q-canvas__stage--dots {
-  background-image: radial-gradient(var(--q-canvas-border, var(--q-border-default)) 1px, transparent 1px);
+  background-image: radial-gradient(var(--q-canvas-grid-line, var(--q-canvas-border, var(--q-border-default))) 1px, transparent 1px);
 }
 
 .q-canvas__stage--lines {
-  background-image: linear-gradient(to right, var(--q-canvas-border, var(--q-border-default)) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--q-canvas-border, var(--q-border-default)) 1px, transparent 1px);
+  background-image: linear-gradient(to right, var(--q-canvas-grid-line, var(--q-canvas-border, var(--q-border-default))) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--q-canvas-grid-line, var(--q-canvas-border, var(--q-border-default))) 1px, transparent 1px);
 }
 
 .q-canvas__edges {
@@ -184,7 +153,7 @@
 
 .q-canvas__edges path {
   fill: none;
-  stroke-width: 2px;
+  stroke-width: var(--q-canvas-shape-stroke-width, 2px);
 }
 
 .q-canvas__edges > g > path {
@@ -232,9 +201,15 @@
 }
 
 .q-canvas__object > .q-canvas-card {
+  border-width: var(--q-canvas-shape-stroke-width, var(--q-border-1));
   border-color: var(--q-canvas-border, var(--q-border-default));
   background: var(--q-canvas-card, var(--q-bg-surface));
   color: var(--q-canvas-ink, var(--q-text-primary));
+}
+
+.q-canvas__object--rectangle > .q-canvas-card,
+.q-canvas__object--ellipse > .q-canvas-card {
+  border-width: var(--q-canvas-shape-stroke-width, var(--q-border-2));
 }
 
 .q-canvas__object--ellipse > .q-canvas-card {
@@ -342,6 +317,51 @@ input.q-canvas__group-label {
   color: var(--q-canvas-ink, var(--q-text-secondary));
   font-size: var(--q-font-size-ui-sm);
   pointer-events: none;
+}
+
+.q-canvas__slash {
+  position: absolute;
+  z-index: 7;
+  display: flex;
+  width: min(18rem, calc(100% - var(--q-space-24)));
+  flex-direction: column;
+  gap: var(--q-space-4);
+  padding: var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-canvas-border, var(--q-border-default));
+  border-radius: var(--q-radius-lg);
+  background: var(--q-canvas-card, var(--q-bg-surface));
+  box-shadow: var(--q-shadow-overlay);
+}
+
+.q-canvas__slash input {
+  min-height: var(--q-size-32);
+  padding: 0 var(--q-space-8);
+  border: var(--q-border-1) solid var(--q-canvas-border, var(--q-border-default));
+  border-radius: var(--q-radius-md);
+  background: var(--q-canvas-paper, var(--q-bg-canvas));
+  color: var(--q-canvas-ink, var(--q-text-primary));
+}
+
+.q-canvas__slash [role='listbox'] {
+  display: flex;
+  max-height: 14rem;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.q-canvas__slash button {
+  padding: var(--q-space-8);
+  border: 0;
+  border-radius: var(--q-radius-sm);
+  background: transparent;
+  color: var(--q-canvas-ink, var(--q-text-primary));
+  text-align: left;
+  cursor: pointer;
+}
+
+.q-canvas__slash button:hover,
+.q-canvas__slash button:focus-visible {
+  background: var(--q-bg-surface-hover);
 }
 
 .q-canvas-loading,
