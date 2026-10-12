@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch } from 'react';
-import { existingFiles } from '../modules/documents/fileGateway';
+import { existingFiles, isPdfPath } from '../modules/documents/fileGateway';
 import {
   WorkspaceSession,
   stateFailure,
@@ -146,7 +146,7 @@ export function useTabSession({
 
   const activeDocuments = useMemo(() => paneLeaves(state.layout).flatMap((pane) => {
     const tab = state.tabs.find((candidate) => candidate.tabId === pane.activeTabId);
-    return tab?.kind === 'document' && tab.documentId
+    return tab?.kind === 'document' && tab.documentId && !isPdfPath(tab.path)
       ? [{ documentId: tab.documentId, paneId: pane.paneId }]
       : [];
   }), [state.layout, state.tabs]);

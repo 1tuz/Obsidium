@@ -946,6 +946,18 @@
     "menu": { "open": "Open", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete", "group": "Group selection", "ungroup": "Ungroup" },
     "errors": { "read": "Could not open canvas: {{reason}}", "fileOutsideWorkspace": "Only files in this knowledge base can be added.", "exportFailed": "Could not export this canvas." }
   },
+  "pdf": {
+    "reader": "PDF reader",
+    "controls": "PDF controls",
+    "previous": "Previous page",
+    "next": "Next page",
+    "pageCount": "Page {{page}} of {{count}}",
+    "loading": "Loading PDF…",
+    "page": "Page {{page}}",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "openFailed": "Could not open this PDF."
+  },
   "book": {
     "replacePageCover": "Replace the page cover",
     "randomCover": "Random cover",
