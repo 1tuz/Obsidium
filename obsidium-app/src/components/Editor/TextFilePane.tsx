@@ -5,6 +5,8 @@ import type { Extension } from '@codemirror/state';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
 import { CodeMirrorView } from '../Common/CodeMirrorView';
 import { obsidiumCodeMirrorTheme, obsidiumFieldSetup } from '../Common/codeMirror';
+import { codeHighlighting } from './extensions/codeBlock/highlight';
+import { codeHighlightTheme } from './extensions/codeBlock/theme';
 import { isFileCommandError, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { fileName } from '../../modules/paths';
 import { t } from '../../i18n';
@@ -26,6 +28,8 @@ export function TextFilePane({ path, inactive }: { path: string; inactive: boole
     obsidiumFieldSetup,
     obsidiumCodeMirrorTheme,
     syntaxHighlighting(defaultHighlightStyle),
+    codeHighlighting,
+    codeHighlightTheme,
     language,
   ], [language]);
 

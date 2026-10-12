@@ -121,6 +121,17 @@ describe('theme engine', () => {
     expect(semanticPaletteStyles).not.toMatch(/#[\da-f]{3,8}/iu);
   });
 
+  it('keeps code syntax roles distinct while mixing them with the selected palette accent', () => {
+    for (const [role, hue] of Object.entries({
+      keyword: 300, string: 140, number: 70, function: 210, type: 170, property: 350,
+    })) {
+      expect(semanticPaletteStyles).toContain(
+        `--q-editor-code-${role}: oklch(from var(--q-text-accent) l calc(c * 0.8) calc(h + ${hue}));`,
+      );
+    }
+    expect(semanticPaletteStyles).toContain('--q-editor-code-comment: oklch(from var(--q-text-primary) l calc(c * 0.35) h);');
+  });
+
   it('falls back to Obsidium for an unknown palette id', () => {
     setTheme('light', 'missing-palette');
     expect(document.documentElement.dataset.palette).toBe('obsidium');

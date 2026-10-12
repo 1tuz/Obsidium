@@ -25,14 +25,23 @@ export function codeBlockDecorations(doc: Text, blocks: readonly CodeBlockShape[
   const builder = new RangeSetBuilder<Decoration>();
 
   for (const block of blocks) {
-    const controls = codeBlockControlDecoration(block);
-    if (controls) builder.add(block.from, block.from, controls);
     const first = doc.lineAt(block.from).number;
     const last = doc.lineAt(block.end).number;
     for (let number = first; number <= last; number += 1) {
       const { from } = doc.line(number);
       builder.add(from, from, edgeDecoration(number === first, number === last));
     }
+  }
+
+  return builder.finish();
+}
+
+export function codeBlockControls(blocks: readonly CodeBlockShape[]): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+
+  for (const block of blocks) {
+    const controls = codeBlockControlDecoration(block);
+    if (controls) builder.add(block.from, block.from, controls);
   }
 
   return builder.finish();

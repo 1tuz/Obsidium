@@ -1,5 +1,15 @@
 import { EditorView } from '@codemirror/view';
 
+export const codeHighlightTheme = EditorView.theme({
+  '.cm-content .q-code-keyword': { color: 'var(--q-editor-code-keyword)' },
+  '.cm-content .q-code-string': { color: 'var(--q-editor-code-string)' },
+  '.cm-content .q-code-number': { color: 'var(--q-editor-code-number)' },
+  '.cm-content .q-code-comment': { color: 'var(--q-editor-code-comment)', fontStyle: 'italic' },
+  '.cm-content .q-code-function': { color: 'var(--q-editor-code-function)' },
+  '.cm-content .q-code-type': { color: 'var(--q-editor-code-type)' },
+  '.cm-content .q-code-property': { color: 'var(--q-editor-code-property)' },
+});
+
 export const codeBlockTheme = EditorView.theme({
   '.q-md-code-controls': {
     display: 'flex',
@@ -65,11 +75,4 @@ export const codeBlockTheme = EditorView.theme({
     borderRadius: '0',
     backgroundColor: 'transparent',
   },
-  '.cm-line.q-md-code-line .q-code-keyword': { color: 'var(--q-editor-code-keyword)' },
-  '.cm-line.q-md-code-line .q-code-string': { color: 'var(--q-editor-code-string)' },
-  '.cm-line.q-md-code-line .q-code-number': { color: 'var(--q-editor-code-number)' },
-  '.cm-line.q-md-code-line .q-code-comment': { color: 'var(--q-editor-code-comment)', fontStyle: 'italic' },
-  '.cm-line.q-md-code-line .q-code-function': { color: 'var(--q-editor-code-function)' },
-  '.cm-line.q-md-code-line .q-code-type': { color: 'var(--q-editor-code-type)' },
-  '.cm-line.q-md-code-line .q-code-property': { color: 'var(--q-editor-code-property)' },
 });
