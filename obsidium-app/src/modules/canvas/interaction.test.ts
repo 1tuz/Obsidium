@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CanvasNode } from './model';
 import {
   alignCanvasNodes,
+  canvasRectBetweenPoints,
   commitCanvasHistory,
   createCanvasHistory,
   getCanvasGroupMemberIds,
@@ -21,6 +22,15 @@ const nodes: CanvasNode[] = [
 ];
 
 describe('canvas interactions', () => {
+  it('normalizes drag rectangles in either direction and keeps dimensions positive', () => {
+    expect(canvasRectBetweenPoints({ x: 120, y: 90 }, { x: 20, y: 10 }))
+      .toEqual({ x: 20, y: 10, width: 100, height: 80 });
+    expect(canvasRectBetweenPoints({ x: 2.4, y: 1.2 }, { x: 2.4, y: 1.2 }))
+      .toEqual({ x: 2, y: 1, width: 1, height: 1 });
+    expect(canvasRectBetweenPoints({ x: 0.4, y: 0.6 }, { x: 21.8, y: 35.2 }))
+      .toEqual({ x: 0, y: 1, width: 22, height: 34 });
+  });
+
   it('selects by click, shift toggle, and intersecting marquee', () => {
     expect(selectCanvasNode(['a'], 'b')).toEqual(['b']);
     expect(selectCanvasNode(['a'], 'b', true)).toEqual(['a', 'b']);
