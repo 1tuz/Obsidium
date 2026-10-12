@@ -33,6 +33,11 @@ describe('code block grammars', () => {
     expect(fenceLanguage('какой-то текст')).toBeNull();
   });
 
+  it.each(['py', 'rs', 'go', 'java', 'cpp', 'cs', 'sql', 'sh', 'yaml', 'json', 'html', 'css'])(
+    'matches the %s fence to an installed language grammar',
+    (name) => expect(fenceLanguage(name)).not.toBeNull(),
+  );
+
   it('reports the grammar as mounted once the language has loaded and the doc is reparsed', async () => {
     await fenceLanguage('js')!.load();
     const state = stateOf(DOC);
