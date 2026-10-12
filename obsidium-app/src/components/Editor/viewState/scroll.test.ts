@@ -49,6 +49,28 @@ describe('continuous document scrolling', () => {
     expect(resolveEditorScrollElement(container)).toBe(book);
   });
 
+  it('uses CodeMirror body as scrollport in reading mode', () => {
+    const readerScroll = element(0);
+    const container = {
+      querySelector: (selector: string) => (
+        selector === '.q-editor-content--reading .q-editor-content__body .cm-scroller'
+          ? readerScroll
+          : null
+      ),
+    } as unknown as HTMLElement;
+    expect(resolveEditorScrollElement(container, true)).toBe(readerScroll);
+  });
+
+  it('keeps the active book page as scrollport in reading mode', () => {
+    const book = { className: 'q-book-page' } as unknown as HTMLElement;
+    const container = {
+      querySelector: (selector: string) => (
+        selector === '.q-book-page:not(.q-book-page--inactive)' ? book : null
+      ),
+    } as unknown as HTMLElement;
+    expect(resolveEditorScrollElement(container, true)).toBe(book);
+  });
+
   it('falls back to container when book page is inactive', () => {
     const container = {
       querySelector: () => null,

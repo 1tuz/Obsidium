@@ -47,6 +47,22 @@ export class ViewStateController {
     this.restore();
   }
 
+  setScrollElement(scrollElement: HTMLElement): void {
+    if (this.scrollElement === scrollElement) return;
+    const view = this.view;
+    const previous = this.scrollElement;
+    if (!view || !previous) return;
+
+    this.dirty = true;
+    this.flush();
+    previous.removeEventListener('scroll', this.onScroll);
+    this.scrollElement = scrollElement;
+    scrollElement.addEventListener('scroll', this.onScroll, { passive: true });
+
+    const state = this.lastState;
+    if (state) this.applyScroll(view, state.fallbackScrollAnchor, state.scrollOffsetPx);
+  }
+
   update(update: ViewUpdate): void {
     if (update.selectionSet || update.docChanged) this.markDirty();
   }

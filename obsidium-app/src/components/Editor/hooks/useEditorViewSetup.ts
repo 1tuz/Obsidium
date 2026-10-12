@@ -12,6 +12,7 @@ export function useEditorViewSetup(options: {
   documentId: string | null;
   paneId: string;
   focused: boolean;
+  readOnly?: boolean;
   viewStateReady: boolean;
   initialViewState: ViewState | null;
   revealOffset?: number;
@@ -27,6 +28,7 @@ export function useEditorViewSetup(options: {
     documentId,
     paneId,
     focused,
+    readOnly = false,
     viewStateReady,
     initialViewState,
     revealOffset,
@@ -88,8 +90,8 @@ export function useEditorViewSetup(options: {
     if (!view || !pending || !container) return;
     if (attachedRef.current === pending) return;
     attachedRef.current = pending;
-    pending.attach(view, resolveEditorScrollElement(container));
-  }, []);
+    pending.attach(view, resolveEditorScrollElement(container, readOnly));
+  }, [readOnly]);
 
   useLayoutEffect(() => () => {
     controller?.dispose(true);
@@ -97,6 +99,13 @@ export function useEditorViewSetup(options: {
   }, [controller]);
 
   useEffect(attachWhenReady, [attachWhenReady, controller]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    const container = containerRef.current;
+    if (!view || !container) return;
+    controller?.setScrollElement(resolveEditorScrollElement(container, readOnly));
+  }, [controller, readOnly]);
 
   const wasInactive = useRef(inactive);
   const wasFocused = useRef(focused);

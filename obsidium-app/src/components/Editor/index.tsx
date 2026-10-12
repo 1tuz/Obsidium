@@ -119,6 +119,7 @@ export function Editor({
     documentId,
     paneId,
     focused,
+    readOnly,
     viewStateReady,
     initialViewState,
     revealOffset,

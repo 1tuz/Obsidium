@@ -81,8 +81,10 @@ function createView(scrollDOM: HTMLElement, contentDOM: HTMLElement = element(0)
   return {
     contentDOM,
     scrollDOM,
+    dispatch: vi.fn(),
+    requestMeasure: vi.fn(({ write }: { write: () => void }) => write()),
     focus: vi.fn(),
-    state: { selection: { main: { anchor: 4, head: 4 } } },
+    state: { doc: { length: 100 }, selection: { main: { anchor: 4, head: 4 } } },
     lineBlockAtHeight: () => ({ from: 2, top: 100 }),
     coordsAtPos: () => ({ top: 0 }),
   } as unknown as EditorView;
@@ -515,6 +517,32 @@ describe('ViewStateController restore', () => {
     expect(stage.pending()).toBe(0);
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toMatchObject({ fallbackScrollAnchor: 2 });
+  });
+
+  it('keeps the visible anchor when reading mode changes the scrollport', () => {
+    const outerScroll = element(0);
+    const readerScroll = element(0);
+    const view = createView(element(-100));
+    const onChange = vi.fn();
+    const controller = new ViewStateController({
+      documentId: 'doc',
+      path: () => 'note.md',
+      initial: null,
+      resolved: resolvedFor(null),
+      onChange,
+    });
+
+    controller.attach(view, outerScroll);
+    outerScroll.scrollTop = 600;
+    outerScroll.emit('scroll');
+    controller.setScrollElement(readerScroll);
+    readerScroll.emit('scroll');
+
+    expect(outerScroll.removeEventListener).toHaveBeenCalledWith('scroll', expect.any(Function));
+    expect(readerScroll.addEventListener).toHaveBeenCalledWith('scroll', expect.any(Function), { passive: true });
+    expect(view.dispatch).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ fallbackScrollAnchor: 2 }));
+    controller.dispose();
   });
 
   it('stores the restored position when the tab closes', () => {

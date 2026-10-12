@@ -115,15 +115,17 @@ export function EditorContent({
                     onToggle={onToggleMetadata}
                 />
             ) : null}
-            <CodeMirrorView
-                viewRef={bodyRef}
-                doc={initialBody}
-                selection={selection}
-                extensions={bodyExtensions}
-                onCreate={onCreateEditor}
-                onUpdate={onUpdate}
-                onFocus={() => collapseViewSelection(titleRef.current?.view)}
-            />
+            <div className="q-editor-content__body">
+                <CodeMirrorView
+                    viewRef={bodyRef}
+                    doc={initialBody}
+                    selection={selection}
+                    extensions={bodyExtensions}
+                    onCreate={onCreateEditor}
+                    onUpdate={onUpdate}
+                    onFocus={() => collapseViewSelection(titleRef.current?.view)}
+                />
+            </div>
             <Menu
                 open={!readOnly && bodyMenu.open}
                 position={bodyMenu.position}
