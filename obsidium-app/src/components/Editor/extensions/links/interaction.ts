@@ -4,6 +4,7 @@ import { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import type { LinkDisposition } from '../../../../modules/links';
 import { isReaderQuoteHref } from '../../../../modules/docs/bookQuotes';
+import { parentDirectory, relativePath } from '../../../../modules/paths';
 import { linkLabelRange } from './flow';
 import { findAncestor } from '../syntaxAncestor';
 
@@ -28,6 +29,44 @@ function externalUrlAt(state: EditorState, position: number): string | null {
   );
   const url = owner && urlNodeOf(owner);
   return url ? state.sliceDoc(url.from, url.to) : null;
+}
+
+export function markdownNoteTarget(
+  rawUrl: string,
+  workspacePath: string | null,
+  notePath: string,
+): string | null {
+  if (!workspacePath || /^[a-z][a-z\d+.-]*:/i.test(rawUrl) || rawUrl.startsWith('//')) return null;
+
+  const rawPath = rawUrl.split(/[?#]/, 1)[0]?.replace(/\\/g, '/') ?? '';
+  let decodedPath: string;
+  try {
+    decodedPath = decodeURIComponent(rawPath);
+  } catch {
+    return null;
+  }
+  if (!/\.md$/i.test(decodedPath)) return null;
+
+  let sourcePath: string;
+  try {
+    sourcePath = relativePath(workspacePath, notePath);
+  } catch {
+    return null;
+  }
+
+  const segments = rawPath.startsWith('/')
+    ? []
+    : parentDirectory(sourcePath).replace(/\\/g, '/').split('/').filter(Boolean);
+  for (const segment of decodedPath.split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (!segments.length) return null;
+      segments.pop();
+    } else {
+      segments.push(segment);
+    }
+  }
+  return segments.length ? segments.join('/') : null;
 }
 
 function linkNodeAt(state: EditorState, pos: number): SyntaxNode | null {
@@ -61,6 +100,8 @@ export function readerRefLinkClickAllowed(
 export function linkInteraction(
   onOpenWiki: (target: string, disposition: LinkDisposition) => void,
   onOpenExternal: (url: string) => void,
+  workspacePath: string | null,
+  notePath: () => string,
 ) {
   const activateLink = (event: MouseEvent, view: EditorView): boolean => {
     if (event.button !== 0) return false;
@@ -83,6 +124,11 @@ export function linkInteraction(
     if (!readerRefLinkClickAllowed(view.state, pos, url)) return false;
     event.preventDefault();
     event.stopPropagation();
+    const markdownTarget = markdownNoteTarget(url, workspacePath, notePath());
+    if (markdownTarget) {
+      onOpenWiki(markdownTarget, event.ctrlKey || event.metaKey ? 'new-tab' : 'current');
+      return true;
+    }
     onOpenExternal(url);
     return true;
   };
