@@ -24,6 +24,10 @@
   border-left: var(--q-border-1) solid var(--q-border-default);
 }
 
+.q-canvas-toolbar__diamond {
+  transform: rotate(45deg) scale(0.75);
+}
+
 .q-canvas-toolbar__setting {
   display: flex;
   min-width: 0;
