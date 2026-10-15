@@ -47,7 +47,7 @@
   --q-canvas-card: color-mix(in srgb, var(--q-reading-table) 18%, var(--q-bg-surface));
   --q-canvas-card-raised: color-mix(in srgb, var(--q-reading-code) 18%, var(--q-bg-surface-raised));
   --q-canvas-border: color-mix(in srgb, var(--q-reading-border) 18%, var(--q-border-default));
-  --q-canvas-edge: color-mix(in srgb, var(--q-reading-link) 35%, var(--q-text-accent));
+  --q-canvas-edge: var(--q-canvas-default-stroke);
 }
 
 .q-canvas__controls {
@@ -261,7 +261,7 @@
   vector-effect: non-scaling-stroke;
 }
 
-.q-canvas__object.is-selected > .q-canvas-card {
+.q-canvas[data-paper-style] .q-canvas__object.is-selected > .q-canvas-card {
   border-color: var(--q-canvas-edge, var(--q-border-accent));
 }
 

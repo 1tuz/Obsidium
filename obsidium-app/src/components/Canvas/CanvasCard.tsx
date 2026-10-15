@@ -19,6 +19,7 @@ interface CanvasCardProps {
   node: CanvasCardNode;
   markdown?: string;
   color?: string;
+  strokeColor?: string;
   editing?: boolean;
   selected?: boolean;
   children?: ComponentChildren;
@@ -71,6 +72,7 @@ export const CanvasCard = memo(function CanvasCard({
   node,
   markdown,
   color,
+  strokeColor,
   editing = false,
   selected = false,
   children,
@@ -80,7 +82,10 @@ export const CanvasCard = memo(function CanvasCard({
   onOpenUrl,
 }: CanvasCardProps) {
   const className = `q-canvas-card q-canvas-card--${node.type}${selected ? ' is-selected' : ''}`;
-  const colorStyle = color ? { '--q-canvas-node-color': color } as Record<string, string> : undefined;
+  const colorStyle = color || strokeColor ? {
+    ...(color ? { '--q-canvas-node-color': color } : {}),
+    ...(strokeColor ? { borderColor: strokeColor } : {}),
+  } as Record<string, string> : undefined;
 
   if (node.type === 'group') {
     return <div className={className} style={colorStyle} role="group" aria-label="Canvas group">{children}</div>;

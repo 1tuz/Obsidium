@@ -95,4 +95,13 @@ describe('CanvasCard', () => {
     const card = renderer!.container.querySelector('.q-canvas-card') as HTMLElement;
     expect(card.getAttribute('style')).toContain('--q-canvas-node-color: var(--q-red-600)');
   });
+
+  it('applies the shape stroke color inline', () => {
+    act(() => {
+      renderer = mountDom(<CanvasCard node={node('text')} strokeColor="var(--q-canvas-default-stroke)" />);
+    });
+
+    const card = renderer!.container.querySelector('.q-canvas-card') as HTMLElement;
+    expect(card.style.borderColor).toBe('var(--q-canvas-default-stroke)');
+  });
 });
