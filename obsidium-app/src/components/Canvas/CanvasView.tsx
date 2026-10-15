@@ -1303,6 +1303,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
                 node={node}
                 markdown={preview}
                 color={canvasCssColor(node.color)}
+                strokeColor={typeof shape === 'string' && ['diamond', 'ellipse', 'freehand', 'number', 'rectangle'].includes(shape)
+                  ? 'var(--q-canvas-node-color, var(--q-canvas-default-stroke))'
+                  : undefined}
                 editing={editingId === node.id}
                 selected={selection.includes(node.id)}
                 resolveImageUrl={resolveImageUrl}
