@@ -7,8 +7,10 @@ import {
   createCanvasHistory,
   getCanvasGroupMemberIds,
   getCanvasEdgeGeometry,
+  getCanvasEdgePath,
   redoCanvasHistory,
   resizeCanvasNode,
+  resizeCanvasNodeFromHandle,
   selectCanvasNode,
   selectCanvasNodesInRect,
   translateCanvasNodes,
@@ -63,6 +65,24 @@ describe('canvas interactions', () => {
       .toMatchObject({ width: 160, height: 100, text: 'a', custom: { keep: true } });
     expect(resizeCanvasNode(nodes[0], { width: 30, height: 20 })).toMatchObject({ width: 120, height: 80 });
     expect(resizeCanvasNode(nodes[0], { width: 160.4, height: 90.7 })).toMatchObject({ width: 160, height: 91 });
+  });
+
+  it('resizes from every anchor while keeping the opposite edge fixed and supports square ratios', () => {
+    expect(resizeCanvasNodeFromHandle(nodes[0], 'top-left', { x: -30, y: -20 }))
+      .toMatchObject({ x: -30, y: -20, width: 130, height: 80 });
+    expect(resizeCanvasNodeFromHandle(nodes[0], 'left', { x: -30, y: 0 }))
+      .toMatchObject({ x: -30, y: 0, width: 130, height: 60 });
+    expect(resizeCanvasNodeFromHandle(nodes[0], 'bottom-right', { x: 30, y: 20 }, true))
+      .toMatchObject({ x: 0, y: 0, width: 133, height: 80 });
+    expect(resizeCanvasNodeFromHandle(nodes[0], 'top-left', { x: 200, y: 200 }))
+      .toMatchObject({ x: -20, y: -20, width: 120, height: 80 });
+  });
+
+  it('builds straight, elbow, and curved edge paths with an editable bend', () => {
+    const geometry = { from: { x: 10, y: 20 }, to: { x: 110, y: 80 } };
+    expect(getCanvasEdgePath(geometry, 'straight')).toBe('M 10 20 L 110 80');
+    expect(getCanvasEdgePath(geometry, 'elbow')).toBe('M 10 20 L 60 20 L 60 80 L 110 80');
+    expect(getCanvasEdgePath(geometry, 'curved', { x: 0, y: -30 })).toBe('M 10 20 Q 60 20 110 80');
   });
 
   it('recomputes edge endpoints from current bounds and respects explicit sides', () => {

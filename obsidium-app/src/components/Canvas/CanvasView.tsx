@@ -33,14 +33,17 @@ import {
   createCanvasHistory,
   getCanvasGroupMemberIds,
   getCanvasEdgeGeometry,
+  getCanvasEdgePath,
   redoCanvasHistory,
-  resizeCanvasNode,
+  resizeCanvasNodeFromHandle,
   selectCanvasNode,
   selectCanvasNodesInRect,
   translateCanvasNodes,
   undoCanvasHistory,
   type CanvasHistory,
   type CanvasAlignment,
+  type CanvasEdgeRoute,
+  type CanvasResizeHandle,
 } from '../../modules/canvas/interaction';
 import { CanvasCard, type CanvasCardNode } from './CanvasCard';
 import { CanvasNotePicker } from './CanvasNotePicker';
@@ -51,7 +54,8 @@ type Camera = { x: number; y: number; zoom: number };
 type CanvasClipboard = { nodes: CanvasTypedNode[]; edges: CanvasEdge[] };
 type DragState =
   | { kind: 'move'; startX: number; startY: number; camera: Camera; document: CanvasDocument; selected: string[] }
-  | { kind: 'resize'; startX: number; startY: number; camera: Camera; document: CanvasDocument; nodeId: string }
+  | { kind: 'resize'; startX: number; startY: number; camera: Camera; document: CanvasDocument; nodeId: string; handle: CanvasResizeHandle }
+  | { kind: 'edge-bend'; startX: number; startY: number; camera: Camera; edgeId: string; route: CanvasEdgeRoute; bend: CanvasPoint }
   | { kind: 'draw'; points: CanvasPoint[] }
   | { kind: 'shape'; start: CanvasPoint; startX: number; startY: number; nodeId: string; moved?: boolean }
   | { kind: 'pan'; startX: number; startY: number; camera: Camera }
@@ -79,6 +83,9 @@ const CANVAS_PRESET_COLORS: Record<string, string> = {
   '5': '--q-cyan-600',
   '6': '--q-purple-600',
 };
+const resizeHandles: readonly CanvasResizeHandle[] = [
+  'top-left', 'top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left',
+];
 
 const slashCommands = [
   { id: 'text', label: 'canvas.slash.text' },
@@ -89,6 +96,8 @@ const slashCommands = [
   { id: 'group', label: 'canvas.slash.group' },
   { id: 'edge', label: 'canvas.slash.edge' },
   { id: 'rectangle', label: 'canvas.slash.rectangle' },
+  { id: 'diamond', label: 'canvas.slash.diamond' },
+  { id: 'number', label: 'canvas.slash.number' },
   { id: 'ellipse', label: 'canvas.slash.ellipse' },
 ] as const;
 
@@ -104,6 +113,23 @@ function canvasCssColor(value: unknown): string | undefined {
 
 function edgeSide(value: unknown): string {
   return value === 'left' || value === 'right' || value === 'top' || value === 'bottom' ? value : 'auto';
+}
+
+function edgeRouting(edge: CanvasEdge): { route: CanvasEdgeRoute; bend: CanvasPoint } {
+  const obsidium = edge.obsidium && typeof edge.obsidium === 'object' ? edge.obsidium as Record<string, unknown> : {};
+  const bend = obsidium.bend && typeof obsidium.bend === 'object' ? obsidium.bend as Record<string, unknown> : {};
+  return {
+    route: obsidium.route === 'elbow' || obsidium.route === 'curved' ? obsidium.route : 'straight',
+    bend: {
+      x: typeof bend.x === 'number' && Number.isFinite(bend.x) ? bend.x : 0,
+      y: typeof bend.y === 'number' && Number.isFinite(bend.y) ? bend.y : 0,
+    },
+  };
+}
+
+function edgeRoutingPatch(edge: CanvasEdge, route: CanvasEdgeRoute, bend: CanvasPoint): Partial<CanvasEdge> {
+  const obsidium = edge.obsidium && typeof edge.obsidium === 'object' ? edge.obsidium as Record<string, unknown> : {};
+  return { obsidium: { ...obsidium, route, bend } };
 }
 
 function boardPreferences(document: CanvasDocument): Record<string, unknown> {
@@ -192,19 +218,23 @@ function canvasSvg(document: CanvasDocument, colors: { paper: string; ink: strin
       : '';
     const start = edge.fromEnd === 'arrow' ? ` marker-start="url(#arrow-start-${index})"` : '';
     const end = edge.toEnd === 'none' ? '' : ` marker-end="url(#arrow-end-${index})"`;
-    return `<marker id="arrow-start-${index}" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 z" fill="${escapeXml(resolvedColor)}" /></marker><marker id="arrow-end-${index}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="${escapeXml(resolvedColor)}" /></marker><path d="M ${geometry.from.x} ${geometry.from.y} L ${geometry.to.x} ${geometry.to.y}" stroke="${escapeXml(resolvedColor)}" fill="none" stroke-width="2"${start}${end} />${label}`;
+    const routing = edgeRouting(edge);
+    return `<marker id="arrow-start-${index}" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 z" fill="${escapeXml(resolvedColor)}" /></marker><marker id="arrow-end-${index}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="${escapeXml(resolvedColor)}" /></marker><path d="${getCanvasEdgePath(geometry, routing.route, routing.bend)}" stroke="${escapeXml(resolvedColor)}" fill="none" stroke-width="1"${start}${end} />${label}`;
   }).join('');
   const body = nodes.map((node) => {
     const title = node.type === 'text' ? node.text : node.type === 'file' ? node.file : node.type === 'link' ? node.url : node.label;
     const fill = canvasCssColor(node.color) ?? colors.card;
     const resolvedFill = /^[1-6]$/.test(String(node.color)) ? colors.presets[String(node.color)] ?? colors.card : fill;
+    const resolvedStroke = canvasCssColor(node.color) ?? colors.edge;
     const shape = node.type === 'text' ? (node.obsidium as Record<string, unknown> | undefined)?.shape : undefined;
     const freehand = shape === 'freehand' ? canvasFreehandPoints(node) : [];
     const frame = shape === 'freehand' && freehand.length > 1
-      ? `<polyline points="${freehand.map((point) => `${point.x},${point.y}`).join(' ')}" fill="none" stroke="${escapeXml(resolvedFill)}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`
-      : shape === 'ellipse'
-      ? `<ellipse cx="${node.x + node.width / 2}" cy="${node.y + node.height / 2}" rx="${node.width / 2}" ry="${node.height / 2}" fill="${escapeXml(resolvedFill)}" stroke="${escapeXml(colors.border)}" stroke-width="2" />`
-      : `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${escapeXml(resolvedFill)}" stroke="${escapeXml(colors.border)}" stroke-width="2" />`;
+      ? `<polyline points="${freehand.map((point) => `${point.x},${point.y}`).join(' ')}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />`
+      : shape === 'ellipse' || shape === 'number'
+      ? `<ellipse cx="${node.x + node.width / 2}" cy="${node.y + node.height / 2}" rx="${node.width / 2}" ry="${node.height / 2}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="1" />`
+      : shape === 'diamond'
+        ? `<polygon points="${node.x + node.width / 2},${node.y} ${node.x + node.width},${node.y + node.height / 2} ${node.x + node.width / 2},${node.y + node.height} ${node.x},${node.y + node.height / 2}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="1" />`
+        : `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${shape ? 'none' : escapeXml(resolvedFill)}" stroke="${escapeXml(shape ? resolvedStroke : colors.border)}" stroke-width="1" />`;
     return `<g>${frame}<foreignObject x="${node.x + 12}" y="${node.y + 12}" width="${Math.max(1, node.width - 24)}" height="${Math.max(1, node.height - 24)}"><div xmlns="http://www.w3.org/1999/xhtml" style="font:16px sans-serif;white-space:pre-wrap;overflow:hidden;color:${escapeXml(colors.ink)}">${escapeXml(String(title ?? ''))}</div></foreignObject></g>`;
   }).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${width}" height="${height}" viewBox="${left} ${top} ${width} ${height}" style="color:${escapeXml(colors.ink)};background:${escapeXml(colors.paper)}">${edges}${body}</svg>`;
@@ -487,14 +517,14 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       ...base,
       type: 'text',
       text: '',
-      ...((type === 'rectangle' || type === 'ellipse') ? { obsidium: { shape: type } } : {}),
+      ...((type === 'rectangle' || type === 'diamond' || type === 'ellipse') ? { obsidium: { shape: type } } : {}),
     };
     setCanvasDocument(addCanvasNode(current, node));
     setSelection([node.id]);
     if (node.type === 'text') setEditingId(node.id);
   }, [nodeColor, setCanvasDocument]);
 
-  const beginShapeDrawing = useCallback((type: 'rectangle' | 'ellipse', event: { clientX: number; clientY: number; pointerId: number }) => {
+  const beginShapeDrawing = useCallback((type: 'rectangle' | 'diamond' | 'ellipse', event: { clientX: number; clientY: number; pointerId: number }) => {
     const current = documentRef.current;
     const point = worldPoint(event);
     if (!current) return;
@@ -513,6 +543,25 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     stageRef.current?.focus();
     stageRef.current?.setPointerCapture(event.pointerId);
   }, [nodeColor, setCanvasDocument, worldPoint]);
+
+  const addNumberMarker = useCallback((point: CanvasPoint) => {
+    const current = documentRef.current;
+    if (!current) return;
+    const nextNumber = current.nodes.reduce((highest, node) => {
+      const obsidium = node.type === 'text' && node.obsidium && typeof node.obsidium === 'object'
+        ? node.obsidium as Record<string, unknown>
+        : {};
+      return obsidium.shape === 'number' ? Math.max(highest, Number(node.text) || 0) : highest;
+    }, 0) + 1;
+    const node: CanvasTypedNode = {
+      id: newId(), type: 'text', x: Math.round(point.x), y: Math.round(point.y),
+      width: 48, height: 48, text: String(nextNumber), obsidium: { shape: 'number' },
+      ...(nodeColor ? { color: nodeColor } : {}),
+    };
+    setCanvasDocument(addCanvasNode(current, node));
+    setSelection([node.id]);
+    setActiveTool('select');
+  }, [nodeColor, setCanvasDocument]);
 
   const addSearchedNote = useCallback((path: string) => {
     const current = documentRef.current;
@@ -637,7 +686,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   const handleNodePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (event.button !== 0) return;
-    if (activeTool === 'rectangle' || activeTool === 'ellipse') {
+    if (activeTool === 'rectangle' || activeTool === 'diamond' || activeTool === 'ellipse') {
       event.stopPropagation();
       beginShapeDrawing(activeTool, event);
       return;
@@ -713,14 +762,30 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     } else if (currentDrag.kind === 'resize') {
       const original = currentDrag.document.nodes.find((node) => node.id === currentDrag.nodeId);
       if (!original) return;
-      const resized = resizeCanvasNode(original, {
-        width: original.width + dx / currentDrag.camera.zoom,
-        height: original.height + dy / currentDrag.camera.zoom,
-      }, 120, 80, grid === 'none' ? undefined : GRID_SIZE);
+      const resized = resizeCanvasNodeFromHandle(original, currentDrag.handle, {
+        x: dx / currentDrag.camera.zoom,
+        y: dy / currentDrag.camera.zoom,
+      }, event.shiftKey, 120, 80, grid === 'none' ? undefined : GRID_SIZE);
       const current = documentRef.current;
       if (current) setCanvasDocument(updateCanvasNode(current, original.id, resized), false);
+    } else if (currentDrag.kind === 'edge-bend') {
+      const current = documentRef.current;
+      const edge = current?.edges.find((item) => item.id === currentDrag.edgeId);
+      if (!current || !edge) return;
+      const bend = {
+        x: currentDrag.bend.x + dx / currentDrag.camera.zoom,
+        y: currentDrag.route === 'elbow' ? 0 : currentDrag.bend.y + dy / currentDrag.camera.zoom,
+      };
+      setCanvasDocument(updateCanvasEdge(current, edge.id, edgeRoutingPatch(edge, currentDrag.route, bend)), false);
     } else if (currentDrag.kind === 'shape') {
-      const rect = canvasRectBetweenPoints(currentDrag.start, worldPoint(event));
+      const end = worldPoint(event);
+      const dx = end.x - currentDrag.start.x;
+      const dy = end.y - currentDrag.start.y;
+      const side = Math.max(Math.abs(dx), Math.abs(dy));
+      const rect = canvasRectBetweenPoints(currentDrag.start, event.shiftKey ? {
+        x: currentDrag.start.x + (Math.sign(dx) || 1) * side,
+        y: currentDrag.start.y + (Math.sign(dy) || 1) * side,
+      } : end);
       const current = documentRef.current;
       if (current) {
         const node = current.nodes.find((item) => item.id === currentDrag.nodeId);
@@ -769,7 +834,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         setSelection([node.id]);
       }
       setActiveTool('select');
-    } else if (currentDrag?.kind === 'move' || currentDrag?.kind === 'resize') {
+    } else if (currentDrag?.kind === 'move' || currentDrag?.kind === 'resize' || currentDrag?.kind === 'edge-bend') {
       const current = documentRef.current;
       if (current) {
         const history = historyRef.current;
@@ -815,8 +880,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       stage.setPointerCapture(event.pointerId);
       return;
     }
-    if (event.button === 0 && (activeTool === 'rectangle' || activeTool === 'ellipse')) {
+    if (event.button === 0 && (activeTool === 'rectangle' || activeTool === 'diamond' || activeTool === 'ellipse')) {
       beginShapeDrawing(activeTool, event);
+      return;
+    }
+    if (event.button === 0 && activeTool === 'number') {
+      addNumberMarker(point);
       return;
     }
     if (activeTool !== 'select') {
@@ -849,7 +918,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     dragRef.current = next;
     setDrag(next);
     stage.setPointerCapture(event.pointerId);
-  }, [activeTool, addGroup, addNode, beginShapeDrawing, camera, worldPoint, workspacePath]);
+  }, [activeTool, addGroup, addNode, addNumberMarker, beginShapeDrawing, camera, worldPoint, workspacePath]);
 
   const handleDrop = useCallback((event: TargetedDragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -896,7 +965,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     } else if (!command && !event.altKey && !event.shiftKey) {
       const tool = ({
         v: 'select', t: 'text', f: 'file', l: 'link', g: 'group', a: 'edge',
-        r: 'rectangle', e: 'ellipse', p: 'draw',
+        r: 'rectangle', d: 'diamond', e: 'ellipse', n: 'number', p: 'draw',
       } as const)[event.key.toLowerCase()];
       if (tool) {
         event.preventDefault();
@@ -1097,6 +1166,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         <button type="button" onClick={() => setCameraValue({ x: 0, y: 0, zoom: 1 })}>{t('canvas.toolbar.resetView')}</button>
         {selectedEdge && <>
           <label>{t('canvas.edgeLabel')}<input value={typeof selectedEdge.label === 'string' ? selectedEdge.label : ''} onInput={(event) => updateEdge(selectedEdge.id, { label: event.currentTarget.value })} /></label>
+          <label>{t('canvas.edgeRoute')}<select aria-label={t('canvas.edgeRoute')} value={edgeRouting(selectedEdge).route} onChange={(event) => {
+            const routing = edgeRouting(selectedEdge);
+            updateEdge(selectedEdge.id, edgeRoutingPatch(selectedEdge, event.currentTarget.value as CanvasEdgeRoute, routing.bend));
+          }}><option value="straight">{t('canvas.route.straight')}</option><option value="elbow">{t('canvas.route.elbow')}</option><option value="curved">{t('canvas.route.curved')}</option></select></label>
           <label>{t('canvas.fromDirection')}<select value={selectedEdge.fromEnd === 'arrow' ? 'arrow' : 'none'} onChange={(event) => updateEdge(selectedEdge.id, { fromEnd: event.currentTarget.value })}><option value="none">{t('canvas.direction.none')}</option><option value="arrow">{t('canvas.direction.arrow')}</option></select></label>
           <label>{t('canvas.toDirection')}<select value={selectedEdge.toEnd === 'none' ? 'none' : 'arrow'} onChange={(event) => updateEdge(selectedEdge.id, { toEnd: event.currentTarget.value })}><option value="none">{t('canvas.direction.none')}</option><option value="arrow">{t('canvas.direction.arrow')}</option></select></label>
           <label>{t('canvas.fromSide')}<select value={edgeSide(selectedEdge.fromSide)} onChange={(event) => updateEdge(selectedEdge.id, { fromSide: event.currentTarget.value === 'auto' ? undefined : event.currentTarget.value })}><option value="auto">{t('canvas.side.auto')}</option><option value="left">{t('canvas.side.left')}</option><option value="right">{t('canvas.side.right')}</option><option value="top">{t('canvas.side.top')}</option><option value="bottom">{t('canvas.side.bottom')}</option></select></label>
@@ -1138,23 +1211,47 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             const from = screenPoint(geometry.from);
             const to = screenPoint(geometry.to);
             const color = canvasCssColor(edge.color);
+            const routing = edgeRouting(edge);
+            const bend = { x: routing.bend.x * camera.zoom, y: routing.bend.y * camera.zoom };
+            const path = getCanvasEdgePath({ from, to }, routing.route, bend);
+            const handle = {
+              x: (from.x + to.x) / 2 + bend.x,
+              y: (from.y + to.y) / 2 + bend.y,
+            };
             return <g key={edge.id}>
               <defs>
                 <marker id={`q-canvas-arrow-start-${index}`} markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M 8 0 L 0 4 L 8 8 z" fill={color ?? 'var(--q-canvas-edge)'} /></marker>
                 <marker id={`q-canvas-arrow-end-${index}`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 z" fill={color ?? 'var(--q-canvas-edge)'} /></marker>
               </defs>
               <path
-                d={`M ${from.x} ${from.y} L ${to.x} ${to.y}`}
+                d={path}
                 markerStart={edge.fromEnd === 'arrow' ? `url(#q-canvas-arrow-start-${index})` : undefined}
                 markerEnd={edge.toEnd === 'none' ? undefined : `url(#q-canvas-arrow-end-${index})`}
                 stroke={selectedEdgeId === edge.id ? 'var(--q-text-accent)' : color ?? 'var(--q-canvas-edge)'}
-                strokeWidth={selectedEdgeId === edge.id ? 4 : 2}
+                strokeWidth={selectedEdgeId === edge.id ? 2 : 1}
                 onClick={(event) => { event.stopPropagation(); setSelectedEdgeId(edge.id); setSelection([]); }}
                 role="button"
                 tabIndex={0}
                 aria-label={`${edge.fromNode} → ${edge.toNode}`}
                 onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelectedEdgeId(edge.id); }}
               />
+              {selectedEdgeId === edge.id && routing.route !== 'straight' && <circle
+                className="q-canvas__edge-handle"
+                cx={handle.x}
+                cy={handle.y}
+                r="6"
+                role="button"
+                tabIndex={0}
+                aria-label={t('canvas.edgeBend')}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  const next: DragState = {
+                    kind: 'edge-bend', startX: event.clientX, startY: event.clientY,
+                    camera, edgeId: edge.id, route: routing.route, bend: routing.bend,
+                  };
+                  dragRef.current = next; setDrag(next); stageRef.current?.setPointerCapture(event.pointerId);
+                }}
+              />}
               {typeof edge.label === 'string' && <text x={(from.x + to.x) / 2} y={(from.y + to.y) / 2 - 6}>{edge.label}</text>}
             </g>;
           })}
@@ -1165,7 +1262,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             }).join(' ')}
             fill="none"
             stroke="var(--q-canvas-edge)"
-            strokeWidth="3"
+            strokeWidth="1"
             strokeLinecap="round"
             strokeLinejoin="round"
           />}
@@ -1178,7 +1275,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             const freehandPoints = shape === 'freehand' ? canvasFreehandPoints(node) : [];
             return <div
               key={node.id}
-              className={`q-canvas__object${selection.includes(node.id) ? ' is-selected' : ''}${shape === 'ellipse' ? ' q-canvas__object--ellipse' : shape === 'rectangle' ? ' q-canvas__object--rectangle' : shape === 'freehand' ? ' q-canvas__object--freehand' : ''}`}
+              className={`q-canvas__object${selection.includes(node.id) ? ' is-selected' : ''}${shape === 'number' ? ' q-canvas__object--ellipse q-canvas__object--number' : shape === 'ellipse' ? ' q-canvas__object--ellipse' : shape === 'rectangle' ? ' q-canvas__object--rectangle' : shape === 'diamond' ? ' q-canvas__object--diamond' : shape === 'freehand' ? ' q-canvas__object--freehand' : ''}`}
               style={{
                 left: node.x,
                 top: node.y,
@@ -1220,16 +1317,18 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               {freehandPoints.length > 1 && <svg className="q-canvas__freehand" viewBox={`0 0 ${node.width} ${node.height}`} aria-hidden="true">
                 <polyline points={freehandPoints.map((point) => `${point.x},${point.y}`).join(' ')} stroke="var(--q-canvas-node-color, var(--q-canvas-edge))" />
               </svg>}
-              {selection.includes(node.id) && <button
+              {selection.includes(node.id) && resizeHandles.map((handle) => <button
+                key={handle}
                 type="button"
                 className="q-canvas__resize"
-                aria-label={t('canvas.toolbar.resize')}
+                data-handle={handle}
+                aria-label={`${t('canvas.toolbar.resize')} ${t(`canvas.resizeHandle.${handle}`)}`}
                 onPointerDown={(event) => {
                   event.stopPropagation();
-                  const next: DragState = { kind: 'resize', startX: event.clientX, startY: event.clientY, camera, document, nodeId: node.id };
+                  const next: DragState = { kind: 'resize', startX: event.clientX, startY: event.clientY, camera, document, nodeId: node.id, handle };
                   dragRef.current = next; setDrag(next); stageRef.current?.setPointerCapture(event.pointerId);
                 }}
-              />}
+              />)}
             </div>;
           })}
         </div>

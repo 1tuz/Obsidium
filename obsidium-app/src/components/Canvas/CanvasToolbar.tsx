@@ -1,12 +1,12 @@
 import { t } from '../../i18n';
-import { Circle, FileCode, FileText, GitBranch, Image, Link2, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
+import { Circle, Diamond, FileCode, FileText, GitBranch, Hash, Image, Link2, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import './CanvasToolbar.css';
 
 export type CanvasPaperStyle = 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
 export type CanvasGrid = 'none' | 'dots' | 'lines';
-export type CanvasTool = 'select' | 'text' | 'file' | 'link' | 'group' | 'edge' | 'rectangle' | 'ellipse' | 'draw';
+export type CanvasTool = 'select' | 'text' | 'file' | 'link' | 'group' | 'edge' | 'rectangle' | 'diamond' | 'ellipse' | 'number' | 'draw';
 
 interface CanvasToolbarProps {
   paperStyle: CanvasPaperStyle;
@@ -35,7 +35,9 @@ const tools = [
   { id: 'group', label: 'group', icon: Users, shortcut: 'G' },
   { id: 'edge', label: 'edge', icon: GitBranch, shortcut: 'A' },
   { id: 'rectangle', label: 'rectangle', icon: Square, shortcut: 'R' },
+  { id: 'diamond', label: 'diamond', icon: Diamond, shortcut: 'D' },
   { id: 'ellipse', label: 'ellipse', icon: Circle, shortcut: 'E' },
+  { id: 'number', label: 'number', icon: Hash, shortcut: 'N' },
   { id: 'draw', label: 'draw', icon: Pencil, shortcut: 'P' },
 ] as const;
 

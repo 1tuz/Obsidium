@@ -47,14 +47,19 @@ describe('Canvas JSON model', () => {
     expect(parseCanvasDocument('{}')).toMatchObject({ ok: true, value: { nodes: [], edges: [] } });
     expect(parseCanvasDocument('{"nodes":[{"id":"n","type":"text"}],"edges":[]}')).toEqual({
       ok: false,
-      error: 'nodes[0].x must be an integer',
+      error: 'nodes[0].x must be a finite number',
     });
   });
 
-  it('rejects duplicate IDs, dangling edges, invalid endpoints, and fractional geometry', () => {
+  it('accepts fractional coordinates and dimensions without altering them', () => {
+    expect(parseCanvasDocument('{"nodes":[{"id":"n","type":"text","x":214.4296875,"y":254.7265625,"width":554.5,"height":365.25,"text":""}],"edges":[]}'))
+      .toMatchObject({ ok: true, value: { nodes: [{ x: 214.4296875, y: 254.7265625, width: 554.5, height: 365.25 }] } });
+  });
+
+  it('rejects duplicate IDs, dangling edges, non-positive geometry, and invalid endpoints', () => {
     expect(parseCanvasDocument('{"nodes":[{"id":"n","type":"text","x":0,"y":0,"width":2,"height":2,"text":""},{"id":"n","type":"text","x":0,"y":0,"width":2,"height":2,"text":""}],"edges":[]}').ok).toBe(false);
     expect(parseCanvasDocument('{"nodes":[],"edges":[{"id":"e","fromNode":"a","toNode":"b"}]}').ok).toBe(false);
-    expect(parseCanvasDocument('{"nodes":[{"id":"n","type":"text","x":0.5,"y":0,"width":2,"height":2,"text":""}],"edges":[]}').ok).toBe(false);
+    expect(parseCanvasDocument('{"nodes":[{"id":"n","type":"text","x":0,"y":0,"width":0,"height":2,"text":""}],"edges":[]}').ok).toBe(false);
     expect(parseCanvasDocument('{"nodes":[{"id":"n","type":"text","x":0,"y":0,"width":2,"height":2,"text":""}],"edges":[{"id":"e","fromNode":"n","toNode":"n","fromEnd":"circle"}]}').ok).toBe(false);
   });
 
