@@ -120,6 +120,70 @@ describe('CanvasView', () => {
     });
   });
 
+  it('creates sequential numbered markers from the number tool', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'number-4', type: 'text', x: 0, y: 0, width: 48, height: 48, text: '4', obsidium: { shape: 'number' } }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView
+          path="/vault/Board.canvas"
+          workspacePath="/vault"
+          inactive={false}
+          indexRevision={0}
+          onOpenFile={vi.fn()}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 80, clientY: 90, button: 0, bubbles: true })); });
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 450)));
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[1]).toMatchObject({ text: '5', width: 48, height: 48, obsidium: { shape: 'number' } });
+  });
+
+  it('saves the selected connection route without changing its endpoints', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' },
+        { id: 'b', type: 'text', x: 160, y: 0, width: 100, height: 80, text: 'B' },
+      ],
+      edges: [{ id: 'edge', fromNode: 'a', toNode: 'b', toEnd: 'arrow' }],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView
+          path="/vault/Board.canvas"
+          workspacePath="/vault"
+          inactive={false}
+          indexRevision={0}
+          onOpenFile={vi.fn()}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    const edge = renderer!.container.querySelector<SVGPathElement>('path[aria-label="a → b"]')!;
+    await actAndSettle(() => { edge.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    const route = renderer!.container.querySelector<HTMLSelectElement>('select[aria-label="canvas.edgeRoute"]')!;
+    await actAndSettle(() => {
+      route.value = 'curved';
+      route.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 450)));
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.edges[0]).toMatchObject({ id: 'edge', fromNode: 'a', toNode: 'b', obsidium: { route: 'curved' } });
+  });
+
   it('opens the slash menu and creates a linked note', async () => {
     act(() => {
       renderer = mountDom(
@@ -167,6 +231,7 @@ describe('CanvasView', () => {
     Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
     const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
     await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    expect(renderer!.container.querySelectorAll('.q-canvas__resize')).toHaveLength(8);
     const color = renderer!.container.querySelector<HTMLSelectElement>('select[aria-label="canvas.toolbar.colorLabel"]')!;
     await actAndSettle(() => {
       color.value = '4';

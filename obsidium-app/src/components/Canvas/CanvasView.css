@@ -1,4 +1,5 @@
 .q-canvas {
+  --q-canvas-default-stroke: var(--q-red-600);
   position: relative;
   display: flex;
   flex: 1 1 auto;
@@ -22,9 +23,9 @@
   --q-canvas-card: var(--q-reading-table);
   --q-canvas-card-raised: var(--q-reading-code);
   --q-canvas-border: var(--q-reading-border);
-  --q-canvas-edge: var(--q-reading-link);
+  --q-canvas-edge: var(--q-canvas-default-stroke);
   --q-canvas-grid-line: color-mix(in srgb, var(--q-canvas-ink) 26%, var(--q-canvas-paper));
-  --q-canvas-shape-stroke-width: var(--q-border-2);
+  --q-canvas-shape-stroke-width: var(--q-border-1);
   --q-bg-canvas: var(--q-canvas-paper);
   --q-bg-surface: var(--q-canvas-card);
   --q-bg-surface-raised: var(--q-canvas-card-raised);
@@ -34,6 +35,10 @@
   --q-icon-button-icon: var(--q-canvas-ink);
   --q-border-default: var(--q-canvas-border);
   --q-border-accent: var(--q-canvas-edge);
+}
+
+.q-canvas[data-paper-style='dark-paper'] {
+  --q-canvas-default-stroke: var(--q-white);
 }
 
 :root[data-theme='dark'] .q-canvas[data-paper-style] {
@@ -153,7 +158,7 @@
 
 .q-canvas__edges path {
   fill: none;
-  stroke-width: var(--q-canvas-shape-stroke-width, 2px);
+  stroke-width: var(--q-canvas-shape-stroke-width, var(--q-border-1));
 }
 
 .q-canvas__edges > g > path {
@@ -202,18 +207,37 @@
 
 .q-canvas__object > .q-canvas-card {
   border-width: var(--q-canvas-shape-stroke-width, var(--q-border-1));
-  border-color: var(--q-canvas-border, var(--q-border-default));
+  border-color: var(--q-canvas-node-color, var(--q-canvas-default-stroke, var(--q-border-default)));
   background: var(--q-canvas-card, var(--q-bg-surface));
   color: var(--q-canvas-ink, var(--q-text-primary));
 }
 
 .q-canvas__object--rectangle > .q-canvas-card,
+.q-canvas__object--diamond > .q-canvas-card,
 .q-canvas__object--ellipse > .q-canvas-card {
-  border-width: var(--q-canvas-shape-stroke-width, var(--q-border-2));
+  border-width: var(--q-canvas-shape-stroke-width, var(--q-border-1));
+  border-color: var(--q-canvas-node-color, var(--q-canvas-default-stroke));
+  background: transparent;
 }
 
 .q-canvas__object--ellipse > .q-canvas-card {
   border-radius: 50%;
+}
+
+.q-canvas__object--diamond > .q-canvas-card {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.q-canvas__object--number > .q-canvas-card {
+  background: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-default-stroke)) 14%, var(--q-canvas-paper));
+}
+
+.q-canvas__object--number .q-canvas-card__markdown {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: var(--q-font-size-ui-lg);
+  font-weight: var(--q-font-weight-bold);
 }
 
 .q-canvas__object--freehand > .q-canvas-card {
@@ -231,7 +255,7 @@
 
 .q-canvas__freehand polyline {
   fill: none;
-  stroke-width: 3px;
+  stroke-width: var(--q-border-2);
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
@@ -262,14 +286,30 @@ input.q-canvas__group-label {
 .q-canvas__resize {
   position: absolute;
   z-index: 2;
-  right: calc(var(--q-space-6) * -1);
-  bottom: calc(var(--q-space-6) * -1);
-  width: var(--q-size-16);
-  height: var(--q-size-16);
+  width: var(--q-size-12);
+  height: var(--q-size-12);
   border: var(--q-border-2) solid var(--q-text-on-accent);
   border-radius: var(--q-radius-sm);
   background: var(--q-canvas-edge, var(--q-bg-accent));
-  cursor: nwse-resize;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+}
+
+.q-canvas__resize[data-handle='top-left'] { left: 0; top: 0; cursor: nwse-resize; }
+.q-canvas__resize[data-handle='top'] { left: 50%; top: 0; cursor: ns-resize; }
+.q-canvas__resize[data-handle='top-right'] { left: 100%; top: 0; cursor: nesw-resize; }
+.q-canvas__resize[data-handle='right'] { left: 100%; top: 50%; cursor: ew-resize; }
+.q-canvas__resize[data-handle='bottom-right'] { left: 100%; top: 100%; cursor: nwse-resize; }
+.q-canvas__resize[data-handle='bottom'] { left: 50%; top: 100%; cursor: ns-resize; }
+.q-canvas__resize[data-handle='bottom-left'] { left: 0; top: 100%; cursor: nesw-resize; }
+.q-canvas__resize[data-handle='left'] { left: 0; top: 50%; cursor: ew-resize; }
+
+.q-canvas__edge-handle {
+  fill: var(--q-canvas-default-stroke);
+  stroke: var(--q-canvas-paper);
+  stroke-width: var(--q-border-2);
+  cursor: move;
+  pointer-events: all;
   touch-action: none;
 }
 

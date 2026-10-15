@@ -3,6 +3,8 @@ import type { CanvasEdge, CanvasNode } from './model';
 export type CanvasRect = { x: number; y: number; width: number; height: number };
 export type CanvasPoint = { x: number; y: number };
 export type CanvasEdgeGeometry = { from: CanvasPoint; to: CanvasPoint };
+export type CanvasResizeHandle = 'top-left' | 'top' | 'top-right' | 'right' | 'bottom-right' | 'bottom' | 'bottom-left' | 'left';
+export type CanvasEdgeRoute = 'straight' | 'elbow' | 'curved';
 export type CanvasAlignment = 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom';
 
 export const canvasRectBetweenPoints = (start: CanvasPoint, end: CanvasPoint): CanvasRect => {
@@ -66,6 +68,60 @@ export const resizeCanvasNode = <T extends CanvasNode>(
   width: Math.max(minWidth, snap(size.width, gridSize)),
   height: Math.max(minHeight, snap(size.height, gridSize)),
 });
+
+export const resizeCanvasNodeFromHandle = <T extends CanvasNode>(
+  node: T,
+  handle: CanvasResizeHandle,
+  delta: CanvasPoint,
+  lockAspectRatio = false,
+  minWidth = 120,
+  minHeight = 80,
+  gridSize?: number,
+): T => {
+  const west = handle.includes('left');
+  const east = handle.includes('right');
+  const north = handle.includes('top');
+  const south = handle.includes('bottom');
+  let width = east || west ? Math.max(minWidth, node.width + (east ? delta.x : -delta.x)) : node.width;
+  let height = south || north ? Math.max(minHeight, node.height + (south ? delta.y : -delta.y)) : node.height;
+  if (lockAspectRatio) {
+    const widthScale = width / node.width;
+    const heightScale = height / node.height;
+    const corner = (west || east) && (north || south);
+    const scale = corner
+      ? Math.abs(widthScale - 1) > Math.abs(heightScale - 1) ? widthScale : heightScale
+      : west || east ? widthScale : heightScale;
+    width = Math.max(minWidth, node.width * scale);
+    height = Math.max(minHeight, node.height * scale);
+  }
+  width = west || east || lockAspectRatio ? Math.max(minWidth, snap(width, gridSize)) : node.width;
+  height = north || south || lockAspectRatio ? Math.max(minHeight, snap(height, gridSize)) : node.height;
+  return {
+    ...node,
+    x: west ? node.x + node.width - width : lockAspectRatio && !north && !south ? node.x - (width - node.width) / 2 : node.x,
+    y: north ? node.y + node.height - height : lockAspectRatio && !west && !east ? node.y - (height - node.height) / 2 : node.y,
+    width,
+    height,
+  };
+};
+
+export const getCanvasEdgePath = (
+  geometry: CanvasEdgeGeometry,
+  route: CanvasEdgeRoute = 'straight',
+  bend: CanvasPoint = { x: 0, y: 0 },
+): string => {
+  const { from, to } = geometry;
+  if (route === 'elbow') {
+    const middleX = Math.round((from.x + to.x) / 2 + bend.x);
+    return `M ${from.x} ${from.y} L ${middleX} ${from.y} L ${middleX} ${to.y} L ${to.x} ${to.y}`;
+  }
+  if (route === 'curved') {
+    const controlX = Math.round((from.x + to.x) / 2 + bend.x);
+    const controlY = Math.round((from.y + to.y) / 2 + bend.y);
+    return `M ${from.x} ${from.y} Q ${controlX} ${controlY} ${to.x} ${to.y}`;
+  }
+  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+};
 
 type CanvasSide = 'top' | 'right' | 'bottom' | 'left';
 

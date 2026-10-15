@@ -51,7 +51,7 @@ const validateNode = (value: unknown, index: number): string | null => {
     return `nodes[${index}].type must be text, file, link, or group`;
   }
   for (const key of ['x', 'y', 'width', 'height']) {
-    if (!Number.isInteger(value[key])) return `nodes[${index}].${key} must be an integer`;
+    if (typeof value[key] !== 'number' || !Number.isFinite(value[key])) return `nodes[${index}].${key} must be a finite number`;
   }
   if ((value.width as number) <= 0 || (value.height as number) <= 0) return `nodes[${index}] dimensions must be positive`;
   const colorError = validateCanvasColor(value.color, `nodes[${index}].color`);

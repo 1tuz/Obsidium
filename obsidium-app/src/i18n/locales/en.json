@@ -873,7 +873,9 @@
         "group": "Group",
         "edge": "Connection",
         "rectangle": "Rectangle",
+        "diamond": "Diamond",
         "ellipse": "Ellipse",
+        "number": "Number marker",
         "draw": "Freehand"
       },
       "undo": "Undo",
@@ -896,6 +898,10 @@
         "6": "Purple"
       },
       "resize": "Resize card",
+      "resizeHandle": {
+        "top-left": "top left", "top": "top", "top-right": "top right", "right": "right",
+        "bottom-right": "bottom right", "bottom": "bottom", "bottom-left": "bottom left", "left": "left"
+      },
       "export": "Export canvas",
       "exportSvg": "Export as SVG",
       "exportPng": "Export as PNG",
@@ -921,6 +927,8 @@
       "group": "Group selection",
       "edge": "Create a connection",
       "rectangle": "Rectangle",
+      "diamond": "Diamond",
+      "number": "Number marker",
       "ellipse": "Ellipse"
     },
     "save": { "saved": "Saved", "saving": "Saving…", "conflict": "File changed elsewhere", "error": "Save failed" },
@@ -935,6 +943,9 @@
     "saveLocalCopy": "Download local copy",
     "reloadExternal": "Reload external version",
     "edgeLabel": "Connection label",
+    "edgeRoute": "Line style",
+    "edgeBend": "Move line bend",
+    "route": { "straight": "Straight", "elbow": "Elbow", "curved": "Curved" },
     "groupLabel": "Group name",
     "fromDirection": "Start arrow",
     "toDirection": "End arrow",
