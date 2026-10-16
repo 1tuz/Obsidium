@@ -31,10 +31,6 @@
     overflow: hidden;
 }
 
-.q-editor-container:has(.q-editor-content--reading) {
-    overflow: hidden;
-}
-
 .q-editor-loading {
     height: 100%;
     background-color: var(--q-editor-bg);
