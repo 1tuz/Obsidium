@@ -120,6 +120,58 @@ describe('CanvasView', () => {
     });
   });
 
+  it('keeps created shapes visible when selecting a different object', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'shape', type: 'text', x: 0, y: 0, width: 160, height: 100, text: '', obsidium: { shape: 'ellipse' } },
+        { id: 'note', type: 'text', x: 180, y: 0, width: 160, height: 100, text: 'Note' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const objects = renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object');
+    await actAndSettle(() => { objects[0].dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    await actAndSettle(() => { objects[1].dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(2);
+    expect(renderer!.container.querySelectorAll('.q-canvas__object.is-selected')).toHaveLength(1);
+  });
+
+  it('connects two clicked objects with the edge tool', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' },
+        { id: 'b', type: 'text', x: 120, y: 0, width: 100, height: 80, text: 'B' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const objects = renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object');
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { objects[0].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    await actAndSettle(() => { objects[1].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 450)));
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.edges).toHaveLength(1);
+    expect(saved.edges[0]).toMatchObject({ fromNode: 'a', toNode: 'b', toEnd: 'arrow' });
+    expect(renderer!.container.querySelector('path[aria-label="a → b"]')).not.toBeNull();
+  });
+
   it('creates sequential numbered markers from the number tool', async () => {
     canvasSource.content = JSON.stringify({
       nodes: [{ id: 'number-4', type: 'text', x: 0, y: 0, width: 48, height: 48, text: '4', obsidium: { shape: 'number' } }],

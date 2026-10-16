@@ -21,6 +21,7 @@ describe('CanvasToolbar', () => {
     expect(canvasStyles).toMatch(/--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink\) 26%, var\(--q-canvas-paper\)\)/);
     expect(canvasStyles).toMatch(/\.q-canvas__stage--lines\s*\{[^}]*var\(--q-canvas-grid-line/);
     expect(canvasStyles).toMatch(/\.q-canvas__object--rectangle[^}]*border-width:\s*var\(--q-canvas-shape-stroke-width/s);
+    expect(canvasStyles).toMatch(/--q-canvas-shape-stroke-width:\s*var\(--q-border-3\)/);
   });
 
   it('dispatches tool, paper, grid and history actions with accessible controls', async () => {

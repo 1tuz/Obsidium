@@ -231,10 +231,10 @@ function canvasSvg(document: CanvasDocument, colors: { paper: string; ink: strin
     const frame = shape === 'freehand' && freehand.length > 1
       ? `<polyline points="${freehand.map((point) => `${point.x},${point.y}`).join(' ')}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />`
       : shape === 'ellipse' || shape === 'number'
-      ? `<ellipse cx="${node.x + node.width / 2}" cy="${node.y + node.height / 2}" rx="${node.width / 2}" ry="${node.height / 2}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="1" />`
+      ? `<ellipse cx="${node.x + node.width / 2}" cy="${node.y + node.height / 2}" rx="${node.width / 2}" ry="${node.height / 2}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="3" />`
       : shape === 'diamond'
-        ? `<polygon points="${node.x + node.width / 2},${node.y} ${node.x + node.width},${node.y + node.height / 2} ${node.x + node.width / 2},${node.y + node.height} ${node.x},${node.y + node.height / 2}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="1" />`
-        : `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${shape ? 'none' : escapeXml(resolvedFill)}" stroke="${escapeXml(shape ? resolvedStroke : colors.border)}" stroke-width="1" />`;
+        ? `<polygon points="${node.x + node.width / 2},${node.y} ${node.x + node.width},${node.y + node.height / 2} ${node.x + node.width / 2},${node.y + node.height} ${node.x},${node.y + node.height / 2}" fill="none" stroke="${escapeXml(resolvedStroke)}" stroke-width="3" />`
+        : `<rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${shape ? 'none' : escapeXml(resolvedFill)}" stroke="${escapeXml(shape ? resolvedStroke : colors.border)}" stroke-width="${shape ? 3 : 1}" />`;
     return `<g>${frame}<foreignObject x="${node.x + 12}" y="${node.y + 12}" width="${Math.max(1, node.width - 24)}" height="${Math.max(1, node.height - 24)}"><div xmlns="http://www.w3.org/1999/xhtml" style="font:16px sans-serif;white-space:pre-wrap;overflow:hidden;color:${escapeXml(colors.ink)}">${escapeXml(String(title ?? ''))}</div></foreignObject></g>`;
   }).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${width}" height="${height}" viewBox="${left} ${top} ${width} ${height}" style="color:${escapeXml(colors.ink)};background:${escapeXml(colors.paper)}">${edges}${body}</svg>`;
@@ -407,6 +407,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   const visibleNodes = useMemo(() => {
     if (!document) return [];
+    if (viewport.width <= 0 || viewport.height <= 0) return document.nodes;
     const selected = new Set(selection);
     const left = -camera.x / camera.zoom;
     const top = -camera.y / camera.zoom;

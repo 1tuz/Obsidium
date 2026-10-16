@@ -25,7 +25,7 @@
   --q-canvas-border: var(--q-reading-border);
   --q-canvas-edge: var(--q-canvas-default-stroke);
   --q-canvas-grid-line: color-mix(in srgb, var(--q-canvas-ink) 26%, var(--q-canvas-paper));
-  --q-canvas-shape-stroke-width: var(--q-border-1);
+  --q-canvas-shape-stroke-width: var(--q-border-3);
   --q-bg-canvas: var(--q-canvas-paper);
   --q-bg-surface: var(--q-canvas-card);
   --q-bg-surface-raised: var(--q-canvas-card-raised);
