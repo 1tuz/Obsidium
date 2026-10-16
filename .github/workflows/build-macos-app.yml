@@ -1,0 +1,59 @@
+name: Build macOS app artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-app-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Obsidium for Apple Silicon
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: obsidium-app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: obsidium-app/src-tauri -> target
+
+      - name: Install frontend dependencies
+        working-directory: obsidium-app
+        run: npm ci
+
+      - name: Build app bundle
+        working-directory: obsidium-app
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri -- build --bundles app --target aarch64-apple-darwin --features updater
+
+      - name: Package app bundle
+        run: |
+          mkdir -p .artifacts
+          ditto -c -k --keepParent obsidium-app/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Obsidium.app .artifacts/Obsidium.app.zip
+          shasum -a 256 .artifacts/Obsidium.app.zip > .artifacts/Obsidium.app.zip.sha256
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Obsidium-macOS-arm64
+          path: .artifacts/Obsidium.app.zip*
+          if-no-files-found: error
+          retention-days: 3

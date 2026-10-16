@@ -11,6 +11,7 @@ Dev и Release **изолированы**. Локальная разработк
 |--------|---------|-----------|
 | Разработка / тест в окне | `npm run tauri dev` | debug-приложение, HMR |
 | Релизные пакеты | push / тег `v*` в GitHub | Actions artifacts / черновик Release |
+| Разовая сборка macOS для установки | ручной запуск `Build macOS app artifact` в GitHub Actions | Apple Silicon `.app` artifact, хранится 3 дня, релиз не публикуется |
 
 `npm run release` запускает только локальную Windows-сборку; общий источник пакетов — GitHub Actions.
 
@@ -75,6 +76,8 @@ GitHub Actions кэширует Cargo напрямую в `.artifacts/cargo-rele
         │
         └─ push / tag v* ───────────► GitHub Actions
                                       → пакеты Windows, macOS ARM64, Ubuntu 24
+        └─ manual workflow_dispatch ─► GitHub Actions
+                                       → временный macOS ARM64 .app artifact
 ```
 
 ---
