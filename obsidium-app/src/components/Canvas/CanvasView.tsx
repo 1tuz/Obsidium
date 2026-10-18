@@ -245,6 +245,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [history, setHistory] = useState<CanvasHistory<CanvasDocument> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'conflict' | 'error'>('saved');
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
   const [activeTool, setActiveTool] = useState<CanvasTool>('select');
@@ -296,6 +297,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setActionError(null);
     void readFileSnapshot(path).then((snapshot) => {
       if (cancelled) return;
       const parsed = parseCanvasDocument(snapshot.content);
@@ -489,7 +491,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [workspacePath]);
 
   const openUrl = useCallback((url: string) => {
-    void openExternalUrl(url).catch((cause) => setError(String(cause)));
+    void openExternalUrl(url).catch((cause) => setActionError(String(cause)));
   }, []);
 
   const selectNode = useCallback((node: CanvasTypedNode, event: TargetedPointerEvent<HTMLDivElement>) => {
@@ -576,7 +578,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       addNode('file', point, relativePath(workspacePath, path));
       notePlacementRef.current = null;
     } catch {
-      setError(t('canvas.errors.fileOutsideWorkspace'));
+      setActionError(t('canvas.errors.fileOutsideWorkspace'));
     }
   }, [addNode, camera, selection, viewport, workspacePath]);
 
@@ -585,7 +587,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       const path = await createUniqueFile(workspacePath, t('canvas.slash.defaultNoteTitle'));
       if (path) addNode('file', point, relativePath(workspacePath, path));
     } catch (cause) {
-      setError(String(cause));
+      setActionError(String(cause));
     }
   }, [addNode, workspacePath]);
 
@@ -668,22 +670,26 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     };
   }, []);
 
+  const applyHistory = useCallback((next: CanvasHistory<CanvasDocument>) => {
+    if (next === historyRef.current) return;
+    const boardCamera = boardPreferences(next.current).camera;
+    const restored = boardCamera === cameraRef.current
+      ? next.current
+      : withBoardPreferences(next.current, { camera: cameraRef.current });
+    const committed = next.current === restored ? next : { ...next, current: restored };
+    historyRef.current = committed;
+    documentRef.current = restored;
+    setHistory(committed);
+    setDocument(restored);
+  }, []);
   const undo = useCallback(() => {
     if (!historyRef.current) return;
-    const next = undoCanvasHistory(historyRef.current);
-    historyRef.current = next;
-    documentRef.current = next.current;
-    setHistory(next);
-    setDocument(next.current);
-  }, []);
+    applyHistory(undoCanvasHistory(historyRef.current));
+  }, [applyHistory]);
   const redo = useCallback(() => {
     if (!historyRef.current) return;
-    const next = redoCanvasHistory(historyRef.current);
-    historyRef.current = next;
-    documentRef.current = next.current;
-    setHistory(next);
-    setDocument(next.current);
-  }, []);
+    applyHistory(redoCanvasHistory(historyRef.current));
+  }, [applyHistory]);
 
   const handleNodePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (event.button !== 0) return;
@@ -696,6 +702,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const target = event.target as HTMLElement;
     if (target.closest('textarea, a, button')) return;
     event.stopPropagation();
+    setSelectedEdgeId(null);
     const nextSelection = selectNode(node, event);
     if (nextSelection.includes(node.id)) {
       const current = documentRef.current;
@@ -848,7 +855,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         }
       }
     } else if ((currentDrag?.kind === 'pan' || currentDrag?.kind === 'camera') && documentRef.current) {
-      setCanvasDocument(withBoardPreferences(documentRef.current, { camera: cameraRef.current }));
+      setCanvasDocument(withBoardPreferences(documentRef.current, { camera: cameraRef.current }), false);
     }
     if (currentDrag?.kind === 'marquee') {
       const start = worldPoint({ clientX: currentDrag.startX, clientY: currentDrag.startY });
@@ -902,7 +909,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             const file = relativePath(workspacePath, selectedPath);
             addNode('file', point, file);
           } catch {
-            setError(t('canvas.errors.fileOutsideWorkspace'));
+            setActionError(t('canvas.errors.fileOutsideWorkspace'));
           }
         });
       }
@@ -931,7 +938,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       const file = relativePath(workspacePath, absolute);
       addNode('file', worldPoint(event), file);
     } catch {
-      setError(t('canvas.errors.fileOutsideWorkspace'));
+      setActionError(t('canvas.errors.fileOutsideWorkspace'));
     }
   }, [addNode, worldPoint, workspacePath]);
 
@@ -1088,7 +1095,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         URL.revokeObjectURL(sourceUrl);
       });
     };
-    image.onerror = () => { URL.revokeObjectURL(sourceUrl); setError(t('canvas.errors.exportFailed')); };
+    image.onerror = () => { URL.revokeObjectURL(sourceUrl); setActionError(t('canvas.errors.exportFailed')); };
     image.src = sourceUrl;
   }, [document, path, readCanvasColors]);
 
@@ -1114,6 +1121,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setCameraValue(readCamera(parsed.value), false);
       setSaveState('saved');
       setError(null);
+      setActionError(null);
     } catch (cause) {
       setError(String(cause));
     }
@@ -1180,6 +1188,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         <span role="status" aria-live="polite">{t(`canvas.save.${saveState}`)}</span>
       </div>
       {error && <p className="q-canvas__warning" role="alert">{error}</p>}
+      {actionError && <p className="q-canvas__warning" role="alert">{actionError}</p>}
       {saveState === 'conflict' && <div className="q-canvas__warning q-canvas__conflict" role="alert">
         <span>{t('canvas.conflictDescription')}</span>
         <button type="button" onClick={downloadLocalCopy}>{t('canvas.saveLocalCopy')}</button>

@@ -520,7 +520,7 @@
     "graph": "Открыть граф связей",
     "boards": "Открыть доски",
     "fileManager": "Открыть файловый менеджер",
-    "canvas": "Открыть Canvas"
+    "canvas": "Новый Canvas"
   },
   "titlebar": {
     "hideRightSidebar": "Скрыть правую боковую панель",

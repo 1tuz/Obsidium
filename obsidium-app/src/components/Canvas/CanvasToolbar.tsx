@@ -87,7 +87,7 @@ export function CanvasToolbar({
         <span>{t('canvas.toolbar.paperStyle')}</span>
         <select aria-label={t('canvas.toolbar.paperStyle')} value={paperStyle} onChange={(event) => onPaperStyleChange(event.currentTarget.value as CanvasPaperStyle)}>
           {(['paper-white', 'ivory', 'parchment', 'sepia', 'dark-paper'] as const).map(style => (
-            <option key={style} value={style}>{t(`editor.styles.${style}`)}</option>
+            <option key={style} value={style}>{t(`settings.editor.styles.${style}`)}</option>
           ))}
         </select>
       </label>
