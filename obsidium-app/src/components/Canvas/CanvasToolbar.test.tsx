@@ -5,8 +5,10 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { CanvasToolbar } from './CanvasToolbar';
+import { t as translatePaperStyle } from '../../i18n';
 
 const canvasStyles = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasView.css'), 'utf8');
+const canvasToolbarSource = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasToolbar.tsx'), 'utf8');
 
 describe('CanvasToolbar', () => {
   let renderer: MountedDom | null = null;
@@ -22,6 +24,12 @@ describe('CanvasToolbar', () => {
     expect(canvasStyles).toMatch(/\.q-canvas__stage--lines\s*\{[^}]*var\(--q-canvas-grid-line/);
     expect(canvasStyles).toMatch(/\.q-canvas__object--rectangle[^}]*border-width:\s*var\(--q-canvas-shape-stroke-width/s);
     expect(canvasStyles).toMatch(/--q-canvas-shape-stroke-width:\s*var\(--q-border-3\)/);
+  });
+
+  it('labels paper styles through the existing settings translation namespace', () => {
+    expect(translatePaperStyle('settings.editor.styles.ivory')).toBe('Ivory');
+    expect(translatePaperStyle('editor.styles.ivory')).toBe('editor.styles.ivory');
+    expect(canvasToolbarSource).toContain('settings.editor.styles.');
   });
 
   it('dispatches tool, paper, grid and history actions with accessible controls', async () => {

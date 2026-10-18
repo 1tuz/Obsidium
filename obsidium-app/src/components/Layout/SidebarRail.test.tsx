@@ -7,7 +7,17 @@ import { setIconSet } from '../../modules/iconSet';
 import { SidebarRail } from './SidebarRail';
 
 describe('SidebarRail', () => {
-  it('opens Canvas from the rail', () => {
+  it('labels the Canvas control as creating a board', () => {
+    const rail = mountDom(<SidebarRail isSidebarOpen onOpenCanvas={() => {}} canvasActive={false} />);
+    const button = rail.container.querySelector<HTMLButtonElement>(`[aria-label="${t('rail.canvas')}"]`);
+
+    expect(t('rail.canvas')).toBe('New Canvas');
+    expect(rail.container.querySelector('[aria-label="Open Canvas"]')).toBeNull();
+    expect(button).not.toBeNull();
+    act(() => rail.unmount());
+  });
+
+  it('creates a Canvas from the rail', () => {
     const onOpenCanvas = vi.fn();
     const rail = mountDom(
       <SidebarRail isSidebarOpen onOpenCanvas={onOpenCanvas} canvasActive />,

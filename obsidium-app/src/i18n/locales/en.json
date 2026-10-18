@@ -516,7 +516,7 @@
     "graph": "Open the link graph",
     "boards": "Open boards",
     "fileManager": "Open file manager",
-    "canvas": "Open Canvas"
+    "canvas": "New Canvas"
   },
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",
