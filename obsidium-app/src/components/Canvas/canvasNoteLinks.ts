@@ -47,4 +47,3 @@ export function resolveNoteFragmentOffset(source: string, fragment: string): num
     ? noteEmbedOffset(source, null, wanted.slice(1))
     : noteEmbedOffset(source, wanted);
 }
-
