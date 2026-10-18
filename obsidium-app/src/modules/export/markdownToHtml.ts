@@ -6,6 +6,7 @@ import { frontmatterRange } from '../docs/frontmatter';
 
 interface MarkdownRenderOptions {
   resolveImageUrl?: (target: string) => string;
+  noteLinks?: boolean;
 }
 
 const HASHTAG_PATTERN = /(?:^|\s)(#[a-zA-Zа-яА-Я0-9_]+)(?=\s|$)/g;
@@ -83,6 +84,14 @@ function withHashtags(raw: string): string {
 interface RenderContext {
   source: string;
   resolveImageUrl: (target: string) => string;
+  noteLinks: boolean;
+}
+
+function noteLinkAttributes(context: RenderContext, raw: string, source: 'wiki' | 'markdown'): string {
+  if (!context.noteLinks) return '';
+  const value = raw.trim().replace(/^<|>$/g, '');
+  if (!value || value.startsWith('//') || /^[a-z][a-z\d+.-]*:/i.test(value)) return '';
+  return ` data-note-target="${escapeHtml(value)}" data-note-source="${source}" tabindex="0"`;
 }
 
 function slice(context: RenderContext, from: number, to: number): string {
@@ -139,7 +148,8 @@ function renderLink(node: SyntaxNode, context: RenderContext): string {
     ? renderInlineRange(node, range.from, range.to, context)
     : escapeHtml(nodeText(context, node));
   if (!url) return label;
-  return `<a class="q-print-link" href="${escapeHtml(nodeText(context, url))}">${label}</a>`;
+  const raw = nodeText(context, url);
+  return `<a class="q-print-link" href="${escapeHtml(raw)}"${noteLinkAttributes(context, raw, 'markdown')}>${label}</a>`;
 }
 
 function renderImage(node: SyntaxNode, context: RenderContext): string {
@@ -156,7 +166,11 @@ function renderWikiLink(node: SyntaxNode, context: RenderContext): string {
   const target = findChild(node, 'WikiLinkTarget');
   const label = alias ?? target;
   if (!label) return '';
-  return `<span class="q-print-wikilink">${escapeHtml(nodeText(context, label))}</span>`;
+  const text = escapeHtml(nodeText(context, label));
+  if (!target) return `<span class="q-print-wikilink">${text}</span>`;
+  const attributes = noteLinkAttributes(context, nodeText(context, target).trim(), 'wiki');
+  if (!attributes) return `<span class="q-print-wikilink">${text}</span>`;
+  return `<a class="q-print-wikilink" href="#"${attributes}>${text}</a>`;
 }
 
 function renderInline(node: SyntaxNode, context: RenderContext): string {
@@ -317,6 +331,7 @@ export function renderMarkdownToHtml(
   const context: RenderContext = {
     source,
     resolveImageUrl: options.resolveImageUrl ?? ((target) => target),
+    noteLinks: options.noteLinks ?? false,
   };
   return renderBlockChildren(tree.topNode, context);
 }

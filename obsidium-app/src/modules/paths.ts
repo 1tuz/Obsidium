@@ -53,6 +53,43 @@ export function siblingPath(path: string, name: string): string {
   return `${path.slice(0, cut + 1)}${name}`;
 }
 
+export interface ResolvedNotePath {
+  relative: string;
+  absolute: string;
+}
+
+export function resolveNotePath(
+  workspacePath: string,
+  fromDirectory: string,
+  rawTarget: string,
+): ResolvedNotePath | null {
+  const root = withoutVerbatimPrefix(toPosixPath(workspacePath)).replace(/\/+$/, '');
+  const raw = rawTarget.split(/[?#]/, 1)[0]?.replace(/\\/g, '/') ?? '';
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+  if (!/\.md$/i.test(decoded)) return null;
+  const from = samePath(fromDirectory, workspacePath)
+    ? ''
+    : relativePath(workspacePath, fromDirectory).replace(/\/+$/, '');
+  const segments = decoded.startsWith('/') ? [] : from.split('/').filter(Boolean);
+  for (const segment of decoded.split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (!segments.length) return null;
+      segments.pop();
+      continue;
+    }
+    segments.push(segment);
+  }
+  if (!segments.length) return null;
+  const relative = segments.join('/');
+  return { relative, absolute: childPath(root, relative.replace(/\//g, separatorOf(root))) };
+}
+
 export function absolutePath(workspacePath: string, relative: string): string {
   const separator = separatorOf(workspacePath);
   return childPath(workspacePath, relative.replace(/[\\/]/g, separator));

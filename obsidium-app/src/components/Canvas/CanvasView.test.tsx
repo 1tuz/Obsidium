@@ -7,6 +7,20 @@ vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => path 
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 vi.mock('../../i18n', () => ({ t: (key: string) => key }));
 vi.mock('../../hooks/useTauriEvent', () => ({ useTauriEvent: vi.fn() }));
+vi.mock('../../modules/export/markdownToHtml', () => ({
+  renderMarkdownToHtml: (markdown: string, options?: { noteLinks?: boolean }) => {
+    if (!options?.noteLinks) return `<p>${markdown}</p>`;
+    return markdown
+      .replace(/\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|[^\]]+)?\]\]/g, (_match, target: string, fragment?: string) => (
+        `<a class="q-print-wikilink" href="#" data-note-target="${target}${fragment ? `#${fragment}` : ''}" data-note-source="wiki" tabindex="0">${target}</a>`
+      ))
+      .replace(/\[([^\]]+)\]\(([^)#]+)(?:#([^)]+))?\)/g, (match: string, label: string, target: string) => (
+        /^[a-z][a-z\d+.-]*:/i.test(target)
+          ? `<a class="q-print-link" href="${target}" tabindex="0">${label}</a>`
+          : `<a class="q-print-link" href="${target}" data-note-target="${target}${match.includes('#') ? `#${match.split('#').slice(1).join('#').replace(/\)$/, '')}` : ''}" data-note-source="markdown" tabindex="0">${label}</a>`
+      ));
+  },
+}));
 vi.mock('../../modules/openExternalUrl', () => ({ openExternalUrl: vi.fn() }));
 const canvasSource = vi.hoisted(() => ({ content: '{"nodes":[],"edges":[]}' }));
 vi.mock('../../modules/documents/fileGateway', () => ({
@@ -21,7 +35,6 @@ vi.mock('../../modules/documents/fileGateway', () => ({
   writeFileAtomic: vi.fn(async () => ({ hash: 'saved-hash' })),
 }));
 vi.mock('../../modules/documents/documentFactory', () => ({ createUniqueFile: vi.fn(async () => '/vault/New note.md') }));
-vi.mock('./CanvasCard', () => ({ CanvasCard: () => null }));
 
 function settleAutosave(): Promise<void> {
   return new Promise((resolve) => { window.setTimeout(resolve, 450); });
@@ -373,6 +386,64 @@ describe('CanvasView', () => {
     const writes = vi.mocked(writeFileAtomic).mock.calls;
     const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
     expect(saved.obsidium.canvas.camera).toEqual({ x: 80, y: 60, zoom: 1 });
+  });
+
+  it('opens wiki and relative note links from cards and keeps unsafe targets inert', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'text', type: 'text', x: 0, y: 0, width: 320, height: 200, text: 'See [[Topics/Plan#Part two|plan]] and [local](Notes/Other.md#Section) and [web](https://example.test)' },
+        { id: 'file', type: 'file', x: 360, y: 0, width: 320, height: 200, file: 'Notes/Source.md' },
+      ],
+      edges: [],
+    });
+    const onOpenNoteLink = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <CanvasView
+          path="/vault/Boards/Board.canvas"
+          workspacePath="/vault"
+          inactive={false}
+          indexRevision={0}
+          onOpenFile={vi.fn()}
+          onOpenNoteLink={onOpenNoteLink}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    const anchors = [...renderer!.container.querySelectorAll<HTMLAnchorElement>('.q-canvas-card__markdown a')];
+    const wiki = anchors.find((anchor) => anchor.dataset.noteTarget === 'Topics/Plan#Part two')!;
+    expect(wiki.getAttribute('href')).toBe('#');
+    expect(wiki.dataset.noteSource).toBe('wiki');
+    await actAndSettle(() => { wiki.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(onOpenNoteLink).toHaveBeenNthCalledWith(1, {
+      target: 'Topics/Plan',
+      fragment: 'Part two',
+      source: 'wiki',
+      path: null,
+    }, null);
+
+    const relative = anchors.find((anchor) => anchor.dataset.noteSource === 'markdown')!;
+    await actAndSettle(() => { relative.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(onOpenNoteLink).toHaveBeenNthCalledWith(2, {
+      target: 'Notes/Other.md',
+      fragment: 'Section',
+      source: 'markdown',
+      path: { relative: 'Boards/Notes/Other.md', absolute: '/vault/Boards/Notes/Other.md' },
+    }, null);
+
+    await actAndSettle(() => { wiki.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+    expect(onOpenNoteLink).toHaveBeenNthCalledWith(3, {
+      target: 'Topics/Plan',
+      fragment: 'Part two',
+      source: 'wiki',
+      path: null,
+    }, null);
+
+    const external = anchors.find((anchor) => anchor.getAttribute('href') === 'https://example.test')!;
+    expect(external.dataset.noteTarget).toBeUndefined();
+
+    expect(anchors.some((anchor) => anchor.href.startsWith('javascript:'))).toBe(false);
   });
 
   it('opens the slash menu and creates a linked note', async () => {
