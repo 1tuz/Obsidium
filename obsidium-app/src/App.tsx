@@ -37,7 +37,8 @@ import { DEFAULT_BUILTINS, DEFAULT_LIVE_TABS, useSettingsStore } from "./modules
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath } from "./modules/documents/fileGateway";
+import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath, readFileSnapshot } from "./modules/documents/fileGateway";
+import { resolveNoteFragmentOffset, type CanvasNoteTarget } from "./components/Canvas/canvasNoteLinks";
 import { createCanvasFile } from "./modules/canvas/createCanvasFile";
 import { flushCanvasDocuments } from "./modules/canvas/persistence";
 import { fileStem } from "./modules/paths";
@@ -359,6 +360,35 @@ export default function App() {
     return resolveWikiLinks(workspacePath, sourcePath, targets);
   }, [activeFile, ensureLinksReady, workspacePath]);
 
+  const openCanvasNote = useCallback(async (
+    link: CanvasNoteTarget,
+    paneId: string,
+    canvasPath: string,
+    sourcePath: string | null,
+  ) => {
+    const openResolved = async (path: string) => {
+      if (!link.fragment) {
+        openNote(path, { paneId });
+        return;
+      }
+      const snapshot = await readFileSnapshot(path);
+      const offset = resolveNoteFragmentOffset(snapshot.content, link.fragment);
+      openNote(path, { offset: offset ?? 0, paneId });
+    };
+    try {
+      if (link.path) {
+        await openResolved(link.path.absolute);
+        return;
+      }
+      const base = sourcePath ?? canvasPath;
+      const { paths: [path] } = await resolveVisibleWikiLinks([link.target], base);
+      if (path) await openResolved(path);
+    } catch (error) {
+      console.error('Failed to open a Canvas note link', error);
+      throw error;
+    }
+  }, [openNote, resolveVisibleWikiLinks]);
+
   const handleOpenWikiLink = useCallback((
     target: string,
     disposition: LinkDisposition,
@@ -669,6 +699,7 @@ export default function App() {
                       inactive={false}
                       indexRevision={linkIndexRevision}
                       onOpenFile={(path) => openNote(path, { paneId })}
+                      onOpenNoteLink={(link, sourcePath) => openCanvasNote(link, paneId, activeCanvasPath, sourcePath).catch(() => undefined)}
                     />
                   </Suspense>
                 )}
@@ -694,6 +725,7 @@ export default function App() {
                         inactive={tab.tabId !== paneActiveTab?.tabId}
                         indexRevision={linkIndexRevision}
                         onOpenFile={(path) => openNote(path, { paneId })}
+                        onOpenNoteLink={(link, sourcePath) => openCanvasNote(link, paneId, tab.path, sourcePath).catch(() => undefined)}
                       />
                     </Suspense>
                   ) : isTextFilePath(tab.path) && !isMarkdownPath(tab.path) ? (

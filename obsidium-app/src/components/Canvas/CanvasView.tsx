@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TargetedDragEvent, TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent, TargetedWheelEvent } from 'preact';
 import { t } from '../../i18n';
 import { useTauriEvent } from '../../hooks/useTauriEvent';
-import { absolutePath, fileName, parentDirectory, relativePath, samePath } from '../../modules/paths';
+import { absolutePath, fileName, parentDirectory, relativePath, resolveNotePath, samePath } from '../../modules/paths';
+import { splitNoteLink, type CanvasNoteSource, type CanvasNoteTarget } from './canvasNoteLinks';
 import { openExternalUrl } from '../../modules/openExternalUrl';
 import { isCanvasPath, isFileCommandError, isMarkdownPath, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { createUniqueFile } from '../../modules/documents/documentFactory';
@@ -68,6 +69,7 @@ interface CanvasViewProps {
   inactive: boolean;
   indexRevision: number;
   onOpenFile: (path: string) => void;
+  onOpenNoteLink?: (link: CanvasNoteTarget, sourcePath: string | null) => Promise<void> | void;
 }
 
 const GRID_SIZE = 20;
@@ -240,7 +242,7 @@ function canvasSvg(document: CanvasDocument, colors: { paper: string; ink: strin
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${width}" height="${height}" viewBox="${left} ${top} ${width} ${height}" style="color:${escapeXml(colors.ink)};background:${escapeXml(colors.paper)}">${edges}${body}</svg>`;
 }
 
-export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpenFile }: CanvasViewProps) {
+export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpenFile, onOpenNoteLink }: CanvasViewProps) {
   const [document, setDocument] = useState<CanvasDocument | null>(null);
   const [history, setHistory] = useState<CanvasHistory<CanvasDocument> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -482,6 +484,24 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     historyRef.current = next;
     setHistory(next);
   }, []);
+
+  const openNoteLink = useCallback(async (node: CanvasCardNode, rawTarget: string, rawSource: string) => {
+    if (!onOpenNoteLink) return;
+    const source: CanvasNoteSource = rawSource === 'markdown' ? 'markdown' : 'wiki';
+    const link = splitNoteLink(rawTarget, source);
+    if (!link) return;
+    const sourceFile = node.type === 'file' && node.file ? absolutePath(workspacePath, node.file) : null;
+    const directory = parentDirectory(sourceFile ?? path);
+    const markdown = link.source === 'markdown'
+      ? resolveNotePath(workspacePath, directory, link.target)
+      : null;
+    await onOpenNoteLink({
+      target: link.target,
+      fragment: link.fragment,
+      source: link.source,
+      path: markdown,
+    }, sourceFile);
+  }, [onOpenNoteLink, path, workspacePath]);
 
   const resolveImageUrl = useCallback((node: CanvasCardNode, target: string) => {
     const base = node.type === 'file' && node.file
@@ -1322,6 +1342,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
                 onChange={handleTextChange}
                 onEditComplete={commitCurrentHistory}
                 onOpenUrl={openUrl}
+                onOpenNoteLink={onOpenNoteLink ? (target, source) => {
+                  void openNoteLink(node, target, source).catch((cause: unknown) => setActionError(String(cause)));
+                } : undefined}
               >
                 {node.type === 'group' && (editingId === node.id
                   ? <input className="q-canvas__group-label" aria-label={t('canvas.groupLabel')} value={node.label ?? ''} onInput={(event) => updateNode(node.id, { label: event.currentTarget.value }, false)} onBlur={() => { commitCurrentHistory(); setEditingId(null); }} />

@@ -27,6 +27,7 @@ interface CanvasCardProps {
   onChange?: (nodeId: string, text: string) => void;
   onEditComplete?: () => void;
   onOpenUrl?: (url: string) => void;
+  onOpenNoteLink?: (target: string, source: string) => void;
 }
 
 function sanitizeMarkdownLinks(html: string): string {
@@ -54,16 +55,35 @@ function MarkdownPreview({
   markdown,
   resolveImageUrl,
   onOpenUrl,
-}: Pick<CanvasCardProps, 'node' | 'markdown' | 'resolveImageUrl' | 'onOpenUrl'>) {
+  onOpenNoteLink,
+}: Pick<CanvasCardProps, 'node' | 'markdown' | 'resolveImageUrl' | 'onOpenUrl' | 'onOpenNoteLink'>) {
   const html = sanitizeMarkdownLinks(renderMarkdownToHtml(markdown ?? '', {
     resolveImageUrl: resolveImageUrl ? (target) => resolveImageUrl(node, target) : undefined,
+    noteLinks: Boolean(onOpenNoteLink),
   }));
+  const activateNoteLink = (target: HTMLElement) => {
+    const note = target.closest<HTMLElement>('a[data-note-target]');
+    if (!note || !onOpenNoteLink) return false;
+    onOpenNoteLink(note.dataset.noteTarget ?? '', note.dataset.noteSource ?? 'wiki');
+    return true;
+  };
   return <div className="q-canvas-card__markdown" onClick={(event) => {
+    if (activateNoteLink(event.target as HTMLElement)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const anchor = (event.target as HTMLElement).closest('a[href]');
     const href = anchor?.getAttribute('href');
     if (href && /^(?:https?:|mailto:|tel:)/i.test(href)) {
       event.preventDefault();
       onOpenUrl?.(href);
+    }
+  }} onKeyDown={(event) => {
+    if (event.key !== 'Enter' || !onOpenNoteLink) return;
+    if (activateNoteLink(event.target as HTMLElement)) {
+      event.preventDefault();
+      event.stopPropagation();
     }
   }} dangerouslySetInnerHTML={{ __html: html }} />;
 }
@@ -80,6 +100,7 @@ export const CanvasCard = memo(function CanvasCard({
   onChange,
   onEditComplete,
   onOpenUrl,
+  onOpenNoteLink,
 }: CanvasCardProps) {
   const className = `q-canvas-card q-canvas-card--${node.type}${selected ? ' is-selected' : ''}`;
   const colorStyle = color || strokeColor ? {
@@ -96,7 +117,7 @@ export const CanvasCard = memo(function CanvasCard({
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Text card">
         {editing
           ? <textarea aria-label="Text card content" value={node.text ?? ''} onInput={(event) => onChange?.(node.id, event.currentTarget.value)} onBlur={onEditComplete} />
-          : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} />}
+          : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
     );
   }
@@ -106,7 +127,7 @@ export const CanvasCard = memo(function CanvasCard({
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label={`File card: ${title}`}>
         <div className="q-canvas-card__title">{title}</div>
-        <MarkdownPreview node={node} markdown={markdown} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} />
+        <MarkdownPreview node={node} markdown={markdown} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />
       </div>
     );
   }
