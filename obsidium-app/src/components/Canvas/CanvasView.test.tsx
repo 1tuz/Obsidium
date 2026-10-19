@@ -446,6 +446,26 @@ describe('CanvasView', () => {
     expect(anchors.some((anchor) => anchor.href.startsWith('javascript:'))).toBe(false);
   });
 
+  it('never falls back to the wiki resolver for a rejected markdown link', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'text', type: 'text', x: 0, y: 0, width: 320, height: 200, text: '[escape](../../../Outside.md)' }],
+      edges: [],
+    });
+    const onOpenNoteLink = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} onOpenNoteLink={onOpenNoteLink} />,
+      );
+    });
+    await actAndSettle();
+
+    const link = renderer!.container.querySelector<HTMLAnchorElement>('a[data-note-source="markdown"]')!;
+    await actAndSettle(() => { link.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(onOpenNoteLink).not.toHaveBeenCalled();
+    expect(renderer!.container.querySelector('.q-canvas__warning')?.textContent)
+      .toBe('canvas.errors.noteLinkOutsideWorkspace');
+  });
+
   it('opens the slash menu and creates a linked note', async () => {
     act(() => {
       renderer = mountDom(
@@ -504,5 +524,121 @@ describe('CanvasView', () => {
     const writes = vi.mocked(writeFileAtomic).mock.calls;
     const saved = writes[writes.length - 1]?.[1];
     expect(JSON.parse(String(saved)).nodes[0].color).toBe('4');
+  });
+
+  it('pans with a plain wheel and keeps the camera after the debounce', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    const world = renderer!.container.querySelector<HTMLElement>('.q-canvas__world')!;
+    await actAndSettle(() => { stage.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true })); });
+    expect(world.style.transform).toBe('translate(0px, -100px) scale(1)');
+    await act(settleAutosave);
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.obsidium.canvas.camera).toMatchObject({ x: 0, y: -100, zoom: 1 });
+  });
+
+  it('zooms around the pointer with the command modifier and resets with Cmd+0', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => {
+      stage.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, metaKey: true, clientX: 0, clientY: 0, bubbles: true, cancelable: true }));
+    });
+    const zoomed = renderer!.container.querySelector<HTMLElement>('.q-canvas__world')!.style.transform;
+    expect(zoomed).not.toBe('translate(0px, 0px) scale(1)');
+
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: '0', metaKey: true, bubbles: true, cancelable: true })); });
+    expect(renderer!.container.querySelector<HTMLElement>('.q-canvas__world')!.style.transform).toBe('translate(0px, 0px) scale(1)');
+  });
+
+  it('pans instead of moving a card while space is held', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'note', type: 'text', x: 10, y: 20, width: 160, height: 100, text: 'Note' }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { clientX: 10, clientY: 10, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 40, clientY: 50, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 40, clientY: 50, bubbles: true })); });
+
+    expect(renderer!.container.querySelector<HTMLElement>('.q-canvas__world')!.style.transform)
+      .toBe('translate(30px, 40px) scale(1)');
+    expect(object.style.left).toBe('10px');
+    expect(object.style.top).toBe('20px');
+  });
+
+  it('adds a link card through the dialog instead of a prompt', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 40, button: 0, bubbles: true })); });
+    const field = renderer!.container.querySelector<HTMLInputElement>('.q-canvas-link-dialog__field')!;
+    expect(field).not.toBeNull();
+    await actAndSettle(() => {
+      field.value = 'https://example.com/page';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await actAndSettle(() => {
+      renderer!.container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'link', url: 'https://example.com/page' });
+  });
+
+  it('removes a plain text card that was left empty', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'empty', type: 'text', x: 0, y: 0, width: 200, height: 120, text: '' }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+    const textarea = renderer!.container.querySelector<HTMLTextAreaElement>('.q-canvas-card--text textarea')!;
+    expect(textarea).not.toBeNull();
+    await actAndSettle(() => { textarea.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(0);
   });
 });

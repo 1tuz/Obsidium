@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
   actions: write
 
@@ -33,7 +34,10 @@ jobs:
           git fetch upstream main
 
           upstream_sha="$(git rev-parse upstream/main)"
-          last_synced="$(git log -1 --format=%B --grep='^Upstream-Sync:' | sed -n 's/^Upstream-Sync: //p')"
+          last_synced="$(node -e 'const fs=require("fs");try{process.stdout.write(JSON.parse(fs.readFileSync(".github/upstream-sync.json","utf8")).upstream||"")}catch{}')"
+          if [[ -z "$last_synced" ]]; then
+            last_synced="$(git log -1 --format=%B --grep='^Upstream-Sync:' | sed -n 's/^Upstream-Sync: //p')"
+          fi
           if [[ -z "$last_synced" ]]; then
             last_synced="$(git merge-base HEAD upstream/main)"
           fi
@@ -43,23 +47,14 @@ jobs:
           fi
 
           patch_file="$(mktemp)"
-          trap 'rm -f "$patch_file"' EXIT
-          git diff --binary "$last_synced" "$upstream_sha" -- . \
-            ':(exclude,top).github/**' \
-            ':(exclude,top)README.md' \
-            ':(exclude,top)README.ru.md' \
-            ':(exclude,top)DEVELOPMENT.md' \
-            ':(exclude,top)AGENTS.md' \
-            ':(exclude,top)scripts/**' \
-            ':(exclude,top)knowledge base/**' \
-            ':(exclude,top)assets/screenshots/**' \
-            ':(exclude,top)assets/readme/**' \
-            ':(exclude,top)obsidian-crystal-belt-icon.png' \
-            ':(exclude,top)assets/logo.png' \
-            ':(exclude,top)obsidium-app/src-tauri/icons/**' > "$patch_file"
+          manifest_file="$(mktemp)"
+          trap 'rm -f "$patch_file" "$manifest_file"' EXIT
+          git diff --binary "$last_synced" "$upstream_sha" -- aquilum-app/core \
+            ':(exclude,top)aquilum-app/core/Cargo.toml' > "$patch_file"
+          git diff "$last_synced" "$upstream_sha" -- aquilum-app/core/Cargo.toml > "$manifest_file"
 
           if [[ ! -s "$patch_file" ]]; then
-            echo 'No upstream source changes to apply.'
+            echo 'No upstream core changes to apply.'
             exit 0
           fi
 
@@ -79,13 +74,52 @@ jobs:
           fi
 
           git switch --create "$branch"
-          git apply --3way "$patch_file"
+          if ! git apply -p2 --directory=obsidium-app --3way "$patch_file" > apply.log 2>&1; then
+            blocked="$(sed -n "s/^error: patch failed: obsidium-app\/\(.*\):.*/\1/p" apply.log | sort -u)"
+            {
+              echo "Upstream core sync is blocked by conflicts."
+              echo
+              echo "Upstream range: \`${last_synced:0:12}..${upstream_sha:0:12}\`"
+              echo
+              echo "The fork core keeps its own names and paths, so these files need a manual port:"
+              echo
+              if [[ -n "$blocked" ]]; then
+                while IFS= read -r file; do
+                  printf -- "- **obsidium-app/%s**\n" "$file"
+                done <<< "$blocked"
+              else
+                echo 'See the workflow log for the failed hunks.'
+              fi
+              echo
+              echo "Apply locally with:"
+              echo
+              echo '~~~bash'
+              echo "git diff --binary ${last_synced} ${upstream_sha} -- aquilum-app/core ':(exclude,top)aquilum-app/core/Cargo.toml' \\"
+              echo '  | git apply -p2 --directory=obsidium-app --3way'
+              echo '~~~'
+            } > issue.md
+            title='Upstream core sync needs a manual port'
+            issue_number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title $title" --json number --jq '.[0].number // empty')"
+            if [[ -n "$issue_number" ]]; then
+              gh issue comment "$issue_number" --repo "$GITHUB_REPOSITORY" --body-file issue.md
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file issue.md
+            fi
+            echo 'Upstream core changes conflict with the fork layout; reported instead of pushing.'
+            exit 0
+          fi
+          git checkout -- apply.log 2>/dev/null || rm -f apply.log
+          printf '{\n  "upstream": "%s"\n}\n' "$upstream_sha" > .github/upstream-sync.json
           git add -A
-          git commit -m 'sync: apply upstream source changes' -m "Upstream-Sync: $upstream_sha"
+          git commit -m 'sync: apply upstream core changes' -m "Upstream-Sync: $upstream_sha"
           git push origin "$branch"
+          manifest_note=''
+          if [[ -s "$manifest_file" ]]; then
+            manifest_note="$(printf '\nUpstream changed **aquilum-app/core/Cargo.toml**; the fork keeps its own manifest, so reconcile dependencies by hand.\n\n<details><summary>Upstream manifest diff</summary>\n\n~~~diff\n%s\n~~~\n\n</details>\n' "$(cat "$manifest_file")")"
+          fi
           pr_number="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
-            --title "Sync upstream through ${upstream_sha:0:12}" \
-            --body "Upstream source changes through https://github.com/Freaction/Aquilum/commit/${upstream_sha} are ready for the required CI checks.")"
+            --title "Sync upstream core through ${upstream_sha:0:12}" \
+            --body "Upstream core changes through https://github.com/Freaction/Aquilum/commit/${upstream_sha} are ready for the required CI checks.${manifest_note}")"
           {
             echo "branch=$branch"
             echo "pr_number=${pr_number##*/}"

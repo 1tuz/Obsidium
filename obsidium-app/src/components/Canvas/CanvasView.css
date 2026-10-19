@@ -205,6 +205,24 @@
   cursor: crosshair;
 }
 
+.q-canvas[data-active-tool='text'] .q-canvas__stage,
+.q-canvas[data-active-tool='rectangle'] .q-canvas__stage,
+.q-canvas[data-active-tool='diamond'] .q-canvas__stage,
+.q-canvas[data-active-tool='ellipse'] .q-canvas__stage,
+.q-canvas[data-active-tool='number'] .q-canvas__stage {
+  cursor: crosshair;
+}
+
+.q-canvas[data-space-held='true'] .q-canvas__stage,
+.q-canvas[data-space-held='true'] .q-canvas__object {
+  cursor: grab;
+}
+
+.q-canvas[data-space-held='true'] .q-canvas__stage:active,
+.q-canvas[data-space-held='true'] .q-canvas__object:active {
+  cursor: grabbing;
+}
+
 .q-canvas__object > .q-canvas-card {
   border-width: var(--q-canvas-shape-stroke-width, var(--q-border-1));
   border-color: var(--q-canvas-node-color, var(--q-canvas-default-stroke, var(--q-border-default)));

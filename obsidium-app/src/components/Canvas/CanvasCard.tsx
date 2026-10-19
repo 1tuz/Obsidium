@@ -61,16 +61,17 @@ function MarkdownPreview({
     resolveImageUrl: resolveImageUrl ? (target) => resolveImageUrl(node, target) : undefined,
     noteLinks: Boolean(onOpenNoteLink),
   }));
-  const activateNoteLink = (target: HTMLElement) => {
+  const noteLinkFrom = (target: HTMLElement): [string, string] | null => {
     const note = target.closest<HTMLElement>('a[data-note-target]');
-    if (!note || !onOpenNoteLink) return false;
-    onOpenNoteLink(note.dataset.noteTarget ?? '', note.dataset.noteSource ?? 'wiki');
-    return true;
+    if (!note || !onOpenNoteLink) return null;
+    return [note.dataset.noteTarget ?? '', note.dataset.noteSource ?? 'wiki'];
   };
   return <div className="q-canvas-card__markdown" onClick={(event) => {
-    if (activateNoteLink(event.target as HTMLElement)) {
+    const note = noteLinkFrom(event.target as HTMLElement);
+    if (note) {
       event.preventDefault();
       event.stopPropagation();
+      onOpenNoteLink?.(note[0], note[1]);
       return;
     }
     const anchor = (event.target as HTMLElement).closest('a[href]');
@@ -80,11 +81,12 @@ function MarkdownPreview({
       onOpenUrl?.(href);
     }
   }} onKeyDown={(event) => {
-    if (event.key !== 'Enter' || !onOpenNoteLink) return;
-    if (activateNoteLink(event.target as HTMLElement)) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+    if (event.key !== 'Enter') return;
+    const note = noteLinkFrom(event.target as HTMLElement);
+    if (!note) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onOpenNoteLink?.(note[0], note[1]);
   }} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
@@ -116,7 +118,12 @@ export const CanvasCard = memo(function CanvasCard({
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Text card">
         {editing
-          ? <textarea aria-label="Text card content" value={node.text ?? ''} onInput={(event) => onChange?.(node.id, event.currentTarget.value)} onBlur={onEditComplete} />
+          ? <textarea aria-label="Text card content" autoFocus value={node.text ?? ''} onInput={(event) => onChange?.(node.id, event.currentTarget.value)} onBlur={onEditComplete} onKeyDown={(event) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.blur();
+          }} />
           : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
     );

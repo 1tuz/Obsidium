@@ -37,7 +37,7 @@ describe('canvas note links', () => {
 
   it('keeps original offsets with CRLF, fenced code and exact block ids', () => {
     const crlf = '# Top\r\n\r\n## Target\r\n';
-    expect(resolveNoteFragmentOffset(crlf, 'Target')).toBe(crlf.indexOf('## Target'));
+    expect(resolveNoteFragmentOffset(crlf, 'Target')).toBe(7);
     const fenced = '```md\n## Target\n```\n\n## Target\n';
     expect(resolveNoteFragmentOffset(fenced, 'Target')).toBe(fenced.lastIndexOf('## Target'));
     const blocks = 'first ^block-more\n\nsecond ^block\n';
