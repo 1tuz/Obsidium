@@ -269,11 +269,7 @@ fn announce_history(core: &Core, note: &Path) {
     core.emit(CoreEvent::NoteHistoryChanged(changed));
 }
 
-fn canvas_references(
-    root: &Path,
-    from: &Path,
-    to: &Path,
-) -> Result<Vec<CanvasReference>, FileCommandError> {
+fn canvas_references(root: &Path, from: &Path, to: &Path) -> Result<Vec<CanvasReference>, FileCommandError> {
     let mut references = Vec::new();
     for entry in WalkDir::new(root).into_iter().filter_map(Result::ok) {
         if !entry.file_type().is_file() || !canvas_path(entry.path()) {
@@ -293,9 +289,7 @@ fn canvas_path(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("canvas"))
 }
 
-fn verify_canvas_references(
-    references: &[CanvasReference],
-) -> Result<(), FileCommandError> {
+fn verify_canvas_references(references: &[CanvasReference]) -> Result<(), FileCommandError> {
     for reference in references {
         let actual = std::fs::read(&reference.board).map(|bytes| hash_bytes(&bytes))?;
         if actual != reference.original_hash {
@@ -321,7 +315,7 @@ fn write_canvas_references(
                     let _ = write_file_atomic_impl(
                         reference.board.as_path(),
                         &reference.original,
-                        Some(hash),
+                        Some(hash.as_str()),
                     );
                 }
                 return Err(error);
