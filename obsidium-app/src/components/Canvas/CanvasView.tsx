@@ -1081,7 +1081,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       if (!spaceHeld) setSpaceHeld(true);
       return;
     }
-    if (event.key === '/' && !command) {
+    if ((event.key === '/' || event.code === 'Slash') && !command) {
       event.preventDefault();
       setSlashMenu({
         point: { x: (viewport.width / 2 - camera.x) / camera.zoom, y: (viewport.height / 2 - camera.y) / camera.zoom },
@@ -1152,9 +1152,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (!command && !event.altKey && !event.shiftKey) {
       const tool = ({
-        v: 'select', t: 'text', f: 'file', l: 'link', g: 'group', a: 'edge',
-        r: 'rectangle', d: 'diamond', e: 'ellipse', n: 'number', p: 'draw',
-      } as const)[event.key.toLowerCase()];
+        KeyV: 'select', KeyT: 'text', KeyF: 'file', KeyL: 'link', KeyG: 'group', KeyA: 'edge',
+        KeyR: 'rectangle', KeyD: 'diamond', KeyE: 'ellipse', KeyN: 'number', KeyP: 'draw',
+      } as const)[event.code];
       if (tool) {
         event.preventDefault();
         setActiveTool(tool);
