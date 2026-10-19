@@ -84,17 +84,19 @@ jobs:
               echo "The fork core keeps its own names and paths, so these files need a manual port:"
               echo
               if [[ -n "$blocked" ]]; then
-                printf -- '- `obsidium-app/%s`\n' $blocked
+                while IFS= read -r file; do
+                  printf -- "- **obsidium-app/%s**\n" "$file"
+                done <<< "$blocked"
               else
                 echo 'See the workflow log for the failed hunks.'
               fi
               echo
               echo "Apply locally with:"
               echo
-              echo '```bash'
+              echo '~~~bash'
               echo "git diff --binary ${last_synced} ${upstream_sha} -- aquilum-app/core ':(exclude,top)aquilum-app/core/Cargo.toml' \\"
               echo '  | git apply -p2 --directory=obsidium-app --3way'
-              echo '```'
+              echo '~~~'
             } > issue.md
             title='Upstream core sync needs a manual port'
             issue_number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title $title" --json number --jq '.[0].number // empty')"
@@ -113,7 +115,7 @@ jobs:
           git push origin "$branch"
           manifest_note=''
           if [[ -s "$manifest_file" ]]; then
-            manifest_note="$(printf '\nUpstream changed `aquilum-app/core/Cargo.toml`; the fork keeps its own manifest, so reconcile dependencies by hand.\n\n<details><summary>Upstream manifest diff</summary>\n\n```diff\n%s\n```\n\n</details>\n' "$(cat "$manifest_file")")"
+            manifest_note="$(printf '\nUpstream changed **aquilum-app/core/Cargo.toml**; the fork keeps its own manifest, so reconcile dependencies by hand.\n\n<details><summary>Upstream manifest diff</summary>\n\n~~~diff\n%s\n~~~\n\n</details>\n' "$(cat "$manifest_file")")"
           fi
           pr_number="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
             --title "Sync upstream core through ${upstream_sha:0:12}" \
