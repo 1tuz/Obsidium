@@ -155,7 +155,10 @@ mod tests {
         manager.update_config(config).unwrap();
 
         assert_eq!(
-            SettingsManager::new(dir.path()).get_config().editor.save_debounce_ms,
+            SettingsManager::new(dir.path())
+                .get_config()
+                .editor
+                .save_debounce_ms,
             60_000
         );
     }
