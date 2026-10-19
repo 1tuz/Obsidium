@@ -91,7 +91,7 @@ describe('CanvasView', () => {
     const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
     const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
     Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
-    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', code: 'KeyP', bubbles: true, cancelable: true })); });
     expect(canvas.dataset.activeTool).toBe('draw');
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 20, clientY: 30, button: 0, bubbles: true })); });
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 80, clientY: 42, bubbles: true })); });
@@ -124,7 +124,7 @@ describe('CanvasView', () => {
     const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
     const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
     Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
-    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', code: 'KeyR', bubbles: true, cancelable: true })); });
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 120, clientY: 90, button: 0, bubbles: true })); });
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 20, clientY: 10, bubbles: true })); });
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 20, clientY: 10, bubbles: true })); });
@@ -177,7 +177,7 @@ describe('CanvasView', () => {
 
     const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
     const objects = renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object');
-    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', bubbles: true, cancelable: true })); });
     await actAndSettle(() => { objects[0].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     await actAndSettle(() => { objects[1].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 450)));
@@ -209,7 +209,7 @@ describe('CanvasView', () => {
 
     const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
     const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
-    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', code: 'KeyN', bubbles: true, cancelable: true })); });
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 80, clientY: 90, button: 0, bubbles: true })); });
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 450)));
 
@@ -603,7 +603,7 @@ describe('CanvasView', () => {
 
     const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
     const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
-    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', code: 'KeyL', bubbles: true, cancelable: true })); });
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 40, button: 0, bubbles: true })); });
     const field = renderer!.container.querySelector<HTMLInputElement>('.q-canvas-link-dialog__field')!;
     expect(field).not.toBeNull();
