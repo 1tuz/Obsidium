@@ -3,6 +3,7 @@ import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { CanvasCard, type CanvasCardNode } from './CanvasCard';
+import { renderMarkdownToHtml } from '../../modules/export/markdownToHtml';
 
 const node = (type: CanvasCardNode['type'], fields: Partial<CanvasCardNode> = {}): CanvasCardNode => ({
   id: 'card-1',
@@ -103,5 +104,26 @@ describe('CanvasCard', () => {
 
     const card = renderer!.container.querySelector('.q-canvas-card') as HTMLElement;
     expect(card.style.borderColor).toBe('var(--q-canvas-default-stroke)');
+  });
+
+  it('prevents the default action before handing a note link to navigation', () => {
+    const onOpenNoteLink = vi.fn((_target: string, _source: string) => {
+      expect(currentEvent?.defaultPrevented).toBe(true);
+    });
+    let currentEvent: Event | null = null;
+    act(() => {
+      renderer = mountDom(
+        <CanvasCard
+          node={node('text', { text: '[[Note]]' })}
+          onOpenNoteLink={onOpenNoteLink}
+          resolveImageUrl={() => ''}
+        />,
+      );
+    });
+    const link = renderer!.container.querySelector<HTMLAnchorElement>('a[data-note-target]')!;
+    expect(renderMarkdownToHtml('[[Note]]', { noteLinks: true })).toContain('data-note-target');
+    currentEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+    act(() => { link.dispatchEvent(currentEvent!); });
+    expect(onOpenNoteLink).toHaveBeenCalledWith('Note', 'wiki');
   });
 });

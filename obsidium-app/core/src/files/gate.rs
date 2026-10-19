@@ -1,11 +1,12 @@
 use super::attachments::forget_attachments_if_touched;
 use super::deletions::deletion_files;
 use super::document::{
-    copy_file_impl, create_binary_file_impl, create_file_impl, rename_file_impl,
+    copy_file_impl, create_binary_file_impl, create_file_impl, hash_bytes, rename_file_impl,
     write_file_atomic_impl,
 };
 use super::error::FileCommandError;
 use super::models::{FileRenameResult, FileWriteResult};
+use super::canvas_refs::{rewrite_canvas_reference, write_canvas_reference, CanvasReference};
 use super::rename::rename_with_links;
 use super::trash::{move_to_trash_impl, restore_from_trash_impl};
 use crate::app_core::{Core, CoreEvent};
@@ -106,6 +107,16 @@ pub fn rename(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, F
 
 fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, FileCommandError> {
     let notes = notes_under(from);
+    let boards = canvas_references(from.parent().unwrap_or(from), from, to)?;
+    for reference in &boards {
+        let actual = std::fs::read(&reference.board).map(|bytes| hash_bytes(&bytes))?;
+        if actual != reference.original_hash {
+            return Err(FileCommandError::Conflict {
+                expected_hash: reference.original_hash.clone(),
+                actual_hash: Some(actual),
+            });
+        }
+    }
     let renamed = rename_with_links(&core.search, from, to)?;
     let relocation = relocated(&notes, from, to);
     follow_moves(core, &relocation);
@@ -124,12 +135,15 @@ fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, F
     }
     let mut changed = vec![from.to_path_buf(), to.to_path_buf()];
     changed.extend(renamed.result.updated_paths.iter().map(PathBuf::from));
-    let rewritten: Vec<PathBuf> = renamed
+    let written = write_canvas_references(&boards)?;
+    let mut rewritten: Vec<PathBuf> = renamed
         .result
         .updated_paths
         .iter()
         .map(PathBuf::from)
         .collect();
+    rewritten.extend(written.iter().cloned());
+    changed.extend(written);
     paths_changed(core, changed);
     announce(core, relocation);
     core.documents.reconcile_paths(core, &rewritten);
@@ -143,7 +157,12 @@ pub fn move_across(core: &Core, from: &Path, to: &Path) -> Result<(), FileComman
 
 fn move_across_now(core: &Core, from: &Path, to: &Path) -> Result<(), FileCommandError> {
     let notes = notes_under(from);
+    let boards = canvas_references(from.parent().unwrap_or(from), from, to)?;
     rename_file_impl(from, to)?;
+    let written = write_canvas_references(&boards)?;
+    if !written.is_empty() {
+        paths_changed(core, written);
+    }
     let relocation = relocated(&notes, from, to);
     follow_moves(core, &relocation);
     paths_changed(core, vec![from.to_path_buf(), to.to_path_buf()]);
@@ -255,6 +274,46 @@ fn announce_history(core: &Core, note: &Path) {
         path: note.to_string_lossy().into_owned(),
     };
     core.emit(CoreEvent::NoteHistoryChanged(changed));
+}
+
+fn canvas_references(
+    root: &Path,
+    from: &Path,
+    to: &Path,
+) -> Result<Vec<CanvasReference>, FileCommandError> {
+    let mut references = Vec::new();
+    for entry in WalkDir::new(root).into_iter().filter_map(Result::ok) {
+        if !entry.file_type().is_file() || !canvas_path(entry.path()) {
+            continue;
+        }
+        let content = std::fs::read_to_string(entry.path())?;
+        if let Some(reference) = rewrite_canvas_reference(&content, entry.path(), from, to) {
+            references.push(reference);
+        }
+    }
+    Ok(references)
+}
+
+fn canvas_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("canvas"))
+}
+
+fn write_canvas_references(
+    references: &[CanvasReference],
+) -> Result<Vec<PathBuf>, FileCommandError> {
+    let mut written = Vec::new();
+    for (index, reference) in references.iter().enumerate() {
+        if let Err(error) = write_canvas_reference(reference) {
+            for applied in &references[..index] {
+                let _ = write_file_atomic_impl(&applied.board, &applied.original, None);
+            }
+            return Err(error);
+        }
+        written.push(reference.board.clone());
+    }
+    Ok(written)
 }
 
 fn notes_under(path: &Path) -> Vec<PathBuf> {

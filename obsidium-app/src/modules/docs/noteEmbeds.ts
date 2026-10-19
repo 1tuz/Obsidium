@@ -34,13 +34,14 @@ export function parseNoteEmbed(line: string): NoteEmbed | null {
 }
 
 export function noteEmbedOffset(content: string, heading: string | null, blockId: string | null = null): number | null {
+  const text = content.replace(/\r\n?/g, '\n');
   const lines: string[] = [];
   const lineOffsets: number[] = [];
   let lineStart = 0;
-  while (lineStart <= content.length) {
-    const breakAt = content.indexOf('\n', lineStart);
-    const lineEnd = breakAt < 0 ? content.length : breakAt;
-    lines.push(content.slice(lineStart, lineEnd).replace(/\r$/, ''));
+  while (lineStart <= text.length) {
+    const breakAt = text.indexOf('\n', lineStart);
+    const lineEnd = breakAt < 0 ? text.length : breakAt;
+    lines.push(text.slice(lineStart, lineEnd));
     lineOffsets.push(lineStart);
     if (breakAt < 0) break;
     lineStart = breakAt + 1;

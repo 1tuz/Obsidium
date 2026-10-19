@@ -588,26 +588,6 @@
     "kanbanNotWritable": "This card's column value cannot be edited.",
     "kanbanExcluded": "This destination is excluded by the board filter."
   },
-  "canvas": {
-    "toolbar": "Canvas tools",
-    "select": "Select",
-    "pan": "Pan",
-    "text": "Text",
-    "file": "File / note",
-    "connect": "Connect nodes",
-    "rectangle": "Rectangle",
-    "ellipse": "Ellipse",
-    "arrow": "Arrow",
-    "draw": "Draw",
-    "highlight": "Highlight",
-    "delete": "Delete",
-    "saving": "Saving…",
-    "saveFailed": "Save failed",
-    "openError": "Could not open canvas",
-    "filePlaceholder": "Projects/Note.md",
-    "filePath": "Vault file path",
-    "add": "Add"
-  },
   "boards": {
     "title": "Boards",
     "newBoard": "+ New board",
@@ -945,6 +925,14 @@
     "edgeLabel": "Connection label",
     "edgeRoute": "Line style",
     "edgeBend": "Move line bend",
+    "link": {
+      "addTitle": "Add link",
+      "editTitle": "Edit link",
+      "address": "Address",
+      "invalid": "Enter an http(s), mailto, tel or relative address",
+      "add": "Add",
+      "save": "Save"
+    },
     "route": { "straight": "Straight", "elbow": "Elbow", "curved": "Curved" },
     "groupLabel": "Group name",
     "fromDirection": "Start arrow",
@@ -955,7 +943,8 @@
     "side": { "auto": "Automatic", "left": "Left", "right": "Right", "top": "Top", "bottom": "Bottom" },
     "align": { "left": "Align left", "centerX": "Align horizontal centers", "right": "Align right", "top": "Align top", "centerY": "Align vertical centers", "bottom": "Align bottom" },
     "menu": { "open": "Open", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete", "group": "Group selection", "ungroup": "Ungroup" },
-    "errors": { "read": "Could not open canvas: {{reason}}", "fileOutsideWorkspace": "Only files in this knowledge base can be added.", "exportFailed": "Could not export this canvas." }
+    "errors": { "read": "Could not open canvas: {{reason}}", "fileOutsideWorkspace": "Only files in this knowledge base can be added.", "exportFailed": "Could not export this canvas.",
+      "noteLinkOutsideWorkspace": "The note link points outside the workspace." }
   },
   "pdf": {
     "reader": "PDF reader",

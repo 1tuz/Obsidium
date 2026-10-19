@@ -446,6 +446,26 @@ describe('CanvasView', () => {
     expect(anchors.some((anchor) => anchor.href.startsWith('javascript:'))).toBe(false);
   });
 
+  it('never falls back to the wiki resolver for a rejected markdown link', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'text', type: 'text', x: 0, y: 0, width: 320, height: 200, text: '[escape](../../../Outside.md)' }],
+      edges: [],
+    });
+    const onOpenNoteLink = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} onOpenNoteLink={onOpenNoteLink} />,
+      );
+    });
+    await actAndSettle();
+
+    const link = renderer!.container.querySelector<HTMLAnchorElement>('a[data-note-source="markdown"]')!;
+    await actAndSettle(() => { link.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(onOpenNoteLink).not.toHaveBeenCalled();
+    expect(renderer!.container.querySelector('.q-canvas__warning')?.textContent)
+      .toBe('canvas.errors.noteLinkOutsideWorkspace');
+  });
+
   it('opens the slash menu and creates a linked note', async () => {
     act(() => {
       renderer = mountDom(

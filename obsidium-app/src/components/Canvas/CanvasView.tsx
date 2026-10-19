@@ -495,6 +495,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const markdown = link.source === 'markdown'
       ? resolveNotePath(workspacePath, directory, link.target)
       : null;
+    if (link.source === 'markdown' && !markdown) {
+      setActionError(t('canvas.errors.noteLinkOutsideWorkspace'));
+      return;
+    }
     await onOpenNoteLink({
       target: link.target,
       fragment: link.fragment,
