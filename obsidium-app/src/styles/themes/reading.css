@@ -110,6 +110,9 @@
   --q-editor-code-function: var(--q-reading-code-function);
   --q-editor-code-type: var(--q-reading-code-type);
   --q-editor-code-property: var(--q-reading-code-property);
+  --q-editor-code-variable: var(--q-reading-ink);
+  --q-editor-code-operator: var(--q-reading-ink);
+  --q-editor-code-punctuation: var(--q-reading-ink);
   --q-editor-table-border: var(--q-reading-border);
   --q-editor-table-add-bg: var(--q-reading-table);
   --q-editor-table-add-border: var(--q-reading-border);

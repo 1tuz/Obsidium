@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { JSX, TargetedKeyboardEvent, TargetedPointerEvent } from 'preact';
 import {
   PANEL_LIMITS,
@@ -19,6 +19,10 @@ export function PanelResizer({ side, width, onResize, onReset, label }: {
 }): JSX.Element {
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
   const { min, max } = PANEL_LIMITS[side];
+
+  useEffect(() => () => {
+    delete document.documentElement.dataset.panelResizing;
+  }, []);
 
   const handlePointerDown = (event: TargetedPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LanguageDescription, defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { languages } from '@codemirror/language-data';
+import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
 import type { EditorView, ViewUpdate } from '@codemirror/view';
 import { CodeMirrorView } from '../Common/CodeMirrorView';
 import { obsidiumCodeMirrorTheme, obsidiumFieldSetup } from '../Common/codeMirror';
 import { codeHighlighting } from './extensions/codeBlock/highlight';
 import { codeHighlightTheme } from './extensions/codeBlock/theme';
+import { codeViewerSetup, codeViewerTheme, languageForPath } from './codeViewer';
 import { isFileCommandError, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { fileName } from '../../modules/paths';
 import { t } from '../../i18n';
@@ -27,6 +27,8 @@ export function TextFilePane({ path, inactive }: { path: string; inactive: boole
   const extensions = useMemo<Extension[]>(() => [
     obsidiumFieldSetup,
     obsidiumCodeMirrorTheme,
+    codeViewerSetup,
+    codeViewerTheme,
     syntaxHighlighting(defaultHighlightStyle),
     codeHighlighting,
     codeHighlightTheme,
@@ -34,8 +36,7 @@ export function TextFilePane({ path, inactive }: { path: string; inactive: boole
   ], [language]);
 
   useEffect(() => {
-    const extension = path.split('.').pop()?.toLowerCase() ?? '';
-    const description = LanguageDescription.matchLanguageName(languages, extension, true);
+    const description = languageForPath(path);
     setLanguage([]);
     if (!description) return undefined;
     let cancelled = false;

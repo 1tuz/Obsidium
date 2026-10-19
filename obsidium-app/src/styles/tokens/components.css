@@ -115,6 +115,9 @@
   --q-editor-code-function: var(--q-blue-600);
   --q-editor-code-type: var(--q-teal-700);
   --q-editor-code-property: var(--q-pink-600);
+  --q-editor-code-variable: var(--q-text-primary);
+  --q-editor-code-operator: var(--q-gray-600);
+  --q-editor-code-punctuation: var(--q-gray-500);
   --q-editor-placeholder-color: var(--q-text-tertiary);
 
   --q-block-bg: var(--q-bg-surface-raised);
@@ -247,6 +250,9 @@
   --q-editor-code-function: var(--q-blue-300);
   --q-editor-code-type: var(--q-teal-300);
   --q-editor-code-property: var(--q-pink-300);
+  --q-editor-code-variable: var(--q-text-primary);
+  --q-editor-code-operator: var(--q-gray-400);
+  --q-editor-code-punctuation: var(--q-gray-450);
   --q-dialog-bg: var(--q-gray-750);
   --q-dialog-border: var(--q-border-default);
   --q-dialog-overlay-bg: var(--q-bg-overlay);

@@ -48,6 +48,9 @@
   --q-editor-code-function: oklch(from var(--q-text-accent) l calc(c * 0.8) calc(h + 210));
   --q-editor-code-type: oklch(from var(--q-text-accent) l calc(c * 0.8) calc(h + 170));
   --q-editor-code-property: oklch(from var(--q-text-accent) l calc(c * 0.8) calc(h + 350));
+  --q-editor-code-variable: var(--q-text-primary);
+  --q-editor-code-operator: oklch(from var(--q-text-primary) l calc(c * 0.5) h);
+  --q-editor-code-punctuation: oklch(from var(--q-text-primary) l calc(c * 0.35) h);
   --q-dialog-bg: var(--q-bg-surface-raised);
   --q-dialog-border: var(--q-border-default);
   --q-dialog-overlay-bg: var(--q-bg-overlay);
