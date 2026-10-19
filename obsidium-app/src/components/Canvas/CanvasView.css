@@ -271,12 +271,46 @@
   pointer-events: none;
 }
 
-.q-canvas__freehand polyline {
+.q-canvas__freehand polyline,
+.q-canvas__freehand path {
   fill: none;
   stroke-width: var(--q-border-2);
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+}
+
+.q-canvas__connect {
+  position: absolute;
+  z-index: 3;
+  width: var(--q-size-12);
+  height: var(--q-size-12);
+  padding: 0;
+  border: var(--q-border-2) solid var(--q-canvas-paper);
+  border-radius: 50%;
+  background: var(--q-canvas-node-color, var(--q-canvas-edge, var(--q-bg-accent)));
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity var(--q-duration-fast) var(--q-ease-out);
+  touch-action: none;
+}
+
+.q-canvas__object:hover > .q-canvas__connect,
+.q-canvas__object.is-selected > .q-canvas__connect,
+.q-canvas__connect:focus-visible {
+  opacity: 1;
+}
+
+.q-canvas__connect[data-side='top'] { left: 50%; top: calc(-1 * var(--q-space-8)); cursor: crosshair; }
+.q-canvas__connect[data-side='right'] { left: calc(100% + var(--q-space-8)); top: 50%; cursor: crosshair; }
+.q-canvas__connect[data-side='bottom'] { left: 50%; top: calc(100% + var(--q-space-8)); cursor: crosshair; }
+.q-canvas__connect[data-side='left'] { left: calc(-1 * var(--q-space-8)); top: 50%; cursor: crosshair; }
+
+.q-canvas__connect-line {
+  stroke: var(--q-text-accent);
+  stroke-width: var(--q-border-2);
+  stroke-dasharray: var(--q-size-6) var(--q-size-4);
+  pointer-events: none;
 }
 
 .q-canvas[data-paper-style] .q-canvas__object.is-selected > .q-canvas-card {

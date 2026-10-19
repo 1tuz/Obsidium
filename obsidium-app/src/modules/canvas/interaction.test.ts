@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { CanvasNode } from './model';
 import {
   alignCanvasNodes,
+  canvasEdgeSides,
+  canvasNodeAtPoint,
   canvasRectBetweenPoints,
+  canvasSidePoint,
   commitCanvasHistory,
   createCanvasHistory,
   getCanvasGroupMemberIds,
@@ -93,6 +96,34 @@ describe('canvas interactions', () => {
     expect(getCanvasEdgeGeometry(edge, moved)?.to).toEqual({ x: 340, y: 70 });
     expect(getCanvasEdgeGeometry({ ...edge, fromSide: 'bottom', toSide: 'top' }, nodes))
       .toEqual({ from: { x: 50, y: 60 }, to: { x: 280, y: 20 } });
+  });
+
+  it('anchors a point on every side of a node', () => {
+    expect(canvasSidePoint(nodes[0], 'top')).toEqual({ x: 50, y: 0 });
+    expect(canvasSidePoint(nodes[0], 'right')).toEqual({ x: 100, y: 30 });
+    expect(canvasSidePoint(nodes[0], 'bottom')).toEqual({ x: 50, y: 60 });
+    expect(canvasSidePoint(nodes[0], 'left')).toEqual({ x: 0, y: 30 });
+  });
+
+  it('chooses horizontal edge sides for wider offsets and vertical sides otherwise', () => {
+    expect(canvasEdgeSides(nodes[0], nodes[1])).toEqual({ fromSide: 'right', toSide: 'left' });
+    expect(canvasEdgeSides(nodes[1], nodes[0])).toEqual({ fromSide: 'left', toSide: 'right' });
+    expect(canvasEdgeSides(nodes[0], nodes[2])).toEqual({ fromSide: 'bottom', toSide: 'top' });
+    expect(canvasEdgeSides(nodes[0], { id: 'below', type: 'text', x: 0, y: 300, width: 100, height: 60, text: 'below' }))
+      .toEqual({ fromSide: 'bottom', toSide: 'top' });
+  });
+
+  it('picks the last drawn node at a point while skipping groups and exclusions', () => {
+    const stacked: CanvasNode[] = [
+      { id: 'under', type: 'text', x: 0, y: 0, width: 100, height: 60, text: 'under' },
+      { id: 'group', type: 'group', x: 0, y: 0, width: 100, height: 60 },
+      { id: 'over', type: 'file', x: 20, y: 10, width: 100, height: 60, file: 'over.md' },
+    ];
+    expect(canvasNodeAtPoint(stacked, { x: 40, y: 20 })?.id).toBe('over');
+    expect(canvasNodeAtPoint(stacked, { x: 40, y: 20 }, 'over')?.id).toBe('under');
+    expect(canvasNodeAtPoint([stacked[1]], { x: 40, y: 20 })).toBeNull();
+    expect(canvasNodeAtPoint(stacked, { x: 120, y: 70 })?.id).toBe('over');
+    expect(canvasNodeAtPoint(stacked, { x: 200, y: 200 })).toBeNull();
   });
 
   it('undoes and redoes bounded immutable snapshots', () => {

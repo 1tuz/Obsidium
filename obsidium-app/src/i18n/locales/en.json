@@ -915,6 +915,7 @@
     "loading": "Loading canvas…",
     "selectionCount": "{{count}} selected",
     "connectTarget": "Choose a card to connect to",
+    "connectHandle": "Drag to connect",
     "search": {
       "title": "Add a note to Canvas",
       "placeholder": "Search notes"
@@ -942,7 +943,8 @@
     "direction": { "none": "None", "arrow": "Arrow" },
     "side": { "auto": "Automatic", "left": "Left", "right": "Right", "top": "Top", "bottom": "Bottom" },
     "align": { "left": "Align left", "centerX": "Align horizontal centers", "right": "Align right", "top": "Align top", "centerY": "Align vertical centers", "bottom": "Align bottom" },
-    "menu": { "open": "Open", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete", "group": "Group selection", "ungroup": "Ungroup" },
+    "menu": { "open": "Open", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete", "group": "Group selection", "ungroup": "Ungroup",
+      "front": "Bring to front", "back": "Send to back" },
     "errors": { "read": "Could not open canvas: {{reason}}", "fileOutsideWorkspace": "Only files in this knowledge base can be added.", "exportFailed": "Could not export this canvas.",
       "noteLinkOutsideWorkspace": "The note link points outside the workspace." }
   },
