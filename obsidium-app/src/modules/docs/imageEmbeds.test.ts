@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatImageEmbed,
+  mediaExtensionForFile,
+  mediaKindForFile,
   nextImageAlign,
   parseImageEmbed,
 } from './imageEmbeds';
@@ -107,6 +109,22 @@ describe('formatImageEmbed', () => {
   it('round-trips a wiki embed in its own syntax', () => {
     const line = '![[Pasted image 1.png|520|left]]';
     expect(formatImageEmbed(parseImageEmbed(line)!)).toBe(line);
+  });
+});
+
+describe('media detection from a pasted file', () => {
+  it('prefers the MIME type and falls back to the file name', () => {
+    expect(mediaKindForFile({ type: 'image/png', name: 'clip.bin' })).toBe('image');
+    expect(mediaKindForFile({ type: '', name: 'Screenshot.PNG' })).toBe('image');
+    expect(mediaKindForFile({ type: '', name: 'clip.mov' })).toBe('video');
+    expect(mediaKindForFile({ type: 'text/plain', name: 'notes.md' })).toBeNull();
+    expect(mediaKindForFile({})).toBeNull();
+  });
+
+  it('keeps the original extension and falls back to the MIME type', () => {
+    expect(mediaExtensionForFile({ type: 'image/png', name: 'Pasted image.jpeg' })).toBe('jpeg');
+    expect(mediaExtensionForFile({ type: 'image/webp', name: 'clipboard' })).toBe('webp');
+    expect(mediaExtensionForFile({ type: '', name: 'clipboard' })).toBe('png');
   });
 });
 

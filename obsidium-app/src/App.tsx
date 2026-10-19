@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
 import { TextFilePane } from "./components/Editor/TextFilePane";
 import { Titlebar } from "./components/Layout/Titlebar";
@@ -6,6 +6,7 @@ import { PaneLayoutView } from "./components/Layout/PaneLayoutView";
 import { WindowControls } from "./components/Layout/WindowControls";
 import { Sidebar } from "./components/Layout/Sidebar";
 import { SidebarRail } from "./components/Layout/SidebarRail";
+import { PanelResizer } from "./components/Layout/PanelResizer";
 import { UpdateSplash } from "./components/Common/UpdateSplash";
 import { DeleteNotesDialog } from "./components/Common/DeleteNotesDialog";
 import { useFileTreeActions } from "./components/Layout/useFileTreeActions";
@@ -20,6 +21,7 @@ import { useTabs } from "./hooks/useTabs";
 import { useNavigationHistory } from "./hooks/useNavigationHistory";
 import { useLiveTabs } from "./hooks/useLiveTabs";
 import { useLocalState } from "./modules/workspace/uiPersist";
+import { PANEL_LIMITS, clampPanelWidth } from "./modules/layout/panelWidth";
 import { matchesShortcut, SHORTCUTS } from "./config/shortcuts";
 import { openExternalUrl } from "./modules/openExternalUrl";
 import { beginOpenTrace } from "./modules/perf/openTrace";
@@ -82,6 +84,16 @@ export default function App() {
   const workspaces = useOverlay();
   const [leftSidebarOpen, setLeftSidebarOpen] = useLocalState('aquilum_sidebar_left_open', true);
   const [rightSidebarOpen, setRightSidebarOpen] = useLocalState('aquilum_sidebar_right_open', true);
+  const [storedLeftWidth, setStoredLeftWidth] = useLocalState<number>('aquilum_sidebar_left_width', PANEL_LIMITS.left.fallback);
+  const [storedRightWidth, setStoredRightWidth] = useLocalState<number>('aquilum_sidebar_right_width', PANEL_LIMITS.right.fallback);
+  const leftWidth = clampPanelWidth('left', storedLeftWidth);
+  const rightWidth = clampPanelWidth('right', storedRightWidth);
+  const setLeftWidth = useCallback((width: number) => {
+    setStoredLeftWidth(clampPanelWidth('left', width));
+  }, [setStoredLeftWidth]);
+  const setRightWidth = useCallback((width: number) => {
+    setStoredRightWidth(clampPanelWidth('right', width));
+  }, [setStoredRightWidth]);
   const [focusMode, setFocusMode] = useLocalState('aquilum_focus_mode', false);
   const toggleFocusMode = useCallback(() => {
     setFocusMode((current) => !current);
@@ -776,7 +788,13 @@ export default function App() {
 
   return (
     <div className="q-app-shell" key={resolveLocale(config?.ui.language)}>
-      <div className="q-app-workspace">
+      <div
+        className="q-app-workspace"
+        style={{
+          '--q-sidebar-width': `${leftWidth}px`,
+          '--q-backlinks-width': `${rightWidth}px`,
+        } as CSSProperties}
+      >
         <SidebarRail
           isSidebarOpen={leftSidebarVisible}
           onToggleSidebar={focusMode ? undefined : toggleLeftSidebar}
@@ -816,10 +834,28 @@ export default function App() {
           onAddToBoard={kanbanEnabled ? (path) => requestBoardAction(path, 'add') : undefined}
           onRemoveFromBoard={kanbanEnabled ? removeNoteFromBoard : undefined}
         />
+        {leftSidebarVisible && (
+          <PanelResizer
+            side="left"
+            width={leftWidth}
+            label={t('layout.resizeLeftPanel')}
+            onResize={setLeftWidth}
+            onReset={() => setLeftWidth(PANEL_LIMITS.left.fallback)}
+          />
+        )}
 
         {panesEnabled ? (
           <PaneLayoutView layout={visiblePaneLayout} renderPane={renderPane} onResize={(path, ratio) => resizePane(path, ratio)} />
         ) : renderPane(activePaneId)}
+        {rightSidebarVisible && (
+          <PanelResizer
+            side="right"
+            width={rightWidth}
+            label={t('layout.resizeRightPanel')}
+            onResize={setRightWidth}
+            onReset={() => setRightWidth(PANEL_LIMITS.right.fallback)}
+          />
+        )}
         <BacklinksPanel
           workspacePath={workspacePath}
           documentPath={activeFile}

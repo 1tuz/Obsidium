@@ -70,6 +70,18 @@ export function mediaKindForMime(mime: string): MediaKind | null {
   return null;
 }
 
+export function mediaKindForFile(file: { type?: string; name?: string }): MediaKind | null {
+  const byMime = mediaKindForMime(file.type ?? '');
+  if (byMime) return byMime;
+  return mediaKindOf(file.name ?? '');
+}
+
+export function mediaExtensionForFile(file: { type?: string; name?: string }): string {
+  const extension = extensionOf(file.name ?? '');
+  if (extension) return extension;
+  return mediaExtensionForMime(file.type ?? '');
+}
+
 export function mediaExtensionForMime(mime: string): string {
   if (mime.startsWith('video/')) return EXTENSION_BY_VIDEO_MIME[mime] ?? 'mp4';
   return EXTENSION_BY_MIME[mime] ?? 'png';

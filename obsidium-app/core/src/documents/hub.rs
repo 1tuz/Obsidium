@@ -15,9 +15,6 @@ use std::sync::Mutex;
 use std::sync::Weak;
 use std::time::{Duration, Instant};
 
-const MIN_DELAY_MS: u64 = 100;
-const MAX_DELAY_MS: u64 = 5_000;
-
 #[derive(Debug)]
 pub enum HubError {
     NotOpen,
@@ -493,8 +490,7 @@ impl DocumentHub {
     }
 
     fn save_delay(&self, core: &Core) -> Duration {
-        let configured = core.settings.get_config().editor.save_debounce_ms as u64;
-        Duration::from_millis(configured.clamp(MIN_DELAY_MS, MAX_DELAY_MS))
+        Duration::from_millis(core.settings.get_config().editor.save_debounce_ms as u64)
     }
 
     fn schedule(&self, key: &str, delay: Duration) {

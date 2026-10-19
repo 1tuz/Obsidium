@@ -332,8 +332,9 @@
       "minChars": "Минимум символов",
       "minCharsHint": "Со скольких букв появляется список",
       "saving": "Сохранение",
-      "saveDebounce": "Автосохранение, мс",
-      "saveDebounceAria": "Автосохранение"
+      "saveDebounce": "Интервал автосохранения",
+      "saveSeconds": "{{count}} с",
+      "saveDebounceAria": "Интервал автосохранения"
     },
     "reader": {
       "lineHeight": "Межстрочный интервал",
@@ -1012,5 +1013,9 @@
     "forgetConfirm": "Убрать",
     "forgetPending": "Убираем…",
     "listFailed": "Не удалось прочитать список баз знаний: {{reason}}"
+  },
+  "layout": {
+    "resizeLeftPanel": "Изменить ширину панели файлов",
+    "resizeRightPanel": "Изменить ширину панели ссылок"
   }
 }

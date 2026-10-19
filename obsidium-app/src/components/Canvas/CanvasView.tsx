@@ -51,7 +51,7 @@ import {
   type CanvasSide,
 } from '../../modules/canvas/interaction';
 import { canvasFreehandPath } from '../../modules/canvas/freehand';
-import { mediaExtensionForMime, mediaKindForMime } from '../../modules/docs/imageEmbeds';
+import { mediaExtensionForFile, mediaKindForFile } from '../../modules/docs/imageEmbeds';
 import { importIntoFiles } from '../../modules/docs/vaultFiles';
 import {
   canvasContentBounds,
@@ -903,11 +903,11 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [worldPoint]);
 
   const importMedia = useCallback(async (files: File[], point: CanvasPoint) => {
-    const media = files.filter((file) => mediaKindForMime(file.type));
+    const media = files.filter((file) => mediaKindForFile(file));
     let offset = 0;
     for (const file of media) {
       try {
-        const extension = mediaExtensionForMime(file.type);
+        const extension = mediaExtensionForFile(file);
         const relative = await importIntoFiles(workspacePath, {
           kind: 'bytes',
           bytes: new Uint8Array(await file.arrayBuffer()),
