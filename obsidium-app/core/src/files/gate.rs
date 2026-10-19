@@ -293,9 +293,7 @@ fn canvas_path(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("canvas"))
 }
 
-fn verify_canvas_references(
-    references: &[CanvasReference],
-) -> Result<(), FileCommandError> {
+fn verify_canvas_references(references: &[CanvasReference]) -> Result<(), FileCommandError> {
     for reference in references {
         let actual = std::fs::read(&reference.board).map(|bytes| hash_bytes(&bytes))?;
         if actual != reference.original_hash {
