@@ -1,4 +1,5 @@
 use super::attachments::forget_attachments_if_touched;
+use super::canvas_refs::{rewrite_canvas_reference, write_canvas_reference, CanvasReference};
 use super::deletions::deletion_files;
 use super::document::{
     copy_file_impl, create_binary_file_impl, create_file_impl, hash_bytes, rename_file_impl,
@@ -6,7 +7,6 @@ use super::document::{
 };
 use super::error::FileCommandError;
 use super::models::{FileRenameResult, FileWriteResult};
-use super::canvas_refs::{rewrite_canvas_reference, write_canvas_reference, CanvasReference};
 use super::rename::rename_with_links;
 use super::trash::{move_to_trash_impl, restore_from_trash_impl};
 use crate::app_core::{Core, CoreEvent};
@@ -108,15 +108,7 @@ pub fn rename(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, F
 fn rename_now(core: &Core, from: &Path, to: &Path) -> Result<FileRenameResult, FileCommandError> {
     let notes = notes_under(from);
     let boards = canvas_references(from.parent().unwrap_or(from), from, to)?;
-    for reference in &boards {
-        let actual = std::fs::read(&reference.board).map(|bytes| hash_bytes(&bytes))?;
-        if actual != reference.original_hash {
-            return Err(FileCommandError::Conflict {
-                expected_hash: reference.original_hash.clone(),
-                actual_hash: Some(actual),
-            });
-        }
-    }
+    verify_canvas_references(&boards)?;
     let renamed = rename_with_links(&core.search, from, to)?;
     let relocation = relocated(&notes, from, to);
     follow_moves(core, &relocation);
@@ -158,6 +150,7 @@ pub fn move_across(core: &Core, from: &Path, to: &Path) -> Result<(), FileComman
 fn move_across_now(core: &Core, from: &Path, to: &Path) -> Result<(), FileCommandError> {
     let notes = notes_under(from);
     let boards = canvas_references(from.parent().unwrap_or(from), from, to)?;
+    verify_canvas_references(&boards)?;
     rename_file_impl(from, to)?;
     let written = write_canvas_references(&boards)?;
     if !written.is_empty() {
@@ -300,20 +293,45 @@ fn canvas_path(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("canvas"))
 }
 
+fn verify_canvas_references(
+    references: &[CanvasReference],
+) -> Result<(), FileCommandError> {
+    for reference in references {
+        let actual = std::fs::read(&reference.board).map(|bytes| hash_bytes(&bytes))?;
+        if actual != reference.original_hash {
+            return Err(FileCommandError::Conflict {
+                expected_hash: reference.original_hash.clone(),
+                actual_hash: Some(actual),
+            });
+        }
+    }
+    Ok(())
+}
+
 fn write_canvas_references(
     references: &[CanvasReference],
 ) -> Result<Vec<PathBuf>, FileCommandError> {
-    let mut written = Vec::new();
+    let mut written: Vec<(usize, String)> = Vec::new();
     for (index, reference) in references.iter().enumerate() {
-        if let Err(error) = write_canvas_reference(reference) {
-            for applied in &references[..index] {
-                let _ = write_file_atomic_impl(&applied.board, &applied.original, None);
+        match write_canvas_reference(reference) {
+            Ok(hash) => written.push((index, hash)),
+            Err(error) => {
+                for (applied, hash) in written.iter().rev() {
+                    let reference = &references[*applied];
+                    let _ = write_file_atomic_impl(
+                        reference.board.as_path(),
+                        &reference.original,
+                        Some(hash),
+                    );
+                }
+                return Err(error);
             }
-            return Err(error);
         }
-        written.push(reference.board.clone());
     }
-    Ok(written)
+    Ok(written
+        .into_iter()
+        .map(|(index, _)| references[index].board.clone())
+        .collect())
 }
 
 fn notes_under(path: &Path) -> Vec<PathBuf> {

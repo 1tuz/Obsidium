@@ -1,7 +1,7 @@
 use super::document::{hash_bytes, write_file_atomic_impl};
 use super::error::FileCommandError;
 use crate::search::paths::{relative_slash_path, same_path};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CanvasReference {
@@ -20,23 +20,24 @@ pub fn rewrite_canvas_reference(
     let mut document: serde_json::Value = serde_json::from_str(content).ok()?;
     let directory = board.parent()?;
     let mut changed = false;
-    if let Some(nodes) = document.get_mut("nodes").and_then(serde_json::Value::as_array_mut) {
+    if let Some(nodes) = document
+        .get_mut("nodes")
+        .and_then(serde_json::Value::as_array_mut)
+    {
         for node in nodes.iter_mut() {
-            let Some(fields) = node.as_object_mut() else { continue };
+            let Some(fields) = node.as_object_mut() else {
+                continue;
+            };
             if fields.get("type").and_then(serde_json::Value::as_str) != Some("file") {
                 continue;
             }
-            let Some(value) = fields.get("file").and_then(serde_json::Value::as_str) else { continue };
+            let Some(value) = fields.get("file").and_then(serde_json::Value::as_str) else {
+                continue;
+            };
             if let Some(next) = rewrite_path(value, directory, old_path, new_path) {
                 fields.insert("file".into(), serde_json::Value::String(next));
                 changed = true;
             }
-        }
-    }
-    if let Some(value) = document.get("text").and_then(serde_json::Value::as_str) {
-        if let Some(next) = rewrite_path(value, directory, old_path, new_path) {
-            document["text"] = serde_json::Value::String(next);
-            changed = true;
         }
     }
     if !changed {
@@ -51,11 +52,25 @@ pub fn rewrite_canvas_reference(
 }
 
 fn rewrite_path(value: &str, directory: &Path, old_path: &Path, new_path: &Path) -> Option<String> {
-    let resolved = directory.join(Path::new(value));
+    let resolved = resolve_path(value, directory);
     if !same_path(&resolved, old_path) {
         return None;
     }
     Some(relative_slash_path(directory, new_path))
+}
+
+fn resolve_path(value: &str, directory: &Path) -> PathBuf {
+    let mut resolved = PathBuf::new();
+    for component in directory.join(Path::new(value)).components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                resolved.pop();
+            }
+            component => resolved.push(component.as_os_str()),
+        }
+    }
+    resolved
 }
 
 pub fn write_canvas_reference(reference: &CanvasReference) -> Result<String, FileCommandError> {
@@ -89,6 +104,60 @@ mod tests {
             "obsidium": { "canvas": { "paperStyle": "sepia", "camera": { "x": 3.5, "y": -2, "zoom": 1.25 } } }
         })
         .to_string()
+    }
+
+    fn board_with_nodes(nodes: serde_json::Value) -> String {
+        serde_json::json!({
+            "nodes": nodes,
+            "edges": [],
+            "text": "../Notes/Plan.md"
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn never_rewrites_non_file_nodes_or_root_text() {
+        let board = Path::new("/vault/Boards/Board.canvas");
+        let content = board_with_nodes(serde_json::json!([
+            {
+                "id": "t1",
+                "type": "text",
+                "text": "../Notes/Plan.md",
+                "file": "../Notes/Plan.md"
+            },
+            {
+                "id": "l1",
+                "type": "link",
+                "url": "../Notes/Plan.md",
+                "file": "../Notes/Plan.md"
+            },
+            {
+                "id": "g1",
+                "type": "group",
+                "label": "../Notes/Plan.md",
+                "file": "../Notes/Plan.md"
+            }
+        ]));
+        assert!(rewrite_canvas_reference(
+            &content,
+            board,
+            Path::new("/vault/Notes/Plan.md"),
+            Path::new("/vault/Projects/Plan.md"),
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn ignores_references_outside_the_board_directory() {
+        let board = Path::new("/vault/Boards/Board.canvas");
+        let content = board_with("../../Elsewhere/Plan.md");
+        assert!(rewrite_canvas_reference(
+            &content,
+            board,
+            Path::new("/vault/Notes/Plan.md"),
+            Path::new("/vault/Projects/Plan.md"),
+        )
+        .is_none());
     }
 
     #[test]
