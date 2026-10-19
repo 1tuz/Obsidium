@@ -831,6 +831,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [activeTool, beginShapeDrawing, camera, selectNode, spaceHeld]);
 
   const handleNodeClick = useCallback((event: TargetedMouseEvent<HTMLDivElement>, node: CanvasTypedNode) => {
+    if (spaceHeld) {
+      event.stopPropagation();
+      return;
+    }
     if (activeTool === 'edge') {
       event.stopPropagation();
       if (!edgeSource) setEdgeSource(node.id);
@@ -851,7 +855,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (activeTool !== 'select') return;
     event.stopPropagation();
-  }, [activeTool, edgeColor, edgeSource, selection, setCanvasDocument]);
+  }, [activeTool, edgeColor, edgeSource, selection, setCanvasDocument, spaceHeld]);
 
   const handlePointerMove = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     const currentDrag = dragRef.current;
