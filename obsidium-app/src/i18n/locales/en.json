@@ -866,6 +866,7 @@
       "view": "Canvas view controls",
       "zoomOut": "Zoom out",
       "zoomIn": "Zoom in",
+      "fitView": "Fit content",
       "resetView": "Reset view",
       "colorLabel": "Color",
       "color": {

@@ -1,7 +1,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { TargetedDragEvent, TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent, TargetedWheelEvent } from 'preact';
+import type { TargetedDragEvent, TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent } from 'preact';
 import { t } from '../../i18n';
 import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { absolutePath, fileName, parentDirectory, relativePath, resolveNotePath, samePath } from '../../modules/paths';
@@ -46,22 +46,32 @@ import {
   type CanvasEdgeRoute,
   type CanvasResizeHandle,
 } from '../../modules/canvas/interaction';
+import {
+  canvasContentBounds,
+  clampCanvasZoom,
+  fitCanvasCamera,
+  panCanvas,
+  zoomCanvasAt,
+  zoomCanvasAtCenter,
+  type CanvasCamera,
+} from '../../modules/canvas/viewport';
 import { CanvasCard, type CanvasCardNode } from './CanvasCard';
+import { CanvasLinkDialog } from './CanvasLinkDialog';
 import { CanvasNotePicker } from './CanvasNotePicker';
 import { CanvasToolbar, type CanvasGrid, type CanvasPaperStyle, type CanvasTool } from './CanvasToolbar';
 import './CanvasView.css';
 
-type Camera = { x: number; y: number; zoom: number };
 type CanvasClipboard = { nodes: CanvasTypedNode[]; edges: CanvasEdge[] };
+type CanvasLinkDraft = { mode: 'add' | 'edit'; point?: CanvasPoint; nodeId?: string; value: string };
 type DragState =
-  | { kind: 'move'; startX: number; startY: number; camera: Camera; document: CanvasDocument; selected: string[] }
-  | { kind: 'resize'; startX: number; startY: number; camera: Camera; document: CanvasDocument; nodeId: string; handle: CanvasResizeHandle }
-  | { kind: 'edge-bend'; startX: number; startY: number; camera: Camera; edgeId: string; route: CanvasEdgeRoute; bend: CanvasPoint }
+  | { kind: 'move'; startX: number; startY: number; camera: CanvasCamera; document: CanvasDocument; selected: string[] }
+  | { kind: 'resize'; startX: number; startY: number; camera: CanvasCamera; document: CanvasDocument; nodeId: string; handle: CanvasResizeHandle }
+  | { kind: 'edge-bend'; startX: number; startY: number; camera: CanvasCamera; edgeId: string; route: CanvasEdgeRoute; bend: CanvasPoint }
   | { kind: 'draw'; points: CanvasPoint[] }
   | { kind: 'shape'; start: CanvasPoint; startX: number; startY: number; nodeId: string; moved?: boolean }
-  | { kind: 'pan'; startX: number; startY: number; camera: Camera }
+  | { kind: 'pan'; startX: number; startY: number; camera: CanvasCamera }
   | { kind: 'marquee'; startX: number; startY: number; currentX: number; currentY: number; additive: boolean }
-  | { kind: 'camera'; startX: number; startY: number; camera: Camera };
+  | { kind: 'camera'; startX: number; startY: number; camera: CanvasCamera };
 
 interface CanvasViewProps {
   path: string;
@@ -73,9 +83,8 @@ interface CanvasViewProps {
 }
 
 const GRID_SIZE = 20;
-const MIN_ZOOM = 0.2;
-const MAX_ZOOM = 2.5;
 const AUTOSAVE_DELAY_MS = 400;
+const CAMERA_PERSIST_DELAY_MS = 300;
 const IMAGE_EXTENSIONS = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
 const CANVAS_PRESET_COLORS: Record<string, string> = {
   '1': '--q-red-600',
@@ -153,7 +162,7 @@ function readGrid(document: CanvasDocument): CanvasGrid {
   return grid === 'dots' || grid === 'lines' ? grid : 'none';
 }
 
-function readCamera(document: CanvasDocument): Camera {
+function readCamera(document: CanvasDocument): CanvasCamera {
   const camera = boardPreferences(document).camera;
   if (!camera || typeof camera !== 'object' || Array.isArray(camera)) return { x: 0, y: 0, zoom: 1 };
   const value = camera as Record<string, unknown>;
@@ -161,14 +170,14 @@ function readCamera(document: CanvasDocument): Camera {
     x: typeof value.x === 'number' && Number.isFinite(value.x) ? value.x : 0,
     y: typeof value.y === 'number' && Number.isFinite(value.y) ? value.y : 0,
     zoom: typeof value.zoom === 'number' && Number.isFinite(value.zoom)
-      ? Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value.zoom))
+      ? clampCanvasZoom(value.zoom)
       : 1,
   };
 }
 
 function withBoardPreferences(
   document: CanvasDocument,
-  patch: Partial<{ paperStyle: CanvasPaperStyle; grid: CanvasGrid; camera: Camera }>,
+  patch: Partial<{ paperStyle: CanvasPaperStyle; grid: CanvasGrid; camera: CanvasCamera }>,
 ): CanvasDocument {
   const obsidium = document.obsidium ?? {};
   const previous = boardPreferences(document);
@@ -249,7 +258,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'conflict' | 'error'>('saved');
-  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
+  const [camera, setCamera] = useState<CanvasCamera>({ x: 0, y: 0, zoom: 1 });
   const [activeTool, setActiveTool] = useState<CanvasTool>('select');
   const [nodeColor, setNodeColor] = useState('');
   const [selection, setSelection] = useState<string[]>([]);
@@ -262,6 +271,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   const [notePickerOpen, setNotePickerOpen] = useState(false);
   const [slashMenu, setSlashMenu] = useState<{ point: CanvasPoint; query: string } | null>(null);
+  const [linkDraft, setLinkDraft] = useState<CanvasLinkDraft | null>(null);
+  const [spaceHeld, setSpaceHeld] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const slashInputRef = useRef<HTMLInputElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
@@ -273,6 +284,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const savedTextRef = useRef('');
   const saveQueueRef = useRef(Promise.resolve());
   const saveTimerRef = useRef<number | null>(null);
+  const cameraTimerRef = useRef<number | null>(null);
   const clipboardRef = useRef<CanvasClipboard>({ nodes: [], edges: [] });
   const notePlacementRef = useRef<CanvasPoint | null>(null);
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
@@ -287,12 +299,18 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
   }, []);
 
-  const setCameraValue = useCallback((next: Camera, persist = true) => {
-    const value = { ...next, zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next.zoom)) };
+  const setCameraValue = useCallback((next: CanvasCamera, persist = true) => {
+    const value = { ...next, zoom: clampCanvasZoom(next.zoom) };
     cameraRef.current = value;
     setCamera(value);
-    const current = documentRef.current;
-    if (current && persist) setCanvasDocument(withBoardPreferences(current, { camera: value }), false);
+    if (cameraTimerRef.current !== null) window.clearTimeout(cameraTimerRef.current);
+    cameraTimerRef.current = null;
+    if (!persist) return;
+    cameraTimerRef.current = window.setTimeout(() => {
+      cameraTimerRef.current = null;
+      const current = documentRef.current;
+      if (current) setCanvasDocument(withBoardPreferences(current, { camera: cameraRef.current }), false);
+    }, CAMERA_PERSIST_DELAY_MS);
   }, [setCanvasDocument]);
 
   useEffect(() => {
@@ -380,6 +398,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       window.removeEventListener('pagehide', flush);
       window.removeEventListener('blur', flush);
       if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      if (cameraTimerRef.current !== null) {
+        window.clearTimeout(cameraTimerRef.current);
+        cameraTimerRef.current = null;
+        const current = documentRef.current;
+        if (current) documentRef.current = withBoardPreferences(current, { camera: cameraRef.current });
+      }
       void save();
     };
   }, [save]);
@@ -484,6 +509,26 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     historyRef.current = next;
     setHistory(next);
   }, []);
+
+  const finishTextEditing = useCallback(() => {
+    const current = documentRef.current;
+    const editing = editingId;
+    setEditingId(null);
+    if (!current || !editing) return;
+    const node = current.nodes.find((item) => item.id === editing);
+    if (!node || node.type !== 'text') {
+      commitCurrentHistory();
+      return;
+    }
+    const obsidium = node.obsidium;
+    const shape = obsidium && typeof obsidium === 'object' ? (obsidium as Record<string, unknown>).shape : undefined;
+    if (!shape && node.text.trim() === '') {
+      setCanvasDocument(removeCanvasNode(current, node.id));
+      setSelection((items) => items.filter((id) => id !== node.id));
+      return;
+    }
+    commitCurrentHistory();
+  }, [commitCurrentHistory, editingId, setCanvasDocument]);
 
   const openNoteLink = useCallback(async (node: CanvasCardNode, rawTarget: string, rawSource: string) => {
     if (!onOpenNoteLink) return;
@@ -715,8 +760,46 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     applyHistory(redoCanvasHistory(historyRef.current));
   }, [applyHistory]);
 
+  const zoomBy = useCallback((factor: number) => {
+    setCameraValue(zoomCanvasAtCenter(cameraRef.current, viewport, factor));
+  }, [setCameraValue, viewport]);
+
+  const fitView = useCallback(() => {
+    const current = documentRef.current;
+    const bounds = canvasContentBounds(current?.nodes ?? []);
+    setCameraValue(fitCanvasCamera(bounds, viewport));
+  }, [setCameraValue, viewport]);
+
+  const duplicateSelection = useCallback(() => {
+    const current = documentRef.current;
+    if (!current || selection.length === 0) return;
+    const selected = new Set(selection);
+    const ids = new Map<string, string>();
+    const copies = current.nodes
+      .filter((node): node is CanvasTypedNode => selected.has(node.id) && isCanvasNode(node))
+      .map((node) => {
+        const id = newId();
+        ids.set(node.id, id);
+        return { ...node, id, x: node.x + GRID_SIZE, y: node.y + GRID_SIZE };
+      });
+    if (copies.length === 0) return;
+    const edges = current.edges
+      .filter((edge) => ids.has(edge.fromNode) && ids.has(edge.toNode))
+      .map((edge) => ({ ...edge, id: newId(), fromNode: ids.get(edge.fromNode)!, toNode: ids.get(edge.toNode)! }));
+    setCanvasDocument({ ...current, nodes: [...current.nodes, ...copies], edges: [...current.edges, ...edges] });
+    setSelection(copies.map((node) => node.id));
+  }, [selection, setCanvasDocument]);
+
   const handleNodePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (event.button !== 0) return;
+    if (spaceHeld) {
+      event.stopPropagation();
+      const next: DragState = { kind: 'pan', startX: event.clientX, startY: event.clientY, camera: cameraRef.current };
+      dragRef.current = next;
+      setDrag(next);
+      stageRef.current?.setPointerCapture(event.pointerId);
+      return;
+    }
     if (activeTool === 'rectangle' || activeTool === 'diamond' || activeTool === 'ellipse') {
       event.stopPropagation();
       beginShapeDrawing(activeTool, event);
@@ -745,7 +828,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setDrag(nextDrag);
       stageRef.current?.setPointerCapture(event.pointerId);
     }
-  }, [activeTool, beginShapeDrawing, camera, selectNode]);
+  }, [activeTool, beginShapeDrawing, camera, selectNode, spaceHeld]);
 
   const handleNodeClick = useCallback((event: TargetedMouseEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (activeTool === 'edge') {
@@ -898,7 +981,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     if (!stage || (event.target !== stage && event.target !== worldRef.current)) return;
     stage.focus();
     const point = worldPoint(event);
-    if (event.button === 1) {
+    if (event.button === 1 || (spaceHeld && event.button === 0)) {
       const next: DragState = { kind: 'pan', startX: event.clientX, startY: event.clientY, camera };
       dragRef.current = next;
       setDrag(next);
@@ -922,10 +1005,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (activeTool !== 'select') {
       if (activeTool === 'text') addNode(activeTool, point);
-      else if (activeTool === 'link') {
-        const url = window.prompt(t('canvas.toolbar.enterUrl'), 'https://');
-        if (url) addNode(activeTool, point, undefined, url);
-      } else if (activeTool === 'group') addGroup();
+      else if (activeTool === 'link') setLinkDraft({ mode: 'add', point, value: '' });
+      else if (activeTool === 'group') addGroup();
       else if (activeTool === 'file') {
         void open({ multiple: false, directory: false }).then((selectedPath) => {
           if (!selectedPath) return;
@@ -950,7 +1031,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     dragRef.current = next;
     setDrag(next);
     stage.setPointerCapture(event.pointerId);
-  }, [activeTool, addGroup, addNode, addNumberMarker, beginShapeDrawing, camera, worldPoint, workspacePath]);
+  }, [activeTool, addGroup, addNode, addNumberMarker, beginShapeDrawing, camera, spaceHeld, worldPoint, workspacePath]);
 
   const handleDrop = useCallback((event: TargetedDragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -966,35 +1047,106 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
   }, [addNode, worldPoint, workspacePath]);
 
-  const handleWheel = useCallback((event: TargetedWheelEvent<HTMLDivElement>) => {
-    if (!event.ctrlKey && !event.metaKey) return;
-    event.preventDefault();
+  const handleWheel = useCallback((event: WheelEvent) => {
     const stage = stageRef.current;
     if (!stage) return;
     const rect = stage.getBoundingClientRect();
     const current = cameraRef.current;
-    const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, current.zoom * (event.deltaY < 0 ? 1.1 : 0.9)));
-    const pointerX = event.clientX - rect.left;
-    const pointerY = event.clientY - rect.top;
-    const ratio = nextZoom / current.zoom;
-    const next = {
-      zoom: nextZoom,
-      x: pointerX - (pointerX - current.x) * ratio,
-      y: pointerY - (pointerY - current.y) * ratio,
-    };
-    setCameraValue(next);
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      const factor = Math.exp(-event.deltaY * 0.0015);
+      setCameraValue(zoomCanvasAt(current, {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      }, factor));
+      return;
+    }
+    const horizontal = event.shiftKey ? event.deltaY : event.deltaX;
+    const vertical = event.shiftKey ? 0 : event.deltaY;
+    if (horizontal === 0 && vertical === 0) return;
+    event.preventDefault();
+    setCameraValue(panCanvas(current, { x: -horizontal, y: -vertical }));
   }, [setCameraValue]);
 
   const handleKeyDown = useCallback((event: TargetedKeyboardEvent<HTMLElement>) => {
     if ((event.target as HTMLElement).closest('textarea,input,select')) return;
     const command = event.metaKey || event.ctrlKey;
+    if (event.key === ' ' && !command) {
+      if ((event.target as HTMLElement).closest('button,a')) return;
+      event.preventDefault();
+      if (!spaceHeld) setSpaceHeld(true);
+      return;
+    }
     if (event.key === '/' && !command) {
       event.preventDefault();
       setSlashMenu({
         point: { x: (viewport.width / 2 - camera.x) / camera.zoom, y: (viewport.height / 2 - camera.y) / camera.zoom },
         query: '',
       });
-    } else if (!command && !event.altKey && !event.shiftKey) {
+      return;
+    }
+    if (command && (event.key === '=' || event.key === '+')) {
+      event.preventDefault();
+      zoomBy(1.2);
+      return;
+    }
+    if (command && event.key === '-') {
+      event.preventDefault();
+      zoomBy(1 / 1.2);
+      return;
+    }
+    if (command && event.key === '0') {
+      event.preventDefault();
+      setCameraValue({ x: 0, y: 0, zoom: 1 });
+      return;
+    }
+    if (event.shiftKey && event.code === 'Digit1') {
+      event.preventDefault();
+      fitView();
+      return;
+    }
+    if (command && event.key.toLowerCase() === 'd') {
+      event.preventDefault();
+      duplicateSelection();
+      return;
+    }
+    if (command && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      setSelection((documentRef.current?.nodes ?? []).map((node) => node.id));
+      return;
+    }
+    if (event.key === 'Enter' && !command) {
+      const current = documentRef.current;
+      const node = selection.length === 1 ? current?.nodes.find((item) => item.id === selection[0]) : undefined;
+      if (node?.type === 'text') {
+        event.preventDefault();
+        setEditingId(node.id);
+      } else if (node?.type === 'file') {
+        event.preventDefault();
+        onOpenFile(absolutePath(workspacePath, node.file));
+      } else if (node?.type === 'link') {
+        event.preventDefault();
+        openUrl(node.url);
+      }
+      return;
+    }
+    if (event.key.startsWith('Arrow') && selection.length > 0 && !command) {
+      const step = event.shiftKey ? GRID_SIZE : 1;
+      const delta = {
+        x: event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0,
+        y: event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0,
+      };
+      const current = documentRef.current;
+      if (current) {
+        event.preventDefault();
+        setCanvasDocument({
+          ...current,
+          nodes: translateCanvasNodes(current.nodes, new Set(selection), delta),
+        });
+      }
+      return;
+    }
+    if (!command && !event.altKey && !event.shiftKey) {
       const tool = ({
         v: 'select', t: 'text', f: 'file', l: 'link', g: 'group', a: 'edge',
         r: 'rectangle', d: 'diamond', e: 'ellipse', n: 'number', p: 'draw',
@@ -1054,9 +1206,14 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         setSelection([]);
       }
     } else if (event.key === 'Escape') {
-      setSelection([]); setEdgeSource(null); setEditingId(null); setMenu(null); setSlashMenu(null);
+      setSelection([]); setEdgeSource(null); setEditingId(null); setMenu(null); setSlashMenu(null); setLinkDraft(null);
     }
-  }, [camera, redo, selectedEdgeId, selection, setCanvasDocument, undo, viewport]);
+  }, [camera, duplicateSelection, fitView, onOpenFile, openUrl, redo, selectedEdgeId, selection, setCanvasDocument, spaceHeld, undo, viewport, workspacePath, zoomBy]);
+
+  const handleKeyUp = useCallback((event: TargetedKeyboardEvent<HTMLElement>) => {
+    if (event.key !== ' ') return;
+    setSpaceHeld(false);
+  }, []);
 
   const onCanvasColorChange = useCallback((value: string) => {
     const color = value || undefined;
@@ -1163,8 +1320,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       data-paper-style={paperStyle}
       data-grid={grid}
       data-active-tool={activeTool}
+      data-space-held={spaceHeld ? 'true' : undefined}
       aria-label={fileName(path)}
       onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
       onPointerDownCapture={focusCanvas}
       onPointerDown={(event) => {
         if (!(event.target as HTMLElement).closest('.q-canvas__slash')) setSlashMenu(null);
@@ -1193,9 +1352,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         onExportPng={exportPng}
       />
       <div className="q-canvas__controls" aria-label={t('canvas.toolbar.view')}>
-        <button type="button" onClick={() => setCameraValue({ ...camera, zoom: Math.max(MIN_ZOOM, camera.zoom / 1.2) })} aria-label={t('canvas.toolbar.zoomOut')}>−</button>
+        <button type="button" onClick={() => zoomBy(1 / 1.2)} aria-label={t('canvas.toolbar.zoomOut')}>−</button>
         <span>{Math.round(camera.zoom * 100)}%</span>
-        <button type="button" onClick={() => setCameraValue({ ...camera, zoom: Math.min(MAX_ZOOM, camera.zoom * 1.2) })} aria-label={t('canvas.toolbar.zoomIn')}>+</button>
+        <button type="button" onClick={() => zoomBy(1.2)} aria-label={t('canvas.toolbar.zoomIn')}>+</button>
+        <button type="button" onClick={fitView}>{t('canvas.toolbar.fitView')}</button>
         <button type="button" onClick={() => setCameraValue({ x: 0, y: 0, zoom: 1 })}>{t('canvas.toolbar.resetView')}</button>
         {selectedEdge && <>
           <label>{t('canvas.edgeLabel')}<input value={typeof selectedEdge.label === 'string' ? selectedEdge.label : ''} onInput={(event) => updateEdge(selectedEdge.id, { label: event.currentTarget.value })} /></label>
@@ -1344,7 +1504,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
                 selected={selection.includes(node.id)}
                 resolveImageUrl={resolveImageUrl}
                 onChange={handleTextChange}
-                onEditComplete={commitCurrentHistory}
+                onEditComplete={finishTextEditing}
                 onOpenUrl={openUrl}
                 onOpenNoteLink={onOpenNoteLink ? (target, source) => {
                   void openNoteLink(node, target, source).catch((cause: unknown) => setActionError(String(cause)));
@@ -1388,10 +1548,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           <button role="menuitem" onClick={() => {
             const node = document.nodes.find((item) => item.id === menu.nodeId);
             if (node?.type === 'file') onOpenFile(absolutePath(workspacePath, node.file));
-            else if (node?.type === 'link') {
-              const url = window.prompt(t('canvas.toolbar.enterUrl'), node.url);
-              if (url) updateNode(node.id, { url });
-            } else setEditingId(menu.nodeId);
+            else if (node?.type === 'link') setLinkDraft({ mode: 'edit', nodeId: node.id, value: node.url });
+            else setEditingId(menu.nodeId);
             setMenu(null);
           }}>{t('canvas.menu.edit')}</button>
           <button role="menuitem" onClick={() => duplicateNode(menu.nodeId)}>{t('canvas.menu.duplicate')}</button>
@@ -1441,6 +1599,20 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         </div>}
         <span className="q-canvas__selection-count" aria-live="polite">{edgeSource ? t('canvas.connectTarget') : selection.length ? t('canvas.selectionCount', { count: selection.length }) : ''}</span>
       </div>
+      <CanvasLinkDialog
+        open={Boolean(linkDraft)}
+        mode={linkDraft?.mode ?? 'add'}
+        initialValue={linkDraft?.value}
+        onClose={() => setLinkDraft(null)}
+        onSubmit={(url) => {
+          const draft = linkDraft;
+          setLinkDraft(null);
+          if (!draft) return;
+          if (draft.mode === 'edit' && draft.nodeId) updateNode(draft.nodeId, { url });
+          else if (draft.point) addNode('link', draft.point, undefined, url);
+          setActiveTool('select');
+        }}
+      />
       <CanvasNotePicker
         open={notePickerOpen}
         workspacePath={workspacePath}

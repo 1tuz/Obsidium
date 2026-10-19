@@ -21,8 +21,8 @@ credentials are not configured in this repository's GitHub Actions secrets.
 
 `.github/workflows/release.yml` builds the three targets on `v*` tags and publishes a GitHub Release
 only after all platform packages, signatures, and `latest.json` pass validation. The scheduled
-`Sync upstream fork` workflow syncs `main` from `Freaction/Aquilum` and dispatches CI when upstream
-changes arrive.
+`Sync upstream fork` workflow syncs the shared core from `Freaction/Aquilum` and dispatches CI when upstream
+changes arrive; the fork layout and conflict handling are described in [[upstream-sync]].
 
 ## Local development
 

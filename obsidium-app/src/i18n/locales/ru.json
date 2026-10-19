@@ -876,6 +876,7 @@
       "view": "Управление видом Canvas",
       "zoomOut": "Уменьшить",
       "zoomIn": "Увеличить",
+      "fitView": "Вписать содержимое",
       "resetView": "Сбросить вид",
       "colorLabel": "Цвет",
       "color": {

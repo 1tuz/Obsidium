@@ -1,0 +1,44 @@
+.q-canvas-link-dialog {
+  width: min(100%, var(--q-size-448));
+}
+
+.q-canvas-link-dialog__form {
+  display: flex;
+  flex-direction: column;
+}
+
+.q-canvas-link-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-gap-md);
+  padding: var(--q-dialog-padding);
+}
+
+.q-canvas-link-dialog__field {
+  width: 100%;
+  padding: var(--q-input-padding-y) var(--q-input-padding-x);
+  border: none;
+  border-radius: var(--q-radius-xl);
+  background: var(--q-bg-surface);
+  box-shadow: var(--q-shadow-ring);
+  color: var(--q-text-primary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-base);
+  line-height: var(--q-size-20);
+}
+
+.q-canvas-link-dialog__field::placeholder {
+  color: var(--q-text-muted);
+}
+
+.q-canvas-link-dialog__field:focus {
+  outline: none;
+  box-shadow: var(--q-shadow-focus-ring);
+}
+
+.q-canvas-link-dialog__error {
+  margin: 0;
+  color: var(--q-text-danger);
+  font-size: var(--q-font-size-ui-base);
+  line-height: var(--q-size-20);
+}

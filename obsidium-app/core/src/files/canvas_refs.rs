@@ -1,6 +1,6 @@
 use super::document::{hash_bytes, write_file_atomic_impl};
 use super::error::FileCommandError;
-use crate::search::paths::{relative_slash_path, same_path};
+use crate::search::paths::{same_path, slash_path};
 use std::path::{Component, Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,25 +52,50 @@ pub fn rewrite_canvas_reference(
 }
 
 fn rewrite_path(value: &str, directory: &Path, old_path: &Path, new_path: &Path) -> Option<String> {
-    let resolved = resolve_path(value, directory);
+    let resolved = normalize_path(&directory.join(Path::new(value)));
     if !same_path(&resolved, old_path) {
         return None;
     }
-    Some(relative_slash_path(directory, new_path))
+    Some(relative_path(directory, new_path))
 }
 
-fn resolve_path(value: &str, directory: &Path) -> PathBuf {
-    let mut resolved = PathBuf::new();
-    for component in directory.join(Path::new(value)).components() {
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
         match component {
             Component::CurDir => {}
             Component::ParentDir => {
-                resolved.pop();
+                normalized.pop();
             }
-            component => resolved.push(component.as_os_str()),
+            component => normalized.push(component.as_os_str()),
         }
     }
-    resolved
+    normalized
+}
+
+fn relative_path(root: &Path, path: &Path) -> String {
+    let root = normalize_path(root);
+    let path = normalize_path(path);
+    let mut root_components = root.components().peekable();
+    let mut path_components = path.components().peekable();
+    while root_components.peek() == path_components.peek() && root_components.peek().is_some() {
+        root_components.next();
+        path_components.next();
+    }
+    let mut relative = PathBuf::new();
+    for component in root_components {
+        if !matches!(component, Component::Normal(_)) {
+            return slash_path(&path);
+        }
+        relative.push("..");
+    }
+    for component in path_components {
+        if !matches!(component, Component::Normal(_)) {
+            return slash_path(&path);
+        }
+        relative.push(component.as_os_str());
+    }
+    slash_path(&relative)
 }
 
 pub fn write_canvas_reference(reference: &CanvasReference) -> Result<String, FileCommandError> {
@@ -150,7 +175,18 @@ mod tests {
     #[test]
     fn ignores_references_outside_the_board_directory() {
         let board = Path::new("/vault/Boards/Board.canvas");
-        let content = board_with("../../Elsewhere/Plan.md");
+        let content = board_with_nodes(serde_json::json!([
+            {
+                "id": "n1",
+                "type": "file",
+                "file": "../../Elsewhere/Plan.md"
+            },
+            {
+                "id": "n2",
+                "type": "file",
+                "file": "/Other/Plan.md"
+            }
+        ]));
         assert!(rewrite_canvas_reference(
             &content,
             board,

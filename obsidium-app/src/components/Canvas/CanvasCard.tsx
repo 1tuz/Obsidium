@@ -118,7 +118,12 @@ export const CanvasCard = memo(function CanvasCard({
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Text card">
         {editing
-          ? <textarea aria-label="Text card content" value={node.text ?? ''} onInput={(event) => onChange?.(node.id, event.currentTarget.value)} onBlur={onEditComplete} />
+          ? <textarea aria-label="Text card content" autoFocus value={node.text ?? ''} onInput={(event) => onChange?.(node.id, event.currentTarget.value)} onBlur={onEditComplete} onKeyDown={(event) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.blur();
+          }} />
           : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
     );
