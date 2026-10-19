@@ -25,6 +25,7 @@ interface CanvasCardProps {
   children?: ComponentChildren;
   resolveImageUrl?: (node: CanvasCardNode, target: string) => string;
   onChange?: (nodeId: string, text: string) => void;
+  onResize?: (nodeId: string, height: number) => void;
   onEditComplete?: () => void;
   onOpenUrl?: (url: string) => void;
   onOpenNoteLink?: (target: string, source: string) => void;
@@ -100,6 +101,7 @@ export const CanvasCard = memo(function CanvasCard({
   children,
   resolveImageUrl,
   onChange,
+  onResize,
   onEditComplete,
   onOpenUrl,
   onOpenNoteLink,
@@ -118,7 +120,10 @@ export const CanvasCard = memo(function CanvasCard({
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Text card">
         {editing
-          ? <textarea aria-label="Text card content" autoFocus value={node.text ?? ''} onInput={(event) => onChange?.(node.id, event.currentTarget.value)} onBlur={onEditComplete} onKeyDown={(event) => {
+          ? <textarea aria-label="Text card content" autoFocus value={node.text ?? ''} onInput={(event) => {
+            onChange?.(node.id, event.currentTarget.value);
+            onResize?.(node.id, event.currentTarget.scrollHeight);
+          }} onBlur={onEditComplete} onKeyDown={(event) => {
             if (event.key !== 'Escape') return;
             event.preventDefault();
             event.stopPropagation();

@@ -2,6 +2,7 @@
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
+import { importIntoFiles } from '../../modules/docs/vaultFiles';
 
 vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => path }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
@@ -35,6 +36,7 @@ vi.mock('../../modules/documents/fileGateway', () => ({
   writeFileAtomic: vi.fn(async () => ({ hash: 'saved-hash' })),
 }));
 vi.mock('../../modules/documents/documentFactory', () => ({ createUniqueFile: vi.fn(async () => '/vault/New note.md') }));
+vi.mock('../../modules/docs/vaultFiles', () => ({ importIntoFiles: vi.fn(async () => 'Files/image.png') }));
 
 function settleAutosave(): Promise<void> {
   return new Promise((resolve) => { window.setTimeout(resolve, 450); });
@@ -640,5 +642,82 @@ describe('CanvasView', () => {
     await actAndSettle(() => { textarea.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
 
     expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(0);
+  });
+
+  it('connects cards by dragging a side handle onto another card', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'a', type: 'text', x: 0, y: 0, width: 160, height: 100, text: 'A' },
+        { id: 'b', type: 'text', x: 400, y: 0, width: 160, height: 100, text: 'B' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const handle = renderer!.container.querySelector<HTMLElement>('.q-canvas__connect[data-side="right"]')!;
+    expect(handle).not.toBeNull();
+    await actAndSettle(() => { handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 160, clientY: 50, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 480, clientY: 50, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 480, clientY: 50, bubbles: true })); });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.edges).toHaveLength(1);
+    expect(saved.edges[0]).toMatchObject({ fromNode: 'a', toNode: 'b', fromSide: 'right', toSide: 'left' });
+  });
+
+  it('imports a dropped image into the vault and places a file card', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    const file = new File([new Uint8Array([1, 2, 3])], 'photo.png', { type: 'image/png' });
+    await actAndSettle(() => {
+      const drop = new Event('drop', { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, 'dataTransfer', {
+        value: { files: [file], getData: () => '' },
+      });
+      stage.dispatchEvent(drop);
+    });
+    await act(settleAutosave);
+
+    expect(vi.mocked(importIntoFiles)).toHaveBeenCalledTimes(1);
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'file', file: 'Files/image.png' });
+  });
+
+  it('imports an image pasted onto the board', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const file = new File([new Uint8Array([1, 2, 3])], 'shot.png', { type: 'image/png' });
+    await actAndSettle(() => {
+      const paste = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(paste, 'clipboardData', { value: { files: [file] } });
+      canvas.dispatchEvent(paste);
+    });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'file', file: 'Files/image.png' });
   });
 });

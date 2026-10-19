@@ -123,9 +123,9 @@ export const getCanvasEdgePath = (
   return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 };
 
-type CanvasSide = 'top' | 'right' | 'bottom' | 'left';
+export type CanvasSide = 'top' | 'right' | 'bottom' | 'left';
 
-const sidePoint = (node: CanvasNode, side: CanvasSide): CanvasPoint => {
+export const canvasSidePoint = (node: CanvasNode, side: CanvasSide): CanvasPoint => {
   if (side === 'top') return { x: node.x + node.width / 2, y: node.y };
   if (side === 'right') return { x: node.x + node.width, y: node.y + node.height / 2 };
   if (side === 'bottom') return { x: node.x + node.width / 2, y: node.y + node.height };
@@ -164,11 +164,29 @@ export const alignCanvasNodes = <T extends CanvasNode>(
   });
 };
 
-const connectedSide = (from: CanvasNode, to: CanvasNode): CanvasSide => {
+export const canvasEdgeSides = (from: CanvasNode, to: CanvasNode): { fromSide: CanvasSide; toSide: CanvasSide } => {
   const dx = to.x + to.width / 2 - (from.x + from.width / 2);
   const dy = to.y + to.height / 2 - (from.y + from.height / 2);
-  if (Math.abs(dx) > Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
-  return dy >= 0 ? 'bottom' : 'top';
+  const horizontal = Math.abs(dx) > Math.abs(dy);
+  return {
+    fromSide: horizontal ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'),
+    toSide: horizontal ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom'),
+  };
+};
+
+export const canvasNodeAtPoint = <T extends CanvasNode>(
+  nodes: readonly T[],
+  point: CanvasPoint,
+  excludeId?: string,
+): T | null => {
+  for (let index = nodes.length - 1; index >= 0; index -= 1) {
+    const node = nodes[index];
+    if (node.type === 'group' || node.id === excludeId) continue;
+    if (point.x >= node.x && point.x <= node.x + node.width && point.y >= node.y && point.y <= node.y + node.height) {
+      return node;
+    }
+  }
+  return null;
 };
 
 const isSide = (value: unknown): value is CanvasSide =>
@@ -184,9 +202,10 @@ export const getCanvasEdgeGeometry = (
   const from = findNode(edge.fromNode);
   const to = findNode(edge.toNode);
   if (!from || !to) return null;
-  const fromSide = isSide(edge.fromSide) ? edge.fromSide : connectedSide(from, to);
-  const toSide = isSide(edge.toSide) ? edge.toSide : connectedSide(to, from);
-  return { from: sidePoint(from, fromSide), to: sidePoint(to, toSide) };
+  const sides = canvasEdgeSides(from, to);
+  const fromSide = isSide(edge.fromSide) ? edge.fromSide : sides.fromSide;
+  const toSide = isSide(edge.toSide) ? edge.toSide : sides.toSide;
+  return { from: canvasSidePoint(from, fromSide), to: canvasSidePoint(to, toSide) };
 };
 
 export type CanvasHistory<T> = {
