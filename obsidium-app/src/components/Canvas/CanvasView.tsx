@@ -1215,6 +1215,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     setSpaceHeld(false);
   }, []);
 
+  useEffect(() => {
+    if (!spaceHeld) return undefined;
+    const release = () => setSpaceHeld(false);
+    window.addEventListener('blur', release);
+    return () => window.removeEventListener('blur', release);
+  }, [spaceHeld]);
+
   const onCanvasColorChange = useCallback((value: string) => {
     const color = value || undefined;
     setNodeColor(color ?? '');
