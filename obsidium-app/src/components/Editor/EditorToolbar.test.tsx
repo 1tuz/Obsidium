@@ -103,4 +103,97 @@ describe('EditorToolbar modes', () => {
     });
     expect(renderer!.container.querySelector('.q-icon-button[aria-pressed]')).toBeNull();
   });
+
+  it('renames the note from the row and keeps the draft on failure', async () => {
+    const onRename = vi.fn(async () => false);
+    act(() => {
+      renderer = mountDom(
+        <EditorToolbar
+          fileName="Plan.md"
+          noteName="Plan"
+          canGoBack={false}
+          canGoForward={false}
+          onNavigate={() => {}}
+          onSearch={() => {}}
+          onExportPdf={() => {}}
+          focusMode={false}
+          onToggleFocusMode={() => {}}
+          readOnly={false}
+          onModeChange={() => {}}
+          onRename={onRename}
+        />,
+      );
+    });
+    const field = renderer!.container.querySelector<HTMLInputElement>('input[aria-label="Note name"]')!;
+    expect(field.value).toBe('Plan');
+    await act(async () => {
+      field.value = 'Renamed';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { field.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+    expect(onRename).toHaveBeenCalledWith('Renamed');
+    expect(field.value).toBe('Plan');
+  });
+
+  it('applies the rename on Enter and reverts on Escape', async () => {
+    const onRename = vi.fn(async () => true);
+    act(() => {
+      renderer = mountDom(
+        <EditorToolbar
+          fileName="Plan.md"
+          noteName="Plan"
+          canGoBack={false}
+          canGoForward={false}
+          onNavigate={() => {}}
+          onSearch={() => {}}
+          onExportPdf={() => {}}
+          focusMode={false}
+          onToggleFocusMode={() => {}}
+          readOnly={false}
+          onModeChange={() => {}}
+          onRename={onRename}
+        />,
+      );
+    });
+    const field = renderer!.container.querySelector<HTMLInputElement>('input[aria-label="Note name"]')!;
+    await act(async () => {
+      field.value = 'Renamed';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+    expect(onRename).toHaveBeenCalledWith('Renamed');
+
+    await act(async () => {
+      field.value = 'Discarded';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+    expect(onRename).toHaveBeenCalledTimes(1);
+    expect(field.value).toBe('Plan');
+  });
+
+  it('saves the note from the row and reports the result', async () => {
+    const onSave = vi.fn(async () => {});
+    act(() => {
+      renderer = mountDom(
+        <EditorToolbar
+          fileName="Plan.md"
+          noteName="Plan"
+          canGoBack={false}
+          canGoForward={false}
+          onNavigate={() => {}}
+          onSearch={() => {}}
+          onExportPdf={() => {}}
+          focusMode={false}
+          onToggleFocusMode={() => {}}
+          readOnly={false}
+          onModeChange={() => {}}
+          onSave={onSave}
+        />,
+      );
+    });
+    await act(async () => { renderer!.container.querySelector<HTMLButtonElement>('[aria-label="Save now"]')!.click(); });
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(renderer!.container.querySelector('[role="status"]')?.textContent).toBe('Saved');
+  });
 });

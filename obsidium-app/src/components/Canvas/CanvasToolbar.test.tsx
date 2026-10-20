@@ -20,12 +20,26 @@ describe('CanvasToolbar', () => {
 
   it('uses the canvas ink token for tool icons on paper surfaces', () => {
     expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style\]\s*\{[^}]*--q-icon-button-icon:\s*var\(--q-canvas-ink\);/s);
-    expect(canvasStyles).toMatch(/--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink\) 26%, var\(--q-canvas-paper\)\)/);
+    expect(canvasStyles).toMatch(/--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink-solid\) 34%, var\(--q-canvas-paper-solid\)\)/);
     expect(canvasStyles).toMatch(/\.q-canvas__stage--lines\s*\{[^}]*var\(--q-canvas-grid-line/);
     expect(canvasStyles).toMatch(/\.q-canvas__object--shape\s*\{[^}]*--q-canvas-shape-stroke:/s);
-    expect(canvasStyles).toMatch(/--q-canvas-shape-fill:\s*color-mix\(in srgb, var\(--q-canvas-node-color, var\(--q-canvas-ink\)\) 20%/);
+    expect(canvasStyles).toMatch(/--q-canvas-shape-fill:\s*color-mix\(in srgb, var\(--q-canvas-node-color, var\(--q-canvas-ink-solid\)\) 20%/);
     expect(canvasStyles).not.toMatch(/clip-path:\s*polygon/);
     expect(canvasStyles).toMatch(/\.q-canvas__connect\s*\{[^}]*pointer-events:\s*none/s);
+  });
+
+  it('never nests color-mix inside a canvas token', () => {
+    const declarations = [...canvasStyles.matchAll(/(--[\w-]+):\s*([^;]+);/g)];
+    const nested = declarations.filter(([, name, value]) => (
+      name.startsWith('--q-canvas-')
+      && /color-mix\(/u.test(value)
+      && /var\(--q-canvas-(?:ink|paper|card)(?![\w-])/u.test(value)
+    ));
+    expect(nested.map(([, name]) => name)).toEqual([]);
+  });
+
+  it('keeps the dark grid line visible against the dark paper', () => {
+    expect(canvasStyles).toMatch(/:root\[data-theme='dark'\] \.q-canvas\[data-paper-style\]\s*\{[^}]*--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink-solid\) 46%/s);
   });
 
   it('labels paper styles through the existing settings translation namespace', () => {

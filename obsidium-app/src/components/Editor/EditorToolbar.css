@@ -19,13 +19,54 @@
 }
 
 .q-editor-toolbar__name {
+  display: flex;
   min-width: 0;
   flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--q-space-8);
+}
+
+.q-editor-toolbar__name-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: center;
   color: var(--q-text-tertiary);
   font-size: var(--q-font-size-ui-base);
 }
 
+.q-editor-toolbar__name-input {
+  min-width: 6rem;
+  max-width: 32rem;
+  flex: 0 1 auto;
+  padding: var(--q-space-2) var(--q-space-6);
+  border: var(--q-border-1) solid transparent;
+  border-radius: var(--q-radius-sm);
+  background: transparent;
+  color: var(--q-text-primary);
+  font: inherit;
+  font-size: var(--q-font-size-ui-base);
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.q-editor-toolbar__name-input:hover {
+  border-color: var(--q-border-default);
+}
+
+.q-editor-toolbar__name-input:focus-visible {
+  border-color: var(--q-border-focus);
+  outline: none;
+  background: var(--q-bg-surface);
+}
+
+.q-editor-toolbar__save {
+  flex: 0 0 auto;
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-editor-toolbar__save--error {
+  color: var(--q-text-danger);
+}

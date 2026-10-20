@@ -25,7 +25,7 @@
 
 .q-canvas-card[style*="--q-canvas-node-color"] {
   border-color: var(--q-canvas-node-color);
-  background: color-mix(in srgb, var(--q-canvas-node-color) 16%, var(--q-canvas-card, var(--q-bg-surface)));
+  background: color-mix(in srgb, var(--q-canvas-node-color) 16%, var(--q-canvas-card-solid, var(--q-bg-surface)));
 }
 
 .q-canvas-card__markdown {

@@ -1,4 +1,7 @@
 .q-canvas {
+  --q-canvas-ink-solid: var(--q-text-primary);
+  --q-canvas-paper-solid: var(--q-bg-canvas);
+  --q-canvas-card-solid: var(--q-bg-surface);
   position: relative;
   display: flex;
   flex: 1 1 auto;
@@ -22,16 +25,19 @@
   --q-canvas-card: var(--q-reading-table);
   --q-canvas-card-raised: var(--q-reading-code);
   --q-canvas-border: var(--q-reading-border);
-  --q-canvas-edge: color-mix(in srgb, var(--q-canvas-ink) 55%, var(--q-canvas-paper));
-  --q-canvas-selection: color-mix(in srgb, var(--q-canvas-ink) 30%, var(--q-blue-alpha-main));
-  --q-canvas-link: color-mix(in srgb, var(--q-canvas-ink) 40%, var(--q-blue-alpha-main));
-  --q-canvas-grid-line: color-mix(in srgb, var(--q-canvas-ink) 26%, var(--q-canvas-paper));
+  --q-canvas-paper-solid: var(--q-reading-paper);
+  --q-canvas-ink-solid: var(--q-reading-ink);
+  --q-canvas-card-solid: var(--q-reading-table);
+  --q-canvas-edge: color-mix(in srgb, var(--q-canvas-ink-solid) 55%, var(--q-canvas-paper-solid));
+  --q-canvas-selection: color-mix(in srgb, var(--q-canvas-ink-solid) 30%, var(--q-blue-alpha-main));
+  --q-canvas-link: color-mix(in srgb, var(--q-canvas-ink-solid) 40%, var(--q-blue-alpha-main));
+  --q-canvas-grid-line: color-mix(in srgb, var(--q-canvas-ink-solid) 34%, var(--q-canvas-paper-solid));
   --q-bg-canvas: var(--q-canvas-paper);
   --q-bg-surface: var(--q-canvas-card);
   --q-bg-surface-raised: var(--q-canvas-card-raised);
   --q-bg-surface-subtle: var(--q-canvas-card);
   --q-text-primary: var(--q-canvas-ink);
-  --q-text-secondary: color-mix(in srgb, var(--q-canvas-ink) 78%, transparent);
+  --q-text-secondary: color-mix(in srgb, var(--q-canvas-ink-solid) 78%, transparent);
   --q-icon-button-icon: var(--q-canvas-ink);
   --q-border-default: var(--q-canvas-border);
   --q-border-accent: var(--q-canvas-edge);
@@ -43,9 +49,13 @@
   --q-canvas-card: color-mix(in srgb, var(--q-reading-table) 18%, var(--q-gray-800));
   --q-canvas-card-raised: color-mix(in srgb, var(--q-reading-code) 18%, var(--q-gray-850));
   --q-canvas-border: color-mix(in srgb, var(--q-reading-border) 18%, var(--q-gray-700));
-  --q-canvas-edge: color-mix(in srgb, var(--q-canvas-ink) 55%, var(--q-canvas-paper));
-  --q-canvas-selection: color-mix(in srgb, var(--q-canvas-ink) 25%, var(--q-blue-400));
-  --q-canvas-link: color-mix(in srgb, var(--q-canvas-ink) 35%, var(--q-blue-400));
+  --q-canvas-paper-solid: var(--q-gray-900);
+  --q-canvas-ink-solid: var(--q-gray-50);
+  --q-canvas-card-solid: var(--q-gray-800);
+  --q-canvas-edge: color-mix(in srgb, var(--q-canvas-ink-solid) 40%, var(--q-canvas-paper-solid));
+  --q-canvas-selection: color-mix(in srgb, var(--q-blue-400) 70%, var(--q-canvas-ink-solid));
+  --q-canvas-link: color-mix(in srgb, var(--q-blue-400) 80%, var(--q-canvas-ink-solid));
+  --q-canvas-grid-line: color-mix(in srgb, var(--q-canvas-ink-solid) 46%, var(--q-canvas-paper-solid));
 }
 
 .q-canvas__controls {
@@ -289,8 +299,13 @@
 }
 
 .q-canvas__object--shape {
-  --q-canvas-shape-stroke: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-ink)) 78%, var(--q-canvas-paper));
-  --q-canvas-shape-fill: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-ink)) 20%, var(--q-canvas-paper));
+  --q-canvas-shape-stroke: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-ink-solid)) 78%, var(--q-canvas-paper-solid));
+  --q-canvas-shape-fill: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-ink-solid)) 20%, var(--q-canvas-paper-solid));
+}
+
+:root[data-theme='dark'] .q-canvas__object--shape {
+  --q-canvas-shape-stroke: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-ink-solid)) 55%, var(--q-canvas-paper-solid));
+  --q-canvas-shape-fill: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-ink-solid)) 32%, var(--q-canvas-paper-solid));
 }
 
 .q-canvas__object--shape[data-fill='transparent'] {
@@ -435,7 +450,7 @@ input.q-canvas__group-label {
   position: absolute;
   z-index: 3;
   border: var(--q-border-1) solid var(--q-canvas-edge, var(--q-border-accent));
-  background: color-mix(in srgb, var(--q-canvas-edge, var(--q-bg-accent)) 16%, transparent);
+  background: color-mix(in srgb, var(--q-blue-alpha-main) 16%, transparent);
   pointer-events: none;
 }
 
