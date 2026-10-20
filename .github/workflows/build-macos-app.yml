@@ -56,4 +56,5 @@ jobs:
           name: Obsidium-macOS-arm64
           path: .artifacts/Obsidium.app.zip*
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 3
