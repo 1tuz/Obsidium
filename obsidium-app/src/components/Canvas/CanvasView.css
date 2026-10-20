@@ -76,31 +76,12 @@
   font-size: var(--q-font-size-ui-sm);
 }
 
-.q-canvas__controls button,
-.q-canvas__controls input {
+.q-canvas__controls button {
   min-width: var(--q-size-28);
   min-height: var(--q-size-28);
   border: var(--q-border-1) solid var(--q-canvas-border, var(--q-border-default));
   border-radius: var(--q-radius-md);
   background: transparent;
-  color: inherit;
-}
-
-.q-canvas__controls label {
-  display: flex;
-  align-items: center;
-  gap: var(--q-space-4);
-  white-space: nowrap;
-}
-
-.q-canvas__controls input:not([type='color']),
-.q-canvas__controls select {
-  max-width: 10rem;
-  min-width: 0;
-  min-height: var(--q-size-28);
-  border: var(--q-border-1) solid var(--q-canvas-border, var(--q-border-default));
-  border-radius: var(--q-radius-md);
-  background: var(--q-canvas-paper, var(--q-bg-canvas));
   color: inherit;
 }
 
