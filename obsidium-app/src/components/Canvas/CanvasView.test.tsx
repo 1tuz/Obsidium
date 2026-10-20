@@ -1018,6 +1018,85 @@ describe('CanvasView', () => {
     expect(renderer!.container.querySelector('.q-canvas__object--shape[data-fill="transparent"]')).not.toBeNull();
   });
 
+  it('keeps the drawing tool active until Escape', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', code: 'KeyR', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 20, clientY: 20, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 120, clientY: 90, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 120, clientY: 90, bubbles: true })); });
+    expect(canvas.dataset.activeTool).toBe('rectangle');
+
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 200, clientY: 200, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 280, clientY: 260, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 280, clientY: 260, bubbles: true })); });
+    await act(settleAutosave);
+    expect(renderer!.container.querySelectorAll('.q-canvas__object--shape')).toHaveLength(2);
+
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
+    expect(canvas.dataset.activeTool).toBe('select');
+  });
+
+  it('keeps the freehand and number tools active after one use', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', code: 'KeyN', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 40, clientY: 40, button: 0, bubbles: true })); });
+    expect(canvas.dataset.activeTool).toBe('number');
+
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', code: 'KeyP', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 80, clientY: 60, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 140, clientY: 120, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 140, clientY: 120, bubbles: true })); });
+    expect(canvas.dataset.activeTool).toBe('draw');
+  });
+
+  it('keeps connection dots reachable from the card edge', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'a', type: 'text', x: 0, y: 0, width: 160, height: 100, text: 'A' },
+        { id: 'b', type: 'text', x: 400, y: 0, width: 160, height: 100, text: 'B' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const handle = renderer!.container.querySelector<HTMLElement>('.q-canvas__connect[data-side="right"]')!;
+    expect(handle.style.transform).toBe('translate(-50%, -50%) scale(1)');
+    await actAndSettle(() => { handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 160, clientY: 50, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 480, clientY: 50, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 480, clientY: 50, bubbles: true })); });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.edges).toHaveLength(1);
+    expect(saved.edges[0]).toMatchObject({ fromNode: 'a', toNode: 'b' });
+  });
+
   it('restores a moved object with undo and redo', async () => {
     canvasSource.content = JSON.stringify({
       nodes: [{ id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' }],

@@ -119,6 +119,9 @@
   --q-editor-table-selection-bg: var(--q-reading-selection);
   --q-selection-bg: var(--q-reading-selection);
   --q-selection-text: var(--q-reading-selection-text);
+}
+
+.q-editor-content[data-reading-style] {
   color: var(--q-reading-ink);
   background-color: var(--q-reading-paper);
 }

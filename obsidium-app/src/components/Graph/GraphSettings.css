@@ -245,15 +245,62 @@
 
 .q-graph-settings .q-segmented-control--stretch {
   box-sizing: border-box;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .q-graph-settings .q-segmented-control--stretch .q-segmented-control__button {
-  flex: 1 1 40%;
+  flex: 1 1 0;
   min-width: 0;
-  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .q-graph:has(> .q-graph-settings:not(.q-graph-settings--collapsed)) .q-graph-timeline {
   right: calc(var(--q-graph-settings-width) + var(--q-space-32));
+}
+
+.q-graph-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-8);
+  padding-top: var(--q-space-4);
+  border-top: var(--q-border-1) solid var(--q-border-default);
+}
+
+.q-graph-settings-section:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.q-graph-settings-section__head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--q-space-6);
+  padding: var(--q-space-4) 0;
+  border: 0;
+  background: transparent;
+  color: var(--q-text-secondary);
+  font: inherit;
+  font-size: var(--q-font-size-ui-sm);
+  font-weight: var(--q-font-weight-ui-medium);
+  text-align: left;
+  cursor: pointer;
+}
+
+.q-graph-settings-section__head:hover,
+.q-graph-settings-section__head:focus-visible {
+  color: var(--q-text-primary);
+}
+
+.q-graph-settings-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-12);
+  padding-bottom: var(--q-space-4);
+}
+
+.q-graph-settings-section__body[hidden] {
+  display: none;
 }

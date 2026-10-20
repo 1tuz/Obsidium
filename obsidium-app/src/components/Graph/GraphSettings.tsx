@@ -1,6 +1,6 @@
 import { getLocale, plural, t } from '../../i18n';
-import { memo, useState } from 'react';
-import { PanelRightClose, PanelRightOpen, RotateCcw, Trash2 } from 'lucide';
+import { memo, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronRight, PanelRightClose, PanelRightOpen, RotateCcw, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Slider } from '../Common/Slider';
@@ -98,6 +98,32 @@ function layoutModes() {
   ];
 }
 
+function SettingsSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="q-graph-settings-section">
+      <button
+        type="button"
+        className="q-graph-settings-section__head"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <Icon icon={open ? ChevronDown : ChevronRight} size={16} />
+        <span>{title}</span>
+      </button>
+      <div className="q-graph-settings-section__body" hidden={!open}>{children}</div>
+    </section>
+  );
+}
+
 interface GraphSettingsProps {
   controls: GraphControls;
   range: GraphDateRange;
@@ -186,6 +212,7 @@ export const GraphSettings = memo(function GraphSettings({
 
       {!collapsed && (
         <>
+          <SettingsSection title={t('graph.sections.layout')} defaultOpen>
           <Dropdown
             ariaLabel={t('graph.layoutMode')}
             options={layoutModes()}
@@ -248,26 +275,6 @@ export const GraphSettings = memo(function GraphSettings({
           />
 
           <Slider
-            label={t('graph.edgeWidth')}
-            min={0.5}
-            max={3}
-            step={0.05}
-            value={controls.edgeWidth}
-            hint={`${controls.edgeWidth.toFixed(2)}×`}
-            onChange={(edgeWidth) => onChange({ edgeWidth })}
-          />
-
-          <Slider
-            label={t('graph.edgeOpacity')}
-            min={0.1}
-            max={1}
-            step={0.05}
-            value={controls.edgeOpacity}
-            hint={`${Math.round(controls.edgeOpacity * 100)}%`}
-            onChange={(edgeOpacity) => onChange({ edgeOpacity })}
-          />
-
-          <Slider
             label={t('graph.depth')}
             min={1}
             max={3}
@@ -290,6 +297,112 @@ export const GraphSettings = memo(function GraphSettings({
             <span>{t('graph.localGraphHelp')}</span>
           </div>
 
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.labels')}</span>
+            <Switch
+              checked={controls.labels}
+              onChange={(labels) => onChange({ labels })}
+            />
+          </label>
+
+          <div className="q-graph-settings-choice">
+            <span>{t('graph.heatmap')}</span>
+            <SegmentedControl
+              stretch
+              options={heatmapAxes()}
+              value={controls.heatmapAxis}
+              onChange={(value) => onChange({ heatmapAxis: value as HeatmapAxis })}
+            />
+          </div>
+
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.arrows')}</span>
+            <Switch
+              checked={controls.arrows}
+              onChange={(arrows) => onChange({ arrows })}
+            />
+          </label>
+
+          </SettingsSection>
+
+          <SettingsSection title={t('graph.sections.edges')}>
+          <Slider
+            label={t('graph.edgeWidth')}
+            min={0.5}
+            max={3}
+            step={0.05}
+            value={controls.edgeWidth}
+            hint={`${controls.edgeWidth.toFixed(2)}×`}
+            onChange={(edgeWidth) => onChange({ edgeWidth })}
+          />
+
+          <Slider
+            label={t('graph.edgeOpacity')}
+            min={0.1}
+            max={1}
+            step={0.05}
+            value={controls.edgeOpacity}
+            hint={`${Math.round(controls.edgeOpacity * 100)}%`}
+            onChange={(edgeOpacity) => onChange({ edgeOpacity })}
+          />
+
+          <div className="q-graph-settings-choice">
+            <span>{t('graph.edgeStyle')}</span>
+            <SegmentedControl
+              stretch
+              options={edgeStyles()}
+              value={controls.edgeStyle}
+              onChange={(value) => onChange({ edgeStyle: value as EdgeStyle })}
+            />
+          </div>
+
+          <div className="q-graph-settings-choice">
+            <span>{t('graph.edgeType')}</span>
+            <Dropdown
+              ariaLabel={t('graph.edgeType')}
+              options={edgeTypes()}
+              value={controls.edgeType}
+              onChange={(value) => onChange({ edgeType: value as GraphEdgeType })}
+            />
+          </div>
+
+          <div className="q-graph-settings-choice">
+            <span>{t('graph.edgeDirection')}</span>
+            <Dropdown
+              ariaLabel={t('graph.edgeDirection')}
+              options={edgeDirections()}
+              value={controls.edgeDirection}
+              onChange={(value) => onChange({ edgeDirection: value as GraphEdgeDirection })}
+            />
+            {controls.edgeDirection !== 'all' && (
+              <span>{t('graph.edgeDirectionHint')}</span>
+            )}
+          </div>
+
+          <div className="q-graph-settings-choice">
+            <span>{t('graph.edgeColor')}</span>
+            <SegmentedControl
+              stretch
+              options={edgeColors()}
+              value={controls.edgeColor}
+              onChange={(value) => onChange({ edgeColor: value as EdgeColor })}
+            />
+            {controls.edgeColor === 'custom' && (
+              <label className="q-graph-settings-color">
+                <span>{t('graph.edgeCustomColor')}</span>
+                <input
+                  type="color"
+                  aria-label={t('graph.edgeCustomColor')}
+                  value={controls.edgeCustomColor ?? colorInputValue(pickerPalette!.edge)}
+                  onChange={(event) => onChange({ edgeCustomColor: event.currentTarget.value })}
+                />
+              </label>
+            )}
+          </div>
+
+          </SettingsSection>
+
+          <SettingsSection title={t('graph.sections.filters')}>
           <Slider
             label={t('graph.createdAfter')}
             min={0}
@@ -389,73 +502,9 @@ export const GraphSettings = memo(function GraphSettings({
             )}
           </div>
 
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.suggestedLinks')}</span>
-            <Switch
-              checked={controls.suggestionsEnabled}
-              onChange={(suggestionsEnabled) => onChange({ suggestionsEnabled })}
-            />
-          </label>
-          {controls.suggestionsEnabled && (
-            <div className="q-graph-settings-suggestions">
-              <Dropdown
-                ariaLabel={t('graph.suggestionMethod')}
-                options={[
-                  { value: 'adamicAdar', label: 'Adamic-Adar' },
-                  { value: 'bm25f', label: t('analysis.methods.bm25f') },
-                ]}
-                value={controls.suggestionMethod}
-                onChange={(suggestionMethod) => onChange({
-                  suggestionMethod: suggestionMethod as GraphControls['suggestionMethod'],
-                })}
-              />
-              {suggestionsLoading && <span role="status">{t('graph.suggestionsLoading')}</span>}
-              {!suggestionsLoading && suggestions.length === 0 && (
-                <span>{t('graph.suggestionsEmpty')}</span>
-              )}
-              {suggestions.map((suggestion) => (
-                <div className="q-graph-settings-suggestion" key={suggestion.path}>
-                  <span title={suggestion.reasons.join(', ')}>{suggestion.title}</span>
-                  <Button size="xs" variant="ghost" onClick={() => onCreateSuggestedLink?.(suggestion)}>
-                    {t('graph.createSuggestedLink')}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
+          </SettingsSection>
 
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.labels')}</span>
-            <Switch
-              checked={controls.labels}
-              onChange={(labels) => onChange({ labels })}
-            />
-          </label>
-
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.orphans')}</span>
-            <Switch
-              checked={controls.orphanHighlight}
-              onChange={(orphanHighlight) => onChange({ orphanHighlight })}
-            />
-          </label>
-
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.islands')}</span>
-            <Switch
-              checked={controls.islandHighlight}
-              onChange={(islandHighlight) => onChange({ islandHighlight })}
-            />
-          </label>
-
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.importantNodes')}</span>
-            <Switch
-              checked={controls.importantNodes}
-              onChange={(importantNodes) => onChange({ importantNodes })}
-            />
-          </label>
-
+          <SettingsSection title={t('graph.sections.communities')}>
           <label className="q-graph-settings-toggle">
             <span>{t('graph.communityColors')}</span>
             <Switch
@@ -618,78 +667,74 @@ export const GraphSettings = memo(function GraphSettings({
             </fieldset>
           )}
 
+          </SettingsSection>
+
+          <SettingsSection title={t('graph.sections.highlights')}>
           <label className="q-graph-settings-toggle">
-            <span>{t('graph.arrows')}</span>
+            <span>{t('graph.orphans')}</span>
             <Switch
-              checked={controls.arrows}
-              onChange={(arrows) => onChange({ arrows })}
+              checked={controls.orphanHighlight}
+              onChange={(orphanHighlight) => onChange({ orphanHighlight })}
             />
           </label>
 
-          <div className="q-graph-settings-choice">
-            <span>{t('graph.heatmap')}</span>
-            <SegmentedControl
-              stretch
-              options={heatmapAxes()}
-              value={controls.heatmapAxis}
-              onChange={(value) => onChange({ heatmapAxis: value as HeatmapAxis })}
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.islands')}</span>
+            <Switch
+              checked={controls.islandHighlight}
+              onChange={(islandHighlight) => onChange({ islandHighlight })}
             />
-          </div>
+          </label>
 
-          <div className="q-graph-settings-choice">
-            <span>{t('graph.edgeStyle')}</span>
-            <SegmentedControl
-              stretch
-              options={edgeStyles()}
-              value={controls.edgeStyle}
-              onChange={(value) => onChange({ edgeStyle: value as EdgeStyle })}
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.importantNodes')}</span>
+            <Switch
+              checked={controls.importantNodes}
+              onChange={(importantNodes) => onChange({ importantNodes })}
             />
-          </div>
+          </label>
 
-          <div className="q-graph-settings-choice">
-            <span>{t('graph.edgeType')}</span>
-            <Dropdown
-              ariaLabel={t('graph.edgeType')}
-              options={edgeTypes()}
-              value={controls.edgeType}
-              onChange={(value) => onChange({ edgeType: value as GraphEdgeType })}
+          </SettingsSection>
+
+          <SettingsSection title={t('graph.sections.suggestions')}>
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.suggestedLinks')}</span>
+            <Switch
+              checked={controls.suggestionsEnabled}
+              onChange={(suggestionsEnabled) => onChange({ suggestionsEnabled })}
             />
-          </div>
+          </label>
+          {controls.suggestionsEnabled && (
+            <div className="q-graph-settings-suggestions">
+              <Dropdown
+                ariaLabel={t('graph.suggestionMethod')}
+                options={[
+                  { value: 'adamicAdar', label: 'Adamic-Adar' },
+                  { value: 'bm25f', label: t('analysis.methods.bm25f') },
+                ]}
+                value={controls.suggestionMethod}
+                onChange={(suggestionMethod) => onChange({
+                  suggestionMethod: suggestionMethod as GraphControls['suggestionMethod'],
+                })}
+              />
+              {suggestionsLoading && <span role="status">{t('graph.suggestionsLoading')}</span>}
+              {!suggestionsLoading && suggestions.length === 0 && (
+                <span>{t('graph.suggestionsEmpty')}</span>
+              )}
+              {suggestions.map((suggestion) => (
+                <div className="q-graph-settings-suggestion" key={suggestion.path}>
+                  <span title={suggestion.reasons.join(', ')}>{suggestion.title}</span>
+                  <Button size="xs" variant="ghost" onClick={() => onCreateSuggestedLink?.(suggestion)}>
+                    {t('graph.createSuggestedLink')}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
 
-          <div className="q-graph-settings-choice">
-            <span>{t('graph.edgeDirection')}</span>
-            <Dropdown
-              ariaLabel={t('graph.edgeDirection')}
-              options={edgeDirections()}
-              value={controls.edgeDirection}
-              onChange={(value) => onChange({ edgeDirection: value as GraphEdgeDirection })}
-            />
-            {controls.edgeDirection !== 'all' && (
-              <span>{t('graph.edgeDirectionHint')}</span>
-            )}
-          </div>
+          </SettingsSection>
 
-          <div className="q-graph-settings-choice">
-            <span>{t('graph.edgeColor')}</span>
-            <SegmentedControl
-              stretch
-              options={edgeColors()}
-              value={controls.edgeColor}
-              onChange={(value) => onChange({ edgeColor: value as EdgeColor })}
-            />
-            {controls.edgeColor === 'custom' && (
-              <label className="q-graph-settings-color">
-                <span>{t('graph.edgeCustomColor')}</span>
-                <input
-                  type="color"
-                  aria-label={t('graph.edgeCustomColor')}
-                  value={controls.edgeCustomColor ?? colorInputValue(pickerPalette!.edge)}
-                  onChange={(event) => onChange({ edgeCustomColor: event.currentTarget.value })}
-                />
-              </label>
-            )}
-          </div>
-
+          <SettingsSection title={t('graph.sections.presets')}>
           <div className="q-graph-settings-presets">
             <form
               className="q-graph-settings-preset-form"
@@ -721,6 +766,8 @@ export const GraphSettings = memo(function GraphSettings({
               </div>
             ))}
           </div>
+          </SettingsSection>
+
         </>
       )}
     </aside>

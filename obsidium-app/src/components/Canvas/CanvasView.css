@@ -345,8 +345,8 @@
 .q-canvas__connect {
   position: absolute;
   z-index: 3;
-  width: var(--q-size-10);
-  height: var(--q-size-10);
+  width: var(--q-size-12);
+  height: var(--q-size-12);
   padding: 0;
   border: var(--q-border-2) solid var(--q-canvas-paper);
   border-radius: 50%;
@@ -361,15 +361,16 @@
 .q-canvas[data-active-tool='edge'] .q-canvas__connect,
 .q-canvas__object:hover > .q-canvas__connect,
 .q-canvas__object.is-selected > .q-canvas__connect,
+.q-canvas__connect:hover,
 .q-canvas__connect:focus-visible {
   opacity: 1;
   pointer-events: auto;
 }
 
-.q-canvas__connect[data-side='top'] { left: 50%; top: calc(-1 * var(--q-space-8)); cursor: crosshair; }
-.q-canvas__connect[data-side='right'] { left: calc(100% + var(--q-space-8)); top: 50%; cursor: crosshair; }
-.q-canvas__connect[data-side='bottom'] { left: 50%; top: calc(100% + var(--q-space-8)); cursor: crosshair; }
-.q-canvas__connect[data-side='left'] { left: calc(-1 * var(--q-space-8)); top: 50%; cursor: crosshair; }
+.q-canvas__connect[data-side='top'] { left: 50%; top: 0; cursor: crosshair; }
+.q-canvas__connect[data-side='right'] { left: 100%; top: 50%; cursor: crosshair; }
+.q-canvas__connect[data-side='bottom'] { left: 50%; top: 100%; cursor: crosshair; }
+.q-canvas__connect[data-side='left'] { left: 0; top: 50%; cursor: crosshair; }
 
 .q-canvas__connect-line {
   stroke: var(--q-canvas-selection, var(--q-text-accent));

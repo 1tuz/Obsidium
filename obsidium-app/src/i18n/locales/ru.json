@@ -68,7 +68,11 @@
       "h6": "Заголовок 6",
       "image": "Изображение",
     "headings": "Заголовки",
-    "lists": "Списки"
+    "lists": "Списки",
+    "callout": "Врезка",
+    "clearFormat": "Убрать форматирование",
+    "moveUp": "Строку выше",
+    "moveDown": "Строку ниже"
     },
     "metadata": "Метаданные",
     "createNote": "Создать заметку",
@@ -770,6 +774,15 @@
     "islands": "Выделять отключённые группы",
     "importantNodes": "Выделять 5% по PageRank",
     "communityColors": "Цвета сообществ Louvain",
+    "sections": {
+      "layout": "Раскладка и заметки",
+      "edges": "Связи",
+      "filters": "Фильтры и путь",
+      "communities": "Сообщества и группы",
+      "highlights": "Подсветка",
+      "suggestions": "Предложенные связи",
+      "presets": "Пресеты"
+    },
     "customGroupColors": "Цвета своих групп",
     "customGroups": "Правила цветов",
     "groupField": "Поле совпадения",

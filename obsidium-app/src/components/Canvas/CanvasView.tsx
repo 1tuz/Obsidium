@@ -700,7 +700,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     };
     setCanvasDocument(addCanvasNode(current, node), false);
     setSelection([node.id]);
-    setActiveTool('select');
     const next: DragState = { kind: 'shape', start, startX: event.clientX, startY: event.clientY, nodeId: node.id };
     dragRef.current = next;
     setDrag(next);
@@ -724,7 +723,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     };
     setCanvasDocument(addCanvasNode(current, node));
     setSelection([node.id]);
-    setActiveTool('select');
   }, [nodeColor, setCanvasDocument]);
 
   const addSearchedNote = useCallback((path: string) => {
@@ -1200,7 +1198,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         setCanvasDocument(addCanvasNode(current, node));
         setSelection([node.id]);
       }
-      setActiveTool('select');
     } else if (currentDrag?.kind === 'connect') {
       const current = documentRef.current;
       const target = current ? canvasNodeAtPoint(current.nodes, currentDrag.current, currentDrag.fromId) : null;
@@ -1285,7 +1282,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           }
         });
       }
-      setActiveTool('select');
       return;
     }
     if (event.button !== 0) return;
@@ -1532,6 +1528,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       deleteSelection();
     } else if (event.key === 'Escape') {
       setSelection([]); setEdgeSource(null); setEditingId(null); setMenu(null); setSlashMenu(null); setLinkDraft(null);
+      setActiveTool('select');
     }
   }, [camera, deleteSelection, duplicateSelection, fitView, onOpenFile, openUrl, redo, reorderSelection, spaceHeld, undo, viewport, workspacePath, zoomBy]);
 
@@ -2057,7 +2054,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           if (!draft) return;
           if (draft.mode === 'edit' && draft.nodeId) updateNode(draft.nodeId, { url });
           else if (draft.point) addNode('link', draft.point, undefined, url);
-          setActiveTool('select');
         }}
       />
       <CanvasNotePicker
