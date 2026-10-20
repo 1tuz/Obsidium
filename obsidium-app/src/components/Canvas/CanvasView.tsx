@@ -52,6 +52,7 @@ import {
 } from '../../modules/canvas/interaction';
 import { canvasFreehandPath } from '../../modules/canvas/freehand';
 import { canvasNodeStyle, canvasPixels } from '../../modules/canvas/renderStyle';
+import { mixCssColors } from '../../modules/canvas/colorMix';
 import { resolveCanvasMedia } from '../../modules/canvas/media';
 import { canvasSvg, canvasSvgAssetSources, type CanvasSvgMedia, type CanvasSvgPalette } from '../../modules/canvas/svgExport';
 import { snapToGuides, type CanvasGuide } from '../../modules/canvas/guides';
@@ -210,23 +211,6 @@ function isCanvasNode(value: CanvasNode): value is CanvasTypedNode {
   return value.type === 'text' || value.type === 'file' || value.type === 'link' || value.type === 'group';
 }
 
-
-function rgbOf(value: string): [number, number, number] | null {
-  const match = /rgba?\(([^)]+)\)/i.exec(value);
-  if (!match) return null;
-  const parts = match[1].split(/[,\s/]+/).filter(Boolean).map(Number);
-  return parts.length >= 3 && parts.slice(0, 3).every(Number.isFinite)
-    ? [parts[0], parts[1], parts[2]]
-    : null;
-}
-
-function mixColor(from: string, to: string, amount: number): string {
-  const source = rgbOf(from);
-  const target = rgbOf(to);
-  if (!source || !target) return from;
-  const ratio = Math.min(1, Math.max(0, amount));
-  return `rgb(${source.map((channel, index) => Math.round(channel * (1 - ratio) + target[index] * ratio)).join(' ')})`;
-}
 
 function shapeKindOf(node: CanvasTypedNode): CanvasShapeKind | 'freehand' | null {
   const obsidium = node.obsidium;
@@ -861,9 +845,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const fallback = getComputedStyle(stage).color || 'currentColor';
     const paper = read('--q-canvas-paper') || getComputedStyle(stage).backgroundColor;
     const ink = read('--q-canvas-ink', 'color') || fallback;
-    const card = read('--q-canvas-card') || mixColor(ink, paper, 0.12);
-    const border = read('--q-canvas-border') || mixColor(ink, paper, 0.82);
-    const edge = read('--q-canvas-edge') || mixColor(ink, paper, 0.45);
+    const card = read('--q-canvas-card') || mixCssColors(ink, paper, 0.12);
+    const border = read('--q-canvas-border') || mixCssColors(ink, paper, 0.82);
+    const edge = read('--q-canvas-edge') || mixCssColors(ink, paper, 0.45);
     const presets = Object.fromEntries(Object.entries(CANVAS_PRESET_COLORS).map(([preset, variable]) => [
       preset,
       read(variable) || ink,
@@ -882,13 +866,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     return canvasSvg(current, {
       palette,
       media: mediaForNode,
-      imageHref: (src) => hrefs.get(src) ?? src,
+      imageHref: (src) => hrefs.get(src) ?? '',
       markdown: (node) => node.type === 'text'
         ? node.text
         : node.type === 'file' ? fileContents[node.id] ?? '' : '',
       resolveImage: (node, target) => resolveImageUrl(node, target),
-      shapeStroke: (node) => nodeColorValue(node, palette) ?? mixColor(palette.ink, palette.paper, 0.22),
-      shapeFill: (node) => nodeColorValue(node, palette) ?? mixColor(palette.ink, palette.paper, 0.8),
+      shapeStroke: (node) => nodeColorValue(node, palette) ?? mixCssColors(palette.ink, palette.paper, 0.22),
+      shapeFill: (node) => nodeColorValue(node, palette) ?? mixCssColors(palette.ink, palette.paper, 0.8),
       textMode,
     });
   }, [fileContents, mediaForNode, readCanvasColors, resolveImageUrl]);

@@ -140,6 +140,21 @@ describe('canvasSvg', () => {
     expect(svg).toContain(' Q ');
   });
 
+  it('falls back to a labelled placeholder when an image cannot be embedded', () => {
+    const doc: CanvasDocument = {
+      nodes: [{ id: 'img', type: 'file', x: 0, y: 0, width: 200, height: 160, file: 'Files/photo.png' }],
+      edges: [],
+    };
+    const svg = canvasSvg(doc, context({
+      media: () => ({ kind: 'image', src: 'asset://photo.png', label: 'photo.png' }),
+      imageHref: () => '',
+    }));
+
+    expect(svg).not.toContain('<image');
+    expect(svg).toContain('photo.png');
+    expect(svg).toContain('<rect');
+  });
+
   it('emits one marker per distinct edge color', () => {
     const doc = document(
       [

@@ -380,17 +380,28 @@ function shapedTextNode(node: CanvasTypedNode, shape: string, context: CanvasSvg
   return `<g>${geometry}${markdown ? foreignObject(shapeBox(node, shape), markdown, context, shape === 'number') : ''}</g>`;
 }
 
-function mediaNode(node: CanvasTypedNode, media: CanvasSvgMedia, context: CanvasSvgContext): string {
-  if (media.kind === 'image') {
-    return `<image href="${escapeXml(context.imageHref(media.src))}" x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" preserveAspectRatio="xMidYMid meet" />`;
-  }
+function mediaPlaceholder(node: CanvasTypedNode, label: string, context: CanvasSvgContext, play: boolean): string {
   const centerX = node.x + node.width / 2;
   const centerY = node.y + node.height / 2;
   const size = Math.min(40, node.width * 0.25, node.height * 0.25);
-  const label = media.label
-    ? `<text x="${number(centerX)}" y="${number(centerY + size * 0.5 + 18)}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="${escapeXml(context.palette.ink)}">${escapeXml(media.label)}</text>`
+  const caption = label
+    ? `<text x="${number(centerX)}" y="${number(centerY + size * 0.5 + 18)}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="${escapeXml(context.palette.ink)}">${escapeXml(label)}</text>`
     : '';
-  return `<g><rect x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" rx="10" fill="${escapeXml(context.palette.card)}" stroke="${escapeXml(context.palette.border)}" stroke-width="1" /><polygon points="${number(centerX - size * 0.35)},${number(centerY - size * 0.5)} ${number(centerX + size * 0.65)},${number(centerY)} ${number(centerX - size * 0.35)},${number(centerY + size * 0.5)}" fill="${escapeXml(context.palette.ink)}" />${label}</g>`;
+  const triangle = play
+    ? `<polygon points="${number(centerX - size * 0.35)},${number(centerY - size * 0.5)} ${number(centerX + size * 0.65)},${number(centerY)} ${number(centerX - size * 0.35)},${number(centerY + size * 0.5)}" fill="${escapeXml(context.palette.ink)}" />`
+    : '';
+  return `<g><rect x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" rx="10" fill="${escapeXml(context.palette.card)}" stroke="${escapeXml(context.palette.border)}" stroke-width="1" />${triangle}${caption}</g>`;
+}
+
+function mediaNode(node: CanvasTypedNode, media: CanvasSvgMedia, context: CanvasSvgContext): string {
+  if (media.kind === 'image') {
+    const href = context.imageHref(media.src);
+    if (href) {
+      return `<image href="${escapeXml(href)}" x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" preserveAspectRatio="xMidYMid meet" />`;
+    }
+    return mediaPlaceholder(node, media.label, context, false);
+  }
+  return mediaPlaceholder(node, media.label, context, true);
 }
 
 function fileNode(node: CanvasTypedNode, context: CanvasSvgContext): string {
