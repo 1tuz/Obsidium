@@ -360,7 +360,6 @@
 
 .q-canvas[data-active-tool='edge'] .q-canvas__connect,
 .q-canvas__object:hover > .q-canvas__connect,
-.q-canvas__object.is-selected > .q-canvas__connect,
 .q-canvas__connect:hover,
 .q-canvas__connect:focus-visible {
   opacity: 1;

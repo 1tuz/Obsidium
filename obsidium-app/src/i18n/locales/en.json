@@ -24,6 +24,7 @@
     "plainText": "Plain text",
     "copyCode": "Copy code",
     "codeCopied": "Copied",
+    "codeCopyFailed": "Could not copy",
     "fileLoading": "Loading file…",
     "fileSaving": "Saving…",
     "fileSaved": "Saved",

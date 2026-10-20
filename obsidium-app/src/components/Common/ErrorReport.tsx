@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from './Button';
 import './ErrorBoundary.css';
 import { t } from '../../i18n';
+import { copyText } from '../../modules/clipboard';
 
 export interface Recovery {
     label: string;
@@ -19,8 +20,8 @@ interface ErrorReportProps {
 export function ErrorReport({ title, report, recovery, onRetry }: ErrorReportProps) {
     const [recoveryFailure, setRecoveryFailure] = useState<string | null>(null);
     const copyReport = () => {
-        navigator.clipboard.writeText(report).catch((error) => {
-            console.error('Failed to copy the error report', error);
+        void copyText(report).then((ok) => {
+            if (!ok) console.error('Failed to copy the error report');
         });
     };
     const recover = (action: Recovery) => {

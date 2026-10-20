@@ -142,6 +142,50 @@ export const getCanvasGroupMemberIds = (
   && node.y + node.height <= group.y + group.height)
   .map(node => node.id);
 
+export const expandCanvasSelection = (
+  ids: readonly string[],
+  nodes: readonly CanvasNode[],
+): string[] => {
+  const expanded = new Set(ids);
+  for (const id of ids) {
+    const node = nodes.find((item) => item.id === id);
+    if (!node) continue;
+    if (node.type === 'group') {
+      for (const memberId of getCanvasGroupMemberIds(node, nodes)) expanded.add(memberId);
+    }
+    for (const group of nodes) {
+      if (group.type !== 'group' || group.id === node.id) continue;
+      if (node.x < group.x || node.y < group.y
+        || node.x + node.width > group.x + group.width
+        || node.y + node.height > group.y + group.height) continue;
+      expanded.add(group.id);
+      for (const memberId of getCanvasGroupMemberIds(group, nodes)) expanded.add(memberId);
+    }
+  }
+  return nodes.filter((node) => expanded.has(node.id)).map((node) => node.id);
+};
+
+export const resizeCanvasGroup = <T extends CanvasNode>(
+  group: CanvasNode,
+  members: readonly T[],
+  resized: CanvasNode,
+): T[] => {
+  const scaleX = group.width > 0 ? resized.width / group.width : 1;
+  const scaleY = group.height > 0 ? resized.height / group.height : 1;
+  return members.map((member) => {
+    if (member.x < group.x || member.y < group.y
+      || member.x + member.width > group.x + group.width
+      || member.y + member.height > group.y + group.height) return member;
+    return {
+      ...member,
+      x: Math.round(resized.x + (member.x - group.x) * scaleX),
+      y: Math.round(resized.y + (member.y - group.y) * scaleY),
+      width: Math.max(24, Math.round(member.width * scaleX)),
+      height: Math.max(24, Math.round(member.height * scaleY)),
+    };
+  });
+};
+
 export const alignCanvasNodes = <T extends CanvasNode>(
   nodes: readonly T[],
   selectedIds: ReadonlySet<string>,

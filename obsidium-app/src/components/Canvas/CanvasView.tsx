@@ -35,10 +35,12 @@ import {
   canvasRectBetweenPoints,
   canvasSidePoint,
   createCanvasHistory,
+  expandCanvasSelection,
   getCanvasGroupMemberIds,
   getCanvasEdgeGeometry,
   getCanvasEdgePath,
   redoCanvasHistory,
+  resizeCanvasGroup,
   resizeCanvasNodeFromHandle,
   selectCanvasNode,
   selectCanvasNodesInRect,
@@ -451,6 +453,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     () => (document?.nodes ?? []).filter((node) => selectionSet.has(node.id) && node.type === 'group'),
     [document, selectionSet],
   );
+  const groupMemberIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const group of selectedGroups) {
+      for (const memberId of getCanvasGroupMemberIds(group, document?.nodes ?? [])) ids.add(memberId);
+    }
+    return ids;
+  }, [document, selectedGroups]);
   const selectedShapeNodes = useMemo(
     () => (document?.nodes ?? []).filter((node) => selectionSet.has(node.id) && shapeKindOf(node) && shapeKindOf(node) !== 'freehand'),
     [document, selectionSet],
@@ -909,7 +918,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const reorderSelection = useCallback((direction: 'front' | 'back') => {
     const current = documentRef.current;
     if (!current || selection.length === 0) return;
-    const selected = new Set(selection);
+    const selected = new Set(expandCanvasSelection(selection, current.nodes));
     const chosen = current.nodes.filter((node) => selected.has(node.id));
     const rest = current.nodes.filter((node) => !selected.has(node.id));
     const nodes = direction === 'front' ? [...rest, ...chosen] : [...chosen, ...rest];
@@ -963,35 +972,30 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       stageRef.current?.setPointerCapture(event.pointerId);
       return;
     }
-    if (activeTool === 'rectangle' || activeTool === 'diamond' || activeTool === 'ellipse') {
-      event.stopPropagation();
-      beginShapeDrawing(activeTool, event);
-      return;
-    }
-    if (activeTool !== 'select') return;
+    const shapeTool = activeTool === 'rectangle' || activeTool === 'diamond' || activeTool === 'ellipse';
+    if (activeTool !== 'select' && !shapeTool) return;
     const target = event.target as HTMLElement;
     if (target.closest('textarea, a, button')) return;
     event.stopPropagation();
+    if (shapeTool) setActiveTool('select');
     setSelectedEdgeId(null);
+    const current = documentRef.current;
+    if (!current) return;
     const nextSelection = selectNode(node, event);
-    if (nextSelection.includes(node.id)) {
-      const current = documentRef.current;
-      if (!current) return;
-      const selected = new Set(nextSelection);
-      for (const selectedNode of current.nodes) {
-        if (selected.has(selectedNode.id) && selectedNode.type === 'group') {
-          for (const memberId of getCanvasGroupMemberIds(selectedNode, current.nodes)) selected.add(memberId);
-        }
-      }
+    const cluster = expandCanvasSelection([node.id], current.nodes);
+    const resolved = expandCanvasSelection(nextSelection, current.nodes)
+      .filter((id) => nextSelection.includes(node.id) || !cluster.includes(id));
+    setSelection(resolved);
+    if (resolved.includes(node.id)) {
       const nextDrag: DragState = {
         kind: 'move', startX: event.clientX, startY: event.clientY, camera,
-        document: current!, selected,
+        document: current, selected: new Set(resolved),
       };
       dragRef.current = nextDrag;
       setDrag(nextDrag);
       stageRef.current?.setPointerCapture(event.pointerId);
     }
-  }, [activeTool, beginShapeDrawing, camera, selectNode, spaceHeld]);
+  }, [activeTool, camera, selectNode, selection, spaceHeld]);
 
   const handleNodeClick = useCallback((event: TargetedMouseEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (spaceHeld) {
@@ -1000,8 +1004,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (activeTool === 'edge') {
       event.stopPropagation();
-      if (!edgeSource) setEdgeSource(node.id);
-      else if (edgeSource !== node.id && documentRef.current) {
+      if (!edgeSource) {
+        setEdgeSource(node.id);
+        if (documentRef.current) setSelection(expandCanvasSelection([node.id], documentRef.current.nodes));
+      } else if (edgeSource !== node.id && documentRef.current) {
         const edge: CanvasEdge = {
           id: newId(), fromNode: edgeSource, toNode: node.id, fromEnd: 'none', toEnd: 'arrow',
           ...(edgeColor ? { color: edgeColor } : {}),
@@ -1013,7 +1019,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (activeTool === 'group') {
       event.stopPropagation();
-      if (!selection.includes(node.id)) setSelection((current) => [...new Set([...current, node.id])]);
+      const current = documentRef.current;
+      if (current) setSelection(expandCanvasSelection([...new Set([...selection, node.id])], current.nodes));
       return;
     }
     if (activeTool !== 'select') return;
@@ -1104,7 +1111,17 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         y: dy / currentDrag.camera.zoom,
       }, pointer.shiftKey, 120, 80, grid === 'none' ? undefined : GRID_SIZE);
       const current = documentRef.current;
-      if (current) setCanvasDocument(updateCanvasNode(current, original.id, resized), false);
+      if (current) {
+        let next = updateCanvasNode(current, original.id, resized);
+        if (original.type === 'group') {
+          const memberIds = new Set(getCanvasGroupMemberIds(original, currentDrag.document.nodes));
+          const members = currentDrag.document.nodes.filter((node) => memberIds.has(node.id));
+          for (const member of resizeCanvasGroup(original, members, resized)) {
+            next = updateCanvasNode(next, member.id, member);
+          }
+        }
+        setCanvasDocument(next, false);
+      }
     } else if (currentDrag.kind === 'edge-bend') {
       const current = documentRef.current;
       const edge = current?.edges.find((item) => item.id === currentDrag.edgeId);
@@ -1853,7 +1870,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             const shape = shapeName && shapeName !== 'freehand' ? shapeName : undefined;
             const freehandPoints = shapeName === 'freehand' ? canvasFreehandPoints(node) : [];
             const media = mediaForNode(node);
-            const selected = selectionSet.has(node.id);
+            const selected = selectionSet.has(node.id) && !groupMemberIds.has(node.id);
             const obsidium = node.obsidium && typeof node.obsidium === 'object' ? node.obsidium as Record<string, unknown> : {};
             const fill = shape && obsidium.fill === 'transparent' ? 'transparent' : undefined;
             return <div
@@ -1925,7 +1942,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               {freehandPoints.length > 1 && <svg className="q-canvas__freehand" viewBox={`0 0 ${node.width} ${node.height}`} aria-hidden="true">
                 <path d={canvasFreehandPath(freehandPoints)} stroke="var(--q-canvas-node-color, var(--q-canvas-edge))" />
               </svg>}
-              {(activeTool === 'select' || activeTool === 'edge') && !spaceHeld && node.type !== 'group' && (['top', 'right', 'bottom', 'left'] as const).map((side) => <button
+              {(activeTool === 'select' || activeTool === 'edge') && !spaceHeld && node.type !== 'group' && !groupMemberIds.has(node.id) && (['top', 'right', 'bottom', 'left'] as const).map((side) => <button
                 key={side}
                 type="button"
                 className="q-canvas__connect"
@@ -1934,7 +1951,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
                 aria-label={`${t('canvas.connectHandle')} ${t(`canvas.side.${side}`)}`}
                 onPointerDown={(event) => beginConnect(event, node, side)}
               />)}
-              {selected && selection.length === 1 && resizeHandles.map((handle) => <button
+              {selected && (selection.length === 1 || node.type === 'group') && !groupMemberIds.has(node.id) && resizeHandles.map((handle) => <button
                 key={handle}
                 type="button"
                 className="q-canvas__resize"
