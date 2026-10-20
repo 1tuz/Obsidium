@@ -5,7 +5,8 @@ import {
   Bold, Italic, Strikethrough, Highlighter, Code, ChevronDown,
   Heading1, Heading2, Heading3, Heading4, Heading5, Heading6,
   List, ListOrdered, ListTodo, Quote, Link2, Image, Table2,
-  Minus, Undo2, Redo2, IndentIncrease, IndentDecrease, type IconNode,
+  Minus, Undo2, Redo2, IndentIncrease, IndentDecrease,
+  Quote as QuoteIcon, Type, ArrowUp, ArrowDown, type IconNode,
 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
@@ -39,11 +40,12 @@ const GROUPS: readonly (readonly ButtonDefinition[])[] = [
   [{ action: 'undo', icon: Undo2 }, { action: 'redo', icon: Redo2 }],
   [{ action: 'bold', icon: Bold }, { action: 'italic', icon: Italic },
     { action: 'strike', icon: Strikethrough }, { action: 'highlight', icon: Highlighter },
-    { action: 'inlineCode', icon: Code }],
-  [{ action: 'quote', icon: Quote }],
+    { action: 'inlineCode', icon: Code }, { action: 'clearFormat', icon: Type }],
+  [{ action: 'quote', icon: Quote }, { action: 'callout', icon: QuoteIcon }],
   [{ action: 'link', icon: Link2 }, { action: 'image', icon: Image }, { action: 'table', icon: Table2 },
     { action: 'codeBlock', icon: Code }, { action: 'rule', icon: Minus }],
   [{ action: 'indent', icon: IndentIncrease }, { action: 'outdent', icon: IndentDecrease }],
+  [{ action: 'moveUp', icon: ArrowUp }, { action: 'moveDown', icon: ArrowDown }],
 ];
 
 const MENUS: readonly MenuDefinition[] = [

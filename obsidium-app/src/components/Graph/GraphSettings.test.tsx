@@ -871,10 +871,10 @@ describe('GraphSettings', () => {
   it('prevents settings overflow and leaves room for graph history', () => {
     expect(graphSettingsStyles).toMatch(/\.q-graph-settings\s*\{[^}]*overflow-x:\s*hidden;/s);
     expect(graphSettingsStyles).toMatch(
-      /\.q-graph-settings \.q-segmented-control--stretch\s*\{[^}]*flex-wrap:\s*wrap;/s,
+      /\.q-graph-settings \.q-segmented-control--stretch\s*\{[^}]*flex-wrap:\s*nowrap;/s,
     );
     expect(graphSettingsStyles).toMatch(
-      /\.q-graph-settings \.q-segmented-control--stretch \.q-segmented-control__button\s*\{[^}]*min-width:\s*0;[^}]*white-space:\s*normal;/s,
+      /\.q-graph-settings \.q-segmented-control--stretch \.q-segmented-control__button\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis;/s,
     );
     expect(graphSettingsStyles).toMatch(
       /\.q-graph:has\(> \.q-graph-settings:not\(\.q-graph-settings--collapsed\)\) \.q-graph-timeline\s*\{[^}]*right:\s*calc\(var\(--q-graph-settings-width\) \+ var\(--q-space-32\)\);/s,

@@ -68,7 +68,11 @@
       "h6": "Heading 6",
       "image": "Image",
     "headings": "Headings",
-    "lists": "Lists"
+    "lists": "Lists",
+    "callout": "Callout",
+    "clearFormat": "Clear formatting",
+    "moveUp": "Move line up",
+    "moveDown": "Move line down"
     },
     "metadata": "Metadata",
     "createNote": "Create a note",
@@ -764,6 +768,15 @@
     "islands": "Highlight disconnected clusters",
     "importantNodes": "Highlight PageRank top 5%",
     "communityColors": "Color Louvain communities",
+    "sections": {
+      "layout": "Layout and nodes",
+      "edges": "Connections",
+      "filters": "Filters and path",
+      "communities": "Communities and groups",
+      "highlights": "Highlights",
+      "suggestions": "Suggested links",
+      "presets": "Presets"
+    },
     "customGroupColors": "Color custom groups",
     "customGroups": "Color rules",
     "groupField": "Match field",

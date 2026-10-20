@@ -13,7 +13,8 @@ export type EditingAction =
   | BlockFormat
   | 'undo' | 'redo' | 'bold' | 'italic' | 'strike'
   | 'highlight' | 'inlineCode' | 'codeBlock' | 'link'
-  | 'image' | 'table' | 'rule' | 'indent' | 'outdent';
+  | 'image' | 'table' | 'rule' | 'indent' | 'outdent'
+  | 'callout' | 'clearFormat' | 'moveUp' | 'moveDown';
 
 function applyWrap(view: EditorView, marker: string): void {
   const state = view.state;
@@ -90,6 +91,92 @@ function applyRule(view: EditorView): void {
   });
 }
 
+function applyCallout(view: EditorView): void {
+  const state = view.state;
+  const range = state.selection.main;
+  let first = state.doc.lineAt(range.from).number;
+  let last = state.doc.lineAt(range.to > range.from ? range.to - 1 : range.to).number;
+  while (first > 1 && /^>/.test(state.doc.line(first - 1).text)) first -= 1;
+  while (last < state.doc.lines && /^>/.test(state.doc.line(last + 1).text)) last += 1;
+  const from = state.doc.line(first).from;
+  const to = state.doc.line(last).to;
+  const lines = state.doc.sliceString(from, to).split('\n');
+  const isCallout = lines.some((line) => /^> ?\[!\w+\]/.test(line));
+  const insert = isCallout
+    ? lines
+      .filter((line) => !/^> ?\[!\w+\]/.test(line))
+      .map((line) => line.replace(/^> ?/, ''))
+      .join('\n')
+    : ['> [!note]', ...lines.map((line) => `> ${line}`)].join('\n');
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: EditorSelection.range(from, from + insert.length),
+    scrollIntoView: true,
+    userEvent: 'input',
+  });
+}
+
+function applyClearFormat(view: EditorView): void {
+  const state = view.state;
+  const range = state.selection.main;
+  if (range.empty) return;
+  const text = state.doc.sliceString(range.from, range.to);
+  const cleared = text
+    .replace(/\*\*(.+?)\*\*/gs, '$1')
+    .replace(/__(.+?)__/gs, '$1')
+    .replace(/~~(.+?)~~/gs, '$1')
+    .replace(/==(.+?)==/gs, '$1')
+    .replace(/(?<!`)\*(?!\*)(.+?)(?<!`)\*(?!\*)/gs, '$1')
+    .replace(/(?<!`)_(?!_)(.+?)(?<!`)_(?!_)/gs, '$1')
+    .replace(/`([^`]+)`/g, '$1');
+  if (cleared === text) return;
+  view.dispatch({
+    changes: { from: range.from, to: range.to, insert: cleared },
+    selection: EditorSelection.range(range.from, range.from + cleared.length),
+    scrollIntoView: true,
+    userEvent: 'input',
+  });
+}
+
+function moveLines(view: EditorView, direction: -1 | 1): void {
+  const state = view.state;
+  const range = state.selection.main;
+  const first = state.doc.lineAt(range.from);
+  const last = state.doc.lineAt(range.to > range.from ? range.to - 1 : range.to);
+  if (direction < 0 && first.number === 1) return;
+  if (direction > 0 && last.number === state.doc.lines) return;
+  const block = state.doc.sliceString(first.from, last.to);
+  if (direction < 0) {
+    const above = state.doc.line(first.number - 1);
+    view.dispatch({
+      changes: [
+        { from: above.from, to: above.to, insert: block },
+        { from: first.from, to: last.to, insert: above.text },
+      ],
+      selection: EditorSelection.range(
+        above.from,
+        above.from + block.length,
+      ),
+      scrollIntoView: true,
+      userEvent: 'move',
+    });
+    return;
+  }
+  const below = state.doc.line(last.number + 1);
+  view.dispatch({
+    changes: [
+      { from: first.from, to: last.to, insert: below.text },
+      { from: below.from, to: below.to, insert: block },
+    ],
+    selection: EditorSelection.range(
+      below.from - block.length + below.text.length,
+      below.from - block.length + below.text.length + block.length,
+    ),
+    scrollIntoView: true,
+    userEvent: 'move',
+  });
+}
+
 export function runEditingAction(view: EditorView, action: EditingAction): boolean {
   if (view.state.readOnly) return false;
   switch (action) {
@@ -112,6 +199,10 @@ export function runEditingAction(view: EditorView, action: EditingAction): boole
     case 'rule': applyRule(view); break;
     case 'indent': indentMore(view); break;
     case 'outdent': indentLess(view); break;
+    case 'callout': applyCallout(view); break;
+    case 'clearFormat': applyClearFormat(view); break;
+    case 'moveUp': moveLines(view, -1); break;
+    case 'moveDown': moveLines(view, 1); break;
   }
   view.focus();
   return true;
