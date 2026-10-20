@@ -35,6 +35,18 @@ const CODE_TOKENS: readonly CodeTokenStyle[] = [
     tag: [tags.propertyName, tags.attributeName, tags.definition(tags.propertyName)],
     class: 'q-code-property',
   },
+  {
+    tag: [tags.variableName, tags.definition(tags.variableName), tags.local(tags.variableName)],
+    class: 'q-code-variable',
+  },
+  {
+    tag: [tags.operator, tags.derefOperator, tags.updateOperator, tags.compareOperator, tags.logicOperator, tags.arithmeticOperator, tags.bitwiseOperator],
+    class: 'q-code-operator',
+  },
+  {
+    tag: [tags.punctuation, tags.separator, tags.bracket, tags.angleBracket, tags.squareBracket, tags.paren, tags.brace],
+    class: 'q-code-punctuation',
+  },
 ];
 
 export const codeHighlighting = syntaxHighlighting(HighlightStyle.define(CODE_TOKENS.map((token) => ({ ...token }))));

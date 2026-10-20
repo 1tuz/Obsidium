@@ -1,0 +1,22 @@
+.q-panel-resizer {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: var(--q-size-8);
+  background: transparent;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.q-panel-resizer:hover,
+.q-panel-resizer:focus-visible {
+  background: var(--q-border-accent);
+}
+
+:root[data-panel-resizing] .q-collapsible-panel {
+  transition: none;
+}
+
+:root[data-panel-resizing] {
+  user-select: none;
+}

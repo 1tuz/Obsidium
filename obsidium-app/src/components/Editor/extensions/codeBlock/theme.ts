@@ -8,6 +8,9 @@ export const codeHighlightTheme = EditorView.theme({
   '.cm-content .q-code-function': { color: 'var(--q-editor-code-function)' },
   '.cm-content .q-code-type': { color: 'var(--q-editor-code-type)' },
   '.cm-content .q-code-property': { color: 'var(--q-editor-code-property)' },
+  '.cm-content .q-code-variable': { color: 'var(--q-editor-code-variable)' },
+  '.cm-content .q-code-operator': { color: 'var(--q-editor-code-operator)' },
+  '.cm-content .q-code-punctuation': { color: 'var(--q-editor-code-punctuation)' },
 });
 
 export const codeBlockTheme = EditorView.theme({

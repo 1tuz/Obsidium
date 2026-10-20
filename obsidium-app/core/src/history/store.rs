@@ -78,7 +78,7 @@ pub fn write_version(
     snapshot: &Snapshot,
 ) -> Result<PathBuf, FileCommandError> {
     let label = snapshot.source.file_label();
-    let path = free_name(dir, millis(snapshot.at), |at| {
+    let path = free_name(dir, next_millis(dir, millis(snapshot.at)), |at| {
         format!("{at:013}_{device}_{label}{VERSION_EXTENSION}")
     });
     fs::create_dir_all(dir)?;
@@ -250,6 +250,19 @@ fn parse_version(name: String) -> Option<VersionFile> {
     })
 }
 
+fn next_millis(dir: &Path, requested: u64) -> u64 {
+    let latest = versions(dir)
+        .iter()
+        .map(|version| version.at_ms)
+        .max()
+        .unwrap_or(0);
+    if requested > latest {
+        requested
+    } else {
+        latest + 1
+    }
+}
+
 fn millis(at: SystemTime) -> u64 {
     at.duration_since(UNIX_EPOCH)
         .map_or(0, |since| since.as_millis() as u64)
@@ -265,8 +278,8 @@ fn free_name(dir: &Path, at_ms: u64, name: impl Fn(u64) -> String) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        adopt_quantum_history, history_dir, history_root, latest_text, names, remove_expired,
-        versions, write_name, write_version, DAY,
+        adopt_quantum_history, history_dir, history_root, latest_text, names, read_version,
+        remove_expired, versions, write_name, write_version, DAY,
     };
     use crate::history::milestone::{Snapshot, Source};
     use std::fs;
@@ -279,6 +292,39 @@ mod tests {
             source,
             at: UNIX_EPOCH + Duration::from_secs(seconds),
         }
+    }
+
+    #[test]
+    fn versions_written_in_the_same_millisecond_keep_their_order() {
+        let vault = tempfile::tempdir().unwrap();
+        let dir = history_dir(vault.path(), Path::new("Идея.md"));
+        let at = UNIX_EPOCH + Duration::from_secs(10);
+
+        for (text, source) in [
+            ("начало", Source::Agent),
+            ("начало и середина", Source::Me),
+            ("начало и середина от агента", Source::Agent),
+        ] {
+            write_version(
+                &dir,
+                "device",
+                &Snapshot {
+                    text: text.to_owned(),
+                    source,
+                    at,
+                },
+            )
+            .unwrap();
+        }
+
+        let texts = versions(&dir)
+            .into_iter()
+            .map(|version| read_version(&dir, &version).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            texts,
+            ["начало", "начало и середина", "начало и середина от агента"]
+        );
     }
 
     #[test]
@@ -322,8 +368,8 @@ mod tests {
     fn versions_are_separate_files_ordered_by_time_and_never_overwritten() {
         let directory = tempfile::tempdir().unwrap();
         let dir = history_dir(directory.path(), Path::new("Идея.md"));
-        write_version(&dir, "aaaa", &snapshot("второй", Source::Agent, 20)).unwrap();
         write_version(&dir, "aaaa", &snapshot("первый", Source::Me, 10)).unwrap();
+        write_version(&dir, "aaaa", &snapshot("второй", Source::Agent, 20)).unwrap();
         let clash =
             write_version(&dir, "aaaa", &snapshot("тот же миг", Source::Agent, 20)).unwrap();
 
@@ -339,7 +385,7 @@ mod tests {
         assert_eq!(dir.join(&found[2].id), clash);
         assert_eq!(
             found[2].at_ms, 20_001,
-            "совпавшее имя сдвигает миллисекунду, а не перезаписывает файл"
+            "версия в ту же миллисекунду сдвигается на следующую, а не перезаписывает файл"
         );
         assert_eq!(latest_text(&dir).as_deref(), Some("тот же миг"));
     }

@@ -73,6 +73,8 @@ impl Default for FontSettings {
     }
 }
 
+pub const SAVE_INTERVALS: [u32; 5] = [5_000, 10_000, 30_000, 60_000, 300_000];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EditorSettings {
@@ -117,7 +119,7 @@ impl Default for MarkdownReadingSettings {
 impl Default for EditorSettings {
     fn default() -> Self {
         Self {
-            save_debounce_ms: 1000,
+            save_debounce_ms: 30_000,
             line_height: 1.8,
             max_width_ch: 65,
             smart_dashes: true,

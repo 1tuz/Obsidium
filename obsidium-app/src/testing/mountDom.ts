@@ -7,6 +7,15 @@ export interface MountedDom {
   unmount: () => void;
 }
 
+if (typeof window !== 'undefined') {
+  window.requestAnimationFrame = (callback: FrameRequestCallback): number => (
+    window.setTimeout(() => callback(window.performance?.now?.() ?? Date.now()), 0)
+  );
+  window.cancelAnimationFrame = (handle: number): void => {
+    window.clearTimeout(handle);
+  };
+}
+
 export function mountDom(node: ComponentChild): MountedDom {
   const container = document.createElement('div');
   document.body.appendChild(container);

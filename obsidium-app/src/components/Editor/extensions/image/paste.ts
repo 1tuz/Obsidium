@@ -4,28 +4,29 @@ import { importIntoFiles } from '../../../../modules/docs/vaultFiles';
 import {
   DEFAULT_IMAGE_ALIGN,
   formatImageEmbed,
-  mediaExtensionForMime,
-  mediaKindForMime,
+  mediaExtensionForFile,
+  mediaKindForFile,
 } from '../../../../modules/docs/imageEmbeds';
 import { livePreviewConfigFacet } from '../livePreviewConfig';
 import { editorColumnWidth, lastImageArea } from './widgetDom';
 
-function mediaFilesOf(transfer: DataTransfer | null): File[] {
-  if (!transfer) return [];
-  return Array.from(transfer.files).filter((file) => mediaKindForMime(file.type));
+export function mediaFilesOf(transfer: Pick<DataTransfer, 'files'> | null | undefined): File[] {
+  const files = transfer?.files;
+  if (!files) return [];
+  return Array.from(files).filter((file) => mediaKindForFile(file));
 }
 
 function fallbackNameOf(file: File): string {
-  return mediaKindForMime(file.type) === 'video' ? 'video' : 'image';
+  return mediaKindForFile(file) === 'video' ? 'video' : 'image';
 }
 
 function fileNameOf(file: File): string {
   if (file.name && file.name.includes('.')) return file.name;
-  return `${fallbackNameOf(file)}.${mediaExtensionForMime(file.type)}`;
+  return `${fallbackNameOf(file)}.${mediaExtensionForFile(file)}`;
 }
 
 async function naturalWidthOf(file: File): Promise<number | null> {
-  if (mediaKindForMime(file.type) !== 'image') return null;
+  if (mediaKindForFile(file) !== 'image') return null;
   try {
     const bitmap = await createImageBitmap(file);
     const { width } = bitmap;
@@ -37,14 +38,15 @@ async function naturalWidthOf(file: File): Promise<number | null> {
 }
 
 function insertImageLines(view: EditorView, at: number, lines: string[]): void {
-  const line = view.state.doc.lineAt(at);
-  const prefix = at === line.from ? '' : '\n';
-  const restIsEmpty = view.state.doc.sliceString(at, line.to).trim() === '';
+  const from = Math.min(at, view.state.doc.length);
+  const line = view.state.doc.lineAt(from);
+  const prefix = from === line.from ? '' : '\n';
+  const restIsEmpty = view.state.doc.sliceString(from, line.to).trim() === '';
   const insert = `${prefix}${lines.join('\n\n')}\n${restIsEmpty ? '' : '\n'}`;
 
   view.dispatch({
-    changes: { from: at, insert },
-    selection: EditorSelection.cursor(at + insert.length),
+    changes: { from, insert },
+    selection: EditorSelection.cursor(from + insert.length),
     userEvent: 'input.paste',
     scrollIntoView: true,
   });
@@ -63,7 +65,7 @@ async function pasteMediaFiles(view: EditorView, files: File[], at: number): Pro
     const relative = await importIntoFiles(
       workspacePath,
       { kind: 'bytes', bytes: new Uint8Array(await file.arrayBuffer()), name: fileNameOf(file) },
-      { fallbackName: fallbackNameOf(file), fallbackExt: mediaExtensionForMime(file.type) },
+      { fallbackName: fallbackNameOf(file), fallbackExt: mediaExtensionForFile(file) },
     );
     lines.push(formatImageEmbed({ src: relative, width, align: DEFAULT_IMAGE_ALIGN, crop: null }));
   }

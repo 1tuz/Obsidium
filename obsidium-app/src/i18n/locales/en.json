@@ -330,8 +330,9 @@
       "minChars": "Minimum characters",
       "minCharsHint": "How many letters bring up the list",
       "saving": "Saving",
-      "saveDebounce": "Autosave, ms",
-      "saveDebounceAria": "Autosave"
+      "saveDebounce": "Autosave interval",
+      "saveSeconds": "{{count}} s",
+      "saveDebounceAria": "Autosave interval"
     },
     "reader": {
       "lineHeight": "Line height",
@@ -1002,5 +1003,9 @@
     "forgetConfirm": "Remove",
     "forgetPending": "Removing…",
     "listFailed": "Could not read the list of knowledge bases: {{reason}}"
+  },
+  "layout": {
+    "resizeLeftPanel": "Resize the file panel",
+    "resizeRightPanel": "Resize the links panel"
   }
 }

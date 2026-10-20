@@ -14,6 +14,8 @@ import { SegmentedControl } from '../../Common/SegmentedControl';
 import type { SettingsSectionProps } from '../types';
 import './EditorSection.css';
 
+const SAVE_INTERVAL_SECONDS = [5, 10, 30, 60, 300] as const;
+
 export function EditorSection({ config, onChange }: SettingsSectionProps) {
   const patchEditor = (partial: Partial<AppConfig['editor']>) => onChange({
     ...config,
@@ -177,14 +179,17 @@ export function EditorSection({ config, onChange }: SettingsSectionProps) {
       </Section>
       <Section title={t('settings.editor.saving')}>
         <Row label={t('settings.editor.saveDebounce')}>
-          <NumberControl
-            ariaLabel={t('settings.editor.saveDebounceAria')}
-            value={config.editor.saveDebounceMs}
-            min={250}
-            max={10000}
-            step={250}
-            onChange={(saveDebounceMs) => patchEditor({ saveDebounceMs })}
-          />
+          <div role="group" aria-label={t('settings.editor.saveDebounceAria')}>
+            <SegmentedControl
+              className="q-editor-save-interval"
+              options={SAVE_INTERVAL_SECONDS.map((seconds) => ({
+                value: String(seconds * 1000),
+                label: t('settings.editor.saveSeconds', { count: seconds }),
+              }))}
+              value={String(config.editor.saveDebounceMs)}
+              onChange={(value) => patchEditor({ saveDebounceMs: Number(value) })}
+            />
+          </div>
         </Row>
       </Section>
     </>

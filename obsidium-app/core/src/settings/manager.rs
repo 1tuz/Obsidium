@@ -1,5 +1,5 @@
 use crate::files::document::write_file_atomic_impl;
-use crate::settings::models::AppConfig;
+use crate::settings::models::{AppConfig, SAVE_INTERVALS};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -23,7 +23,7 @@ impl SettingsManager {
     fn load_or_default(path: &Path) -> AppConfig {
         match fs::read_to_string(path) {
             Ok(content) => {
-                match serde_json::from_str::<AppConfig>(&content) {
+                match parse(&content) {
                     Ok(mut config) => {
                         if config.ui.accent_mode == "legacy"
                             || (config.ui.accent_mode == "custom"
@@ -69,6 +69,14 @@ impl SettingsManager {
     }
 }
 
+fn parse(content: &str) -> Result<AppConfig, serde_json::Error> {
+    let mut config: AppConfig = serde_json::from_str(content)?;
+    if !SAVE_INTERVALS.contains(&config.editor.save_debounce_ms) {
+        config.editor.save_debounce_ms = AppConfig::default().editor.save_debounce_ms;
+    }
+    Ok(config)
+}
+
 fn is_legacy_default_accent(color: &str) -> bool {
     color.eq_ignore_ascii_case("#1471eb") || color.eq_ignore_ascii_case("#d357fe")
 }
@@ -111,7 +119,7 @@ mod tests {
         assert_eq!(config.mcp.port, 8787);
         assert_eq!(config.editor.font.font_family, "iA Writer Quattro");
         assert_eq!(config.ui.icon_set, "lucide");
-        assert_eq!(config.editor.save_debounce_ms, 1000);
+        assert_eq!(config.editor.save_debounce_ms, 30_000);
         assert!(config.analysis.enable_bm25f);
         assert!(config.builtins.editing_toolbar);
         assert!(config.builtins.kanban);
@@ -121,6 +129,38 @@ mod tests {
         assert_eq!(config.editor.markdown_reading.font_size_px, 18);
         assert_eq!(config.editor.markdown_reading.line_height, 1.7);
         assert_eq!(config.editor.markdown_reading.page_width_ch, 65);
+    }
+
+    #[test]
+    fn an_unsupported_autosave_interval_falls_back_to_the_default() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("settings.json"),
+            r#"{"editor":{"saveDebounceMs":1000}}"#,
+        )
+        .unwrap();
+
+        let config = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!(config.editor.save_debounce_ms, 30_000);
+    }
+
+    #[test]
+    fn a_supported_autosave_interval_survives_a_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        config.editor.save_debounce_ms = 60_000;
+
+        manager.update_config(config).unwrap();
+
+        assert_eq!(
+            SettingsManager::new(dir.path())
+                .get_config()
+                .editor
+                .save_debounce_ms,
+            60_000
+        );
     }
 
     #[test]
