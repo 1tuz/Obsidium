@@ -11,6 +11,12 @@
     "openFailed": "Could not open the note {{path}}: {{reason}}",
     "openFailedEncoding": "the file is not saved as UTF-8. Open it in another editor and save it as UTF-8.",
     "titleAria": "Document title",
+    "nameLabel": "Note name",
+    "nameHint": "Rename the note; Enter applies, Escape cancels",
+    "saved": "Saved",
+    "saving": "Saving…",
+    "saveNow": "Save now",
+    "saveFailedShort": "Not saved",
     "untitled": "Untitled",
     "actions": "Editor actions",
     "exportPdf": "Export to PDF",
@@ -60,7 +66,9 @@
       "h4": "Heading 4",
       "h5": "Heading 5",
       "h6": "Heading 6",
-      "image": "Image"
+      "image": "Image",
+    "headings": "Headings",
+    "lists": "Lists"
     },
     "metadata": "Metadata",
     "createNote": "Create a note",

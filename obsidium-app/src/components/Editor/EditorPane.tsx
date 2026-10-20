@@ -13,7 +13,8 @@ import {
   type WikiLinkResolver,
 } from '../../modules/links';
 import type { ViewState, SessionTab } from '../../modules/ui-state';
-import { readDocument } from '../../modules/documents/documentGateway';
+import { flushDocuments, readDocument } from '../../modules/documents/documentGateway';
+import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile';
 import { exportNoteToPdf } from '../../modules/export';
 import { fileName, fileStem, samePath } from '../../modules/paths';
 import { closeVersion, useOpenedVersion } from '../../modules/history';
@@ -137,6 +138,9 @@ export function EditorPane({
       >
         <EditorToolbar
           fileName={fileName(tab.path)}
+          noteName={fileStem(tab.path)}
+          onRename={(name) => renameWorkspaceFile(tab.path, name).then((path) => path !== null)}
+          onSave={flushDocuments}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
           onNavigate={onNavigate}
