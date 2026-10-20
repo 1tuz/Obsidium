@@ -24,6 +24,7 @@
     "plainText": "Обычный текст",
     "copyCode": "Копировать код",
     "codeCopied": "Скопировано",
+    "codeCopyFailed": "Не удалось скопировать",
     "fileLoading": "Загрузка файла…",
     "fileSaving": "Сохранение…",
     "fileSaved": "Сохранено",

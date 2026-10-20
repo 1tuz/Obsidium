@@ -9,6 +9,7 @@ import { t as translatePaperStyle } from '../../i18n';
 
 const canvasStyles = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasView.css'), 'utf8');
 const canvasToolbarSource = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasToolbar.tsx'), 'utf8');
+const canvasToolbarStyles = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasToolbar.css'), 'utf8');
 
 describe('CanvasToolbar', () => {
   let renderer: MountedDom | null = null;
@@ -40,6 +41,13 @@ describe('CanvasToolbar', () => {
 
   it('keeps the dark grid line visible against the dark paper', () => {
     expect(canvasStyles).toMatch(/:root\[data-theme='dark'\] \.q-canvas\[data-paper-style\]\s*\{[^}]*--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink-solid\) 46%/s);
+  });
+
+  it('tints the armed tool with accent tokens instead of the neutral pressed wash', () => {
+    expect(canvasToolbarStyles).toMatch(/\.q-canvas-toolbar__tools \.q-icon-button\[aria-pressed='true'\]\s*\{[^}]*background-color:\s*var\(--q-bg-accent-subtle\);/s);
+    expect(canvasToolbarStyles).toMatch(/\.q-canvas-toolbar__tools \.q-icon-button\[aria-pressed='true'\]\s*\{[^}]*color:\s*var\(--q-icon-accent\);/s);
+    expect(canvasToolbarStyles).toMatch(/\.q-canvas-toolbar__tools \.q-icon-button\[aria-pressed='true'\]\s*\{[^}]*inset 0 0 0 var\(--q-border-1\) var\(--q-border-accent-subtle\)/s);
+    expect(canvasToolbarStyles).toMatch(/\.q-icon-button\[aria-pressed='true'\](?::hover|:active)[^{]*\{[^}]*background-color:\s*var\(--q-bg-accent-subtle\);/s);
   });
 
   it('labels paper styles through the existing settings translation namespace', () => {

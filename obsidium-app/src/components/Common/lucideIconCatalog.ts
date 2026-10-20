@@ -1,5 +1,5 @@
 import type { IconNode } from 'lucide';
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Bold, BookOpen, Bookmark, Briefcase, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsUpDown, Circle, Code, Code2, CodeXml, Columns3, Command, CornerDownLeft, Crop, DatabaseZap, ExternalLink, File, FileCode, FilePlus2, FileText, Folder, FolderOpen, FolderSearch, FolderTree, GitBranch, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Heart, Highlighter, History, House, Image, IndentDecrease, IndentIncrease, Italic, Keyboard, Library, Link2, List, ListOrdered, ListTodo, LoaderCircle, Minus, Monitor, Moon, MoreHorizontal, MousePointer2, MoveDiagonal2, Music2, Network, Palette, PanelLeft, PanelRight, PanelRightClose, PanelRightOpen, Paperclip, Pencil, Pin, Plug, Plus, Power, Puzzle, Quote, Redo2, RefreshCw, RotateCcw, Rows3, Search, SearchX, Settings, Settings2, Shuffle, Square, Star, Strikethrough, Sun, Table2, TableCellsMerge, TableCellsSplit, Tag, Tags, TextSelect, Trash2, Type, Undo2, UnfoldVertical, Upload, Users, X, ZoomIn } from 'lucide';
+import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Bold, BookOpen, Bookmark, Briefcase, BringToFront, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsUpDown, Circle, Code, Code2, CodeXml, Columns3, Command, Copy, CornerDownLeft, Crop, DatabaseZap, Diamond, ExternalLink, File, FileCode, FilePlus2, FileText, Folder, FolderOpen, FolderSearch, FolderTree, GitBranch, Group, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Heart, Highlighter, History, House, Image, IndentDecrease, IndentIncrease, Italic, Keyboard, Library, Link2, List, ListOrdered, ListTodo, LoaderCircle, Minus, Monitor, Moon, MoreHorizontal, MousePointer2, MoveDiagonal2, Music2, Network, Palette, PanelLeft, PanelRight, PanelRightClose, PanelRightOpen, Paperclip, Pencil, Pin, Plug, Plus, Power, Puzzle, Quote, Redo2, RefreshCw, RotateCcw, Rows3, Search, SearchX, SendToBack, Settings, Settings2, Shuffle, Square, Star, Strikethrough, Sun, Table2, TableCellsMerge, TableCellsSplit, Tag, Tags, TextSelect, Trash2, Type, Undo2, UnfoldVertical, Ungroup, Upload, Users, X, ZoomIn } from 'lucide';
 
 import type { IconId } from './iconCatalog';
 
@@ -18,6 +18,7 @@ export const LUCIDE_ICONS = {
   'book': BookOpen,
   'bookmark': Bookmark,
   'briefcase': Briefcase,
+  'bring-to-front': BringToFront,
   'calendar': CalendarDays,
   'check': Check,
   'chevron-down': ChevronDown,
@@ -34,6 +35,8 @@ export const LUCIDE_ICONS = {
   'corner-down-left': CornerDownLeft,
   'crop': Crop,
   'database': DatabaseZap,
+  'diamond': Diamond,
+  'duplicate': Copy,
   'external-link': ExternalLink,
   'file-icon': File,
   'code-file': FileCode,
@@ -44,6 +47,7 @@ export const LUCIDE_ICONS = {
   'file-search': FolderSearch,
   'files': FolderTree,
   'git-branch': GitBranch,
+  'group': Group,
   'heading1': Heading1,
   'heading2': Heading2,
   'heading3': Heading3,
@@ -92,6 +96,7 @@ export const LUCIDE_ICONS = {
   'rows3': Rows3,
   'search': Search,
   'search-x': SearchX,
+  'send-to-back': SendToBack,
   'settings': Settings,
   'settings2': Settings2,
   'shuffle': Shuffle,
@@ -109,6 +114,7 @@ export const LUCIDE_ICONS = {
   'type': Type,
   'undo2': Undo2,
   'unfold-vertical': UnfoldVertical,
+  'ungroup': Ungroup,
   'upload': Upload,
   'users': Users,
   'x': X,
@@ -131,6 +137,7 @@ export const LEGACY_ICON_IDS = new Map<IconNode, IconId>([
   [BookOpen, 'book'],
   [Bookmark, 'bookmark'],
   [Briefcase, 'briefcase'],
+  [BringToFront, 'bring-to-front'],
   [CalendarDays, 'calendar'],
   [Check, 'check'],
   [ChevronDown, 'chevron-down'],
@@ -147,6 +154,8 @@ export const LEGACY_ICON_IDS = new Map<IconNode, IconId>([
   [CornerDownLeft, 'corner-down-left'],
   [Crop, 'crop'],
   [DatabaseZap, 'database'],
+  [Diamond, 'diamond'],
+  [Copy, 'duplicate'],
   [ExternalLink, 'external-link'],
   [File, 'file-icon'],
   [FileCode, 'code-file'],
@@ -157,6 +166,7 @@ export const LEGACY_ICON_IDS = new Map<IconNode, IconId>([
   [FolderSearch, 'file-search'],
   [FolderTree, 'files'],
   [GitBranch, 'git-branch'],
+  [Group, 'group'],
   [Heading1, 'heading1'],
   [Heading2, 'heading2'],
   [Heading3, 'heading3'],
@@ -205,6 +215,7 @@ export const LEGACY_ICON_IDS = new Map<IconNode, IconId>([
   [Rows3, 'rows3'],
   [Search, 'search'],
   [SearchX, 'search-x'],
+  [SendToBack, 'send-to-back'],
   [Settings, 'settings'],
   [Settings2, 'settings2'],
   [Shuffle, 'shuffle'],
@@ -222,6 +233,7 @@ export const LEGACY_ICON_IDS = new Map<IconNode, IconId>([
   [Type, 'type'],
   [Undo2, 'undo2'],
   [UnfoldVertical, 'unfold-vertical'],
+  [Ungroup, 'ungroup'],
   [Upload, 'upload'],
   [Users, 'users'],
   [X, 'x'],

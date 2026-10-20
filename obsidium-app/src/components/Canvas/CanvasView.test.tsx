@@ -968,6 +968,135 @@ describe('CanvasView', () => {
     expect(renderer!.container.querySelector('.q-canvas__object.is-selected')).not.toBeNull();
   });
 
+  it('moves an existing object instead of drawing when a shape tool is armed', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'shape', type: 'text', x: 0, y: 0, width: 160, height: 110, text: '', obsidium: { shape: 'diamond' } }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', code: 'KeyD', bubbles: true, cancelable: true })); });
+    expect(canvas.dataset.activeTool).toBe('diamond');
+
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { clientX: 20, clientY: 20, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 60, clientY: 50, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 60, clientY: 50, bubbles: true })); });
+    await act(settleAutosave);
+
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(1);
+    expect(object.style.left).toBe('40px');
+    expect(canvas.dataset.activeTool).toBe('select');
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes).toHaveLength(1);
+    expect(saved.nodes[0]).toMatchObject({ id: 'shape', x: 40, y: 30 });
+  });
+
+  it('selects the whole group when a member is clicked', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'group', type: 'group', x: 0, y: 0, width: 360, height: 260, label: 'Group' },
+        { id: 'first', type: 'text', x: 40, y: 40, width: 120, height: 80, text: 'First' },
+        { id: 'second', type: 'text', x: 200, y: 140, width: 120, height: 80, text: 'Second' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const objects = renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object');
+    await actAndSettle(() => { objects[1].dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 60, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 60, clientY: 60, bubbles: true })); });
+
+    expect(renderer!.container.querySelectorAll('.q-canvas__object.is-selected')).toHaveLength(1);
+    expect(renderer!.container.querySelector('.q-canvas__object.is-selected')?.textContent).toContain('Group');
+    expect(renderer!.container.querySelectorAll('.q-canvas__resize')).toHaveLength(8);
+    expect(renderer!.container.querySelectorAll('.q-canvas__connect')).toHaveLength(0);
+  });
+
+  it('moves a group and its members together when reordering', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'group', type: 'group', x: 0, y: 0, width: 360, height: 260, label: 'Group' },
+        { id: 'first', type: 'text', x: 40, y: 40, width: 120, height: 80, text: 'First' },
+        { id: 'second', type: 'text', x: 200, y: 140, width: 120, height: 80, text: 'Second' },
+        { id: 'outside', type: 'text', x: 500, y: 0, width: 120, height: 80, text: 'Outside' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    expect([...renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object')].map((object) => object.textContent))
+      .toEqual(['Group', 'First', 'Second', 'Outside']);
+
+    const objects = renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object');
+    await actAndSettle(() => { objects[1].dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 60, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 60, clientY: 60, bubbles: true })); });
+    await actAndSettle(() => { renderer!.container.querySelector<HTMLButtonElement>('[aria-label="canvas.selection.front"]')!.click(); });
+
+    expect([...renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object')].map((object) => object.textContent))
+      .toEqual(['Outside', 'Group', 'First', 'Second']);
+  });
+
+  it('scales group members when the group is resized from a handle', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'group', type: 'group', x: 0, y: 0, width: 320, height: 220, label: 'Group' },
+        { id: 'first', type: 'text', x: 40, y: 40, width: 160, height: 100, text: 'First' },
+        { id: 'second', type: 'text', x: 200, y: 120, width: 100, height: 80, text: 'Second' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const objects = renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object');
+    await actAndSettle(() => { objects[1].dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 60, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 60, clientY: 60, bubbles: true })); });
+
+    const handle = renderer!.container.querySelector<HTMLElement>('.q-canvas__resize[data-handle="bottom-right"]')!;
+    expect(handle).not.toBeNull();
+    await actAndSettle(() => { handle.dispatchEvent(new MouseEvent('pointerdown', { clientX: 320, clientY: 220, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 640, clientY: 440, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 640, clientY: 440, bubbles: true })); });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    const byId = Object.fromEntries(saved.nodes.map((node: { id: string }) => [node.id, node]));
+    expect(byId.group).toMatchObject({ x: 0, y: 0, width: 640, height: 440 });
+    expect(byId.first).toMatchObject({ x: 80, y: 80, width: 320, height: 200 });
+    expect(byId.second).toMatchObject({ x: 400, y: 240, width: 200, height: 160 });
+  });
+
   it('creates a default-sized shape when the tool is clicked without dragging', async () => {
     act(() => {
       renderer = mountDom(

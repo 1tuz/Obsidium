@@ -18,6 +18,7 @@ import {
   type KnownWorkspace,
 } from '../../modules/workspaces';
 import { fileName, samePath } from '../../modules/paths';
+import { copyText } from '../../modules/clipboard';
 import './WorkspaceDialog.css';
 
 interface WorkspaceDialogProps {
@@ -180,8 +181,9 @@ function WorkspaceRow({ workspace, current, pending, managing, onOpen, onForget,
       label: t('workspaces.copyId'),
       icon: File,
       onSelect: () => {
-        void navigator.clipboard.writeText(workspace.id).catch((reason) => {
-          console.error('Failed to copy workspace ID', reason);
+        void copyText(workspace.id).then((ok) => {
+          if (ok) return;
+          console.error('Failed to copy workspace ID');
           onError(t('workspaces.copyFailed'));
         });
       },

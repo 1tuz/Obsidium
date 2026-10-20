@@ -1,6 +1,7 @@
 import { useCallback, useState, type MouseEvent } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { t } from '../../i18n';
+import { copyText } from '../../modules/clipboard';
 import type { MenuItem } from './Menu';
 import { useContextMenu } from './useContextMenu';
 
@@ -15,8 +16,8 @@ function copyItem(getView: ViewSource, enabled: boolean): MenuItem {
       const view = getView();
       if (!view || view.state.selection.main.empty) return;
       const { from, to } = view.state.selection.main;
-      void navigator.clipboard.writeText(view.state.sliceDoc(from, to)).catch((error) => {
-        console.error('Failed to copy the selection', error);
+      void copyText(view.state.sliceDoc(from, to)).then((ok) => {
+        if (!ok) console.error('Failed to copy the selection');
       });
     },
   };

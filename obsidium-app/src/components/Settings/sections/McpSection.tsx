@@ -6,6 +6,7 @@ import {
   type McpStatus,
 } from '../../../modules/mcp';
 import type { AppConfig, McpSettings } from '../../../modules/settings';
+import { copyText } from '../../../modules/clipboard';
 import { Input } from '../../Common/Input';
 import { t } from '../../../i18n';
 import { Switch } from '../../Common/Switch';
@@ -138,9 +139,10 @@ export function McpSection({ config }: { config: AppConfig }) {
   };
 
   const copy = (snippet: Snippet) => {
-    void navigator.clipboard.writeText(snippet.code)
-      .then(() => setCopied(snippet.title))
-      .catch((error) => console.error('Failed to copy snippet', error));
+    void copyText(snippet.code).then((ok) => {
+      if (ok) setCopied(snippet.title);
+      else console.error('Failed to copy snippet');
+    });
   };
 
   return (

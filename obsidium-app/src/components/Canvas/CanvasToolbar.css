@@ -19,6 +19,18 @@
   gap: var(--q-space-4);
 }
 
+.q-canvas-toolbar__tools .q-icon-button[aria-pressed='true'] {
+  background-color: var(--q-bg-accent-subtle);
+  color: var(--q-icon-accent);
+  box-shadow: inset 0 0 0 var(--q-border-1) var(--q-border-accent-subtle);
+}
+
+.q-canvas-toolbar__tools .q-icon-button[aria-pressed='true']:hover,
+.q-canvas-toolbar__tools .q-icon-button[aria-pressed='true']:active {
+  background-color: var(--q-bg-accent-subtle);
+  color: var(--q-icon-accent);
+}
+
 .q-canvas-toolbar__history {
   padding-left: var(--q-space-8);
   border-left: var(--q-border-1) solid var(--q-border-default);

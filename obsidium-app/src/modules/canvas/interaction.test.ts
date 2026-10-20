@@ -8,10 +8,12 @@ import {
   canvasSidePoint,
   commitCanvasHistory,
   createCanvasHistory,
+  expandCanvasSelection,
   getCanvasGroupMemberIds,
   getCanvasEdgeGeometry,
   getCanvasEdgePath,
   redoCanvasHistory,
+  resizeCanvasGroup,
   resizeCanvasNode,
   resizeCanvasNodeFromHandle,
   selectCanvasNode,
@@ -124,6 +126,40 @@ describe('canvas interactions', () => {
     expect(canvasNodeAtPoint([stacked[1]], { x: 40, y: 20 })).toBeNull();
     expect(canvasNodeAtPoint(stacked, { x: 120, y: 70 })?.id).toBe('over');
     expect(canvasNodeAtPoint(stacked, { x: 200, y: 200 })).toBeNull();
+  });
+
+  it('expands a selection to whole groups from a member, a nested group, or a plain node', () => {
+    const grouped: CanvasNode[] = [
+      { id: 'outer', type: 'group', x: 0, y: 0, width: 600, height: 400 },
+      { id: 'inner', type: 'group', x: 20, y: 20, width: 300, height: 200 },
+      { id: 'first', type: 'text', x: 40, y: 40, width: 100, height: 60, text: 'first' },
+      { id: 'second', type: 'text', x: 200, y: 100, width: 100, height: 60, text: 'second' },
+      { id: 'outside', type: 'text', x: 700, y: 0, width: 100, height: 60, text: 'outside' },
+    ];
+    expect(expandCanvasSelection(['first'], grouped)).toEqual(['outer', 'inner', 'first', 'second']);
+    expect(expandCanvasSelection(['inner'], grouped)).toEqual(['outer', 'inner', 'first', 'second']);
+    expect(expandCanvasSelection(['outside'], grouped)).toEqual(['outside']);
+    expect(expandCanvasSelection(['first', 'outside'], grouped)).toEqual(['outer', 'inner', 'first', 'second', 'outside']);
+  });
+
+  it('scales group members with the resized group and clamps small members', () => {
+    const group: CanvasNode = { id: 'group', type: 'group', x: 0, y: 0, width: 200, height: 100 };
+    const members: CanvasNode[] = [
+      { id: 'member', type: 'text', x: 40, y: 20, width: 60, height: 40, text: 'member' },
+      { id: 'small', type: 'text', x: 10, y: 10, width: 20, height: 20, text: 'small' },
+      { id: 'outside', type: 'text', x: 400, y: 0, width: 40, height: 40, text: 'outside' },
+    ];
+    expect(resizeCanvasGroup(group, members, { ...group, width: 400, height: 200 }))
+      .toEqual([
+        { id: 'member', type: 'text', x: 80, y: 40, width: 120, height: 80, text: 'member' },
+        { id: 'small', type: 'text', x: 20, y: 20, width: 40, height: 40, text: 'small' },
+        { id: 'outside', type: 'text', x: 400, y: 0, width: 40, height: 40, text: 'outside' },
+      ]);
+    expect(resizeCanvasGroup(group, members, { ...group, x: 100, y: 50, width: 400, height: 200 })[0])
+      .toMatchObject({ x: 180, y: 90, width: 120, height: 80 });
+    expect(resizeCanvasGroup(group, members, { ...group, width: 20, height: 10 })[1])
+      .toMatchObject({ x: 1, y: 1, width: 24, height: 24 });
+    expect(resizeCanvasGroup(group, members, { ...group, width: 20, height: 10 })[2]).toBe(members[2]);
   });
 
   it('undoes and redoes bounded immutable snapshots', () => {

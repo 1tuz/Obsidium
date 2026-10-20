@@ -1,5 +1,4 @@
 import type { ComponentChildren } from 'preact';
-import { Trash2 } from 'lucide';
 import { t } from '../../i18n';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
@@ -60,7 +59,7 @@ export function CanvasSelectionToolbar({
       <ToolbarAction label={t('canvas.selection.duplicate')} icon={CANVAS_GLYPHS.duplicate} onClick={onDuplicate} />
       <ToolbarAction label={t('canvas.selection.group')} icon={CANVAS_GLYPHS.group} onClick={onGroup} disabled={!canGroup} />
       <ToolbarAction label={t('canvas.selection.ungroup')} icon={CANVAS_GLYPHS.ungroup} onClick={onUngroup} disabled={!canUngroup} />
-      <ToolbarAction label={t('canvas.selection.delete')} icon={Trash2} onClick={onDelete} />
+      <ToolbarAction label={t('canvas.selection.delete')} icon="trash2" onClick={onDelete} />
     </div>
   );
 }

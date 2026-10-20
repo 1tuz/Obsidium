@@ -13,6 +13,7 @@ import boldTabler from '@tabler/icons/outline/bold.svg?raw';
 import bookTabler from '@tabler/icons/outline/book-2.svg?raw';
 import bookmarkTabler from '@tabler/icons/outline/bookmark.svg?raw';
 import briefcaseTabler from '@tabler/icons/outline/briefcase.svg?raw';
+import bringToFrontTabler from '@tabler/icons/outline/stack.svg?raw';
 import calendarTabler from '@tabler/icons/outline/calendar-week.svg?raw';
 import checkTabler from '@tabler/icons/outline/check.svg?raw';
 import chevronDownTabler from '@tabler/icons/outline/chevron-down.svg?raw';
@@ -29,6 +30,8 @@ import commandTabler from '@tabler/icons/outline/command.svg?raw';
 import cornerDownLeftTabler from '@tabler/icons/outline/corner-down-left.svg?raw';
 import cropTabler from '@tabler/icons/outline/crop.svg?raw';
 import databaseTabler from '@tabler/icons/outline/database.svg?raw';
+import diamondTabler from '@tabler/icons/outline/diamond.svg?raw';
+import duplicateTabler from '@tabler/icons/outline/copy.svg?raw';
 import externalLinkTabler from '@tabler/icons/outline/external-link.svg?raw';
 import fileIconTabler from '@tabler/icons/outline/file.svg?raw';
 import codeFileTabler from '@tabler/icons/outline/file-code.svg?raw';
@@ -39,6 +42,7 @@ import folderOpenTabler from '@tabler/icons/outline/folder-open.svg?raw';
 import fileSearchTabler from '@tabler/icons/outline/folder-search.svg?raw';
 import filesTabler from '@tabler/icons/outline/folders.svg?raw';
 import gitBranchTabler from '@tabler/icons/outline/git-branch.svg?raw';
+import groupTabler from '@tabler/icons/outline/users-group.svg?raw';
 import heading1Tabler from '@tabler/icons/outline/h-1.svg?raw';
 import heading2Tabler from '@tabler/icons/outline/h-2.svg?raw';
 import heading3Tabler from '@tabler/icons/outline/h-3.svg?raw';
@@ -87,6 +91,7 @@ import rotateCcwTabler from '@tabler/icons/outline/rotate-clockwise.svg?raw';
 import rows3Tabler from '@tabler/icons/outline/layout-rows.svg?raw';
 import searchTabler from '@tabler/icons/outline/search.svg?raw';
 import searchXTabler from '@tabler/icons/outline/search-off.svg?raw';
+import sendToBackTabler from '@tabler/icons/outline/layout-grid-add.svg?raw';
 import settingsTabler from '@tabler/icons/outline/settings.svg?raw';
 import settings2Tabler from '@tabler/icons/outline/settings-2.svg?raw';
 import shuffleTabler from '@tabler/icons/outline/arrows-shuffle.svg?raw';
@@ -104,6 +109,7 @@ import trash2Tabler from '@tabler/icons/outline/trash.svg?raw';
 import typeTabler from '@tabler/icons/outline/text-size.svg?raw';
 import undo2Tabler from '@tabler/icons/outline/arrow-back-up.svg?raw';
 import unfoldVerticalTabler from '@tabler/icons/outline/arrows-move-vertical.svg?raw';
+import ungroupTabler from '@tabler/icons/outline/layout-grid-remove.svg?raw';
 import uploadTabler from '@tabler/icons/outline/upload.svg?raw';
 import usersTabler from '@tabler/icons/outline/users.svg?raw';
 import xTabler from '@tabler/icons/outline/x.svg?raw';
@@ -127,6 +133,7 @@ export const TABLER_ICONS = {
   'book': svgBody(bookTabler),
   'bookmark': svgBody(bookmarkTabler),
   'briefcase': svgBody(briefcaseTabler),
+  'bring-to-front': svgBody(bringToFrontTabler),
   'calendar': svgBody(calendarTabler),
   'check': svgBody(checkTabler),
   'chevron-down': svgBody(chevronDownTabler),
@@ -143,6 +150,8 @@ export const TABLER_ICONS = {
   'corner-down-left': svgBody(cornerDownLeftTabler),
   'crop': svgBody(cropTabler),
   'database': svgBody(databaseTabler),
+  'diamond': svgBody(diamondTabler),
+  'duplicate': svgBody(duplicateTabler),
   'external-link': svgBody(externalLinkTabler),
   'file-icon': svgBody(fileIconTabler),
   'code-file': svgBody(codeFileTabler),
@@ -153,6 +162,7 @@ export const TABLER_ICONS = {
   'file-search': svgBody(fileSearchTabler),
   'files': svgBody(filesTabler),
   'git-branch': svgBody(gitBranchTabler),
+  'group': svgBody(groupTabler),
   'heading1': svgBody(heading1Tabler),
   'heading2': svgBody(heading2Tabler),
   'heading3': svgBody(heading3Tabler),
@@ -201,6 +211,7 @@ export const TABLER_ICONS = {
   'rows3': svgBody(rows3Tabler),
   'search': svgBody(searchTabler),
   'search-x': svgBody(searchXTabler),
+  'send-to-back': svgBody(sendToBackTabler),
   'settings': svgBody(settingsTabler),
   'settings2': svgBody(settings2Tabler),
   'shuffle': svgBody(shuffleTabler),
@@ -218,6 +229,7 @@ export const TABLER_ICONS = {
   'type': svgBody(typeTabler),
   'undo2': svgBody(undo2Tabler),
   'unfold-vertical': svgBody(unfoldVerticalTabler),
+  'ungroup': svgBody(ungroupTabler),
   'upload': svgBody(uploadTabler),
   'users': svgBody(usersTabler),
   'x': svgBody(xTabler),

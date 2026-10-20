@@ -13,6 +13,7 @@ import boldPhosphor from '@phosphor-icons/core/regular/text-b.svg?raw';
 import bookPhosphor from '@phosphor-icons/core/regular/book-open.svg?raw';
 import bookmarkPhosphor from '@phosphor-icons/core/regular/bookmark-simple.svg?raw';
 import briefcasePhosphor from '@phosphor-icons/core/regular/briefcase.svg?raw';
+import bringToFrontPhosphor from '@phosphor-icons/core/regular/stack.svg?raw';
 import calendarPhosphor from '@phosphor-icons/core/regular/calendar-dots.svg?raw';
 import checkPhosphor from '@phosphor-icons/core/regular/check.svg?raw';
 import chevronDownPhosphor from '@phosphor-icons/core/regular/caret-down.svg?raw';
@@ -29,6 +30,8 @@ import commandPhosphor from '@phosphor-icons/core/regular/command.svg?raw';
 import cornerDownLeftPhosphor from '@phosphor-icons/core/regular/arrow-bend-down-left.svg?raw';
 import cropPhosphor from '@phosphor-icons/core/regular/crop.svg?raw';
 import databasePhosphor from '@phosphor-icons/core/regular/database.svg?raw';
+import diamondPhosphor from '@phosphor-icons/core/regular/diamond.svg?raw';
+import duplicatePhosphor from '@phosphor-icons/core/regular/copy.svg?raw';
 import externalLinkPhosphor from '@phosphor-icons/core/regular/arrow-square-out.svg?raw';
 import fileIconPhosphor from '@phosphor-icons/core/regular/file.svg?raw';
 import codeFilePhosphor from '@phosphor-icons/core/regular/file-code.svg?raw';
@@ -39,6 +42,7 @@ import folderOpenPhosphor from '@phosphor-icons/core/regular/folder-open.svg?raw
 import fileSearchPhosphor from '@phosphor-icons/core/regular/magnifying-glass.svg?raw';
 import filesPhosphor from '@phosphor-icons/core/regular/tree-structure.svg?raw';
 import gitBranchPhosphor from '@phosphor-icons/core/regular/git-branch.svg?raw';
+import groupPhosphor from '@phosphor-icons/core/regular/users-three.svg?raw';
 import heading1Phosphor from '@phosphor-icons/core/regular/text-h-one.svg?raw';
 import heading2Phosphor from '@phosphor-icons/core/regular/text-h-two.svg?raw';
 import heading3Phosphor from '@phosphor-icons/core/regular/text-h-three.svg?raw';
@@ -87,6 +91,7 @@ import rotateCcwPhosphor from '@phosphor-icons/core/regular/arrow-counter-clockw
 import rows3Phosphor from '@phosphor-icons/core/regular/rows.svg?raw';
 import searchPhosphor from '@phosphor-icons/core/regular/magnifying-glass.svg?raw';
 import searchXPhosphor from '@phosphor-icons/core/regular/magnifying-glass-minus.svg?raw';
+import sendToBackPhosphor from '@phosphor-icons/core/regular/squares-four.svg?raw';
 import settingsPhosphor from '@phosphor-icons/core/regular/gear.svg?raw';
 import settings2Phosphor from '@phosphor-icons/core/regular/sliders-horizontal.svg?raw';
 import shufflePhosphor from '@phosphor-icons/core/regular/shuffle.svg?raw';
@@ -104,6 +109,7 @@ import trash2Phosphor from '@phosphor-icons/core/regular/trash.svg?raw';
 import typePhosphor from '@phosphor-icons/core/regular/text-t.svg?raw';
 import undo2Phosphor from '@phosphor-icons/core/regular/arrow-counter-clockwise.svg?raw';
 import unfoldVerticalPhosphor from '@phosphor-icons/core/regular/arrows-out-line-vertical.svg?raw';
+import ungroupPhosphor from '@phosphor-icons/core/regular/arrows-out-simple.svg?raw';
 import uploadPhosphor from '@phosphor-icons/core/regular/upload.svg?raw';
 import usersPhosphor from '@phosphor-icons/core/regular/users.svg?raw';
 import xPhosphor from '@phosphor-icons/core/regular/x.svg?raw';
@@ -127,6 +133,7 @@ export const PHOSPHOR_ICONS = {
   'book': svgBody(bookPhosphor),
   'bookmark': svgBody(bookmarkPhosphor),
   'briefcase': svgBody(briefcasePhosphor),
+  'bring-to-front': svgBody(bringToFrontPhosphor),
   'calendar': svgBody(calendarPhosphor),
   'check': svgBody(checkPhosphor),
   'chevron-down': svgBody(chevronDownPhosphor),
@@ -143,6 +150,8 @@ export const PHOSPHOR_ICONS = {
   'corner-down-left': svgBody(cornerDownLeftPhosphor),
   'crop': svgBody(cropPhosphor),
   'database': svgBody(databasePhosphor),
+  'diamond': svgBody(diamondPhosphor),
+  'duplicate': svgBody(duplicatePhosphor),
   'external-link': svgBody(externalLinkPhosphor),
   'file-icon': svgBody(fileIconPhosphor),
   'code-file': svgBody(codeFilePhosphor),
@@ -153,6 +162,7 @@ export const PHOSPHOR_ICONS = {
   'file-search': svgBody(fileSearchPhosphor),
   'files': svgBody(filesPhosphor),
   'git-branch': svgBody(gitBranchPhosphor),
+  'group': svgBody(groupPhosphor),
   'heading1': svgBody(heading1Phosphor),
   'heading2': svgBody(heading2Phosphor),
   'heading3': svgBody(heading3Phosphor),
@@ -201,6 +211,7 @@ export const PHOSPHOR_ICONS = {
   'rows3': svgBody(rows3Phosphor),
   'search': svgBody(searchPhosphor),
   'search-x': svgBody(searchXPhosphor),
+  'send-to-back': svgBody(sendToBackPhosphor),
   'settings': svgBody(settingsPhosphor),
   'settings2': svgBody(settings2Phosphor),
   'shuffle': svgBody(shufflePhosphor),
@@ -218,6 +229,7 @@ export const PHOSPHOR_ICONS = {
   'type': svgBody(typePhosphor),
   'undo2': svgBody(undo2Phosphor),
   'unfold-vertical': svgBody(unfoldVerticalPhosphor),
+  'ungroup': svgBody(ungroupPhosphor),
   'upload': svgBody(uploadPhosphor),
   'users': svgBody(usersPhosphor),
   'x': svgBody(xPhosphor),
