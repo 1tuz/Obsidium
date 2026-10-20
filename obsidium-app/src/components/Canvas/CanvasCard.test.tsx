@@ -69,7 +69,7 @@ describe('CanvasCard', () => {
       );
     });
 
-    expect(renderer!.container.querySelector('.q-canvas-card__image')?.getAttribute('src'))
+    expect(renderer!.container.querySelector('.q-canvas-card__media-image')?.getAttribute('src'))
       .toBe('https://example.test/image.png?width=400');
     expect(renderer!.container.querySelector('[role="group"]')?.textContent).toBe('Nested card');
   });
@@ -84,7 +84,7 @@ describe('CanvasCard', () => {
       );
     });
 
-    expect(renderer!.container.querySelector('.q-canvas-card__image')?.getAttribute('src'))
+    expect(renderer!.container.querySelector('.q-canvas-card__media-image')?.getAttribute('src'))
       .toBe('asset://images/diagram.png');
   });
 
@@ -97,13 +97,34 @@ describe('CanvasCard', () => {
     expect(card.getAttribute('style')).toContain('--q-canvas-node-color: var(--q-red-600)');
   });
 
-  it('applies the shape stroke color inline', () => {
+  it('separates shape rendering from card chrome', () => {
     act(() => {
-      renderer = mountDom(<CanvasCard node={node('text')} strokeColor="var(--q-canvas-default-stroke)" />);
+      renderer = mountDom(
+        <>
+          <CanvasCard node={node('text', { text: 'inside' })} shape="diamond" />
+          <CanvasCard node={node('text', { text: 'plain' })} />
+        </>,
+      );
     });
 
-    const card = renderer!.container.querySelector('.q-canvas-card') as HTMLElement;
-    expect(card.style.borderColor).toBe('var(--q-canvas-default-stroke)');
+    const [shapeCard, plainCard] = [...renderer!.container.querySelectorAll<HTMLElement>('.q-canvas-card')];
+    expect(shapeCard.classList.contains('q-canvas-card--shape')).toBe(true);
+    expect(shapeCard.style.borderColor).toBe('');
+    expect(plainCard.classList.contains('q-canvas-card--shape')).toBe(false);
+  });
+
+  it('renders a file card image without replacing it with the file name', () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasCard
+          node={node('file', { file: 'Files/photo.png' })}
+          media={{ kind: 'image', src: 'asset://photo.png', label: 'photo.png' }}
+        />,
+      );
+    });
+
+    expect(renderer!.container.querySelector('.q-canvas-card__media-image')?.getAttribute('src')).toBe('asset://photo.png');
+    expect(renderer!.container.querySelector('.q-canvas-card__title')).toBeNull();
   });
 
   it('prevents the default action before handing a note link to navigation', () => {

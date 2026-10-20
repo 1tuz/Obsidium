@@ -1,0 +1,42 @@
+.q-canvas-card__media {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.q-canvas-card__media-image,
+.q-canvas-card__media-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.q-canvas-card__media-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+  pointer-events: none;
+}
+
+.q-canvas-card__media-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--q-space-8);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+  text-align: center;
+}

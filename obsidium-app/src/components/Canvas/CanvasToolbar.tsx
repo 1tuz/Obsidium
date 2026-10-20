@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { Circle, FileCode, FileText, GitBranch, Image, Link2, ListOrdered, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
 import { Icon } from '../Common/Icon';
+import { CANVAS_GLYPHS } from './CanvasGlyphs';
 import { IconButton } from '../Common/IconButton';
 import './CanvasToolbar.css';
 
@@ -35,7 +36,7 @@ const tools = [
   { id: 'group', label: 'group', icon: Users, shortcut: 'G' },
   { id: 'edge', label: 'edge', icon: GitBranch, shortcut: 'A' },
   { id: 'rectangle', label: 'rectangle', icon: Square, shortcut: 'R' },
-  { id: 'diamond', label: 'diamond', icon: Square, shortcut: 'D' },
+  { id: 'diamond', label: 'diamond', icon: CANVAS_GLYPHS.diamond, shortcut: 'D' },
   { id: 'ellipse', label: 'ellipse', icon: Circle, shortcut: 'E' },
   { id: 'number', label: 'number', icon: ListOrdered, shortcut: 'N' },
   { id: 'draw', label: 'draw', icon: Pencil, shortcut: 'P' },
@@ -71,7 +72,7 @@ export function CanvasToolbar({
             aria-pressed={activeTool === id}
             onClick={() => onToolChange(id)}
           >
-            <Icon icon={icon} className={id === 'diamond' ? 'q-canvas-toolbar__diamond' : undefined} />
+            <Icon icon={icon} />
           </IconButton>
         ))}
       </div>
