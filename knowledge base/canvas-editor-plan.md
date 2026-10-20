@@ -401,14 +401,14 @@ Markdown-файлы заново; `fileContents` не очищается.
 | P1-2 | Маркеры только при единственном выделении, нейтральные, counter-scale | `CanvasView.test.tsx` («shows resize handles only for a single selection») |
 | P1-3 | Компактная панель выделения, разгруппировка сохраняет участников | `CanvasView.test.tsx` («changes visible paint order…», «ungroups without deleting the members») |
 | P1-4 | Порядок наложения задаётся `z-index` по индексу в `nodes` | `CanvasView.test.tsx` (проверка `style.zIndex` до и после) |
-| P1-5…P1-9 | Экспорт: `svgExport.ts`, `translate` для freehand, `<image>` с data URL, пресеты в hex, фон-`<rect>`, маркеры start/end; для PNG — текстовый режим без `foreignObject`, иначе canvas получает taint и `toBlob` падает | `svgExport.test.ts` (11), `svgExportPng.test.ts` (4); реальный Chromium: SVG отрисован, PNG-режим растеризован без taint |
+| P1-5…P1-9 | Экспорт: `svgExport.ts`, `translate` для freehand, `<image>` с data URL, пресеты в hex, фон-`<rect>`, маркеры start/end; для PNG — текстовый режим без `foreignObject`; картинка без data URL заменяется подписанным placeholder, чтобы не испортить canvas | `svgExport.test.ts` (12), `svgExportPng.test.ts` (4); реальный Chromium: SVG отрисован, PNG-режим растеризован без taint |
 | P1-10 | Кэш Markdown-превью по пути и ревизии индекса, изображения не читаются | косвенно: `CanvasView.test.tsx` (видимые карточки), ручная проверка кода |
 | P0-7 | Геометрия и оверлеи пишутся в `px` через `renderStyle.ts`; без этого Chromium отбрасывал размеры | `renderStyle.test.ts`; реальный Chromium через Vite-стенд до и после |
 | P2-1 | Контекстное меню клампится по вьюпорту | визуальная проверка кода, отдельного теста нет |
 | P2-3 | Ромб в тулбаре — собственная SVG-иконка (`CanvasGlyphs`), а не повёрнутый квадрат | `CanvasToolbar.test.tsx` (кнопка ромба), визуальная проверка |
 
-Полный прогон `npx vitest run src/components/Canvas src/modules/canvas`: 18 файлов, 159 тестов.
-Полный прогон `npx vitest run src`: 198 файлов, 1257 тестов. `npx tsc --noEmit`: чисто.
+Полный прогон `npx vitest run src/components/Canvas src/modules/canvas`: 18 файлов, 163 теста.
+Полный прогон `npx vitest run src`: 198 файлов, 1261 тест. `npx tsc --noEmit`: чисто.
 
 Замер на синтетической модели 1000 узлов и 999 связей в Node (vitest, Apple Silicon, не WebView):
 сборка SVG-экспорта — 3 мс и 283 КБ, фильтр видимой области — 0,08 мс при 36 видимых узлах.
