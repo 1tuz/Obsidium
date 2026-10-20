@@ -59,6 +59,14 @@ describe('CanvasCard', () => {
     expect(renderer!.container.querySelector('img')?.getAttribute('src')).toBe('asset://diagram.png');
   });
 
+  it('exposes the open hint on the file card title', () => {
+    act(() => {
+      renderer = mountDom(<CanvasCard node={node('file', { file: 'notes/Plan.md' })} openHint="Open note" />);
+    });
+
+    expect(renderer!.container.querySelector('.q-canvas-card__title')?.getAttribute('title')).toBe('Open note');
+  });
+
   it('previews image links and exposes group children as a group', () => {
     act(() => {
       renderer = mountDom(

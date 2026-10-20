@@ -949,6 +949,8 @@
     "edgeLabel": "Connection label",
     "edgeRoute": "Line style",
     "edgeBend": "Move line bend",
+    "edge": { "toolbar": "Connection settings", "startArrow": "Arrow at start", "endArrow": "Arrow at end" },
+    "card": { "openNote": "Open note" },
     "link": {
       "addTitle": "Add link",
       "editTitle": "Edit link",
@@ -967,7 +969,8 @@
     "side": { "auto": "Automatic", "left": "Left", "right": "Right", "top": "Top", "bottom": "Bottom" },
     "align": { "left": "Align left", "centerX": "Align horizontal centers", "right": "Align right", "top": "Align top", "centerY": "Align vertical centers", "bottom": "Align bottom" },
     "menu": { "open": "Open", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete", "group": "Group selection", "ungroup": "Ungroup",
-      "front": "Bring to front", "back": "Send to back" },
+      "front": "Bring to front", "back": "Send to back",
+      "label": "Board menu", "addText": "Add text", "selectAll": "Select all", "exportJson": "Download JSON" },
     "selection": { "label": "Selection actions", "front": "Bring to front", "back": "Send to back", "duplicate": "Duplicate", "group": "Group", "ungroup": "Ungroup", "delete": "Delete" },
     "fill": { "label": "Fill", "default": "Default fill", "transparent": "No fill" },
     "media": { "loading": "Loading…", "error": "Could not load {{name}}", "video": "Video" },

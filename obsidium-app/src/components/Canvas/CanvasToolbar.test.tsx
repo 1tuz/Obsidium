@@ -61,6 +61,7 @@ describe('CanvasToolbar', () => {
     const onPaperStyleChange = vi.fn();
     const onGridChange = vi.fn();
     const onColorChange = vi.fn();
+    const onFillChange = vi.fn();
     const onUndo = vi.fn();
     const onRedo = vi.fn();
     const onExportSvg = vi.fn();
@@ -72,6 +73,7 @@ describe('CanvasToolbar', () => {
         <CanvasToolbar
           activeTool="select"
           color=""
+          fill="default"
           paperStyle="ivory"
           grid="none"
           canUndo
@@ -80,6 +82,7 @@ describe('CanvasToolbar', () => {
           onPaperStyleChange={onPaperStyleChange}
           onGridChange={onGridChange}
           onColorChange={onColorChange}
+          onFillChange={onFillChange}
           onOpenSlash={onOpenSlash}
           onUndo={onUndo}
           onRedo={onRedo}
@@ -102,8 +105,10 @@ describe('CanvasToolbar', () => {
     await actAndSettle(() => { selects[0].dispatchEvent(new Event('change', { bubbles: true })); });
     selects[1].value = 'dots';
     await actAndSettle(() => { selects[1].dispatchEvent(new Event('change', { bubbles: true })); });
-    selects[2].value = '4';
+    selects[2].value = 'transparent';
     await actAndSettle(() => { selects[2].dispatchEvent(new Event('change', { bubbles: true })); });
+    selects[3].value = '4';
+    await actAndSettle(() => { selects[3].dispatchEvent(new Event('change', { bubbles: true })); });
     await actAndSettle(() => button('Undo').click());
     await actAndSettle(() => button('Export as SVG').click());
     await actAndSettle(() => button('Export as PNG').click());
@@ -116,6 +121,7 @@ describe('CanvasToolbar', () => {
     expect(onAddNote).toHaveBeenCalledOnce();
     expect(onPaperStyleChange).toHaveBeenCalledWith('sepia');
     expect(onGridChange).toHaveBeenCalledWith('dots');
+    expect(onFillChange).toHaveBeenCalledWith('transparent');
     expect(onColorChange).toHaveBeenCalledWith('4');
     expect(onOpenSlash).toHaveBeenCalledOnce();
     expect(onUndo).toHaveBeenCalledOnce();
