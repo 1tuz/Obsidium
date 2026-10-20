@@ -1798,7 +1798,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         onExportSvg={exportSvg}
         onExportPng={exportPng}
       />
-      <div className="q-canvas__controls" aria-label={t('canvas.toolbar.view')}>
+      <div className="q-canvas__controls" role="group" aria-label={t('canvas.toolbar.view')}>
         <button type="button" onClick={() => zoomBy(1 / 1.2)} aria-label={t('canvas.toolbar.zoomOut')}>−</button>
         <span>{Math.round(camera.zoom * 100)}%</span>
         <button type="button" onClick={() => zoomBy(1.2)} aria-label={t('canvas.toolbar.zoomIn')}>+</button>
