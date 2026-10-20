@@ -33,6 +33,7 @@ interface CanvasCardProps {
   editing?: boolean;
   selected?: boolean;
   compact?: boolean;
+  openHint?: string;
   children?: ComponentChildren;
   resolveImageUrl?: (node: CanvasCardNode, target: string) => string;
   onChange?: (nodeId: string, text: string) => void;
@@ -122,6 +123,7 @@ export const CanvasCard = memo(function CanvasCard({
   editing = false,
   selected = false,
   compact = false,
+  openHint,
   children,
   resolveImageUrl,
   onChange,
@@ -168,7 +170,7 @@ export const CanvasCard = memo(function CanvasCard({
     }
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label={`File card: ${title}`}>
-        <div className="q-canvas-card__title">{title}</div>
+        <div className="q-canvas-card__title" title={openHint}>{title}</div>
         {!compact && <MarkdownPreview node={node} markdown={markdown} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
     );

@@ -7,7 +7,7 @@ import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { absolutePath, fileName, parentDirectory, relativePath, resolveNotePath, samePath } from '../../modules/paths';
 import { splitNoteLink, type CanvasNoteSource, type CanvasNoteTarget } from './canvasNoteLinks';
 import { openExternalUrl } from '../../modules/openExternalUrl';
-import { isCanvasPath, isFileCommandError, isMarkdownPath, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
+import { isFileCommandError, isMarkdownPath, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { createUniqueFile } from '../../modules/documents/documentFactory';
 import { registerCanvasFlush } from '../../modules/canvas/persistence';
 import {
@@ -69,7 +69,10 @@ import {
   zoomCanvasAtCenter,
   type CanvasCamera,
 } from '../../modules/canvas/viewport';
+import { Icon } from '../Common/Icon';
+import { IconButton } from '../Common/IconButton';
 import { CanvasCard, type CanvasCardNode } from './CanvasCard';
+import { CanvasEdgeToolbar } from './CanvasEdgeToolbar';
 import { CanvasLinkDialog } from './CanvasLinkDialog';
 import { CanvasNotePicker } from './CanvasNotePicker';
 import { CanvasSelectionToolbar } from './CanvasSelectionToolbar';
@@ -88,7 +91,7 @@ type DragState =
   | { kind: 'shape'; start: CanvasPoint; startX: number; startY: number; nodeId: string; moved?: boolean }
   | { kind: 'pan'; startX: number; startY: number; camera: CanvasCamera }
   | { kind: 'marquee'; startX: number; startY: number; currentX: number; currentY: number; additive: boolean }
-  | { kind: 'connect'; fromId: string; fromSide: CanvasSide; startX: number; startY: number; camera: CanvasCamera; current: CanvasPoint }
+  | { kind: 'connect'; fromId: string; fromSide: CanvasSide | 'auto'; startX: number; startY: number; camera: CanvasCamera; current: CanvasPoint; moved?: boolean }
   | { kind: 'camera'; startX: number; startY: number; camera: CanvasCamera };
 
 interface CanvasViewProps {
@@ -101,6 +104,7 @@ interface CanvasViewProps {
 }
 
 const GRID_SIZE = 20;
+const TEXT_CARD_MIN_HEIGHT = 40;
 const AUTOSAVE_DELAY_MS = 400;
 const CAMERA_PERSIST_DELAY_MS = 300;
 const COMPACT_ZOOM_THRESHOLD = 0.4;
@@ -139,10 +143,6 @@ function canvasCssColor(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   if (/^[1-6]$/.test(value)) return `var(${CANVAS_PRESET_COLORS[value]})`;
   return /^#[\da-f]{3,8}$/i.test(value) ? value : undefined;
-}
-
-function edgeSide(value: unknown): string {
-  return value === 'left' || value === 'right' || value === 'top' || value === 'bottom' ? value : 'auto';
 }
 
 function edgeRouting(edge: CanvasEdge): { route: CanvasEdgeRoute; bend: CanvasPoint } {
@@ -269,7 +269,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [drag, setDrag] = useState<DragState | null>(null);
   const [guides, setGuides] = useState<CanvasGuide[]>([]);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
-  const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
   const [notePickerOpen, setNotePickerOpen] = useState(false);
   const [slashMenu, setSlashMenu] = useState<{ point: CanvasPoint; query: string } | null>(null);
   const [linkDraft, setLinkDraft] = useState<CanvasLinkDraft | null>(null);
@@ -281,6 +281,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const historyRef = useRef<CanvasHistory<CanvasDocument> | null>(null);
   const cameraRef = useRef(camera);
   const dragRef = useRef<DragState | null>(null);
+  const pressRef = useRef<{ node: CanvasTypedNode; shift: boolean } | null>(null);
+  const dragMovedRef = useRef(false);
   const hashRef = useRef('');
   const savedTextRef = useRef('');
   const saveQueueRef = useRef(Promise.resolve());
@@ -524,14 +526,21 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     return () => { cancelled = true; };
   }, [indexRevision, visibleFileKey, workspacePath]);
 
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return undefined;
-    const resize = new ResizeObserver(([entry]) => {
+  const viewportObserverRef = useRef<ResizeObserver | null>(null);
+  const attachStage = useCallback((node: HTMLDivElement | null) => {
+    viewportObserverRef.current?.disconnect();
+    viewportObserverRef.current = null;
+    stageRef.current = node;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
       setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
-    resize.observe(stage);
-    return () => resize.disconnect();
+    observer.observe(node);
+    viewportObserverRef.current = observer;
+  }, []);
+  useEffect(() => () => {
+    viewportObserverRef.current?.disconnect();
+    viewportObserverRef.current = null;
   }, []);
 
   const paperStyle = document ? readPaperStyle(document) : 'paper-white';
@@ -585,7 +594,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     if (!current || !node || node.type !== 'text') return;
     const obsidium = node.obsidium;
     if (obsidium && typeof obsidium === 'object' && 'shape' in obsidium) return;
-    const next = Math.max(80, Math.ceil(height));
+    const next = Math.max(TEXT_CARD_MIN_HEIGHT, Math.ceil(height));
     if (next <= node.height) return;
     setCanvasDocument(updateCanvasNode(current, nodeId, { height: next }), false);
   }, [setCanvasDocument]);
@@ -681,11 +690,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const current = documentRef.current;
     if (!current) return;
     let node: CanvasTypedNode;
-    const base = { id: newId(), x: Math.round(point.x), y: Math.round(point.y), width: 280, height: 180, ...(nodeColor ? { color: nodeColor } : {}) };
-    if (type === 'file' && file) node = { ...base, type, file };
-    else if (type === 'link') node = { ...base, type, url: url ?? 'https://' };
+    const base = { id: newId(), x: Math.round(point.x), y: Math.round(point.y), width: 280, ...(nodeColor ? { color: nodeColor } : {}) };
+    if (type === 'file' && file) node = { ...base, height: 180, type, file };
+    else if (type === 'link') node = { ...base, height: 180, type, url: url ?? 'https://' };
     else node = {
       ...base,
+      height: type === 'text' ? TEXT_CARD_MIN_HEIGHT : 180,
       type: 'text',
       text: '',
       ...((type === 'rectangle' || type === 'diamond' || type === 'ellipse')
@@ -964,9 +974,24 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   const handleNodePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (event.button !== 0) return;
+    dragMovedRef.current = false;
     if (spaceHeld) {
       event.stopPropagation();
       const next: DragState = { kind: 'pan', startX: event.clientX, startY: event.clientY, camera: cameraRef.current };
+      dragRef.current = next;
+      setDrag(next);
+      stageRef.current?.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (activeTool === 'edge') {
+      event.stopPropagation();
+      event.preventDefault();
+      setSelectedEdgeId(null);
+      const next: DragState = {
+        kind: 'connect', fromId: node.id, fromSide: 'auto',
+        startX: event.clientX, startY: event.clientY,
+        camera: cameraRef.current, current: worldPoint(event),
+      };
       dragRef.current = next;
       setDrag(next);
       stageRef.current?.setPointerCapture(event.pointerId);
@@ -978,6 +1003,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     if (target.closest('textarea, a, button')) return;
     event.stopPropagation();
     if (shapeTool) setActiveTool('select');
+    else pressRef.current = { node, shift: event.shiftKey };
     setSelectedEdgeId(null);
     const current = documentRef.current;
     if (!current) return;
@@ -995,7 +1021,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setDrag(nextDrag);
       stageRef.current?.setPointerCapture(event.pointerId);
     }
-  }, [activeTool, camera, selectNode, selection, spaceHeld]);
+  }, [activeTool, camera, selectNode, selection, spaceHeld, worldPoint]);
 
   const handleNodeClick = useCallback((event: TargetedMouseEvent<HTMLDivElement>, node: CanvasTypedNode) => {
     if (spaceHeld) {
@@ -1073,7 +1099,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       return;
     }
     if (currentDrag.kind === 'connect') {
-      const next = { ...currentDrag, current: worldPoint(pointer) };
+      const moved = currentDrag.moved === true
+        || Math.abs(pointer.clientX - currentDrag.startX) > 4
+        || Math.abs(pointer.clientY - currentDrag.startY) > 4;
+      const next = { ...currentDrag, current: worldPoint(pointer), moved };
       dragRef.current = next;
       setDrag(next);
       return;
@@ -1181,7 +1210,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   const handlePointerMove = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     lastPointerRef.current = worldPoint(event);
-    if (!dragRef.current) return;
+    const currentDrag = dragRef.current;
+    if (!currentDrag) return;
+    if ('startX' in currentDrag
+      && (Math.abs(event.clientX - currentDrag.startX) > 4 || Math.abs(event.clientY - currentDrag.startY) > 4)) {
+      dragMovedRef.current = true;
+    }
     pendingPointerRef.current = { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey };
     if (frameRef.current !== null) return;
     frameRef.current = window.requestAnimationFrame(() => {
@@ -1190,8 +1224,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     });
   }, [worldPoint]);
 
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback((cancelled = false) => {
     flushPointerMove();
+    const pressed = pressRef.current;
+    pressRef.current = null;
+    if (!cancelled && pressed && !dragMovedRef.current && !pressed.shift && pressed.node.type === 'file') {
+      onOpenFile(absolutePath(workspacePath, pressed.node.file));
+    }
     const currentDrag = dragRef.current;
     if (currentDrag?.kind === 'shape') {
       const current = documentRef.current;
@@ -1219,10 +1258,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       const current = documentRef.current;
       const target = current ? canvasNodeAtPoint(current.nodes, currentDrag.current, currentDrag.fromId) : null;
       const source = current?.nodes.find((node) => node.id === currentDrag.fromId);
-      if (current && target && source) {
+      if (current && target && source && (currentDrag.moved || currentDrag.fromSide !== 'auto')) {
+        const sides = canvasEdgeSides(source, target);
         const edge: CanvasEdge = {
           id: newId(), fromNode: source.id, toNode: target.id, fromEnd: 'none', toEnd: 'arrow',
-          fromSide: currentDrag.fromSide, toSide: canvasEdgeSides(source, target).toSide,
+          fromSide: currentDrag.fromSide === 'auto' ? sides.fromSide : currentDrag.fromSide,
+          toSide: sides.toSide,
           ...(edgeColor ? { color: edgeColor } : {}),
         };
         setCanvasDocument(addCanvasEdge(current, edge));
@@ -1255,12 +1296,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     dragRef.current = null;
     setDrag(null);
     setGuides([]);
-  }, [edgeColor, flushPointerMove, selection, setCanvasDocument, worldPoint]);
+  }, [edgeColor, flushPointerMove, onOpenFile, selection, setCanvasDocument, workspacePath, worldPoint]);
 
   const handleStagePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     const stage = stageRef.current;
     if (!stage || (event.target !== stage && event.target !== worldRef.current)) return;
     stage.focus();
+    dragMovedRef.current = false;
     const point = worldPoint(event);
     if (event.button === 1 || (spaceHeld && event.button === 0)) {
       const next: DragState = { kind: 'pan', startX: event.clientX, startY: event.clientY, camera };
@@ -1321,10 +1363,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       return;
     }
     const absolute = transfer.getData('application/x-obsidium-file-path') || transfer.getData('text/plain');
-    if (!absolute || !isCanvasPath(path)) return;
+    if (!absolute) return;
+    const point = worldPoint(event);
     try {
-      const file = relativePath(workspacePath, absolute);
-      addNode('file', worldPoint(event), file);
+      addNode('file', { x: point.x, y: point.y }, relativePath(workspacePath, absolute));
       return;
     } catch {
       const media = resolveCanvasMedia({
@@ -1337,7 +1379,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         setActionError(t('canvas.errors.fileOutsideWorkspace'));
         return;
       }
-      const point = worldPoint(event);
       const current = documentRef.current;
       if (!current) return;
       const node: CanvasTypedNode = {
@@ -1659,6 +1700,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }).catch((cause: unknown) => setActionError(String(cause)));
   }, [exportContext, path]);
 
+  const exportJson = useCallback(() => {
+    const current = documentRef.current;
+    if (!current) return;
+    downloadBlob(new Blob([serializeCanvasDocument(current)], { type: 'application/json' }), fileName(path));
+  }, [path]);
+
   const downloadLocalCopy = useCallback(() => {
     const current = documentRef.current;
     if (current) downloadBlob(new Blob([serializeCanvasDocument(current)], { type: 'application/json' }), `${fileName(path)}.local-copy.json`);
@@ -1688,7 +1735,23 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [path, setCameraValue]);
 
   const screenPoint = (point: { x: number; y: number }) => ({ x: camera.x + point.x * camera.zoom, y: camera.y + point.y * camera.zoom });
+  const menuWorldPoint = (point: { x: number; y: number }): CanvasPoint => ({ x: (point.x - camera.x) / camera.zoom, y: (point.y - camera.y) / camera.zoom });
+  const menuNodeId = menu?.nodeId ?? null;
   const compact = camera.zoom < COMPACT_ZOOM_THRESHOLD;
+  const edgePanel = selectedEdge ? (() => {
+    const geometry = getCanvasEdgeGeometry(selectedEdge, nodeIndex);
+    if (!geometry) return null;
+    const routing = edgeRouting(selectedEdge);
+    const from = screenPoint(geometry.from);
+    const to = screenPoint(geometry.to);
+    const x = (from.x + to.x) / 2 + routing.bend.x * camera.zoom;
+    const y = (from.y + to.y) / 2 + routing.bend.y * camera.zoom + 14;
+    return {
+      route: routing.route,
+      x: Math.min(Math.max(x, 140), Math.max(140, viewport.width - 140)),
+      y: Math.min(Math.max(y, 8), Math.max(8, viewport.height - 48)),
+    };
+  })() : null;
 
   if (loading) return <div className="q-canvas-loading" aria-busy="true">{t('canvas.loading')}</div>;
   if (error && !document) return <div className="q-canvas-error" role="alert">{t('canvas.errors.read', { reason: error })}</div>;
@@ -1708,6 +1771,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       onPointerDownCapture={focusCanvas}
       onPointerDown={(event) => {
         if (!(event.target as HTMLElement).closest('.q-canvas__slash')) setSlashMenu(null);
+        if (!(event.target as HTMLElement).closest('.q-canvas__menu')) setMenu(null);
       }}
       tabIndex={0}
     >
@@ -1716,11 +1780,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         grid={grid}
         activeTool={activeTool}
         color={toolbarColor}
+        fill={fillValue}
         canUndo={Boolean(history?.past.length)}
         canRedo={Boolean(history?.future.length)}
         onPaperStyleChange={onPaperStyleChange}
         onGridChange={onGridChange}
         onColorChange={onCanvasColorChange}
+        onFillChange={onFillChange}
         onOpenSlash={() => setSlashMenu({
           point: { x: (viewport.width / 2 - camera.x) / camera.zoom, y: (viewport.height / 2 - camera.y) / camera.zoom },
           query: '',
@@ -1736,27 +1802,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         <button type="button" onClick={() => zoomBy(1 / 1.2)} aria-label={t('canvas.toolbar.zoomOut')}>−</button>
         <span>{Math.round(camera.zoom * 100)}%</span>
         <button type="button" onClick={() => zoomBy(1.2)} aria-label={t('canvas.toolbar.zoomIn')}>+</button>
-        <button type="button" onClick={fitView}>{t('canvas.toolbar.fitView')}</button>
-        <button type="button" onClick={() => setCameraValue({ x: 0, y: 0, zoom: 1 })}>{t('canvas.toolbar.resetView')}</button>
-        <label>
-          {t('canvas.fill.label')}
-          <select aria-label={t('canvas.fill.label')} value={fillValue} onChange={(event) => onFillChange(event.currentTarget.value as 'default' | 'transparent')}>
-            <option value="default">{t('canvas.fill.default')}</option>
-            <option value="transparent">{t('canvas.fill.transparent')}</option>
-          </select>
-        </label>
-        {selectedEdge && <>
-          <label>{t('canvas.edgeLabel')}<input value={typeof selectedEdge.label === 'string' ? selectedEdge.label : ''} onInput={(event) => updateEdge(selectedEdge.id, { label: event.currentTarget.value })} /></label>
-          <label>{t('canvas.edgeRoute')}<select aria-label={t('canvas.edgeRoute')} value={edgeRouting(selectedEdge).route} onChange={(event) => {
-            const routing = edgeRouting(selectedEdge);
-            updateEdge(selectedEdge.id, edgeRoutingPatch(selectedEdge, event.currentTarget.value as CanvasEdgeRoute, routing.bend));
-          }}><option value="straight">{t('canvas.route.straight')}</option><option value="elbow">{t('canvas.route.elbow')}</option><option value="curved">{t('canvas.route.curved')}</option></select></label>
-          <label>{t('canvas.fromDirection')}<select value={selectedEdge.fromEnd === 'arrow' ? 'arrow' : 'none'} onChange={(event) => updateEdge(selectedEdge.id, { fromEnd: event.currentTarget.value })}><option value="none">{t('canvas.direction.none')}</option><option value="arrow">{t('canvas.direction.arrow')}</option></select></label>
-          <label>{t('canvas.toDirection')}<select value={selectedEdge.toEnd === 'none' ? 'none' : 'arrow'} onChange={(event) => updateEdge(selectedEdge.id, { toEnd: event.currentTarget.value })}><option value="none">{t('canvas.direction.none')}</option><option value="arrow">{t('canvas.direction.arrow')}</option></select></label>
-          <label>{t('canvas.fromSide')}<select value={edgeSide(selectedEdge.fromSide)} onChange={(event) => updateEdge(selectedEdge.id, { fromSide: event.currentTarget.value === 'auto' ? undefined : event.currentTarget.value })}><option value="auto">{t('canvas.side.auto')}</option><option value="left">{t('canvas.side.left')}</option><option value="right">{t('canvas.side.right')}</option><option value="top">{t('canvas.side.top')}</option><option value="bottom">{t('canvas.side.bottom')}</option></select></label>
-          <label>{t('canvas.toSide')}<select value={edgeSide(selectedEdge.toSide)} onChange={(event) => updateEdge(selectedEdge.id, { toSide: event.currentTarget.value === 'auto' ? undefined : event.currentTarget.value })}><option value="auto">{t('canvas.side.auto')}</option><option value="left">{t('canvas.side.left')}</option><option value="right">{t('canvas.side.right')}</option><option value="top">{t('canvas.side.top')}</option><option value="bottom">{t('canvas.side.bottom')}</option></select></label>
-          <button type="button" onClick={deleteSelectedEdge}>{t('canvas.menu.delete')}</button>
-        </>}
+        <IconButton label={t('canvas.toolbar.fitView')} size="small" onClick={fitView}><Icon icon="crop" size={16} /></IconButton>
+        <IconButton label={t('canvas.toolbar.resetView')} size="small" onClick={() => setCameraValue({ x: 0, y: 0, zoom: 1 })}><Icon icon="rotate-ccw" size={16} /></IconButton>
         <span role="status" aria-live="polite">{t(`canvas.save.${saveState}`)}</span>
       </div>
       {error && <p className="q-canvas__warning" role="alert">{error}</p>}
@@ -1768,15 +1815,22 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       </div>}
       <div
         className={`q-canvas__stage q-canvas__stage--${grid}`}
-        ref={stageRef}
+        ref={attachStage}
         tabIndex={0}
         onPointerDown={handleStagePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerUp={() => handlePointerUp()}
+        onPointerCancel={() => handlePointerUp(true)}
         onWheel={handleWheel}
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}
+        onContextMenu={(event) => {
+          if (event.target !== stageRef.current && event.target !== worldRef.current) return;
+          event.preventDefault();
+          const rect = stageRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          setMenu({ x: event.clientX - rect.left, y: event.clientY - rect.top, nodeId: null });
+        }}
         onDblClick={(event) => {
           if (event.target === stageRef.current || event.target === worldRef.current) addNode('text', worldPoint(event));
         }}
@@ -1846,7 +1900,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           {drag?.kind === 'connect' && (() => {
             const source = document.nodes.find((node) => node.id === drag.fromId);
             if (!source) return null;
-            const from = screenPoint(canvasSidePoint(source, drag.fromSide));
+            const from = screenPoint(drag.fromSide === 'auto'
+              ? { x: source.x + source.width / 2, y: source.y + source.height / 2 }
+              : canvasSidePoint(source, drag.fromSide));
             const to = screenPoint(drag.current);
             return <line className="q-canvas__connect-line" x1={from.x} y1={from.y} x2={to.x} y2={to.y} />;
           })()}
@@ -1907,6 +1963,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
                 editing={editingId === node.id}
                 selected={selected}
                 compact={compact}
+                openHint={node.type === 'file' ? t('canvas.card.openNote') : undefined}
                 resolveImageUrl={resolveImageUrl}
                 onChange={handleTextChange}
                 onResize={resizeTextNode}
@@ -1987,6 +2044,21 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             onDelete={deleteSelection}
           />
         )}
+        {edgePanel && selectedEdge && (
+          <CanvasEdgeToolbar
+            x={edgePanel.x}
+            y={edgePanel.y}
+            route={edgePanel.route}
+            fromEnd={selectedEdge.fromEnd === 'arrow' ? 'arrow' : 'none'}
+            toEnd={selectedEdge.toEnd === 'none' ? 'none' : 'arrow'}
+            label={typeof selectedEdge.label === 'string' ? selectedEdge.label : ''}
+            onRouteChange={(route) => updateEdge(selectedEdge.id, edgeRoutingPatch(selectedEdge, route, edgeRouting(selectedEdge).bend))}
+            onFromEndChange={(end) => updateEdge(selectedEdge.id, { fromEnd: end })}
+            onToEndChange={(end) => updateEdge(selectedEdge.id, { toEnd: end })}
+            onLabelChange={(label) => updateEdge(selectedEdge.id, { label })}
+            onDelete={deleteSelectedEdge}
+          />
+        )}
         {menu && <div
           className="q-canvas__menu"
           style={{
@@ -1994,34 +2066,56 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             top: canvasPixels(Math.min(menu.y, Math.max(0, viewport.height - 280))),
           }}
           role="menu"
+          aria-label={t('canvas.menu.label')}
         >
-          <button role="menuitem" onClick={() => {
-            const node = document.nodes.find((item) => item.id === menu.nodeId);
-            if (node?.type === 'file') onOpenFile(absolutePath(workspacePath, node.file));
-            else if (node?.type === 'link') openUrl(node.url);
-            setMenu(null);
-          }}>{t('canvas.menu.open')}</button>
-          <button role="menuitem" onClick={() => {
-            const node = document.nodes.find((item) => item.id === menu.nodeId);
-            if (node?.type === 'file') onOpenFile(absolutePath(workspacePath, node.file));
-            else if (node?.type === 'link') setLinkDraft({ mode: 'edit', nodeId: node.id, value: node.url });
-            else setEditingId(menu.nodeId);
-            setMenu(null);
-          }}>{t('canvas.menu.edit')}</button>
-          <button role="menuitem" onClick={() => duplicateNode(menu.nodeId)}>{t('canvas.menu.duplicate')}</button>
-          <button role="menuitem" onClick={() => reorderSelection('front')}>{t('canvas.menu.front')}</button>
-          <button role="menuitem" onClick={() => reorderSelection('back')}>{t('canvas.menu.back')}</button>
-          <button role="menuitem" onClick={() => deleteNode(menu.nodeId)}>{t('canvas.menu.delete')}</button>
-          <button role="menuitem" onClick={() => { addGroup(); setMenu(null); }}>{t('canvas.menu.group')}</button>
-          {selection.length > 1 && <>
-            <button role="menuitem" onClick={() => alignSelection('left')}>{t('canvas.align.left')}</button>
-            <button role="menuitem" onClick={() => alignSelection('center-x')}>{t('canvas.align.centerX')}</button>
-            <button role="menuitem" onClick={() => alignSelection('right')}>{t('canvas.align.right')}</button>
-            <button role="menuitem" onClick={() => alignSelection('top')}>{t('canvas.align.top')}</button>
-            <button role="menuitem" onClick={() => alignSelection('center-y')}>{t('canvas.align.centerY')}</button>
-            <button role="menuitem" onClick={() => alignSelection('bottom')}>{t('canvas.align.bottom')}</button>
+          {menuNodeId === null ? <>
+            <button role="menuitem" onClick={() => {
+              addNode('text', menuWorldPoint(menu));
+              setMenu(null);
+            }}>{t('canvas.menu.addText')}</button>
+            <button role="menuitem" onClick={() => {
+              notePlacementRef.current = menuWorldPoint(menu);
+              setNotePickerOpen(true);
+              setMenu(null);
+            }}>{t('canvas.slash.findNote')}</button>
+            <button role="menuitem" onClick={() => {
+              setSelection(document.nodes.map((node) => node.id));
+              setMenu(null);
+            }}>{t('canvas.menu.selectAll')}</button>
+            <button role="menuitem" onClick={() => { fitView(); setMenu(null); }}>{t('canvas.toolbar.fitView')}</button>
+            <button role="menuitem" onClick={() => { setCameraValue({ x: 0, y: 0, zoom: 1 }); setMenu(null); }}>{t('canvas.toolbar.resetView')}</button>
+            <button role="menuitem" onClick={() => { exportSvg(); setMenu(null); }}>{t('canvas.toolbar.exportSvg')}</button>
+            <button role="menuitem" onClick={() => { exportPng(); setMenu(null); }}>{t('canvas.toolbar.exportPng')}</button>
+            <button role="menuitem" onClick={() => { exportJson(); setMenu(null); }}>{t('canvas.menu.exportJson')}</button>
+          </> : <>
+            <button role="menuitem" onClick={() => {
+              const node = document.nodes.find((item) => item.id === menuNodeId);
+              if (node?.type === 'file') onOpenFile(absolutePath(workspacePath, node.file));
+              else if (node?.type === 'link') openUrl(node.url);
+              setMenu(null);
+            }}>{t('canvas.menu.open')}</button>
+            <button role="menuitem" onClick={() => {
+              const node = document.nodes.find((item) => item.id === menuNodeId);
+              if (node?.type === 'file') onOpenFile(absolutePath(workspacePath, node.file));
+              else if (node?.type === 'link') setLinkDraft({ mode: 'edit', nodeId: node.id, value: node.url });
+              else setEditingId(menuNodeId);
+              setMenu(null);
+            }}>{t('canvas.menu.edit')}</button>
+            <button role="menuitem" onClick={() => duplicateNode(menuNodeId)}>{t('canvas.menu.duplicate')}</button>
+            <button role="menuitem" onClick={() => reorderSelection('front')}>{t('canvas.menu.front')}</button>
+            <button role="menuitem" onClick={() => reorderSelection('back')}>{t('canvas.menu.back')}</button>
+            <button role="menuitem" onClick={() => deleteNode(menuNodeId)}>{t('canvas.menu.delete')}</button>
+            <button role="menuitem" onClick={() => { addGroup(); setMenu(null); }}>{t('canvas.menu.group')}</button>
+            {selection.length > 1 && <>
+              <button role="menuitem" onClick={() => alignSelection('left')}>{t('canvas.align.left')}</button>
+              <button role="menuitem" onClick={() => alignSelection('center-x')}>{t('canvas.align.centerX')}</button>
+              <button role="menuitem" onClick={() => alignSelection('right')}>{t('canvas.align.right')}</button>
+              <button role="menuitem" onClick={() => alignSelection('top')}>{t('canvas.align.top')}</button>
+              <button role="menuitem" onClick={() => alignSelection('center-y')}>{t('canvas.align.centerY')}</button>
+              <button role="menuitem" onClick={() => alignSelection('bottom')}>{t('canvas.align.bottom')}</button>
+            </>}
+            {document.nodes.find((item) => item.id === menuNodeId)?.type === 'group' && <button role="menuitem" onClick={() => { ungroupSelection(); setMenu(null); }}>{t('canvas.menu.ungroup')}</button>}
           </>}
-          {document.nodes.find((item) => item.id === menu.nodeId)?.type === 'group' && <button role="menuitem" onClick={() => { ungroupSelection(); setMenu(null); }}>{t('canvas.menu.ungroup')}</button>}
         </div>}
         {slashMenu && <div
           className="q-canvas__slash"

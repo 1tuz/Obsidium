@@ -14,11 +14,13 @@ interface CanvasToolbarProps {
   grid: CanvasGrid;
   activeTool: CanvasTool;
   color: string;
+  fill: 'default' | 'transparent';
   canUndo: boolean;
   canRedo: boolean;
   onPaperStyleChange: (style: CanvasPaperStyle) => void;
   onGridChange: (grid: CanvasGrid) => void;
   onColorChange: (color: string) => void;
+  onFillChange: (fill: 'default' | 'transparent') => void;
   onOpenSlash: () => void;
   onToolChange: (tool: CanvasTool) => void;
   onUndo: () => void;
@@ -47,11 +49,13 @@ export function CanvasToolbar({
   grid,
   activeTool,
   color,
+  fill,
   canUndo,
   canRedo,
   onPaperStyleChange,
   onGridChange,
   onColorChange,
+  onFillChange,
   onOpenSlash,
   onToolChange,
   onUndo,
@@ -104,6 +108,13 @@ export function CanvasToolbar({
           {(['none', 'dots', 'lines'] as const).map(style => (
             <option key={style} value={style}>{t(`canvas.toolbar.gridStyle.${style}`)}</option>
           ))}
+        </select>
+      </label>
+      <label className="q-canvas-toolbar__setting">
+        <span>{t('canvas.fill.label')}</span>
+        <select aria-label={t('canvas.fill.label')} value={fill} onChange={(event) => onFillChange(event.currentTarget.value as 'default' | 'transparent')}>
+          <option value="default">{t('canvas.fill.default')}</option>
+          <option value="transparent">{t('canvas.fill.transparent')}</option>
         </select>
       </label>
       <label className="q-canvas-toolbar__setting q-canvas-toolbar__color">

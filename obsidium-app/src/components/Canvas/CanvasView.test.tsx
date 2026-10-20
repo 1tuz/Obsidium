@@ -246,16 +246,142 @@ describe('CanvasView', () => {
 
     const edge = renderer!.container.querySelector<SVGPathElement>('path[aria-label="a → b"]')!;
     await actAndSettle(() => { edge.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
-    const route = renderer!.container.querySelector<HTMLSelectElement>('select[aria-label="canvas.edgeRoute"]')!;
-    await actAndSettle(() => {
-      route.value = 'curved';
-      route.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const route = renderer!.container.querySelector<HTMLButtonElement>('button[aria-label="canvas.route.curved"]')!;
+    await actAndSettle(() => { route.click(); });
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 450)));
 
     const writes = vi.mocked(writeFileAtomic).mock.calls;
     const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
     expect(saved.edges[0]).toMatchObject({ id: 'edge', fromNode: 'a', toNode: 'b', obsidium: { route: 'curved' } });
+  });
+
+  it('starts a text card as one line so the caret is visible instead of an empty box', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 40, clientY: 50, button: 0, bubbles: true })); });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'text', text: '', width: 280, height: 40 });
+    expect(renderer!.container.querySelector('.q-canvas-card--text textarea')).not.toBeNull();
+  });
+
+  it('opens a note when its card is clicked and stays put when the card is dragged', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'a', type: 'file', x: 0, y: 0, width: 200, height: 120, file: 'Notes/Plan.md' }],
+      edges: [],
+    });
+    const onOpenFile = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={onOpenFile} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { clientX: 20, clientY: 20, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 90, clientY: 70, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 90, clientY: 70, bubbles: true })); });
+    expect(onOpenFile).not.toHaveBeenCalled();
+
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { clientX: 90, clientY: 70, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 90, clientY: 70, bubbles: true })); });
+    expect(onOpenFile).toHaveBeenCalledWith('/vault/Notes/Plan.md');
+  });
+
+  it('places a vault note on the board when it is dropped from the file tree', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    const drop = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, 'dataTransfer', {
+      value: {
+        files: [],
+        getData: (kind: string) => kind === 'application/x-obsidium-file-path' ? '/vault/Notes/Plan.md' : '',
+      },
+    });
+    await actAndSettle(() => { stage.dispatchEvent(drop); });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'file', file: 'Notes/Plan.md' });
+  });
+
+  it('creates a connection by dragging from one card to another with the arrow tool', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' },
+        { id: 'b', type: 'text', x: 160, y: 0, width: 100, height: 80, text: 'B' },
+      ],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', bubbles: true, cancelable: true })); });
+    const objects = renderer!.container.querySelectorAll<HTMLElement>('.q-canvas__object');
+    await actAndSettle(() => { objects[0].dispatchEvent(new MouseEvent('pointerdown', { clientX: 10, clientY: 10, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 200, clientY: 30, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 200, clientY: 30, bubbles: true })); });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.edges[0]).toMatchObject({ fromNode: 'a', toNode: 'b', fromEnd: 'none', toEnd: 'arrow' });
+  });
+
+  it('shows board actions when the empty canvas is right-clicked', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('contextmenu', { clientX: 300, clientY: 200, bubbles: true, cancelable: true })); });
+
+    const menu = renderer!.container.querySelector<HTMLElement>('.q-canvas__menu')!;
+    expect(menu.getAttribute('aria-label')).toBe('canvas.menu.label');
+    const items = [...menu.querySelectorAll('button')].map((item) => item.textContent);
+    expect(items).toEqual([
+      'canvas.menu.addText', 'canvas.slash.findNote', 'canvas.menu.selectAll',
+      'canvas.toolbar.fitView', 'canvas.toolbar.resetView',
+      'canvas.toolbar.exportSvg', 'canvas.toolbar.exportPng', 'canvas.menu.exportJson',
+    ]);
+
+    await actAndSettle(() => { [...menu.querySelectorAll<HTMLButtonElement>('button')][2].click(); });
+    expect(renderer!.container.querySelector('.q-canvas__selection-count')?.textContent).toBe('canvas.selectionCount');
   });
 
   it('keeps a selected connection when the user selects a card and deletes it', async () => {

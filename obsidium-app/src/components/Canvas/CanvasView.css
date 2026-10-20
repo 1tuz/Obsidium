@@ -164,18 +164,19 @@
   pointer-events: none;
 }
 
-.q-canvas__edges path {
+.q-canvas__edges > g > path {
   fill: none;
   stroke-width: var(--q-border-1);
+  pointer-events: stroke;
+  cursor: pointer;
 }
 
-.q-canvas__edges path.is-selected {
+.q-canvas__edges > g > path.is-selected {
   stroke-width: var(--q-border-2);
 }
 
-.q-canvas__edges > g > path {
-  pointer-events: stroke;
-  cursor: pointer;
+.q-canvas__edges marker path {
+  stroke: none;
 }
 
 .q-canvas__edges text {
