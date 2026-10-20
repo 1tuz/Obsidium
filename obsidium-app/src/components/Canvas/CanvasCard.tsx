@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { memo } from 'preact/compat';
+import { useMemo, useRef } from 'react';
 import { renderMarkdownToHtml } from '../../modules/export/markdownToHtml';
 import './CanvasCard.css';
 
@@ -22,6 +23,7 @@ interface CanvasCardProps {
   strokeColor?: string;
   editing?: boolean;
   selected?: boolean;
+  compact?: boolean;
   children?: ComponentChildren;
   resolveImageUrl?: (node: CanvasCardNode, target: string) => string;
   onChange?: (nodeId: string, text: string) => void;
@@ -51,6 +53,8 @@ function isSafeLink(url: string): boolean {
   return !protocol || ['http', 'https', 'mailto', 'tel'].includes(protocol);
 }
 
+const firstLine = (text: string): string => text.split(/\r?\n/, 1)[0] ?? '';
+
 function MarkdownPreview({
   node,
   markdown,
@@ -58,10 +62,19 @@ function MarkdownPreview({
   onOpenUrl,
   onOpenNoteLink,
 }: Pick<CanvasCardProps, 'node' | 'markdown' | 'resolveImageUrl' | 'onOpenUrl' | 'onOpenNoteLink'>) {
-  const html = sanitizeMarkdownLinks(renderMarkdownToHtml(markdown ?? '', {
-    resolveImageUrl: resolveImageUrl ? (target) => resolveImageUrl(node, target) : undefined,
-    noteLinks: Boolean(onOpenNoteLink),
-  }));
+  const noteLinks = Boolean(onOpenNoteLink);
+  const hasResolver = Boolean(resolveImageUrl);
+  const resolverRef = useRef(resolveImageUrl);
+  const nodeRef = useRef(node);
+  resolverRef.current = resolveImageUrl;
+  nodeRef.current = node;
+  const html = useMemo(() => {
+    const resolve = resolverRef.current;
+    return sanitizeMarkdownLinks(renderMarkdownToHtml(markdown ?? '', {
+      resolveImageUrl: resolve ? (target) => resolve(nodeRef.current, target) : undefined,
+      noteLinks,
+    }));
+  }, [markdown, noteLinks, hasResolver]);
   const noteLinkFrom = (target: HTMLElement): [string, string] | null => {
     const note = target.closest<HTMLElement>('a[data-note-target]');
     if (!note || !onOpenNoteLink) return null;
@@ -98,6 +111,7 @@ export const CanvasCard = memo(function CanvasCard({
   strokeColor,
   editing = false,
   selected = false,
+  compact = false,
   children,
   resolveImageUrl,
   onChange,
@@ -129,7 +143,9 @@ export const CanvasCard = memo(function CanvasCard({
             event.stopPropagation();
             event.currentTarget.blur();
           }} />
-          : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
+          : compact
+            ? <div className="q-canvas-card__markdown">{firstLine(node.text ?? '')}</div>
+            : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
     );
   }
@@ -139,7 +155,7 @@ export const CanvasCard = memo(function CanvasCard({
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label={`File card: ${title}`}>
         <div className="q-canvas-card__title">{title}</div>
-        <MarkdownPreview node={node} markdown={markdown} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />
+        {!compact && <MarkdownPreview node={node} markdown={markdown} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
     );
   }
@@ -150,11 +166,13 @@ export const CanvasCard = memo(function CanvasCard({
     const imageUrl = /^https?:/i.test(url) ? url : resolveImageUrl?.(node, url) ?? url;
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Link card">
-        {safe && isImageUrl(url)
-          ? <img className="q-canvas-card__image" src={imageUrl} alt="" loading="lazy" />
-          : safe
-            ? <a className="q-canvas-card__link" href={url} onClick={(event) => { event.preventDefault(); onOpenUrl?.(url); }}>{url}</a>
-            : <span className="q-canvas-card__link">{url}</span>}
+        {compact
+          ? <span className="q-canvas-card__link">{url}</span>
+          : safe && isImageUrl(url)
+            ? <img className="q-canvas-card__image" src={imageUrl} alt="" loading="lazy" />
+            : safe
+              ? <a className="q-canvas-card__link" href={url} onClick={(event) => { event.preventDefault(); onOpenUrl?.(url); }}>{url}</a>
+              : <span className="q-canvas-card__link">{url}</span>}
       </div>
     );
   }

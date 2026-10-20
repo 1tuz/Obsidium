@@ -51,6 +51,7 @@ import {
   type CanvasSide,
 } from '../../modules/canvas/interaction';
 import { canvasFreehandPath } from '../../modules/canvas/freehand';
+import { snapToGuides, type CanvasGuide } from '../../modules/canvas/guides';
 import { mediaExtensionForFile, mediaKindForFile } from '../../modules/docs/imageEmbeds';
 import { importIntoFiles } from '../../modules/docs/vaultFiles';
 import {
@@ -70,8 +71,9 @@ import './CanvasView.css';
 
 type CanvasClipboard = { nodes: CanvasTypedNode[]; edges: CanvasEdge[] };
 type CanvasLinkDraft = { mode: 'add' | 'edit'; point?: CanvasPoint; nodeId?: string; value: string };
+type CanvasPointerSample = { clientX: number; clientY: number; shiftKey: boolean };
 type DragState =
-  | { kind: 'move'; startX: number; startY: number; camera: CanvasCamera; document: CanvasDocument; selected: string[] }
+  | { kind: 'move'; startX: number; startY: number; camera: CanvasCamera; document: CanvasDocument; selected: ReadonlySet<string> }
   | { kind: 'resize'; startX: number; startY: number; camera: CanvasCamera; document: CanvasDocument; nodeId: string; handle: CanvasResizeHandle }
   | { kind: 'edge-bend'; startX: number; startY: number; camera: CanvasCamera; edgeId: string; route: CanvasEdgeRoute; bend: CanvasPoint }
   | { kind: 'draw'; points: CanvasPoint[] }
@@ -93,6 +95,8 @@ interface CanvasViewProps {
 const GRID_SIZE = 20;
 const AUTOSAVE_DELAY_MS = 400;
 const CAMERA_PERSIST_DELAY_MS = 300;
+const COMPACT_ZOOM_THRESHOLD = 0.4;
+const GUIDE_SNAP_THRESHOLD_PX = 6;
 const IMAGE_EXTENSIONS = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
 const CANVAS_PRESET_COLORS: Record<string, string> = {
   '1': '--q-red-600',
@@ -275,6 +279,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [edgeColor, setEdgeColor] = useState('');
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [guides, setGuides] = useState<CanvasGuide[]>([]);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   const [notePickerOpen, setNotePickerOpen] = useState(false);
@@ -296,6 +301,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const clipboardRef = useRef<CanvasClipboard>({ nodes: [], edges: [] });
   const notePlacementRef = useRef<CanvasPoint | null>(null);
   const lastPointerRef = useRef<CanvasPoint>({ x: 0, y: 0 });
+  const pendingPointerRef = useRef<CanvasPointerSample | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const flushPointerMoveRef = useRef<() => void>(() => {});
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
 
   const setCanvasDocument = useCallback((next: CanvasDocument, record = true) => {
@@ -443,19 +451,20 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [path, setCameraValue]);
   useTauriEvent<string[]>('workspace-changed', handleWorkspaceChanged, !inactive);
 
+  const selectionSet = useMemo(() => new Set(selection), [selection]);
+
   const visibleNodes = useMemo(() => {
     if (!document) return [];
     if (viewport.width <= 0 || viewport.height <= 0) return document.nodes;
-    const selected = new Set(selection);
     const left = -camera.x / camera.zoom;
     const top = -camera.y / camera.zoom;
     const right = (viewport.width - camera.x) / camera.zoom;
     const bottom = (viewport.height - camera.y) / camera.zoom;
     return document.nodes.filter((node) => (
-      selected.has(node.id)
+      selectionSet.has(node.id)
       || (node.x <= right && node.x + node.width >= left && node.y <= bottom && node.y + node.height >= top)
     ));
-  }, [camera, document, selection, viewport]);
+  }, [camera, document, selectionSet, viewport]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.id)), [visibleNodes]);
 
   const visibleFileKey = visibleNodes.filter((node) => node.type === 'file').map((node) => `${node.id}:${node.file}`).join('\n');
@@ -853,7 +862,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       }
       const nextDrag: DragState = {
         kind: 'move', startX: event.clientX, startY: event.clientY, camera,
-        document: current!, selected: [...selected],
+        document: current!, selected,
       };
       dragRef.current = nextDrag;
       setDrag(nextDrag);
@@ -921,12 +930,11 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
   }, [addNode, workspacePath]);
 
-  const handlePointerMove = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
-    lastPointerRef.current = worldPoint(event);
+  const applyPointerMove = useCallback((pointer: CanvasPointerSample) => {
     const currentDrag = dragRef.current;
     if (!currentDrag) return;
     if (currentDrag.kind === 'draw') {
-      const point = worldPoint(event);
+      const point = worldPoint(pointer);
       const last = currentDrag.points[currentDrag.points.length - 1];
       if (last && Math.hypot(point.x - last.x, point.y - last.y) < 2) return;
       const next = { ...currentDrag, points: [...currentDrag.points, point] };
@@ -935,27 +943,43 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       return;
     }
     if (currentDrag.kind === 'connect') {
-      const next = { ...currentDrag, current: worldPoint(event) };
+      const next = { ...currentDrag, current: worldPoint(pointer) };
       dragRef.current = next;
       setDrag(next);
       return;
     }
-    const dx = event.clientX - currentDrag.startX;
-    const dy = event.clientY - currentDrag.startY;
+    const dx = pointer.clientX - currentDrag.startX;
+    const dy = pointer.clientY - currentDrag.startY;
     if (currentDrag.kind === 'move') {
-      const delta = { x: dx / currentDrag.camera.zoom, y: dy / currentDrag.camera.zoom };
-      const next = {
-        ...currentDrag.document,
-        nodes: translateCanvasNodes(currentDrag.document.nodes, new Set(currentDrag.selected), delta, grid === 'none' ? undefined : GRID_SIZE),
-      };
-      setCanvasDocument(next, false);
+      const current = currentDrag.document;
+      const selected = currentDrag.selected;
+      const zoom = currentDrag.camera.zoom;
+      const delta = { x: dx / zoom, y: dy / zoom };
+      const bounds = canvasContentBounds(current.nodes.filter((node) => selected.has(node.id)));
+      const snapped = bounds
+        ? snapToGuides(
+          { x: bounds.x + delta.x, y: bounds.y + delta.y, width: bounds.width, height: bounds.height },
+          current.nodes.filter((node) => !selected.has(node.id)),
+          GUIDE_SNAP_THRESHOLD_PX / zoom,
+        )
+        : { offset: { x: 0, y: 0 }, guides: [] as CanvasGuide[] };
+      setGuides(snapped.guides);
+      setCanvasDocument({
+        ...current,
+        nodes: translateCanvasNodes(
+          current.nodes,
+          selected,
+          { x: delta.x + snapped.offset.x, y: delta.y + snapped.offset.y },
+          grid === 'none' ? undefined : GRID_SIZE,
+        ),
+      }, false);
     } else if (currentDrag.kind === 'resize') {
       const original = currentDrag.document.nodes.find((node) => node.id === currentDrag.nodeId);
       if (!original) return;
       const resized = resizeCanvasNodeFromHandle(original, currentDrag.handle, {
         x: dx / currentDrag.camera.zoom,
         y: dy / currentDrag.camera.zoom,
-      }, event.shiftKey, 120, 80, grid === 'none' ? undefined : GRID_SIZE);
+      }, pointer.shiftKey, 120, 80, grid === 'none' ? undefined : GRID_SIZE);
       const current = documentRef.current;
       if (current) setCanvasDocument(updateCanvasNode(current, original.id, resized), false);
     } else if (currentDrag.kind === 'edge-bend') {
@@ -968,13 +992,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       };
       setCanvasDocument(updateCanvasEdge(current, edge.id, edgeRoutingPatch(edge, currentDrag.route, bend)), false);
     } else if (currentDrag.kind === 'shape') {
-      const end = worldPoint(event);
-      const dx = end.x - currentDrag.start.x;
-      const dy = end.y - currentDrag.start.y;
-      const side = Math.max(Math.abs(dx), Math.abs(dy));
-      const rect = canvasRectBetweenPoints(currentDrag.start, event.shiftKey ? {
-        x: currentDrag.start.x + (Math.sign(dx) || 1) * side,
-        y: currentDrag.start.y + (Math.sign(dy) || 1) * side,
+      const end = worldPoint(pointer);
+      const shapeDx = end.x - currentDrag.start.x;
+      const shapeDy = end.y - currentDrag.start.y;
+      const side = Math.max(Math.abs(shapeDx), Math.abs(shapeDy));
+      const rect = canvasRectBetweenPoints(currentDrag.start, pointer.shiftKey ? {
+        x: currentDrag.start.x + (Math.sign(shapeDx) || 1) * side,
+        y: currentDrag.start.y + (Math.sign(shapeDy) || 1) * side,
       } : end);
       const current = documentRef.current;
       if (current) {
@@ -986,20 +1010,48 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         }
       }
       dragRef.current = { ...currentDrag, moved: true };
-    } else if (currentDrag.kind === 'pan') {
-      setCameraValue({ ...currentDrag.camera, x: currentDrag.camera.x + dx, y: currentDrag.camera.y + dy });
-    } else if (currentDrag.kind === 'camera') {
+    } else if (currentDrag.kind === 'pan' || currentDrag.kind === 'camera') {
       setCameraValue({ ...currentDrag.camera, x: currentDrag.camera.x + dx, y: currentDrag.camera.y + dy });
     } else {
-      const rect = stageRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const next = { ...currentDrag, currentX: event.clientX, currentY: event.clientY };
+      const next = { ...currentDrag, currentX: pointer.clientX, currentY: pointer.clientY };
       dragRef.current = next;
       setDrag(next);
     }
   }, [grid, setCameraValue, setCanvasDocument, worldPoint]);
 
+  const flushPointerMove = useCallback(() => {
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    const pointer = pendingPointerRef.current;
+    pendingPointerRef.current = null;
+    if (pointer) applyPointerMove(pointer);
+  }, [applyPointerMove]);
+
+  useEffect(() => {
+    flushPointerMoveRef.current = flushPointerMove;
+  }, [flushPointerMove]);
+
+  useEffect(() => () => {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    pendingPointerRef.current = null;
+  }, []);
+
+  const handlePointerMove = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
+    lastPointerRef.current = worldPoint(event);
+    if (!dragRef.current) return;
+    pendingPointerRef.current = { clientX: event.clientX, clientY: event.clientY, shiftKey: event.shiftKey };
+    if (frameRef.current !== null) return;
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = null;
+      flushPointerMoveRef.current();
+    });
+  }, [worldPoint]);
+
   const handlePointerUp = useCallback(() => {
+    flushPointerMove();
     const currentDrag = dragRef.current;
     if (currentDrag?.kind === 'shape') {
       const current = documentRef.current;
@@ -1063,7 +1115,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     dragRef.current = null;
     setDrag(null);
-  }, [edgeColor, selection, setCanvasDocument, worldPoint]);
+    setGuides([]);
+  }, [edgeColor, flushPointerMove, selection, setCanvasDocument, worldPoint]);
 
   const handleStagePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     const stage = stageRef.current;
@@ -1421,6 +1474,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [path, setCameraValue]);
 
   const screenPoint = (point: { x: number; y: number }) => ({ x: camera.x + point.x * camera.zoom, y: camera.y + point.y * camera.zoom });
+  const compact = camera.zoom < COMPACT_ZOOM_THRESHOLD;
 
   if (loading) return <div className="q-canvas-loading" aria-busy="true">{t('canvas.loading')}</div>;
   if (error && !document) return <div className="q-canvas-error" role="alert">{t('canvas.errors.read', { reason: error })}</div>;
@@ -1562,6 +1616,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               {typeof edge.label === 'string' && <text x={(from.x + to.x) / 2} y={(from.y + to.y) / 2 - 6}>{edge.label}</text>}
             </g>;
           })}
+          {guides.map((guide) => {
+            const at = screenPoint(guide.axis === 'x' ? { x: guide.at, y: 0 } : { x: 0, y: guide.at });
+            return guide.axis === 'x'
+              ? <line key={`x:${guide.at}`} className="q-canvas__guide" x1={at.x} y1="0" x2={at.x} y2={viewport.height} stroke="var(--q-text-accent)" />
+              : <line key={`y:${guide.at}`} className="q-canvas__guide" x1="0" y1={at.y} x2={viewport.width} y2={at.y} stroke="var(--q-text-accent)" />;
+          })}
           {drag?.kind === 'connect' && (() => {
             const source = document.nodes.find((node) => node.id === drag.fromId);
             if (!source) return null;
@@ -1622,7 +1682,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
                   ? 'var(--q-canvas-node-color, var(--q-canvas-default-stroke))'
                   : undefined}
                 editing={editingId === node.id}
-                selected={selection.includes(node.id)}
+                selected={selectionSet.has(node.id)}
+                compact={compact}
                 resolveImageUrl={resolveImageUrl}
                 onChange={handleTextChange}
                 onResize={resizeTextNode}
