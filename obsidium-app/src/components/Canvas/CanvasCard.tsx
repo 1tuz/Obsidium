@@ -2,6 +2,8 @@ import type { ComponentChildren } from 'preact';
 import { memo } from 'preact/compat';
 import { useMemo, useRef } from 'react';
 import { renderMarkdownToHtml } from '../../modules/export/markdownToHtml';
+import { CanvasMedia } from './CanvasMedia';
+import type { CanvasShapeKind } from './CanvasShape';
 import './CanvasCard.css';
 
 export interface CanvasCardNode {
@@ -16,11 +18,18 @@ export interface CanvasCardNode {
   url?: string;
 }
 
+export interface CanvasCardMedia {
+  kind: 'image' | 'video';
+  src: string;
+  label: string;
+}
+
 interface CanvasCardProps {
   node: CanvasCardNode;
   markdown?: string;
   color?: string;
-  strokeColor?: string;
+  shape?: CanvasShapeKind | null;
+  media?: CanvasCardMedia | null;
   editing?: boolean;
   selected?: boolean;
   compact?: boolean;
@@ -39,7 +48,7 @@ function sanitizeMarkdownLinks(html: string): string {
     if (!protocol) return attribute;
     const allowed = kind === 'href'
       ? ['http', 'https', 'mailto', 'tel']
-      : ['http', 'https', 'asset', 'file'];
+      : ['http', 'https', 'asset', 'file', 'data', 'blob'];
     return allowed.includes(protocol) ? attribute : `${kind}="#"`;
   });
 }
@@ -108,7 +117,8 @@ export const CanvasCard = memo(function CanvasCard({
   node,
   markdown,
   color,
-  strokeColor,
+  shape = null,
+  media = null,
   editing = false,
   selected = false,
   compact = false,
@@ -120,11 +130,8 @@ export const CanvasCard = memo(function CanvasCard({
   onOpenUrl,
   onOpenNoteLink,
 }: CanvasCardProps) {
-  const className = `q-canvas-card q-canvas-card--${node.type}${selected ? ' is-selected' : ''}`;
-  const colorStyle = color || strokeColor ? {
-    ...(color ? { '--q-canvas-node-color': color } : {}),
-    ...(strokeColor ? { borderColor: strokeColor } : {}),
-  } as Record<string, string> : undefined;
+  const className = `q-canvas-card q-canvas-card--${node.type}${shape ? ' q-canvas-card--shape' : ''}${selected ? ' is-selected' : ''}`;
+  const colorStyle = color ? { '--q-canvas-node-color': color } as Record<string, string> : undefined;
 
   if (node.type === 'group') {
     return <div className={className} style={colorStyle} role="group" aria-label="Canvas group">{children}</div>;
@@ -152,6 +159,13 @@ export const CanvasCard = memo(function CanvasCard({
 
   if (node.type === 'file') {
     const title = node.file?.split(/[\\/]/).pop() ?? 'Untitled';
+    if (media) {
+      return (
+        <div className={className} style={colorStyle} data-node-id={node.id} aria-label={`File card: ${title}`}>
+          <CanvasMedia kind={media.kind} src={media.src} label={media.label} />
+        </div>
+      );
+    }
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label={`File card: ${title}`}>
         <div className="q-canvas-card__title">{title}</div>
@@ -169,7 +183,7 @@ export const CanvasCard = memo(function CanvasCard({
         {compact
           ? <span className="q-canvas-card__link">{url}</span>
           : safe && isImageUrl(url)
-            ? <img className="q-canvas-card__image" src={imageUrl} alt="" loading="lazy" />
+            ? <CanvasMedia kind="image" src={imageUrl} label={url} />
             : safe
               ? <a className="q-canvas-card__link" href={url} onClick={(event) => { event.preventDefault(); onOpenUrl?.(url); }}>{url}</a>
               : <span className="q-canvas-card__link">{url}</span>}

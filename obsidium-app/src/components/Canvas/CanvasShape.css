@@ -1,0 +1,15 @@
+.q-canvas__shape {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.q-canvas__shape-body {
+  fill: var(--q-canvas-shape-fill);
+  stroke: var(--q-canvas-shape-stroke);
+}
+
+.q-canvas__shape-outline {
+  stroke: var(--q-canvas-selection, var(--q-text-accent));
+}

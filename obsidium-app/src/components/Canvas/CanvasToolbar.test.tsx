@@ -22,8 +22,10 @@ describe('CanvasToolbar', () => {
     expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style\]\s*\{[^}]*--q-icon-button-icon:\s*var\(--q-canvas-ink\);/s);
     expect(canvasStyles).toMatch(/--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink\) 26%, var\(--q-canvas-paper\)\)/);
     expect(canvasStyles).toMatch(/\.q-canvas__stage--lines\s*\{[^}]*var\(--q-canvas-grid-line/);
-    expect(canvasStyles).toMatch(/\.q-canvas__object--rectangle[^}]*border-width:\s*var\(--q-canvas-shape-stroke-width/s);
-    expect(canvasStyles).toMatch(/--q-canvas-shape-stroke-width:\s*var\(--q-border-3\)/);
+    expect(canvasStyles).toMatch(/\.q-canvas__object--shape\s*\{[^}]*--q-canvas-shape-stroke:/s);
+    expect(canvasStyles).toMatch(/--q-canvas-shape-fill:\s*color-mix\(in srgb, var\(--q-canvas-node-color, var\(--q-canvas-ink\)\) 20%/);
+    expect(canvasStyles).not.toMatch(/clip-path:\s*polygon/);
+    expect(canvasStyles).toMatch(/\.q-canvas__connect\s*\{[^}]*pointer-events:\s*none/s);
   });
 
   it('labels paper styles through the existing settings translation namespace', () => {

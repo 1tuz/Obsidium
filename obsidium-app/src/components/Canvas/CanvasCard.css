@@ -18,6 +18,11 @@
   box-shadow: 0 0 0 var(--q-border-1) var(--q-border-focus-ring);
 }
 
+.q-canvas-card--shape.is-selected {
+  border-color: transparent;
+  box-shadow: none;
+}
+
 .q-canvas-card[style*="--q-canvas-node-color"] {
   border-color: var(--q-canvas-node-color);
   background: color-mix(in srgb, var(--q-canvas-node-color) 16%, var(--q-canvas-card, var(--q-bg-surface)));
@@ -61,7 +66,7 @@
 
 .q-canvas-card__markdown a,
 .q-canvas-card__link {
-  color: var(--q-text-accent);
+  color: var(--q-canvas-link, var(--q-text-accent));
   overflow-wrap: anywhere;
 }
 
@@ -102,11 +107,22 @@
   padding: var(--q-space-12);
 }
 
-.q-canvas-card__image {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: contain;
+.q-canvas-card--shape {
+  border: 0;
+  background: transparent;
+}
+
+.q-canvas-card--shape .q-canvas-card__markdown {
+  padding: var(--q-space-12);
+  overflow: hidden;
+}
+
+.q-canvas-card--shape .q-canvas-card__markdown > :first-child {
+  margin-top: 0;
+}
+
+.q-canvas__object:hover > .q-canvas-card {
+  border-color: var(--q-canvas-edge, var(--q-border-default));
 }
 
 .q-canvas-card--group {
