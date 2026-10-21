@@ -12,44 +12,7 @@ function columnLabel(col: number): string {
     return label;
 }
 
-function ensureStripChrome(root: HTMLElement): void {
-    const scroll = root.querySelector('.q-md-table-scroll') as HTMLElement | null;
-    if (!scroll || scroll.querySelector('.q-md-table-layout')) return;
-
-    const layout = document.createElement('div');
-    layout.className = 'q-md-table-layout';
-
-    const corner = document.createElement('div');
-    corner.className = 'q-md-table-corner';
-    corner.setAttribute('aria-hidden', 'true');
-
-    const colStrip = document.createElement('div');
-    colStrip.className = 'q-md-table-col-strip';
-    colStrip.setAttribute('role', 'presentation');
-
-    const body = document.createElement('div');
-    body.className = 'q-md-table-body';
-
-    const rowStrip = document.createElement('div');
-    rowStrip.className = 'q-md-table-row-strip';
-    rowStrip.setAttribute('role', 'presentation');
-
-    const tableHost = document.createElement('div');
-    tableHost.className = 'q-md-table-table-host';
-
-    const table = scroll.querySelector('.q-md-table-editor');
-    if (table) tableHost.appendChild(table);
-
-    body.append(rowStrip, tableHost);
-    layout.append(corner, colStrip, body);
-    scroll.insertBefore(layout, scroll.firstChild);
-    const addRow = scroll.querySelector('.q-md-table-add-row');
-    if (addRow) scroll.appendChild(addRow);
-}
-
 export function paintStripLabels(root: HTMLElement, model: TableModel): void {
-    ensureStripChrome(root);
-
     const colStrip = root.querySelector('.q-md-table-col-strip');
     const rowStrip = root.querySelector('.q-md-table-row-strip');
     if (!colStrip || !rowStrip) return;

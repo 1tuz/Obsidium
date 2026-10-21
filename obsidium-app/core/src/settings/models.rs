@@ -81,6 +81,7 @@ pub struct EditorSettings {
     pub save_debounce_ms: u32,
     pub line_height: f32,
     pub max_width_ch: u32,
+    pub full_width: bool,
     pub smart_dashes: bool,
     pub list_callouts: bool,
     pub auto_link_title: bool,
@@ -111,7 +112,7 @@ impl Default for MarkdownReadingSettings {
             font: "standard".to_string(),
             font_size_px: 18,
             line_height: 1.7,
-            page_width_ch: 65,
+            page_width_ch: 100,
         }
     }
 }
@@ -121,7 +122,8 @@ impl Default for EditorSettings {
         Self {
             save_debounce_ms: 30_000,
             line_height: 1.8,
-            max_width_ch: 65,
+            max_width_ch: 100,
+            full_width: false,
             smart_dashes: true,
             list_callouts: true,
             auto_link_title: true,

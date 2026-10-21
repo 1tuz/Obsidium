@@ -79,7 +79,7 @@ export function EditorSection({ config, onChange }: SettingsSectionProps) {
           <NumberControl ariaLabel={t('settings.editor.readingLineHeight')} value={reading.lineHeight} min={1.35} max={2.1} step={0.05} onChange={(lineHeight) => patchReading({ lineHeight })} />
         </Row>
         <Row label={t('settings.editor.readingPageWidth')}>
-          <NumberControl ariaLabel={t('settings.editor.readingPageWidth')} value={reading.pageWidthCh} min={45} max={90} onChange={(pageWidthCh) => patchReading({ pageWidthCh })} />
+          <NumberControl ariaLabel={t('settings.editor.readingPageWidth')} value={reading.pageWidthCh} min={45} max={220} onChange={(pageWidthCh) => patchReading({ pageWidthCh })} />
         </Row>
       </Section>
       <Section title={t('settings.font.section')}>
@@ -100,12 +100,19 @@ export function EditorSection({ config, onChange }: SettingsSectionProps) {
         </Row>
       </Section>
       <Section title={t('settings.editor.layout')}>
+        <Row label={t('settings.editor.fullWidth')} description={t('settings.editor.fullWidthHint')}>
+          <Switch
+            checked={config.editor.fullWidth === true}
+            label={t('settings.editor.fullWidth')}
+            onChange={(fullWidth) => patchEditor({ fullWidth })}
+          />
+        </Row>
         <Row label={t('settings.editor.maxWidth')} description={t('settings.editor.maxWidthHint')}>
           <NumberControl
             ariaLabel={t('settings.editor.maxWidthAria')}
             value={config.editor.maxWidthCh ?? DEFAULT_EDITOR_MAX_WIDTH_CH}
             min={40}
-            max={120}
+            max={220}
             step={1}
             onChange={(maxWidthCh) => patchEditor({ maxWidthCh })}
           />

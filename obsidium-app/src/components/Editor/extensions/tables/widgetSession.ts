@@ -33,8 +33,8 @@ import {
     findCellWrapper,
     paintCellWrapper,
     paintTableModel,
+    refitTableColumns,
 } from './widgetDom';
-import { syncStripSizes } from './geometry';
 import { WidgetDocFlush } from './widgetSessionDoc';
 import { openWidgetStructureMenu } from './widgetSessionMenu';
 import { handleCellNavigation, type CellNavigationHost } from './widgetSessionNav';
@@ -90,7 +90,7 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
     private stripDrag: StripDragState | null = null;
     private readonly resizeObserver = new ResizeObserver(() => {
         if (this.disposed) return;
-        syncStripSizes(this.root, this.tableModel);
+        refitTableColumns(this.root, this.tableModel);
         this.syncSelectionOverlay();
         this.view.requestMeasure();
     });
@@ -115,6 +115,8 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         );
         this.docFlush = new WidgetDocFlush(() => this.apply(), DOC_FLUSH_MS);
         this.resizeObserver.observe(this.root);
+        const tableHost = root.querySelector('.q-md-table-table-host');
+        if (tableHost) this.resizeObserver.observe(tableHost);
         document.addEventListener('mousemove', this.onDocumentMove);
         document.addEventListener('mouseup', this.onDocumentUp);
     }

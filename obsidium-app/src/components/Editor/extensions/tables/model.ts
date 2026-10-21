@@ -178,10 +178,6 @@ export function withExplicitColWidths(
     };
 }
 
-export function totalColWidth(model: TableModel): number {
-    return model.colWidths.reduce((sum, width) => sum + width, 0);
-}
-
 export function mergeCells(model: TableModel, refs: CellRef[]): TableModel | null {
     if (refs.length < 2) return null;
     const unique = new Set(refs.map((ref) => `${ref.row}:${ref.col}`));

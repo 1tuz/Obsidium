@@ -304,9 +304,13 @@
   background: transparent;
 }
 
-.q-canvas__object--freehand.is-selected .q-canvas__freehand path,
-.q-canvas__object--freehand:hover .q-canvas__freehand path {
-  stroke: var(--q-canvas-selection, var(--q-text-accent));
+.q-canvas__object--freehand:hover .q-canvas__freehand path:not(.q-canvas__freehand-halo) {
+  stroke-width: calc(var(--q-border-2) + 1px);
+}
+
+.q-canvas__freehand path.q-canvas__freehand-halo {
+  stroke-width: calc(var(--q-border-2) * 3);
+  opacity: 0.35;
 }
 
 .q-canvas__object--freehand > .q-canvas-card > .q-canvas-card__markdown {

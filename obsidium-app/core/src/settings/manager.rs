@@ -128,7 +128,7 @@ mod tests {
         assert_eq!(config.editor.markdown_reading.font, "standard");
         assert_eq!(config.editor.markdown_reading.font_size_px, 18);
         assert_eq!(config.editor.markdown_reading.line_height, 1.7);
-        assert_eq!(config.editor.markdown_reading.page_width_ch, 65);
+        assert_eq!(config.editor.markdown_reading.page_width_ch, 100);
     }
 
     #[test]

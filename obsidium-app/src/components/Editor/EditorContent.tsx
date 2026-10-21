@@ -38,6 +38,7 @@ interface EditorContentProps {
     metadataExpanded?: boolean;
     onToggleMetadata?: () => void;
     markdownReading: MarkdownReadingSettings;
+    fullWidth?: boolean;
 }
 
 export function EditorContent({
@@ -56,6 +57,7 @@ export function EditorContent({
     metadataExpanded = false,
     onToggleMetadata,
     markdownReading,
+    fullWidth = false,
 }: EditorContentProps) {
     const titleExtensions = useMemo(() => [wikiHoverHighlightTitle], []);
     const bodyExtensions = useMemo<Extension[]>(() => [
@@ -69,7 +71,7 @@ export function EditorContent({
     const readingStyle = paperStyle ? {
         '--q-editor-font-size': `${markdownReading.fontSizePx}px`,
         '--q-editor-line-height': String(markdownReading.lineHeight),
-        '--q-editor-max-width': `${markdownReading.pageWidthCh}ch`,
+        '--q-editor-max-width': fullWidth ? 'none' : `${markdownReading.pageWidthCh}ch`,
     } : undefined;
 
     return (
@@ -78,6 +80,7 @@ export function EditorContent({
             data-reading-style={paperStyle}
             data-reading-texture={paperStyle ? markdownReading.texture : undefined}
             data-reading-font={paperStyle ? markdownReading.font : undefined}
+            data-full-width={fullWidth ? 'true' : undefined}
             style={readingStyle}
             onContextMenu={readOnly ? undefined : bodyMenu.onContextMenu}
         >

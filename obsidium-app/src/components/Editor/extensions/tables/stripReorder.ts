@@ -209,12 +209,12 @@ function paintStripDropLine(root: HTMLElement, state: StripDragState): void {
     const x = state.insertGap >= buttons.length
         ? buttons[buttons.length - 1].getBoundingClientRect().right
         : buttons[state.insertGap].getBoundingClientRect().left;
-    const body = root.querySelector('.q-md-table-body') as HTMLElement | null;
-    const bodyRect = (body ?? host).getBoundingClientRect();
+    const table = root.querySelector('.q-md-table-editor') as HTMLElement | null;
+    const tableRect = (table ?? host).getBoundingClientRect();
     line.hidden = false;
     line.dataset.axis = 'col';
     line.style.left = `${x - hostRect.left - 1}px`;
     line.style.top = '0px';
-    line.style.height = `${bodyRect.bottom - hostRect.top}px`;
+    line.style.height = `${tableRect.bottom - hostRect.top}px`;
     line.style.width = '';
 }

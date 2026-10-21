@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view';
 
-export const tableTheme = EditorView.theme({
+export const tableThemeSpec: Record<string, Record<string, string>> = {
     '&.q-md-table-interaction > .cm-scroller > .cm-cursorLayer': {
         display: 'none',
     },
@@ -21,16 +21,13 @@ export const tableTheme = EditorView.theme({
         pointerEvents: 'none',
     },
     '.q-md-table-shell': {
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) var(--q-space-20)',
+        display: 'block',
         width: '100%',
         maxWidth: '100%',
         boxSizing: 'border-box',
         pointerEvents: 'none',
     },
     '.q-md-table-scroll': {
-        gridColumn: '1',
-        gridRow: '1',
         minWidth: '0',
         overflowX: 'auto',
         overflowY: 'hidden',
@@ -40,17 +37,17 @@ export const tableTheme = EditorView.theme({
     '.q-md-table-layout': {
         position: 'relative',
         display: 'grid',
-        gridTemplateColumns: 'auto 1fr',
-        gridTemplateRows: 'auto 1fr',
+        gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+        gridTemplateRows: 'auto auto auto',
         columnGap: 'var(--q-gap-xs)',
         rowGap: 'var(--q-gap-xs)',
-        width: 'max(100%, var(--q-md-table-layout-min-width))',
+        width: '100%',
         pointerEvents: 'auto',
     },
     '.q-md-table-corner': {
         gridColumn: '1',
         gridRow: '1',
-        width: 'var(--q-space-24)',
+        minWidth: 'var(--q-space-24)',
         minHeight: 'var(--q-space-24)',
     },
     '.q-md-table-col-strip': {
@@ -59,21 +56,15 @@ export const tableTheme = EditorView.theme({
         display: 'flex',
         minWidth: '0',
     },
-    '.q-md-table-body': {
-        gridColumn: '1 / 3',
-        gridRow: '2',
-        display: 'grid',
-        gridTemplateColumns: 'auto 1fr',
-        columnGap: 'var(--q-gap-xs)',
-        minWidth: '0',
-    },
     '.q-md-table-row-strip': {
         gridColumn: '1',
+        gridRow: '2',
         display: 'flex',
         flexDirection: 'column',
     },
     '.q-md-table-table-host': {
         gridColumn: '2',
+        gridRow: '2',
         position: 'relative',
         minWidth: '0',
     },
@@ -107,6 +98,7 @@ export const tableTheme = EditorView.theme({
     '.q-md-table-row-strip-btn': {
         flex: '0 0 auto',
         position: 'relative',
+        boxSizing: 'border-box',
     },
     '.q-md-table-editor': {
         width: '100%',
@@ -114,6 +106,9 @@ export const tableTheme = EditorView.theme({
         borderCollapse: 'collapse',
         margin: '0',
         font: 'inherit',
+    },
+    '.q-md-table-editor[data-sizing="auto"]': {
+        tableLayout: 'auto',
     },
     '.q-md-table-editor td': {
         border: 'var(--q-border-1) solid var(--q-editor-table-border)',
@@ -125,11 +120,22 @@ export const tableTheme = EditorView.theme({
         cursor: 'text',
     },
     '.q-md-table-cell-wrapper': {
-        overflowWrap: 'anywhere',
-        wordBreak: 'break-word',
+        overflowWrap: 'break-word',
+        wordBreak: 'normal',
         whiteSpace: 'pre-wrap',
         minHeight: '1.2em',
         userSelect: 'none',
+    },
+    '.q-md-table-cell-wrapper a': {
+        color: 'var(--q-text-link)',
+        textDecoration: 'underline',
+        cursor: 'pointer',
+    },
+    '.q-md-table-cell-wrapper code': {
+        fontFamily: 'var(--q-editor-code-font)',
+        backgroundColor: 'var(--q-editor-code-bg)',
+        borderRadius: 'var(--q-editor-code-radius)',
+        padding: '0 var(--q-space-2)',
     },
     '.q-md-table-selection-overlay': {
         position: 'absolute',
@@ -208,17 +214,21 @@ export const tableTheme = EditorView.theme({
         opacity: '1',
     },
     '.q-md-table-add-row': {
-        width: 'var(--q-md-table-band-width, 100%)',
+        gridColumn: '2',
+        gridRow: '3',
+        width: '100%',
         height: 'var(--q-space-20)',
         borderTop: 'none',
         cursor: 'pointer',
     },
     '.q-md-table-add-col': {
-        gridColumn: '2',
-        gridRow: '1',
-        alignSelf: 'start',
+        gridColumn: '3',
+        gridRow: '2',
+        alignSelf: 'stretch',
         width: 'var(--q-space-20)',
         borderInlineStart: 'none',
         cursor: 'pointer',
     },
-});
+};
+
+export const tableTheme = EditorView.theme(tableThemeSpec);

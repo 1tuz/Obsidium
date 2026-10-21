@@ -325,6 +325,8 @@
       "lineHeight": "Line height",
       "layout": "Layout",
       "maxWidth": "Editor width, ch",
+      "fullWidth": "Full width",
+      "fullWidthHint": "Text uses the whole pane; the character limit is ignored.",
       "maxWidthHint": "Maximum width of the text column",
       "maxWidthAria": "Editor width",
       "tabs": "Tabs",

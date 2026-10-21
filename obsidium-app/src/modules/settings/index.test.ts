@@ -33,4 +33,37 @@ describe('normalizeConfig', () => {
     });
     expect(normalized.editor.fontSizeBase).toBe(16);
   });
+
+  it('widens the legacy 65-character page to the new default once', () => {
+    const config = {
+      builtins: {},
+      ui: { fontFamily: 'Inter', fontWeight: 400 },
+      editor: {
+        fontFamily: 'iA Writer Mono', fontWeight: 400, maxWidthCh: 65,
+        markdownReading: { pageWidthCh: 65 },
+      },
+      reader: { fontFamily: 'iA Writer Quattro', fontWeight: 400 },
+    } as unknown as AppConfig;
+
+    const normalized = normalizeConfig(config);
+    expect(normalized.editor.maxWidthCh).toBe(100);
+    expect(normalized.editor.markdownReading.pageWidthCh).toBe(100);
+  });
+
+  it('keeps a deliberate width and the full-width flag', () => {
+    const config = {
+      builtins: {},
+      ui: { fontFamily: 'Inter', fontWeight: 400 },
+      editor: {
+        fontFamily: 'iA Writer Mono', fontWeight: 400, maxWidthCh: 140, fullWidth: true,
+        markdownReading: { pageWidthCh: 120 },
+      },
+      reader: { fontFamily: 'iA Writer Quattro', fontWeight: 400 },
+    } as unknown as AppConfig;
+
+    const normalized = normalizeConfig(config);
+    expect(normalized.editor.maxWidthCh).toBe(140);
+    expect(normalized.editor.markdownReading.pageWidthCh).toBe(120);
+    expect(normalized.editor.fullWidth).toBe(true);
+  });
 });
