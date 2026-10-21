@@ -151,6 +151,92 @@ describe('CanvasView', () => {
     });
   });
 
+  it('paints a freehand stroke through the node colour token', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{
+        id: 'stroke', type: 'text', x: 0, y: 0, width: 120, height: 80, text: '', color: '2',
+        obsidium: { shape: 'freehand', points: [{ x: 8, y: 8 }, { x: 60, y: 24 }, { x: 104, y: 64 }] },
+      }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    expect(object.style.getPropertyValue('--q-canvas-node-color')).toBe('var(--q-amber-600)');
+    const path = renderer!.container.querySelector('.q-canvas__freehand path:not(.q-canvas__freehand-halo)')!;
+    expect(path.getAttribute('stroke')).toBe('var(--q-canvas-node-color, var(--q-canvas-edge))');
+  });
+
+  it('repaints a selected freehand stroke when a colour is picked', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{
+        id: 'stroke', type: 'text', x: 0, y: 0, width: 120, height: 80, text: '',
+        obsidium: { shape: 'freehand', points: [{ x: 8, y: 8 }, { x: 60, y: 24 }, { x: 104, y: 64 }] },
+      }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    expect(renderer!.container.querySelector('.q-canvas__freehand-halo')).not.toBeNull();
+    const swatch = renderer!.container.querySelector<HTMLButtonElement>(
+      '.q-canvas-properties__section--stroke button[aria-label="canvas.toolbar.color.5"]',
+    )!;
+    await actAndSettle(() => { swatch.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    const repainted = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    expect(repainted.style.getPropertyValue('--q-canvas-node-color')).toBe('var(--q-teal-600)');
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ color: '5' });
+  });
+
+  it('draws a freehand stroke with the colour chosen in the properties panel', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'note', type: 'text', x: 0, y: 0, width: 100, height: 80, text: '', obsidium: { shape: 'rectangle' } }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    const swatch = renderer!.container.querySelector<HTMLButtonElement>(
+      '.q-canvas-properties__section--stroke button[aria-label="canvas.toolbar.color.4"]',
+    )!;
+    await actAndSettle(() => { swatch.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', code: 'KeyP', bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 20, clientY: 30, button: 0, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointermove', { clientX: 80, clientY: 42, bubbles: true })); });
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerup', { clientX: 80, clientY: 42, bubbles: true })); });
+    await act(settleAutosave);
+
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    const stroke = saved.nodes.find((node: { obsidium?: { shape?: string } }) => node.obsidium?.shape === 'freehand');
+    expect(stroke).toMatchObject({ type: 'text', color: '4' });
+  });
+
   it('draws a rectangle by dragging in either direction', async () => {
     act(() => {
       renderer = mountDom(
@@ -914,7 +1000,7 @@ describe('CanvasView', () => {
     expect(saved.nodes[0]).toMatchObject({ type: 'file' });
   });
 
-  it('opens the note picker from the note tool', async () => {
+  it('opens the note picker immediately from the note tool and keeps select armed', async () => {
     act(() => {
       renderer = mountDom(
         <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
@@ -922,11 +1008,31 @@ describe('CanvasView', () => {
     });
     await actAndSettle();
     const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
-    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
     await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', code: 'KeyL', bubbles: true, cancelable: true })); });
-    expect(canvas.getAttribute('data-active-tool')).toBe('note');
-    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 40, button: 0, bubbles: true })); });
+    expect(canvas.getAttribute('data-active-tool')).toBe('select');
     expect(renderer!.container.querySelector('.q-search-dialog')).not.toBeNull();
+  });
+
+  it('opens the image dialog immediately from the photo tool and keeps select armed', async () => {
+    vi.mocked(open).mockResolvedValueOnce(null);
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const button = renderer!.container.querySelector<HTMLButtonElement>('button[aria-label="canvas.toolbar.tool.image"]')!;
+    await actAndSettle(() => { button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(vi.mocked(open)).toHaveBeenCalled();
+    expect(canvas.getAttribute('data-active-tool')).toBe('select');
+
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', code: 'KeyF', bubbles: true, cancelable: true })); });
+    expect(canvas.getAttribute('data-active-tool')).toBe('select');
+    expect(vi.mocked(open)).toHaveBeenCalledTimes(2);
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 40, button: 0, bubbles: true })); });
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(0);
   });
 
   it('pans with a plain wheel and keeps the camera after the debounce', async () => {
@@ -1350,6 +1456,99 @@ describe('CanvasView', () => {
     expect(saved.nodes[0]).toMatchObject({ type: 'link', url: 'https://example.test/pic.png' });
     expect(renderer!.container.querySelector('.q-canvas-card__media-image')?.getAttribute('src'))
       .toBe('https://example.test/pic.png');
+  });
+
+  it('imports an image pasted as a file URL', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    await actAndSettle(() => {
+      const paste = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(paste, 'clipboardData', {
+        value: {
+          files: [],
+          items: [],
+          getData: (kind: string) => kind === 'text/uri-list' ? 'file:///vault/Files/pic.png' : '',
+        },
+      });
+      canvas.dispatchEvent(paste);
+    });
+    await act(settleAutosave);
+
+    expect(vi.mocked(importIntoFiles)).toHaveBeenCalledWith(
+      '/vault',
+      { kind: 'path', sourcePath: '/vault/Files/pic.png' },
+      { fallbackName: 'image', fallbackExt: 'png' },
+    );
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'file', file: 'Files/image.png' });
+  });
+
+  it('reports a pasted local path outside the workspace', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    await actAndSettle(() => {
+      const paste = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(paste, 'clipboardData', {
+        value: {
+          files: [],
+          items: [],
+          getData: (kind: string) => kind === 'text/plain' ? '/elsewhere/pic.png' : '',
+        },
+      });
+      canvas.dispatchEvent(paste);
+    });
+
+    expect(renderer!.container.querySelector('.q-canvas__warning')?.textContent).toBe('canvas.errors.dropUnsupported');
+    expect(vi.mocked(importIntoFiles)).not.toHaveBeenCalled();
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(0);
+  });
+
+  it('pastes clipboard content while the properties panel holds focus', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-canvas-properties')!;
+    const target = panel.querySelector<HTMLButtonElement>('button')!;
+    target.focus();
+
+    await actAndSettle(() => {
+      const paste = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(paste, 'clipboardData', {
+        value: {
+          files: [],
+          items: [],
+          getData: (kind: string) => kind === 'text/uri-list' ? 'file:///vault/Files/pic.png' : '',
+        },
+      });
+      target.dispatchEvent(paste);
+    });
+    await act(settleAutosave);
+
+    expect(vi.mocked(importIntoFiles)).toHaveBeenCalledTimes(1);
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(2);
   });
 
   it('changes visible paint order and duplicates from the selection toolbar', async () => {

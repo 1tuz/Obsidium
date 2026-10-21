@@ -83,7 +83,7 @@
   --q-editor-font-size: var(--q-font-size-16);
   --q-editor-font-weight: var(--q-font-weight-normal);
   --q-editor-line-height: var(--q-font-line-height-prose);
-  --q-editor-max-width: 65ch;
+  --q-editor-max-width: 100ch;
   --q-editor-padding-x: var(--q-space-24);
   --q-editor-padding-y: var(--q-space-32);
   --q-editor-scroll-past-end: 675px;

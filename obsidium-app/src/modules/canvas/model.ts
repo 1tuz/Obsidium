@@ -135,7 +135,7 @@ export const parseCanvasDocument = (source: string): CanvasParseResult => {
 
 export const serializeCanvasDocument = (document: CanvasDocument): string => JSON.stringify(document, null, 2);
 
-export function createCanvasFreehandNode(id: string, points: readonly CanvasPoint[]): CanvasTextNode {
+export function createCanvasFreehandNode(id: string, points: readonly CanvasPoint[], color?: string): CanvasTextNode {
   const first = points[0] ?? { x: 0, y: 0 };
   const bounds = points.reduce((value, point) => ({
     left: Math.min(value.left, point.x),
@@ -155,6 +155,7 @@ export function createCanvasFreehandNode(id: string, points: readonly CanvasPoin
     width: Math.max(16, right - left),
     height: Math.max(16, bottom - top),
     text: '',
+    ...(color ? { color } : {}),
     obsidium: {
       shape: 'freehand',
       points: points.map((point) => ({ x: Math.round(point.x - left), y: Math.round(point.y - top) })),

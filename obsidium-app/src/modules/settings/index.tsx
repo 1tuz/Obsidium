@@ -39,6 +39,7 @@ interface EditorSettings extends FontSettings {
   saveDebounceMs: number;
   lineHeight: number;
   maxWidthCh: number;
+  fullWidth: boolean;
   markdownReading: MarkdownReadingSettings;
   smartDashes: boolean;
   listCallouts: boolean;
@@ -67,10 +68,10 @@ export const DEFAULT_MARKDOWN_READING_SETTINGS: MarkdownReadingSettings = {
   font: 'standard',
   fontSizePx: 18,
   lineHeight: 1.7,
-  pageWidthCh: 65,
+  pageWidthCh: 100,
 };
 
-export const DEFAULT_EDITOR_MAX_WIDTH_CH = 65;
+export const DEFAULT_EDITOR_MAX_WIDTH_CH = 100;
 export const DEFAULT_LIVE_TABS = 3;
 
 export const DEFAULT_LINK_SUGGEST_MIN_CHARS = 2;
@@ -200,6 +201,12 @@ function applyFont(root: HTMLElement, font: FontSettings, scope: 'ui' | 'editor'
   root.style.setProperty('--q-editor-font-size', pxToRem(font.fontSizeBase));
 }
 
+const LEGACY_EDITOR_MAX_WIDTH_CH = 65;
+
+function widenLegacyWidth(value: number | undefined, fallback: number): number {
+  return value === undefined || value === LEGACY_EDITOR_MAX_WIDTH_CH ? fallback : value;
+}
+
 export function normalizeConfig(config: AppConfig): AppConfig {
   const iconSet = config.ui.iconSet as IconSet | undefined;
   return {
@@ -211,7 +218,13 @@ export function normalizeConfig(config: AppConfig): AppConfig {
     },
     editor: {
       ...knownFont('editor', config.editor),
-      markdownReading: { ...DEFAULT_MARKDOWN_READING_SETTINGS, ...config.editor.markdownReading },
+      maxWidthCh: widenLegacyWidth(config.editor.maxWidthCh, DEFAULT_EDITOR_MAX_WIDTH_CH),
+      fullWidth: config.editor.fullWidth === true,
+      markdownReading: {
+        ...DEFAULT_MARKDOWN_READING_SETTINGS,
+        ...config.editor.markdownReading,
+        pageWidthCh: widenLegacyWidth(config.editor.markdownReading?.pageWidthCh, DEFAULT_MARKDOWN_READING_SETTINGS.pageWidthCh),
+      },
     },
     reader: { ...knownFont('reader', config.reader), paperTheme: normalizeReadingTheme(config.reader.paperTheme) },
   };
@@ -292,6 +305,6 @@ function applySettingsToDom(config: AppConfig) {
   root.style.setProperty('--q-editor-line-height', String(config.editor.lineHeight));
   root.style.setProperty(
     '--q-editor-max-width',
-    `${config.editor.maxWidthCh}ch`,
+    config.editor.fullWidth ? 'none' : `${config.editor.maxWidthCh}ch`,
   );
 }

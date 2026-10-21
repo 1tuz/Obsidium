@@ -4,6 +4,7 @@ import type { TableModel } from './model';
 import { renderTableWidgetDom } from './widgetDom';
 import { bindWikiHover, refreshWikiHover, unbindWikiHover } from '../../../../modules/wikixiv';
 import { livePreviewConfigFacet } from '../livePreviewConfig';
+import { markdownNoteTarget } from '../links/interaction';
 import { WidgetSession } from './widgetSession';
 import { bindWidgetSession, syncWidgetSession, unbindWidgetSession } from './widgetSessionRegistry';
 
@@ -66,12 +67,32 @@ export class TableWidget extends WidgetType {
         bindWidgetSession(root, session);
         root.addEventListener('mousedown', (event) => {
             if (event.button !== 0) return;
-            const link = (event.target as HTMLElement | null)?.closest<HTMLElement>('.q-md-table-wiki-link');
+            const target = event.target as HTMLElement | null;
+            const config = view.state.facet(livePreviewConfigFacet);
+
+            const anchor = target?.closest<HTMLAnchorElement>('.q-md-table-cell-wrapper a[href]');
+            const href = anchor?.getAttribute('href');
+            if (href != null && href !== '') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const noteTarget = markdownNoteTarget(href, config?.workspacePath ?? null, config?.notePath() ?? '');
+                if (noteTarget) {
+                    config?.onOpenWikiLink(
+                        noteTarget,
+                        event.ctrlKey || event.metaKey ? 'new-tab' : 'current',
+                    );
+                } else {
+                    config?.onOpenExternalUrl(href);
+                }
+                return;
+            }
+
+            const link = target?.closest<HTMLElement>('.q-md-table-wiki-link');
             const wikiTarget = link?.dataset.wikiTarget;
             if (!wikiTarget) return;
             event.preventDefault();
             event.stopImmediatePropagation();
-            view.state.facet(livePreviewConfigFacet)?.onOpenWikiLink(
+            config?.onOpenWikiLink(
                 wikiTarget,
                 event.ctrlKey || event.metaKey ? 'new-tab' : 'current',
             );

@@ -149,6 +149,24 @@ function newId(): string {
   return [...crypto.getRandomValues(new Uint8Array(8))].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+const editableTarget = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement && Boolean(target.closest('textarea,input,select,[contenteditable="true"],.cm-editor'));
+
+const clipboardText = (clipboard: DataTransfer, type: string): string => {
+  try {
+    return clipboard.getData(type) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const localClipboardPath = (raw: string): string | null => {
+  const first = raw.split(/\r?\n/).map((line) => line.trim()).find((line) => line && !line.startsWith('#'));
+  if (!first || !(/^file:\/\//i.test(first) || /^(?:[a-zA-Z]:[\\/]|\/)/.test(first))) return null;
+  const extension = first.match(/\.([a-z0-9]+)(?:[?#].*)?$/i)?.[1].toLowerCase();
+  return extension && MEDIA_EXTENSIONS.includes(extension) ? first : null;
+};
+
 function edgeRouting(edge: CanvasEdge): { route: CanvasEdgeRoute; bend: CanvasPoint } {
   const obsidium = edge.obsidium && typeof edge.obsidium === 'object' ? edge.obsidium as Record<string, unknown> : {};
   const bend = obsidium.bend && typeof obsidium.bend === 'object' ? obsidium.bend as Record<string, unknown> : {};
@@ -802,6 +820,26 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setActionError(t('canvas.errors.imageImport'));
     }
   }, [addNode, workspacePath]);
+
+  const viewportCenter = useCallback((): CanvasPoint => ({
+    x: (viewport.width / 2 - camera.x) / camera.zoom,
+    y: (viewport.height / 2 - camera.y) / camera.zoom,
+  }), [camera, viewport]);
+
+  const chooseTool = useCallback((tool: CanvasTool) => {
+    if (tool === 'image') {
+      setActiveTool('select');
+      void attachImage(viewportCenter());
+      return;
+    }
+    if (tool === 'note') {
+      setActiveTool('select');
+      notePlacementRef.current = viewportCenter();
+      setNotePickerOpen(true);
+      return;
+    }
+    setActiveTool(tool);
+  }, [attachImage, viewportCenter]);
 
   const addNumberMarker = useCallback((point: CanvasPoint) => {
     const current = documentRef.current;
@@ -1463,7 +1501,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     } else if (currentDrag?.kind === 'draw' && currentDrag.points.length > 0) {
       const current = documentRef.current;
       if (current) {
-        const node = createCanvasFreehandNode(newId(), currentDrag.points);
+        const node = createCanvasFreehandNode(newId(), currentDrag.points, nodeColor || undefined);
         setCanvasDocument(addCanvasNode(current, node));
         setSelection([node.id]);
       }
@@ -1516,7 +1554,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     setDrag(null);
     setGuides([]);
     setSnapPoint(null);
-  }, [flushPointerMove, onOpenFile, selection, setCanvasDocument, workspacePath, worldPoint]);
+  }, [flushPointerMove, nodeColor, onOpenFile, selection, setCanvasDocument, workspacePath, worldPoint]);
 
   const handleStagePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     const stage = stageRef.current;
@@ -1549,11 +1587,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (activeTool !== 'select') {
       if (activeTool === 'text' || activeTool === 'sticker') addNode(activeTool, point);
-      else if (activeTool === 'note') {
-        notePlacementRef.current = point;
-        setNotePickerOpen(true);
-      } else if (activeTool === 'group') addGroup();
-      else if (activeTool === 'image') void attachImage(point);
+      else if (activeTool === 'group') addGroup();
       return;
     }
     if (event.button !== 0) return;
@@ -1565,7 +1599,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     dragRef.current = next;
     setDrag(next);
     stage.setPointerCapture(event.pointerId);
-  }, [activeTool, addGroup, addNode, addNumberMarker, attachImage, beginShapeDrawing, camera, spaceHeld, worldPoint]);
+  }, [activeTool, addGroup, addNode, addNumberMarker, beginShapeDrawing, camera, spaceHeld, worldPoint]);
 
   const handleDrop = useCallback((event: TargetedDragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1617,8 +1651,21 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     addNode('file', { x: point.x - 140, y: point.y - 60 }, relative);
   }), [addNode, worldPoint, workspacePath]);
 
+  const importClipboardPath = useCallback(async (sourcePath: string, point: CanvasPoint) => {
+    try {
+      const relative = await importIntoFiles(
+        workspacePath,
+        { kind: 'path', sourcePath },
+        { fallbackName: 'image', fallbackExt: 'png' },
+      );
+      addNode('file', { x: point.x, y: point.y }, relative);
+    } catch (cause) {
+      setActionError(String(cause));
+    }
+  }, [addNode, workspacePath]);
+
   const handlePaste = useCallback((event: ClipboardEvent) => {
-    if ((event.target as HTMLElement).closest('textarea,input')) return;
+    if (editableTarget(event.target)) return;
     const clipboard = event.clipboardData;
     if (!clipboard) return;
     const files = Array.from(clipboard.files ?? []);
@@ -1634,12 +1681,24 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       void importMedia(files, lastPointerRef.current);
       return;
     }
-    const text = clipboard.getData('text/plain').trim();
-    const media = text ? resolveCanvasMedia({
+    const uriText = clipboardText(clipboard, 'text/uri-list');
+    const plainText = clipboardText(clipboard, 'text/plain').trim();
+    const localPath = localClipboardPath(uriText) ?? localClipboardPath(plainText);
+    if (localPath) {
+      event.preventDefault();
+      const relative = canvasWorkspacePath(workspacePath, localPath);
+      if (!relative) {
+        setActionError(t('canvas.errors.dropUnsupported'));
+        return;
+      }
+      void importClipboardPath(absolutePath(workspacePath, relative), lastPointerRef.current);
+      return;
+    }
+    const media = plainText ? resolveCanvasMedia({
       workspacePath,
       canvasPath: path,
       nodeType: 'link',
-      target: text,
+      target: plainText,
     }) : null;
     if (!media) return;
     event.preventDefault();
@@ -1648,37 +1707,34 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     if (!current) return;
     const node: CanvasTypedNode = {
       id: newId(), type: 'link', x: Math.round(point.x), y: Math.round(point.y),
-      width: 280, height: 180, url: text,
+      width: 280, height: 180, url: plainText,
       ...(nodeColor ? { color: nodeColor } : {}),
     };
     setCanvasDocument(addCanvasNode(current, node));
     setSelection([node.id]);
-  }, [importMedia, nodeColor, path, setCanvasDocument, workspacePath]);
-
-  const ownsFocus = useCallback(() => {
-    const active = globalThis.document.activeElement as HTMLElement | null;
-    const section = stageRef.current?.closest('.q-canvas');
-    if (!section) return false;
-    if (!active || active === globalThis.document.body) return true;
-    return section.contains(active);
-  }, []);
+  }, [importClipboardPath, importMedia, nodeColor, path, setCanvasDocument, workspacePath]);
 
   useEffect(() => {
     if (inactive) return undefined;
-    const isEditable = (target: EventTarget | null) =>
-      target instanceof HTMLElement && Boolean(target.closest('textarea,input,select,[contenteditable="true"]'));
+
+    const boardOwnsFocus = () => {
+      const section = stageRef.current?.closest('.q-canvas');
+      if (!section) return false;
+      const active = globalThis.document.activeElement;
+      return !active || active === globalThis.document.body || section.contains(active);
+    };
 
     const onPaste = (event: ClipboardEvent) => {
-      if (event.defaultPrevented || isEditable(event.target) || !ownsFocus()) return;
+      if (event.defaultPrevented || editableTarget(event.target)) return;
       handlePaste(event);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
-      if (isEditable(event.target) || !ownsFocus()) return;
+      if (editableTarget(event.target)) return;
       const key = event.key.toLowerCase();
       if (key === 'c') {
-        if (copySelection()) event.preventDefault();
-      } else if (key === 'v') {
+        if (boardOwnsFocus() && copySelection()) event.preventDefault();
+      } else if (key === 'v' && clipboardRef.current.nodes.length > 0) {
         event.preventDefault();
         pasteClipboard();
       }
@@ -1689,7 +1745,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       window.removeEventListener('paste', onPaste);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [copySelection, handlePaste, inactive, ownsFocus, pasteClipboard]);
+  }, [copySelection, handlePaste, inactive, pasteClipboard]);
 
   const handleWheel = useCallback((event: WheelEvent) => {
     const stage = stageRef.current;
@@ -1802,7 +1858,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       } as const)[event.code];
       if (tool) {
         event.preventDefault();
-        setActiveTool(tool);
+        chooseTool(tool);
         return;
       }
     }
@@ -1827,7 +1883,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setSelection([]); setSelectedEdgeId(null); setEdgeSource(null); setEditingId(null); setMenu(null); setSlashMenu(null); setLinkDraft(null);
       setActiveTool('select');
     }
-  }, [camera, copySelection, deleteSelection, duplicateSelection, fitView, onOpenFile, openUrl, pasteClipboard, redo, reorderSelection, spaceHeld, undo, viewport, workspacePath, zoomBy]);
+  }, [camera, chooseTool, copySelection, deleteSelection, duplicateSelection, fitView, onOpenFile, openUrl, pasteClipboard, redo, reorderSelection, spaceHeld, undo, viewport, workspacePath, zoomBy]);
 
   const handleKeyUp = useCallback((event: TargetedKeyboardEvent<HTMLElement>) => {
     if (event.key !== ' ') return;
@@ -2053,7 +2109,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           point: { x: (viewport.width / 2 - camera.x) / camera.zoom, y: (viewport.height / 2 - camera.y) / camera.zoom },
           query: '',
         })}
-        onToolChange={setActiveTool}
+        onToolChange={chooseTool}
         onUndo={undo}
         onRedo={redo}
         onAddNote={() => setNotePickerOpen(true)}
@@ -2176,7 +2232,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               return `${screen.x},${screen.y}`;
             }).join(' ')}
             fill="none"
-            stroke="var(--q-canvas-edge)"
+            stroke={canvasCssColor(nodeColor) ?? 'var(--q-canvas-edge)'}
             stroke-width="1"
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -2270,6 +2326,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
                 fill={shapeFill}
               />}
               {freehandPoints.length > 1 && <svg className="q-canvas__freehand" viewBox={`0 0 ${node.width} ${node.height}`} aria-hidden="true">
+                {selected && <path className="q-canvas__freehand-halo" d={canvasFreehandPath(freehandPoints)} stroke="var(--q-canvas-selection, var(--q-text-accent))" />}
                 <path d={canvasFreehandPath(freehandPoints)} stroke="var(--q-canvas-node-color, var(--q-canvas-edge))" />
               </svg>}
               {(activeTool === 'select' || activeTool === 'edge') && !selectedEdgeId && !spaceHeld && node.type !== 'group' && !groupMemberIds.has(node.id) && (['top', 'right', 'bottom', 'left'] as const).map((side) => <button

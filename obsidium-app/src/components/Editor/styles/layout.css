@@ -49,6 +49,11 @@
     transition: opacity var(--q-duration-normal) var(--q-ease-out);
 }
 
+.q-editor-content[data-full-width='true'],
+.q-editor-content[data-full-width='true'][data-reading-style] {
+    max-width: none;
+}
+
 .q-editor-content[data-reading-style] {
     --q-reading-gutter: clamp(var(--q-space-16), 5vw, var(--q-space-64));
 

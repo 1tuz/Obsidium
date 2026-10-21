@@ -230,6 +230,7 @@ export function Editor({
         metadataExpanded={metadata.metadataExpanded}
         onToggleMetadata={metadata.toggleMetadata}
         markdownReading={editorSettings?.markdownReading ?? DEFAULT_MARKDOWN_READING_SETTINGS}
+        fullWidth={editorSettings?.fullWidth === true}
       />
   );
 

@@ -61,7 +61,7 @@ describe('EditorContent reading mode', () => {
     expect(content?.dataset.readingFont).toBe('standard');
     expect(content?.style.getPropertyValue('--q-editor-font-size')).toBe('18px');
     expect(content?.style.getPropertyValue('--q-editor-line-height')).toBe('1.7');
-    expect(content?.style.getPropertyValue('--q-editor-max-width')).toBe('65ch');
+    expect(content?.style.getPropertyValue('--q-editor-max-width')).toBe('100ch');
     expect(renderer!.container.querySelector('[data-palette]')).toBeNull();
   });
 });
