@@ -98,11 +98,9 @@
 }
 
 .q-canvas-card--text.q-canvas-card--shape textarea {
-  overflow: auto;
-}
-
-.q-canvas-card--text.q-canvas-card--shape textarea:focus-visible {
-  box-shadow: inset 0 0 0 var(--q-border-2) var(--q-border-focus);
+  overflow: hidden;
+  align-content: center;
+  text-align: center;
 }
 
 .q-canvas-card--link {
@@ -119,6 +117,8 @@
 .q-canvas-card--shape .q-canvas-card__markdown {
   padding: var(--q-space-12);
   overflow: hidden;
+  align-content: center;
+  text-align: center;
 }
 
 .q-canvas-card--shape .q-canvas-card__markdown > :first-child {

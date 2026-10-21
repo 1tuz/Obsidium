@@ -44,6 +44,29 @@ describe('CanvasCard', () => {
     expect(onChange).toHaveBeenCalledWith('card-1', 'after');
   });
 
+  it('grows a shape card from the overflow and a plain card from the scroll height', async () => {
+    const onResize = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <>
+          <CanvasCard node={node('text', { id: 'shape', height: 100 })} shape="rectangle" editing onResize={onResize} />
+          <CanvasCard node={node('text', { id: 'plain', height: 100 })} editing onResize={onResize} />
+        </>,
+      );
+    });
+
+    const [shapeEditor, plainEditor] = [...renderer!.container.querySelectorAll<HTMLTextAreaElement>('textarea')];
+    for (const editor of [shapeEditor, plainEditor]) {
+      Object.defineProperty(editor, 'clientHeight', { value: 90 });
+      Object.defineProperty(editor, 'scrollHeight', { value: 250 });
+    }
+    await actAndSettle(() => { shapeEditor.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle(() => { plainEditor.dispatchEvent(new Event('input', { bubbles: true })); });
+
+    expect(onResize).toHaveBeenCalledWith('shape', 260);
+    expect(onResize).toHaveBeenCalledWith('plain', 250);
+  });
+
   it('renders supplied file Markdown and resolves local images', () => {
     act(() => {
       renderer = mountDom(
