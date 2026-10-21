@@ -422,3 +422,15 @@ export const redoCanvasHistory = <T>(history: CanvasHistory<T>): CanvasHistory<T
     future: history.future.slice(1),
   };
 };
+
+export type CanvasEdgeEnd = 'from' | 'to';
+
+export const moveCanvasEdgeEndpoint = <T extends CanvasEdge>(
+  edge: T,
+  end: CanvasEdgeEnd,
+  node: CanvasNode,
+  point: CanvasPoint,
+): T => {
+  const anchor = canvasNodeAnchor(node, point);
+  return end === 'from' ? { ...edge, fromAnchor: anchor } : { ...edge, toAnchor: anchor };
+};

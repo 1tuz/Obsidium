@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { plural } from '../../i18n';
+import { dropNoteOnTarget, setNoteDragPayload, type NoteDragPayload } from '../../modules/dragPayload';
 import { isInsidePath, parentDirectory } from '../../modules/paths';
 
 const DRAG_THRESHOLD = 5;
@@ -68,6 +69,8 @@ export function useFileTreeDrag(
     let sourceName = '';
     let startX = 0;
     let startY = 0;
+    let pointerX = 0;
+    let pointerY = 0;
     let dragging = false;
     let hovered: HTMLElement | null = null;
 
@@ -84,17 +87,21 @@ export function useFileTreeDrag(
       document.removeEventListener('mouseover', onOver);
       highlight(null);
       hideGhost();
+      setNoteDragPayload(null);
       document.body.style.cursor = '';
       sourceId = '';
       dragging = false;
     }
 
     function onMove(event: MouseEvent) {
+      pointerX = event.clientX;
+      pointerY = event.clientY;
       if (!dragging) {
         const far = Math.abs(event.clientX - startX) >= DRAG_THRESHOLD
           || Math.abs(event.clientY - startY) >= DRAG_THRESHOLD;
         if (!far) return;
         dragging = true;
+        setNoteDragPayload({ kind: 'note', path: sourceId, name: sourceName });
         const count = targets(sourceId).length;
         showGhost(
           count > 1 ? plural('fileTree.dragCount', count) : sourceName,
@@ -113,10 +120,18 @@ export function useFileTreeDrag(
     }
 
     function onUp() {
+      const payload: NoteDragPayload | null = dragging && sourceId
+        ? { kind: 'note', path: sourceId, name: sourceName }
+        : null;
+      const overCanvas = payload !== null
+        && Boolean(document.elementFromPoint(pointerX, pointerY)?.closest('[data-canvas-drop="true"]'));
       const target = dragging && hovered ? dropDirOf(hovered) : null;
       const moved = sourceId;
+      const handed = payload !== null && overCanvas
+        ? dropNoteOnTarget(payload, pointerX, pointerY)
+        : false;
       stop();
-      if (target) drop(moved, target);
+      if (!handed && target) drop(moved, target);
     }
 
     function onDown(event: MouseEvent) {
@@ -127,6 +142,8 @@ export function useFileTreeDrag(
       sourceName = row.dataset.fileName ?? '';
       startX = event.clientX;
       startY = event.clientY;
+      pointerX = event.clientX;
+      pointerY = event.clientY;
       dragging = false;
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);

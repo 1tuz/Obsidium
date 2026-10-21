@@ -548,3 +548,74 @@ input.q-canvas__group-label {
     gap: var(--q-space-4);
   }
 }
+
+.q-canvas__edges > g > path.q-canvas__edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: var(--q-size-16);
+  stroke-linecap: round;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.q-canvas__edges > g.is-selected > path.q-canvas__edge-hit {
+  pointer-events: stroke;
+}
+
+.q-canvas__edges > g > path.q-canvas__edge-hit:hover + path {
+  stroke: var(--q-canvas-selection, var(--q-text-accent));
+}
+
+.q-canvas__edges > g > text.q-canvas__edge-label {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.q-canvas__edge-endpoint {
+  fill: var(--q-canvas-paper, var(--q-bg-canvas));
+  stroke: var(--q-canvas-selection, var(--q-text-accent));
+  stroke-width: var(--q-border-2);
+  cursor: grab;
+  pointer-events: all;
+  touch-action: none;
+}
+
+.q-canvas__edge-endpoint:hover {
+  fill: var(--q-canvas-selection, var(--q-text-accent));
+}
+
+.q-canvas__snap circle {
+  fill: none;
+  stroke: var(--q-canvas-selection, var(--q-text-accent));
+  stroke-width: var(--q-border-2);
+  pointer-events: none;
+}
+
+.q-canvas__snap circle:last-child {
+  fill: var(--q-canvas-selection, var(--q-text-accent));
+}
+
+.q-canvas__object--shape:has(> .q-canvas-card.q-canvas-card--sticker) {
+  --q-canvas-sticker-ink: var(--q-canvas-ink-solid);
+}
+
+:root[data-theme='dark'] .q-canvas__object--shape:has(> .q-canvas-card.q-canvas-card--sticker) {
+  --q-canvas-sticker-ink: var(--q-canvas-paper-solid);
+}
+
+.q-canvas__object--shape > .q-canvas-card.q-canvas-card--sticker {
+  color: var(--q-canvas-sticker-ink, var(--q-canvas-ink-solid));
+}
+
+.q-canvas__edge-overlay {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.q-canvas__edge-overlay .q-canvas__edge-endpoint,
+.q-canvas__edge-overlay .q-canvas__edge-handle {
+  pointer-events: all;
+}

@@ -136,7 +136,7 @@ export const CanvasCard = memo(function CanvasCard({
   onOpenUrl,
   onOpenNoteLink,
 }: CanvasCardProps) {
-  const className = `q-canvas-card q-canvas-card--${node.type}${shape ? ' q-canvas-card--shape' : ''}${selected ? ' is-selected' : ''}`;
+  const className = `q-canvas-card q-canvas-card--${node.type}${shape ? ' q-canvas-card--shape' : ''}${shape === 'sticker' ? ' q-canvas-card--sticker' : ''}${selected ? ' is-selected' : ''}`;
   const style = {
     ...(color ? { '--q-canvas-node-color': color } : {}),
     ...(appearance ? canvasAppearanceStyle(appearance) : {}),

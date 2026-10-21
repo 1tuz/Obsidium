@@ -879,7 +879,8 @@
         "diamond": "Diamond",
         "ellipse": "Ellipse",
         "number": "Number marker",
-        "draw": "Freehand"
+        "draw": "Freehand",
+        "sticker": "Sticker"
       },
       "undo": "Undo",
       "redo": "Redo",
@@ -932,7 +933,8 @@
       "rectangle": "Rectangle",
       "diamond": "Diamond",
       "number": "Number marker",
-      "ellipse": "Ellipse"
+      "ellipse": "Ellipse",
+      "sticker": "Sticker"
     },
     "save": { "saved": "Saved", "saving": "Saving…", "conflict": "File changed elsewhere", "error": "Save failed" },
     "loading": "Loading canvas…",
@@ -950,6 +952,8 @@
     "saveLocalCopy": "Download local copy",
     "reloadExternal": "Reload external version",
     "edgeLabel": "Connection label",
+    "edgeEndpoint": "Connection end",
+    "snapPoint": "Snap point",
     "edgeBend": "Move line bend",
     "edge": { "toolbar": "Connection settings", "startArrow": "Arrow at start", "endArrow": "Arrow at end" },
     "card": { "openNote": "Open note" },
@@ -967,7 +971,8 @@
     "align": { "left": "Align left", "centerX": "Align horizontal centers", "right": "Align right", "top": "Align top", "centerY": "Align vertical centers", "bottom": "Align bottom" },
     "menu": { "open": "Open", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete", "group": "Group selection", "ungroup": "Ungroup",
       "front": "Bring to front", "back": "Send to back",
-      "label": "Board menu", "addText": "Add text", "selectAll": "Select all", "exportJson": "Download JSON" },
+      "label": "Board menu", "addText": "Add text", "selectAll": "Select all", "exportJson": "Download JSON",
+      "copy": "Copy", "paste": "Paste" },
     "selection": { "label": "Selection actions", "front": "Bring to front", "back": "Send to back", "duplicate": "Duplicate", "group": "Group", "ungroup": "Ungroup", "delete": "Delete" },
     "props": {
       "title": "Object properties",
@@ -985,6 +990,8 @@
       "layers": "Layers",
       "actions": "Actions",
       "close": "Hide properties",
+      "copy": "Copy",
+      "paste": "Paste",
       "none": "No fill",
       "width": { "1": "Thin", "2": "Medium", "4": "Thick" },
       "style": { "solid": "Solid", "dashed": "Dashed", "dotted": "Dotted" },
@@ -996,7 +1003,10 @@
     "fill": { "label": "Fill", "default": "Default fill", "transparent": "No fill" },
     "media": { "loading": "Loading…", "error": "Could not load {{name}}", "video": "Video" },
     "errors": { "read": "Could not open canvas: {{reason}}", "fileOutsideWorkspace": "Only files in this knowledge base can be added.", "exportFailed": "Could not export this canvas.",
-      "noteLinkOutsideWorkspace": "The note link points outside the workspace." }
+      "noteLinkOutsideWorkspace": "The note link points outside the workspace.",
+      "dropUnsupported": "This file cannot be placed on the board: it is outside the knowledge base.",
+      "noteCreate": "Could not create the note.",
+      "noteMissing": "The note is not in this knowledge base." }
   },
   "pdf": {
     "reader": "PDF reader",
