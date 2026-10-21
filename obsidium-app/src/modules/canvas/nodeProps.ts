@@ -85,7 +85,11 @@ const writeAppearanceValue = (
   value: CanvasAppearance[keyof CanvasAppearance],
   fallback: CanvasAppearance[keyof CanvasAppearance],
 ): void => {
-  if (value === fallback || value === null) delete target[key];
+  if (key === 'fill') {
+    target.fill = value === null ? 'transparent' : value;
+    return;
+  }
+  if (value === fallback) delete target[key];
   else target[key] = value;
 };
 
@@ -116,6 +120,5 @@ export const canvasAppearanceStyle = (appearance: CanvasAppearance): Record<stri
     '--q-canvas-font-family': canvasFontFamilyCss(appearance.fontFamily),
     '--q-canvas-text-align': appearance.textAlign,
   };
-  if (appearance.opacity < 1) style.opacity = String(appearance.opacity);
   return style;
 };

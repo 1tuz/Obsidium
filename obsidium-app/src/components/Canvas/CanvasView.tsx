@@ -33,6 +33,7 @@ import {
   canvasEdgeSides,
   canvasNodeAnchor,
   moveCanvasEdgeEndpoint,
+  canvasEdgeAnchor,
   canvasNodeAtPoint,
   canvasRectBetweenPoints,
   canvasSidePoint,
@@ -265,7 +266,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edgeSource, setEdgeSource] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [edgeColor, setEdgeColor] = useState('');
   const [drag, setDrag] = useState<DragState | null>(null);
   const [guides, setGuides] = useState<CanvasGuide[]>([]);
   const [snapPoint, setSnapPoint] = useState<CanvasSnapPoint | null>(null);
@@ -1109,7 +1109,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       } else if (edgeSource !== node.id && documentRef.current) {
         const edge: CanvasEdge = {
           id: newId(), fromNode: edgeSource, toNode: node.id, fromEnd: 'none', toEnd: 'arrow',
-          ...(edgeColor ? { color: edgeColor } : {}),
         };
         setCanvasDocument(addCanvasEdge(documentRef.current, edge));
         setEdgeSource(null);
@@ -1124,7 +1123,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (activeTool !== 'select') return;
     event.stopPropagation();
-  }, [activeTool, edgeColor, edgeSource, selection, setCanvasDocument, spaceHeld]);
+  }, [activeTool, edgeSource, selection, setCanvasDocument, spaceHeld]);
 
   const beginConnect = useCallback((event: TargetedPointerEvent<HTMLButtonElement>, node: CanvasTypedNode, side: CanvasSide) => {
     event.stopPropagation();
@@ -1181,6 +1180,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         documentRef.current?.nodes ?? [],
         GUIDE_SNAP_THRESHOLD_PX / cameraRef.current.zoom,
         new Set([currentDrag.fromId]),
+        false,
       );
       setSnapPoint(snap.snapped);
       const next = { ...currentDrag, current: snap.point, moved, snapped: snap.snapped };
@@ -1196,11 +1196,17 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         ?? currentDrag.document.nodes.find((node) => node.id === anchorNodeId)
         ?? null;
       if (edge && target) {
-        const snap = snapPointToNodes(raw, [target], GUIDE_SNAP_THRESHOLD_PX / cameraRef.current.zoom);
+        const snap = snapPointToNodes(raw, [target], GUIDE_SNAP_THRESHOLD_PX / cameraRef.current.zoom, undefined, false);
         setSnapPoint(snap.snapped);
+        const other = currentDrag.document.nodes.find((node) => node.id === (currentDrag.end === 'from' ? edge.toNode : edge.fromNode));
+        const toward = other ? { x: other.x + other.width / 2, y: other.y + other.height / 2 } : undefined;
         const current = documentRef.current;
         if (current) {
-          const anchored = moveCanvasEdgeEndpoint(edge, currentDrag.end, target, snap.point);
+          const anchor = snap.snapped ? snap.point : (() => {
+            const outline = canvasEdgeAnchor(target, snap.point, toward ?? snap.point);
+            return { x: target.x + outline.x * target.width, y: target.y + outline.y * target.height };
+          })();
+          const anchored = moveCanvasEdgeEndpoint(edge, currentDrag.end, target, anchor);
           const patch = currentDrag.end === 'from'
             ? { ...anchored, fromNode: target.id }
             : { ...anchored, toNode: target.id };
@@ -1420,9 +1426,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           id: newId(), fromNode: source.id, toNode: target.id, fromEnd: 'none', toEnd: 'arrow',
           fromSide: currentDrag.fromSide === 'auto' ? sides.fromSide : currentDrag.fromSide,
           toSide: sides.toSide,
-          fromAnchor: canvasNodeAnchor(source, origin),
-          toAnchor: canvasNodeAnchor(target, currentDrag.current),
-          ...(edgeColor ? { color: edgeColor } : {}),
+          fromAnchor: currentDrag.snapped
+            ? canvasNodeAnchor(source, origin)
+            : canvasEdgeAnchor(source, origin, { x: target.x + target.width / 2, y: target.y + target.height / 2 }),
+          toAnchor: currentDrag.snapped
+            ? canvasNodeAnchor(target, currentDrag.current)
+            : canvasEdgeAnchor(target, currentDrag.current, { x: source.x + source.width / 2, y: source.y + source.height / 2 }),
         };
         setCanvasDocument(addCanvasEdge(current, edge));
         setSelectedEdgeId(edge.id);
@@ -1455,7 +1464,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     setDrag(null);
     setGuides([]);
     setSnapPoint(null);
-  }, [edgeColor, flushPointerMove, onOpenFile, selection, setCanvasDocument, workspacePath, worldPoint]);
+  }, [flushPointerMove, onOpenFile, selection, setCanvasDocument, workspacePath, worldPoint]);
 
   const handleStagePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     const stage = stageRef.current;
@@ -1755,7 +1764,6 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const onCanvasColorChange = useCallback((value: string) => {
     const color = value || undefined;
     setNodeColor(color ?? '');
-    setEdgeColor(color ?? '');
     const current = documentRef.current;
     if (!current) return;
     if (selectedEdgeId) {
@@ -1912,6 +1920,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         fromEnd: selectedEdge.fromEnd === 'arrow' ? 'arrow' : 'none',
         toEnd: selectedEdge.toEnd === 'none' ? 'none' : 'arrow',
         label: typeof selectedEdge.label === 'string' ? selectedEdge.label : '',
+        ...(typeof selectedEdge.color === 'string' && selectedEdge.color ? { color: selectedEdge.color } : {}),
       }
       : null;
   const selectedGroup = selectedGroups.length === 1
@@ -2099,7 +2108,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             const media = mediaForNode(node);
             const selected = selectionSet.has(node.id) && !groupMemberIds.has(node.id);
             const obsidium = node.obsidium && typeof node.obsidium === 'object' ? node.obsidium as Record<string, unknown> : {};
-            const fill = shape && obsidium.fill === 'transparent' ? 'transparent' : undefined;
+            const fill = shape && (obsidium.fill === 'transparent' || obsidium.fill === undefined) ? 'transparent' : undefined;
             const appearance = readCanvasAppearance(node);
             const stickerFill = shape === 'sticker' ? canvasStickerFill(appearance.fill) : undefined;
             const shapeFill = stickerFill ?? (shape && appearance.fill ? canvasFillCss(appearance.fill) : undefined);
@@ -2110,6 +2119,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               style={{
                 ...canvasNodeStyle(node, paintIndex + 1),
                 ...(canvasCssColor(node.color) ? { '--q-canvas-node-color': canvasCssColor(node.color)! } : {}),
+                ...(appearance.opacity < 1 ? { opacity: String(appearance.opacity) } : {}),
               }}
               onPointerDown={(event) => handleNodePointerDown(event, node)}
               onClick={(event) => handleNodeClick(event, node)}

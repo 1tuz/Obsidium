@@ -221,7 +221,8 @@ describe('CanvasPropertiesPanel', () => {
     const panel = await mount({ kind: 'edge', route: 'elbow', fromEnd: 'none', toEnd: 'arrow', label: 'Draft' }, handlers);
 
     expect(panel.querySelector('.q-canvas-properties__section--route')).not.toBeNull();
-    expect(panel.querySelector('.q-canvas-properties__section--stroke')).toBeNull();
+    expect(panel.querySelectorAll('.q-canvas-properties__section--stroke .q-canvas-properties__swatch')).toHaveLength(7);
+    expect(panel.querySelector('.q-canvas-properties__section--background')).toBeNull();
     expect(buttonByLabel(panel, t('canvas.route.elbow')).getAttribute('aria-pressed')).toBe('true');
     expect(buttonByLabel(panel, t('canvas.route.straight')).getAttribute('aria-pressed')).toBe('false');
 

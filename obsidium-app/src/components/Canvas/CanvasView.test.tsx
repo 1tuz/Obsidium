@@ -812,6 +812,64 @@ describe('CanvasView', () => {
     expect(JSON.parse(String(saved)).nodes[0].color).toBe('4');
   });
 
+  it('keeps fill, stroke and edge color independent of each other', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'shape', type: 'text', x: 0, y: 0, width: 200, height: 120, text: 'Shape', obsidium: { shape: 'rectangle', fill: 'transparent' } },
+        { id: 'other', type: 'text', x: 300, y: 0, width: 160, height: 100, text: 'Other' },
+      ],
+      edges: [{ id: 'edge', fromNode: 'shape', toNode: 'other', toEnd: 'arrow' }],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    const body = renderer!.container.querySelector<SVGElement>('.q-canvas__shape-body')!;
+    expect(body.getAttribute('style')).toBeNull();
+    expect(renderer!.container.querySelector('[data-node-id="shape"]')?.closest('.q-canvas__object')?.getAttribute('data-fill')).toBe('transparent');
+
+    const background = renderer!.container.querySelector<HTMLButtonElement>('.q-canvas-properties__section--background button[aria-label="canvas.toolbar.color.4"]')!;
+    await actAndSettle(() => background.click());
+    expect(renderer!.container.querySelector<SVGElement>('.q-canvas__shape-body')!.getAttribute('style')).toContain('fill');
+    const fillAfterBackground = renderer!.container.querySelector<SVGElement>('.q-canvas__shape-body')!.getAttribute('style');
+
+    const stroke = renderer!.container.querySelector<HTMLButtonElement>('.q-canvas-properties__section--stroke button[aria-label="canvas.toolbar.color.1"]')!;
+    await actAndSettle(() => stroke.click());
+    expect(renderer!.container.querySelector<SVGElement>('.q-canvas__shape-body')!.getAttribute('style')).toBe(fillAfterBackground);
+    expect(renderer!.container.querySelector<SVGPathElement>('path[role="button"]')!.getAttribute('stroke')).toBe('var(--q-canvas-edge)');
+  });
+
+  it('fades the whole object, not only its text', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'shape', type: 'text', x: 0, y: 0, width: 200, height: 120, text: 'Shape', obsidium: { shape: 'rectangle', fill: 'transparent' } }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    const range = renderer!.container.querySelector<HTMLInputElement>('.q-canvas-properties__range')!;
+    await actAndSettle(() => {
+      range.value = '40';
+      range.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const faded = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    expect(faded.style.opacity).toBe('0.4');
+    expect(renderer!.container.querySelector<HTMLElement>('.q-canvas-card')!.style.opacity).toBe('');
+  });
+
   it('pans with a plain wheel and keeps the camera after the debounce', async () => {
     act(() => {
       renderer = mountDom(

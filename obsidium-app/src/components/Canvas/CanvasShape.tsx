@@ -134,7 +134,7 @@ export function CanvasShape({
         strokeDasharray={sticker ? undefined : canvasStrokeDasharray(strokeStyle, strokeWidth, 1 / zoom)}
         corners={corners}
         inset={sticker ? 0 : 1}
-        style={sticker && fill !== undefined ? { fill } : undefined}
+        style={fill === undefined ? undefined : { fill }}
       />
       {selected && (
         <ShapeGeometry

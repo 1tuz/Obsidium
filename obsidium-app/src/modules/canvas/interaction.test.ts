@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CanvasEdge, CanvasNode } from './model';
 import {
   alignCanvasNodes,
+  canvasEdgeAnchor,
   canvasEdgeSides,
   canvasNodeAtPoint,
   canvasRectBetweenPoints,
@@ -290,5 +291,22 @@ describe('moveCanvasEdgeEndpoint', () => {
   it('clamps a pointer outside the node to its border', () => {
     const edge: CanvasEdge = { id: 'e', fromNode: 'n', toNode: 'm' };
     expect(moveCanvasEdgeEndpoint(edge, 'to', node, { x: 0, y: 0 }).toAnchor).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('canvasEdgeAnchor', () => {
+  const diamond = { id: 'd', type: 'text' as const, x: 100, y: 0, width: 200, height: 200, text: '', obsidium: { shape: 'diamond' } };
+  const other = { x: 0, y: 100 };
+
+  it('lands on the outline facing the other end when the pointer is inside the shape', () => {
+    const anchor = canvasEdgeAnchor(diamond, { x: 200, y: 100 }, other);
+    expect(anchor.x).toBeCloseTo(0, 5);
+    expect(anchor.y).toBeCloseTo(0.5, 5);
+  });
+
+  it('follows the pointer when it is outside the shape', () => {
+    const anchor = canvasEdgeAnchor(diamond, { x: 400, y: 100 }, other);
+    expect(anchor.x).toBeCloseTo(1, 5);
+    expect(anchor.y).toBeCloseTo(0.5, 5);
   });
 });
