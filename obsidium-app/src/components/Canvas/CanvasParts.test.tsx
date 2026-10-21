@@ -117,5 +117,3 @@ describe('CanvasMedia', () => {
     expect(renderer!.container.querySelector('.q-canvas-card__media')!.getAttribute('data-state')).toBe('loading');
   });
 });
-
-
