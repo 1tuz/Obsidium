@@ -20,8 +20,17 @@ import { IconButton } from '../Common/IconButton';
 import { CANVAS_GLYPHS, copyGlyph, pasteGlyph } from './CanvasGlyphs';
 import './CanvasPropertiesPanel.css';
 
+export type CanvasAppearanceCapabilities = {
+  fill: boolean;
+  stroke: boolean;
+  strokeWidth: boolean;
+  strokeStyle: boolean;
+  corners: boolean;
+  font: boolean;
+};
+
 export type CanvasPanelTarget =
-  | { kind: 'nodes'; appearance: CanvasAppearance; count: number; canGroup: boolean; canUngroup: boolean; stroke?: string }
+  | { kind: 'nodes'; appearance: CanvasAppearance; capabilities: CanvasAppearanceCapabilities; count: number; canGroup: boolean; canUngroup: boolean; stroke?: string }
   | { kind: 'edge'; route: CanvasEdgeRoute; fromEnd: 'none' | 'arrow'; toEnd: 'none' | 'arrow'; label: string; color?: string };
 
 export interface CanvasPropertiesPanelProps {
@@ -145,12 +154,12 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
   onUngroup: () => void;
   onDelete: () => void;
 }) {
-  const { appearance, stroke = '' } = target;
+  const { appearance, capabilities, stroke = '' } = target;
   const opacityPercent = Math.round(appearance.opacity * 100);
 
   return (
     <>
-      <Section label={t('canvas.props.stroke')} className="q-canvas-properties__section--stroke">
+      {capabilities.stroke && <Section label={t('canvas.props.stroke')} className="q-canvas-properties__section--stroke">
         <Swatch label={t('canvas.toolbar.color.default')} pressed={stroke === ''} variant="ink" onClick={() => onStroke?.('')} />
         {PRESET_VALUES.map((value) => (
           <Swatch
@@ -161,8 +170,8 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
             onClick={() => onStroke?.(value)}
           />
         ))}
-      </Section>
-      <Section label={t('canvas.props.background')} className="q-canvas-properties__section--background">
+      </Section>}
+      {capabilities.fill && <Section label={t('canvas.props.background')} className="q-canvas-properties__section--background">
         <Swatch label={t('canvas.props.none')} pressed={appearance.fill === null} variant="none" onClick={() => onFill?.(null)} />
         {PRESET_VALUES.map((value) => (
           <Swatch
@@ -173,8 +182,8 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
             onClick={() => onFill?.(value)}
           />
         ))}
-      </Section>
-      <Section label={t('canvas.props.strokeWidth')} className="q-canvas-properties__section--stroke-width">
+      </Section>}
+      {capabilities.strokeWidth && <Section label={t('canvas.props.strokeWidth')} className="q-canvas-properties__section--stroke-width">
         {STROKE_WIDTHS.map((width) => (
           <OptionButton key={width} label={t(`canvas.props.width.${width}`)} pressed={appearance.strokeWidth === width} onClick={() => onAppearance({ strokeWidth: width })}>
             <LineGlyph height={12}>
@@ -182,8 +191,8 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
             </LineGlyph>
           </OptionButton>
         ))}
-      </Section>
-      <Section label={t('canvas.props.strokeStyle')} className="q-canvas-properties__section--stroke-style">
+      </Section>}
+      {capabilities.strokeStyle && <Section label={t('canvas.props.strokeStyle')} className="q-canvas-properties__section--stroke-style">
         {STROKE_STYLES.map((style) => (
           <OptionButton key={style} label={t(`canvas.props.style.${style}`)} pressed={appearance.strokeStyle === style} onClick={() => onAppearance({ strokeStyle: style })}>
             <LineGlyph height={12}>
@@ -191,8 +200,8 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
             </LineGlyph>
           </OptionButton>
         ))}
-      </Section>
-      <Section label={t('canvas.props.corners')} className="q-canvas-properties__section--corners">
+      </Section>}
+      {capabilities.corners && <Section label={t('canvas.props.corners')} className="q-canvas-properties__section--corners">
         {CORNERS.map((corner) => (
           <OptionButton key={corner} label={t(`canvas.props.corner.${corner}`)} pressed={appearance.corners === corner} onClick={() => onAppearance({ corners: corner })}>
             <LineGlyph height={14}>
@@ -200,22 +209,22 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
             </LineGlyph>
           </OptionButton>
         ))}
-      </Section>
-      <Section label={t('canvas.props.fontFamily')} className="q-canvas-properties__section--font-family">
+      </Section>}
+      {capabilities.font && <Section label={t('canvas.props.fontFamily')} className="q-canvas-properties__section--font-family">
         {FONT_FAMILIES.map((family) => (
           <OptionButton key={family} label={t(`canvas.props.font.${family}`)} pressed={appearance.fontFamily === family} onClick={() => onAppearance({ fontFamily: family })}>
             <span className="q-canvas-properties__font" style={{ fontFamily: canvasFontFamilyCss(family) }}>Aa</span>
           </OptionButton>
         ))}
-      </Section>
-      <Section label={t('canvas.props.fontSize')} className="q-canvas-properties__section--font-size">
+      </Section>}
+      {capabilities.font && <Section label={t('canvas.props.fontSize')} className="q-canvas-properties__section--font-size">
         {FONT_SIZES.map((size) => (
           <OptionButton key={size} label={t(`canvas.props.size.${size}`)} pressed={appearance.fontSize === size} onClick={() => onAppearance({ fontSize: size })}>
             <span className="q-canvas-properties__font" style={{ fontSize: `${canvasFontSizePixels(size)}px` }}>A</span>
           </OptionButton>
         ))}
-      </Section>
-      <Section label={t('canvas.props.textAlign')} className="q-canvas-properties__section--text-align">
+      </Section>}
+      {capabilities.font && <Section label={t('canvas.props.textAlign')} className="q-canvas-properties__section--text-align">
         {TEXT_ALIGNS.map((align) => (
           <OptionButton key={align} label={t(`canvas.props.align.${align}`)} pressed={appearance.textAlign === align} onClick={() => onAppearance({ textAlign: align })}>
             <LineGlyph height={GLYPH_HEIGHT}>
@@ -225,7 +234,7 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
             </LineGlyph>
           </OptionButton>
         ))}
-      </Section>
+      </Section>}
       <section className="q-canvas-properties__section q-canvas-properties__section--opacity">
         <span className="q-canvas-properties__label-row">
           <span className="q-canvas-properties__label">{t('canvas.props.opacity')}</span>

@@ -57,7 +57,7 @@ export const canvasAppearanceDefaults = (node: CanvasNode): CanvasAppearance => 
     fontSize: 'm',
     textAlign: shape ? 'center' : 'left',
     opacity: 1,
-    fill: null,
+    fill: shape === 'sticker' ? '3' : null,
   };
 };
 
@@ -75,7 +75,7 @@ export const readCanvasAppearance = (node: CanvasNode): CanvasAppearance => {
     fontSize: pick(obsidium.fontSize, FONT_SIZES, defaults.fontSize),
     textAlign: pick(obsidium.textAlign, TEXT_ALIGNS, defaults.textAlign),
     opacity,
-    fill: normalizeFill(obsidium.fill),
+    fill: obsidium.fill === undefined ? defaults.fill : normalizeFill(obsidium.fill),
   };
 };
 
@@ -86,7 +86,9 @@ const writeAppearanceValue = (
   fallback: CanvasAppearance[keyof CanvasAppearance],
 ): void => {
   if (key === 'fill') {
-    target.fill = value === null ? 'transparent' : value;
+    if (value === null) target.fill = 'transparent';
+    else if (value === fallback) delete target.fill;
+    else target.fill = value;
     return;
   }
   if (value === fallback) delete target[key];

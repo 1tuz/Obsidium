@@ -143,11 +143,17 @@
   padding: 0;
 }
 
-.q-canvas__object:hover > .q-canvas-card.q-canvas-card--text:not(.q-canvas-card--shape) {
+.q-canvas__object:not(.q-canvas__object--freehand):hover > .q-canvas-card.q-canvas-card--text:not(.q-canvas-card--shape) {
   box-shadow: inset 0 0 0 var(--q-border-1) var(--q-canvas-edge, var(--q-border-default));
 }
 
-.q-canvas__object > .q-canvas-card.q-canvas-card--text.is-selected:not(.q-canvas-card--shape) {
+.q-canvas__object--freehand > .q-canvas-card {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.q-canvas__object:not(.q-canvas__object--freehand) > .q-canvas-card.q-canvas-card--text.is-selected:not(.q-canvas-card--shape) {
   box-shadow: inset 0 0 0 var(--q-border-1) var(--q-border-focus);
 }
 

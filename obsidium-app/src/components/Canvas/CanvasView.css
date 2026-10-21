@@ -304,6 +304,11 @@
   background: transparent;
 }
 
+.q-canvas__object--freehand.is-selected .q-canvas__freehand path,
+.q-canvas__object--freehand:hover .q-canvas__freehand path {
+  stroke: var(--q-canvas-selection, var(--q-text-accent));
+}
+
 .q-canvas__object--freehand > .q-canvas-card > .q-canvas-card__markdown {
   padding: 0;
 }

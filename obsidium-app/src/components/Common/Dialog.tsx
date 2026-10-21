@@ -73,6 +73,21 @@ export function Dialog({
     return () => cancelAnimationFrame(frame);
   }, [open, focusInitial]);
 
+  useEffect(() => {
+    if (!open || !dismissible) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const dialogs = [...document.querySelectorAll('.q-dialog')];
+      if (dialogs[dialogs.length - 1] !== panel) return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [dismissible, onClose, open]);
+
   if (!open) return null;
 
   const dismiss = () => {
@@ -94,7 +109,7 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={describedBy}
         onKeyDown={(event) => {
-          if (event.key !== 'Escape') return;
+          if (event.key !== 'Escape' || event.defaultPrevented) return;
           event.preventDefault();
           dismiss();
         }}

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import type { CanvasAppearance } from '../../modules/canvas/nodeProps';
-import { CanvasPropertiesPanel, type CanvasPanelTarget, type CanvasPropertiesPanelProps } from './CanvasPropertiesPanel';
+import { CanvasPropertiesPanel, type CanvasAppearanceCapabilities, type CanvasPanelTarget, type CanvasPropertiesPanelProps } from './CanvasPropertiesPanel';
 
 const panelSource = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasPropertiesPanel.tsx'), 'utf8');
 const panelStyles = readFileSync(resolve(process.cwd(), 'src/components/Canvas/CanvasPropertiesPanel.css'), 'utf8');
@@ -20,6 +20,15 @@ const NODE_APPEARANCE: CanvasAppearance = {
   textAlign: 'left',
   opacity: 1,
   fill: null,
+};
+
+const ALL_CAPABILITIES: CanvasAppearanceCapabilities = {
+  fill: true,
+  stroke: true,
+  strokeWidth: true,
+  strokeStyle: true,
+  corners: true,
+  font: true,
 };
 
 type Handlers = Pick<
@@ -53,6 +62,12 @@ function buttonByLabel(scope: ParentNode, label: string): HTMLButtonElement {
   return scope.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
 }
 
+function sectionLabels(scope: ParentNode): string[] {
+  return [...scope.querySelectorAll('.q-canvas-properties__section')]
+    .map((section) => section.querySelector('.q-canvas-properties__label')?.textContent)
+    .filter((label): label is string => Boolean(label));
+}
+
 describe('CanvasPropertiesPanel', () => {
   let renderer: MountedDom | null = null;
 
@@ -71,6 +86,7 @@ describe('CanvasPropertiesPanel', () => {
   const nodesTarget = (overrides: Partial<Extract<CanvasPanelTarget, { kind: 'nodes' }>> = {}): CanvasPanelTarget => ({
     kind: 'nodes',
     appearance: NODE_APPEARANCE,
+    capabilities: ALL_CAPABILITIES,
     count: 1,
     canGroup: false,
     canUngroup: false,
@@ -116,6 +132,65 @@ describe('CanvasPropertiesPanel', () => {
 
     expect(panel.querySelector('input[type="range"]')).not.toBeNull();
     expect(panel.querySelector('.q-canvas-properties__input')).toBeNull();
+  });
+
+  it('hides background, font and corners for freehand while keeping stroke controls', async () => {
+    const panel = await mount(nodesTarget({
+      capabilities: { fill: false, stroke: true, strokeWidth: true, strokeStyle: true, corners: false, font: false },
+    }), createHandlers());
+
+    expect(sectionLabels(panel)).toEqual([
+      t('canvas.props.stroke'),
+      t('canvas.props.strokeWidth'),
+      t('canvas.props.strokeStyle'),
+      t('canvas.props.opacity'),
+      t('canvas.props.layers'),
+      t('canvas.props.actions'),
+    ]);
+    expect(panel.querySelector('.q-canvas-properties__section--background')).toBeNull();
+    expect(panel.querySelector('.q-canvas-properties__section--corners')).toBeNull();
+    expect(panel.querySelector('.q-canvas-properties__section--font-family')).toBeNull();
+  });
+
+  it('hides stroke controls and corners for stickers while keeping background and font', async () => {
+    const panel = await mount(nodesTarget({
+      appearance: { ...NODE_APPEARANCE, fill: '3' },
+      capabilities: { fill: true, stroke: false, strokeWidth: false, strokeStyle: false, corners: false, font: true },
+    }), createHandlers());
+
+    expect(sectionLabels(panel)).toEqual([
+      t('canvas.props.background'),
+      t('canvas.props.fontFamily'),
+      t('canvas.props.fontSize'),
+      t('canvas.props.textAlign'),
+      t('canvas.props.opacity'),
+      t('canvas.props.layers'),
+      t('canvas.props.actions'),
+    ]);
+    expect(panel.querySelector('.q-canvas-properties__section--stroke')).toBeNull();
+    expect(panel.querySelector('.q-canvas-properties__section--stroke-width')).toBeNull();
+    expect(panel.querySelector('.q-canvas-properties__section--stroke-style')).toBeNull();
+    const background = [...panel.querySelectorAll<HTMLButtonElement>('.q-canvas-properties__section--background .q-canvas-properties__swatch')];
+    expect(background[3].getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('renders only opacity, layers and actions when no appearance capability applies', async () => {
+    const panel = await mount(nodesTarget({
+      count: 3,
+      capabilities: { fill: false, stroke: false, strokeWidth: false, strokeStyle: false, corners: false, font: false },
+    }), createHandlers());
+
+    expect(panel.textContent).toContain(t('canvas.selectionCount', { count: 3 }));
+    expect(sectionLabels(panel)).toEqual([
+      t('canvas.props.opacity'),
+      t('canvas.props.layers'),
+      t('canvas.props.actions'),
+    ]);
+    const body = panel.querySelector('.q-canvas-properties__body')!;
+    const sections = [...body.querySelectorAll('.q-canvas-properties__section')];
+    expect(sections).toHaveLength(3);
+    expect(body.firstElementChild?.classList.contains('q-canvas-properties__section--opacity')).toBe(true);
+    for (const section of sections) expect(section.textContent?.trim()).not.toBe('');
   });
 
   it('omits the count for a single selection and closes from the header', async () => {
