@@ -5,6 +5,7 @@ import {
   canvasEdgeSides,
   canvasNodeAtPoint,
   canvasRectBetweenPoints,
+  canvasSelectionBounds,
   canvasSidePoint,
   commitCanvasHistory,
   createCanvasHistory,
@@ -16,6 +17,7 @@ import {
   resizeCanvasGroup,
   resizeCanvasNode,
   resizeCanvasNodeFromHandle,
+  resizeCanvasSelection,
   selectCanvasNode,
   selectCanvasNodesInRect,
   translateCanvasNodes,
@@ -27,6 +29,28 @@ const nodes: CanvasNode[] = [
   { id: 'b', type: 'file', x: 240, y: 20, width: 80, height: 100, file: 'b.md' },
   { id: 'c', type: 'link', x: 500, y: 500, width: 90, height: 90, url: 'https://example.com' },
 ];
+
+const ellipseEquation = (point: { x: number; y: number }, node: CanvasNode): number => {
+  const radiusX = node.width / 2;
+  const radiusY = node.height / 2;
+  return ((point.x - node.x - radiusX) / radiusX) ** 2 + ((point.y - node.y - radiusY) / radiusY) ** 2;
+};
+
+const rhombusEquation = (point: { x: number; y: number }, node: CanvasNode): number =>
+  Math.abs(point.x - node.x - node.width / 2) / (node.width / 2)
+  + Math.abs(point.y - node.y - node.height / 2) / (node.height / 2);
+
+const crossOfCenters = (
+  point: { x: number; y: number },
+  from: CanvasNode,
+  to: CanvasNode,
+): number => {
+  const fromX = from.x + from.width / 2;
+  const fromY = from.y + from.height / 2;
+  const toX = to.x + to.width / 2;
+  const toY = to.y + to.height / 2;
+  return (toX - fromX) * (point.y - fromY) - (toY - fromY) * (point.x - fromX);
+};
 
 describe('canvas interactions', () => {
   it('normalizes drag rectangles in either direction and keeps dimensions positive', () => {
@@ -90,14 +114,57 @@ describe('canvas interactions', () => {
     expect(getCanvasEdgePath(geometry, 'curved', { x: 0, y: -30 })).toBe('M 10 20 Q 60 20 110 80');
   });
 
-  it('recomputes edge endpoints from current bounds and respects explicit sides', () => {
+  it('recomputes edge endpoints from current bounds and clips diagonal edges on the outlines', () => {
     const edge = { id: 'e', fromNode: 'a', toNode: 'b' };
-    expect(getCanvasEdgeGeometry(edge, nodes)).toEqual({ from: { x: 100, y: 30 }, to: { x: 240, y: 70 } });
-    expect(getCanvasEdgeGeometry(edge, new Map(nodes.map((node) => [node.id, node])))).toEqual({ from: { x: 100, y: 30 }, to: { x: 240, y: 70 } });
+    const geometry = getCanvasEdgeGeometry(edge, nodes)!;
+    expect(geometry.from.x).toBeCloseTo(100, 6);
+    expect(geometry.from.y).toBeCloseTo(38.6957, 4);
+    expect(geometry.to.x).toBeCloseTo(240, 6);
+    expect(geometry.to.y).toBeCloseTo(63.0435, 4);
+    expect(geometry.from).not.toEqual({ x: 100, y: 30 });
+    expect(geometry.to).not.toEqual({ x: 240, y: 70 });
+    expect(getCanvasEdgeGeometry(edge, new Map(nodes.map((node) => [node.id, node])))).toEqual(geometry);
+    expect(getCanvasEdgeGeometry({ ...edge, fromSide: 'bottom', toSide: 'top' }, nodes)).toEqual(geometry);
     const moved = translateCanvasNodes(nodes, new Set(['b']), { x: 100, y: 0 });
-    expect(getCanvasEdgeGeometry(edge, moved)?.to).toEqual({ x: 340, y: 70 });
-    expect(getCanvasEdgeGeometry({ ...edge, fromSide: 'bottom', toSide: 'top' }, nodes))
-      .toEqual({ from: { x: 50, y: 60 }, to: { x: 280, y: 20 } });
+    const movedGeometry = getCanvasEdgeGeometry(edge, moved)!;
+    expect(movedGeometry.to.x).toBeCloseTo(340, 6);
+    expect(movedGeometry.to.y).toBeCloseTo(65.1515, 4);
+    expect(getCanvasEdgeGeometry({ ...edge, fromNode: 'missing' }, nodes)).toBeNull();
+  });
+
+  it('clips ellipse and diamond endpoints against their own curves', () => {
+    const shapes: CanvasNode[] = [
+      { id: 'ellipse', type: 'text', x: 0, y: 0, width: 200, height: 100, text: '', obsidium: { shape: 'ellipse' } },
+      { id: 'diamond', type: 'text', x: 240, y: 120, width: 100, height: 100, text: '', obsidium: { shape: 'diamond' } },
+    ];
+    const geometry = getCanvasEdgeGeometry({ id: 'e', fromNode: 'ellipse', toNode: 'diamond' }, shapes)!;
+    expect(Math.abs(ellipseEquation(geometry.from, shapes[0]) - 1)).toBeLessThan(0.01);
+    expect(Math.abs(rhombusEquation(geometry.to, shapes[1]) - 1)).toBeLessThan(0.01);
+    expect(crossOfCenters(geometry.from, shapes[0], shapes[1])).toBeCloseTo(0, 4);
+    expect(crossOfCenters(geometry.to, shapes[0], shapes[1])).toBeCloseTo(0, 4);
+    expect(geometry.from).not.toEqual({ x: 200, y: 50 });
+    expect(geometry.to).not.toEqual({ x: 240, y: 170 });
+  });
+
+  it('falls back to side points when both nodes share a center', () => {
+    const stacked: CanvasNode[] = [
+      { id: 'wide', type: 'text', x: 0, y: 0, width: 100, height: 60, text: 'wide' },
+      { id: 'narrow', type: 'text', x: 20, y: 10, width: 60, height: 40, text: 'narrow' },
+    ];
+    const edge = { id: 'e', fromNode: 'wide', toNode: 'narrow' };
+    expect(getCanvasEdgeGeometry({ ...edge, fromSide: 'right', toSide: 'left' }, stacked))
+      .toEqual({ from: { x: 100, y: 30 }, to: { x: 20, y: 30 } });
+    expect(getCanvasEdgeGeometry(edge, stacked))
+      .toEqual({ from: { x: 50, y: 60 }, to: { x: 50, y: 10 } });
+  });
+
+  it('treats freehand and number shapes as rectangles', () => {
+    const shapes: CanvasNode[] = [
+      { id: 'stroke', type: 'text', x: 0, y: 0, width: 100, height: 100, text: '', obsidium: { shape: 'freehand', points: [] } },
+      { id: 'number', type: 'text', x: 200, y: 200, width: 100, height: 100, text: '1', obsidium: { shape: 'number' } },
+    ];
+    expect(getCanvasEdgeGeometry({ id: 'e', fromNode: 'stroke', toNode: 'number' }, shapes))
+      .toEqual({ from: { x: 100, y: 100 }, to: { x: 200, y: 200 } });
   });
 
   it('anchors a point on every side of a node', () => {
@@ -160,6 +227,36 @@ describe('canvas interactions', () => {
     expect(resizeCanvasGroup(group, members, { ...group, width: 20, height: 10 })[1])
       .toMatchObject({ x: 1, y: 1, width: 24, height: 24 });
     expect(resizeCanvasGroup(group, members, { ...group, width: 20, height: 10 })[2]).toBe(members[2]);
+  });
+
+  it('scales a multi-node selection from its bounds and leaves unselected nodes untouched', () => {
+    const selection = new Set(['a', 'b']);
+    expect(canvasSelectionBounds(nodes, selection)).toEqual({ x: 0, y: 0, width: 320, height: 120 });
+    expect(canvasSelectionBounds(nodes, new Set())).toBeNull();
+    const scaled = resizeCanvasSelection(nodes, selection, { x: 0, y: 0, width: 640, height: 240 });
+    expect(scaled[0]).toMatchObject({ id: 'a', x: 0, y: 0, width: 200, height: 120 });
+    expect(scaled[1]).toMatchObject({ id: 'b', x: 480, y: 40, width: 160, height: 200 });
+    expect(scaled[2]).toBe(nodes[2]);
+    const moved = resizeCanvasSelection(nodes, selection, { x: 100, y: 50, width: 640, height: 240 });
+    expect(moved[0]).toMatchObject({ x: 100, y: 50, width: 200, height: 120 });
+    expect(moved[1]).toMatchObject({ x: 580, y: 90, width: 160, height: 200 });
+    expect(resizeCanvasSelection(nodes, new Set(), { x: 0, y: 0, width: 10, height: 10 })).toEqual(nodes);
+  });
+
+  it('scales group members inside a scaled selection and clamps their minimum size', () => {
+    const grouped: CanvasNode[] = [
+      { id: 'group', type: 'group', x: 0, y: 0, width: 200, height: 100 },
+      { id: 'member', type: 'text', x: 40, y: 20, width: 60, height: 40, text: 'member' },
+      { id: 'small', type: 'text', x: 10, y: 10, width: 10, height: 10, text: 'small' },
+      { id: 'outside', type: 'text', x: 400, y: 0, width: 40, height: 40, text: 'outside' },
+    ];
+    const scaled = resizeCanvasSelection(grouped, new Set(['group']), { x: 0, y: 0, width: 400, height: 200 });
+    expect(scaled[0]).toMatchObject({ id: 'group', width: 400, height: 200 });
+    expect(scaled[1]).toMatchObject({ id: 'member', x: 80, y: 40, width: 120, height: 80 });
+    expect(scaled[2]).toMatchObject({ id: 'small', x: 20, y: 20, width: 24, height: 24 });
+    expect(scaled[3]).toBe(grouped[3]);
+    const shrunk = resizeCanvasSelection(grouped, new Set(['group']), { x: 0, y: 0, width: 100, height: 50 });
+    expect(shrunk[2]).toMatchObject({ id: 'small', x: 5, y: 5, width: 24, height: 24 });
   });
 
   it('undoes and redoes bounded immutable snapshots', () => {

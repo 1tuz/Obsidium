@@ -1,3 +1,4 @@
+import type { IconNode } from 'lucide';
 import type { IconId, IconSet } from '../components/Common/iconCatalog';
 
 export type { IconSet };
@@ -7,8 +8,8 @@ let activeIconSet: IconSet = 'lucide';
 let changeRevision = 0;
 let tablerIcons: Record<IconId, string> | null = null;
 let phosphorIcons: Record<IconId, string> | null = null;
-let lucideIcons: Record<IconId, import('lucide').IconNode> | null = null;
-let legacyIconIds: Map<import('lucide').IconNode, IconId> | null = null;
+let lucideIcons: Record<IconId, IconNode> | null = null;
+let legacyIconIds: Map<IconNode, IconId> | null = null;
 let lucideCatalogPromise: Promise<void> | null = null;
 
 export function getIconSet(): IconSet {
@@ -16,12 +17,17 @@ export function getIconSet(): IconSet {
   return stored === 'lucide' || stored === 'tabler' || stored === 'phosphor' ? stored : activeIconSet;
 }
 
-export function getIconId(icon: IconId | import('lucide').IconNode): IconId {
+export function getIconId(icon: IconId | IconNode): IconId {
   if (typeof icon === 'string') return icon;
   return legacyIconIds?.get(icon) ?? 'file';
 }
 
-export function getLucideIcon(iconId: IconId): import('lucide').IconNode | null {
+export function getMappedIconId(icon: IconId | IconNode): IconId | null {
+  if (typeof icon === 'string') return icon;
+  return legacyIconIds?.get(icon) ?? null;
+}
+
+export function getLucideIcon(iconId: IconId): IconNode | null {
   return lucideIcons?.[iconId] ?? null;
 }
 

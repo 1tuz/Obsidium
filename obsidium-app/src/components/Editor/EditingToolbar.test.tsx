@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { EditingToolbar } from './EditingToolbar';
+import { ariaKeyshortcut, formatShortcut, SHORTCUTS } from '../../config/shortcuts';
 import type { EditorView } from '@codemirror/view';
 
 const readyView = { state: { readOnly: false } } as EditorView;
@@ -60,5 +61,25 @@ describe('EditingToolbar', () => {
     const items = [...document.querySelectorAll('.q-editing-toolbar__menu-item')]
       .map((item) => item.textContent);
     expect(items).toEqual(expect.arrayContaining(['Bulleted list', 'Numbered list', 'Task list']));
+  });
+
+  it('advertises the inline formatting shortcuts on their buttons', () => {
+    act(() => { renderer = mountDom(<EditingToolbar view={readyView} position="top" />); });
+    const buttons = [...renderer!.container.querySelectorAll<HTMLButtonElement>('button')];
+    const buttonFor = (label: string) => buttons.find((button) => button.getAttribute('aria-label') === label)!;
+
+    const bold = buttonFor('Bold');
+    expect(bold.title).toBe(`Bold (${formatShortcut(SHORTCUTS.BOLD)})`);
+    expect(bold.getAttribute('aria-keyshortcuts')).toBe(ariaKeyshortcut(SHORTCUTS.BOLD));
+    expect(bold.getAttribute('aria-keyshortcuts')).toBe('Control+B');
+
+    expect(buttonFor('Italic').title).toContain(formatShortcut(SHORTCUTS.ITALIC));
+    expect(buttonFor('Strikethrough').title).toContain(formatShortcut(SHORTCUTS.STRIKETHROUGH));
+    expect(buttonFor('Highlight').title).toContain(formatShortcut(SHORTCUTS.HIGHLIGHT));
+    expect(buttonFor('Inline code').title).toContain(formatShortcut(SHORTCUTS.INLINE_CODE));
+    expect(buttonFor('Link').title).toContain(formatShortcut(SHORTCUTS.LINK));
+
+    expect(buttonFor('Blockquote').title).toBe('Blockquote');
+    expect(buttonFor('Blockquote').getAttribute('aria-keyshortcuts')).toBeNull();
   });
 });

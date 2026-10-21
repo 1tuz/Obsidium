@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readCanvasAppearance } from './nodeProps';
 import { canvasSvg, type CanvasSvgContext } from './svgExport';
 import type { CanvasDocument } from './model';
 
@@ -17,6 +18,7 @@ const context = (overrides: Partial<CanvasSvgContext> = {}): CanvasSvgContext =>
   resolveImage: (_node, target) => target,
   shapeStroke: () => '#6f6b62',
   shapeFill: () => '#e6e2da',
+  appearance: (node) => readCanvasAppearance(node),
   ...overrides,
 });
 

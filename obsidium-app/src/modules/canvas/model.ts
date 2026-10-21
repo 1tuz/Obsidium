@@ -35,7 +35,7 @@ export type CanvasParseResult =
   | { ok: true; value: CanvasDocument }
   | { ok: false; error: string };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const isCanvasColor = (value: unknown): boolean => value === undefined
@@ -78,6 +78,15 @@ const validateEdge = (value: unknown, index: number): string | null => {
   for (const key of ['fromEnd', 'toEnd']) {
     if (value[key] !== undefined && !['none', 'arrow'].includes(String(value[key]))) {
       return `edges[${index}].${key} is invalid`;
+    }
+  }
+  for (const key of ['fromAnchor', 'toAnchor']) {
+    const anchor = value[key];
+    if (anchor === undefined) continue;
+    if (!isRecord(anchor) || typeof anchor.x !== 'number' || typeof anchor.y !== 'number'
+      || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)
+      || anchor.x < 0 || anchor.x > 1 || anchor.y < 0 || anchor.y > 1) {
+      return `edges[${index}].${key} must be a point inside the node`;
     }
   }
   const colorError = validateCanvasColor(value.color, `edges[${index}].color`);

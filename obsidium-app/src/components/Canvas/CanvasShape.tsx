@@ -1,3 +1,4 @@
+import { canvasStrokeDasharray, type CanvasCorners, type CanvasStrokeStyle, type CanvasStrokeWidth } from '../../modules/canvas/nodeProps';
 import './CanvasShape.css';
 
 export type CanvasShapeKind = 'rectangle' | 'diamond' | 'ellipse' | 'number';
@@ -10,6 +11,9 @@ interface CanvasShapeProps {
   selected: boolean;
   stroke?: string;
   fill?: string;
+  strokeWidth?: CanvasStrokeWidth;
+  strokeStyle?: CanvasStrokeStyle;
+  corners?: CanvasCorners;
 }
 
 interface ShapeGeometryProps {
@@ -21,6 +25,7 @@ interface ShapeGeometryProps {
   fill?: string;
   strokeWidth: number;
   strokeDasharray?: string;
+  corners?: CanvasCorners;
   pointerEvents?: 'none';
 }
 
@@ -33,6 +38,7 @@ function ShapeGeometry({
   fill,
   strokeWidth,
   strokeDasharray,
+  corners = 'round',
   pointerEvents,
 }: ShapeGeometryProps) {
   const geometry = {
@@ -73,12 +79,23 @@ function ShapeGeometry({
       y={1}
       width={Math.max(0, width - 2)}
       height={Math.max(0, height - 2)}
-      rx={10}
+      rx={corners === 'round' ? 10 : 0}
     />
   );
 }
 
-export function CanvasShape({ shape, width, height, zoom, selected, stroke, fill }: CanvasShapeProps) {
+export function CanvasShape({
+  shape,
+  width,
+  height,
+  zoom,
+  selected,
+  stroke,
+  fill,
+  strokeWidth = 2,
+  strokeStyle = 'solid',
+  corners = 'round',
+}: CanvasShapeProps) {
   return (
     <svg
       className="q-canvas__shape"
@@ -94,7 +111,9 @@ export function CanvasShape({ shape, width, height, zoom, selected, stroke, fill
         className="q-canvas__shape-body"
         stroke={stroke}
         fill={fill}
-        strokeWidth={2 / zoom}
+        strokeWidth={strokeWidth / zoom}
+        strokeDasharray={canvasStrokeDasharray(strokeStyle, strokeWidth, 1 / zoom)}
+        corners={corners}
       />
       {selected && (
         <ShapeGeometry

@@ -3,6 +3,7 @@ import { memo } from 'preact/compat';
 import { useMemo, useRef } from 'react';
 import { renderMarkdownToHtml } from '../../modules/export/markdownToHtml';
 import { canvasTextOverflow } from '../../modules/canvas/textFit';
+import { canvasAppearanceStyle, type CanvasAppearance } from '../../modules/canvas/nodeProps';
 import { CanvasMedia } from './CanvasMedia';
 import type { CanvasShapeKind } from './CanvasShape';
 import './CanvasCard.css';
@@ -30,6 +31,7 @@ interface CanvasCardProps {
   markdown?: string;
   color?: string;
   shape?: CanvasShapeKind | null;
+  appearance?: CanvasAppearance;
   media?: CanvasCardMedia | null;
   editing?: boolean;
   selected?: boolean;
@@ -120,6 +122,7 @@ export const CanvasCard = memo(function CanvasCard({
   markdown,
   color,
   shape = null,
+  appearance,
   media = null,
   editing = false,
   selected = false,
@@ -134,14 +137,18 @@ export const CanvasCard = memo(function CanvasCard({
   onOpenNoteLink,
 }: CanvasCardProps) {
   const className = `q-canvas-card q-canvas-card--${node.type}${shape ? ' q-canvas-card--shape' : ''}${selected ? ' is-selected' : ''}`;
-  const colorStyle = color ? { '--q-canvas-node-color': color } as Record<string, string> : undefined;
+  const style = {
+    ...(color ? { '--q-canvas-node-color': color } : {}),
+    ...(appearance ? canvasAppearanceStyle(appearance) : {}),
+  } as Record<string, string>;
+  const styled = Object.keys(style).length > 0 ? style : undefined;
   if (node.type === 'group') {
-    return <div className={className} style={colorStyle} role="group" aria-label="Canvas group">{children}</div>;
+    return <div className={className} style={styled} role="group" aria-label="Canvas group">{children}</div>;
   }
 
   if (node.type === 'text') {
     return (
-      <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Text card">
+      <div className={className} style={styled} data-node-id={node.id} aria-label="Text card">
         {editing
           ? <textarea
             aria-label="Text card content"
@@ -171,13 +178,13 @@ export const CanvasCard = memo(function CanvasCard({
     const title = node.file?.split(/[\\/]/).pop() ?? 'Untitled';
     if (media) {
       return (
-        <div className={className} style={colorStyle} data-node-id={node.id} aria-label={`File card: ${title}`}>
+        <div className={className} style={styled} data-node-id={node.id} aria-label={`File card: ${title}`}>
           <CanvasMedia kind={media.kind} src={media.src} label={media.label} />
         </div>
       );
     }
     return (
-      <div className={className} style={colorStyle} data-node-id={node.id} aria-label={`File card: ${title}`}>
+      <div className={className} style={styled} data-node-id={node.id} aria-label={`File card: ${title}`}>
         <div className="q-canvas-card__title" title={openHint}>{title}</div>
         {!compact && <MarkdownPreview node={node} markdown={markdown} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
@@ -189,7 +196,7 @@ export const CanvasCard = memo(function CanvasCard({
     const safe = isSafeLink(url);
     const imageUrl = /^https?:/i.test(url) ? url : resolveImageUrl?.(node, url) ?? url;
     return (
-      <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Link card">
+      <div className={className} style={styled} data-node-id={node.id} aria-label="Link card">
         {compact
           ? <span className="q-canvas-card__link">{url}</span>
           : safe && isImageUrl(url)
@@ -201,5 +208,5 @@ export const CanvasCard = memo(function CanvasCard({
     );
   }
 
-  return <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Canvas card" />;
+  return <div className={className} style={styled} data-node-id={node.id} aria-label="Canvas card" />;
 });

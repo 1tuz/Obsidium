@@ -1,0 +1,21 @@
+.q-canvas-note-picker__section {
+  padding: var(--q-space-4) var(--q-space-8) 0;
+  color: var(--q-text-tertiary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-sm);
+  font-weight: var(--q-font-weight-ui-medium);
+  line-height: var(--q-size-20);
+}
+
+.q-canvas-note-picker__create,
+.q-canvas-note-picker__recent {
+  flex: 0 0 auto;
+  height: auto;
+  gap: var(--q-space-2);
+  padding: var(--q-space-8) var(--q-space-12);
+  cursor: pointer;
+}
+
+.q-canvas-note-picker__create .q-search-result__icon {
+  color: var(--q-icon-accent);
+}

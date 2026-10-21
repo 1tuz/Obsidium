@@ -1,4 +1,5 @@
-import type { CanvasEdge, CanvasNode } from './model';
+import { isRecord, type CanvasEdge, type CanvasNode } from './model';
+import { canvasContentBounds } from './viewport';
 
 export type CanvasRect = { x: number; y: number; width: number; height: number };
 export type CanvasPoint = { x: number; y: number };
@@ -186,6 +187,37 @@ export const resizeCanvasGroup = <T extends CanvasNode>(
   });
 };
 
+export const canvasSelectionBounds = (
+  nodes: readonly CanvasNode[],
+  selectedIds: ReadonlySet<string>,
+): CanvasRect | null => canvasContentBounds(nodes.filter(node => selectedIds.has(node.id)));
+
+export const resizeCanvasSelection = <T extends CanvasNode>(
+  nodes: readonly T[],
+  selectedIds: ReadonlySet<string>,
+  next: CanvasRect,
+): T[] => {
+  const bounds = canvasSelectionBounds(nodes, selectedIds);
+  if (!bounds) return [...nodes];
+  const scaleX = bounds.width > 0 ? next.width / bounds.width : 1;
+  const scaleY = bounds.height > 0 ? next.height / bounds.height : 1;
+  const memberIds = new Set<string>();
+  for (const node of nodes) {
+    if (!selectedIds.has(node.id) || node.type !== 'group') continue;
+    for (const memberId of getCanvasGroupMemberIds(node, nodes)) memberIds.add(memberId);
+  }
+  return nodes.map((node) => {
+    if (!selectedIds.has(node.id) && !memberIds.has(node.id)) return node;
+    return {
+      ...node,
+      x: Math.round(next.x + (node.x - bounds.x) * scaleX),
+      y: Math.round(next.y + (node.y - bounds.y) * scaleY),
+      width: Math.max(24, Math.round(node.width * scaleX)),
+      height: Math.max(24, Math.round(node.height * scaleY)),
+    };
+  });
+};
+
 export const alignCanvasNodes = <T extends CanvasNode>(
   nodes: readonly T[],
   selectedIds: ReadonlySet<string>,
@@ -236,6 +268,44 @@ export const canvasNodeAtPoint = <T extends CanvasNode>(
 const isSide = (value: unknown): value is CanvasSide =>
   value === 'top' || value === 'right' || value === 'bottom' || value === 'left';
 
+const canvasNodeShape = (node: CanvasNode): string | null => {
+  const obsidium = isRecord(node.obsidium) ? node.obsidium : null;
+  return obsidium && typeof obsidium.shape === 'string' ? obsidium.shape : null;
+};
+
+const canvasOutlinePoint = (node: CanvasNode, toward: CanvasPoint): CanvasPoint | null => {
+  const centerX = node.x + node.width / 2;
+  const centerY = node.y + node.height / 2;
+  const deltaX = toward.x - centerX;
+  const deltaY = toward.y - centerY;
+  if (deltaX === 0 && deltaY === 0) return null;
+  const halfWidth = node.width / 2;
+  const halfHeight = node.height / 2;
+  const shape = canvasNodeShape(node);
+  const scale = shape === 'ellipse'
+    ? 1 / Math.hypot(deltaX / halfWidth, deltaY / halfHeight)
+    : shape === 'diamond'
+      ? 1 / (Math.abs(deltaX) / halfWidth + Math.abs(deltaY) / halfHeight)
+      : Math.min(halfWidth / Math.abs(deltaX), halfHeight / Math.abs(deltaY));
+  if (!Number.isFinite(scale) || scale <= 0) return null;
+  return { x: centerX + deltaX * scale, y: centerY + deltaY * scale };
+};
+
+const canvasAnchor = (node: CanvasNode, value: unknown): CanvasPoint | null => {
+  if (!isRecord(value)) return null;
+  const { x, y } = value;
+  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return {
+    x: node.x + Math.min(1, Math.max(0, x)) * node.width,
+    y: node.y + Math.min(1, Math.max(0, y)) * node.height,
+  };
+};
+
+export const canvasNodeAnchor = (node: CanvasNode, point: CanvasPoint): CanvasPoint => ({
+  x: node.width > 0 ? Math.min(1, Math.max(0, (point.x - node.x) / node.width)) : 0.5,
+  y: node.height > 0 ? Math.min(1, Math.max(0, (point.y - node.y) / node.height)) : 0.5,
+});
+
 export const getCanvasEdgeGeometry = (
   edge: CanvasEdge,
   nodes: readonly CanvasNode[] | ReadonlyMap<string, CanvasNode>,
@@ -249,7 +319,68 @@ export const getCanvasEdgeGeometry = (
   const sides = canvasEdgeSides(from, to);
   const fromSide = isSide(edge.fromSide) ? edge.fromSide : sides.fromSide;
   const toSide = isSide(edge.toSide) ? edge.toSide : sides.toSide;
-  return { from: canvasSidePoint(from, fromSide), to: canvasSidePoint(to, toSide) };
+  const fromCenter = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
+  const toCenter = { x: to.x + to.width / 2, y: to.y + to.height / 2 };
+  return {
+    from: canvasAnchor(from, edge.fromAnchor) ?? canvasOutlinePoint(from, toCenter) ?? canvasSidePoint(from, fromSide),
+    to: canvasAnchor(to, edge.toAnchor) ?? canvasOutlinePoint(to, fromCenter) ?? canvasSidePoint(to, toSide),
+  };
+};
+
+export type CanvasEdgeArrowheads = { start?: string; end?: string };
+
+const normalizeVector = (vector: CanvasPoint): CanvasPoint | null => {
+  const length = Math.hypot(vector.x, vector.y);
+  if (!Number.isFinite(length) || length === 0) return null;
+  return { x: vector.x / length, y: vector.y / length };
+};
+
+const elbowMiddleX = (geometry: CanvasEdgeGeometry, bend: CanvasPoint): number =>
+  Math.round((geometry.from.x + geometry.to.x) / 2 + bend.x);
+
+const edgeTangents = (
+  geometry: CanvasEdgeGeometry,
+  route: CanvasEdgeRoute,
+  bend: CanvasPoint,
+): { start: CanvasPoint | null; end: CanvasPoint | null } => {
+  const { from, to } = geometry;
+  if (route === 'curved') {
+    const control = { x: (from.x + to.x) / 2 + bend.x, y: (from.y + to.y) / 2 + bend.y };
+    return { start: normalizeVector({ x: control.x - from.x, y: control.y - from.y }), end: normalizeVector({ x: to.x - control.x, y: to.y - control.y }) };
+  }
+  if (route === 'elbow') {
+    const middleX = elbowMiddleX(geometry, bend);
+    const startDirection = normalizeVector({ x: middleX - from.x, y: 0 }) ?? normalizeVector({ x: 0, y: to.y - from.y });
+    const endDirection = normalizeVector({ x: to.x - middleX, y: 0 }) ?? normalizeVector({ x: 0, y: to.y - from.y });
+    return { start: startDirection, end: endDirection };
+  }
+  const direction = normalizeVector({ x: to.x - from.x, y: to.y - from.y });
+  return { start: direction, end: direction };
+};
+
+const arrowPolygon = (tip: CanvasPoint, direction: CanvasPoint, size: number): string => {
+  const base = { x: tip.x - direction.x * size, y: tip.y - direction.y * size };
+  const halfWidth = size * 0.42;
+  const perpendicular = { x: -direction.y * halfWidth, y: direction.x * halfWidth };
+  const round = (value: number) => Math.round(value * 100) / 100;
+  return [
+    `${round(tip.x)},${round(tip.y)}`,
+    `${round(base.x + perpendicular.x)},${round(base.y + perpendicular.y)}`,
+    `${round(base.x - perpendicular.x)},${round(base.y - perpendicular.y)}`,
+  ].join(' ');
+};
+
+export const canvasEdgeArrowheads = (
+  geometry: CanvasEdgeGeometry,
+  route: CanvasEdgeRoute,
+  bend: CanvasPoint,
+  size = 12,
+): CanvasEdgeArrowheads => {
+  const tangents = edgeTangents(geometry, route, bend);
+  return {
+    ...(tangents.start ? { start: arrowPolygon(geometry.from, { x: -tangents.start.x, y: -tangents.start.y }, size) } : {}),
+    ...(tangents.end ? { end: arrowPolygon(geometry.to, tangents.end, size) } : {}),
+  };
 };
 
 export type CanvasHistory<T> = {

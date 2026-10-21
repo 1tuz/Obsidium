@@ -1,6 +1,6 @@
 import type { IconNode } from 'lucide';
 import type { IconId } from './iconCatalog';
-import { ensureLucideCatalog, getIconId, getIconMarkup, getIconSet, getLucideIcon } from '../../modules/iconSet';
+import { ensureLucideCatalog, getIconId, getIconMarkup, getIconSet, getLucideIcon, getMappedIconId } from '../../modules/iconSet';
 
 const legacyIcons = new WeakMap<SVGSVGElement, IconNode>();
 
@@ -26,7 +26,8 @@ export function createIconElement(icon: IconNode | IconId, strokeWidth = 1.2): S
 function updateIconElement(svg: SVGSVGElement, strokeWidth: number, iconSet: ReturnType<typeof getIconSet>) {
   const iconId = legacyIcons.has(svg) ? getIconId(legacyIcons.get(svg)!) : svg.dataset.iconName as IconId;
   const iconData = legacyIcons.get(svg) ?? getLucideIcon(iconId);
-  const markup = iconSet === 'lucide' ? null : getIconMarkup(iconSet, iconId);
+  const mappedId = legacyIcons.has(svg) ? getMappedIconId(legacyIcons.get(svg)!) : iconId;
+  const markup = mappedId && iconSet !== 'lucide' ? getIconMarkup(iconSet, mappedId) : null;
   const renderedSet = markup ? iconSet : 'lucide';
   svg.replaceChildren();
   svg.setAttribute('viewBox', renderedSet === 'phosphor' ? '0 0 256 256' : '0 0 24 24');

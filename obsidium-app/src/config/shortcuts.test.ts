@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { codeMirrorKey, matchesShortcut, SHORTCUTS } from './shortcuts';
+import {
+  formattingKeyBindings,
+  insertLinkCommand,
+  toggleHighlightCommand,
+  toggleInlineCodeCommand,
+} from '../components/Editor/extensions/formatting';
 
 describe('global shortcut tokens', () => {
   it('matches physical keys independently of the active keyboard layout', () => {
@@ -50,6 +56,38 @@ describe('global shortcut tokens', () => {
     expect(codeMirrorKey(SHORTCUTS.STRIKETHROUGH)).toBe('Mod-Shift-s');
     expect(codeMirrorKey(SHORTCUTS.OUTDENT)).toBe('Shift-Tab');
     expect(codeMirrorKey(SHORTCUTS.LINE_BREAK)).toBe('Shift-Enter');
+  });
+
+  it('spells the new inline formatting shortcuts the way CodeMirror keymaps expect', () => {
+    expect(codeMirrorKey(SHORTCUTS.HIGHLIGHT)).toBe('Mod-Shift-h');
+    expect(codeMirrorKey(SHORTCUTS.INLINE_CODE)).toBe('Mod-e');
+    expect(codeMirrorKey(SHORTCUTS.LINK)).toBe('Mod-Shift-l');
+  });
+
+  it('registers the new inline formatting shortcuts in the formatting keymap', () => {
+    expect(formattingKeyBindings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: codeMirrorKey(SHORTCUTS.HIGHLIGHT), run: toggleHighlightCommand }),
+      expect.objectContaining({ key: codeMirrorKey(SHORTCUTS.INLINE_CODE), run: toggleInlineCodeCommand }),
+      expect.objectContaining({ key: codeMirrorKey(SHORTCUTS.LINK), run: insertLinkCommand }),
+    ]));
+  });
+
+  it('matches the new inline formatting shortcuts on physical keys', () => {
+    const event = (code: string, key: string, modifiers: Partial<KeyboardEvent> = {}) => ({
+      code,
+      key,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      shiftKey: false,
+      ...modifiers,
+    } as KeyboardEvent);
+
+    expect(matchesShortcut(event('KeyH', 'H', { ctrlKey: true, shiftKey: true }), SHORTCUTS.HIGHLIGHT)).toBe(true);
+    expect(matchesShortcut(event('KeyE', 'E', { ctrlKey: true }), SHORTCUTS.INLINE_CODE)).toBe(true);
+    expect(matchesShortcut(event('KeyL', 'L', { ctrlKey: true, shiftKey: true }), SHORTCUTS.LINK)).toBe(true);
+    expect(matchesShortcut(event('KeyL', 'L', { ctrlKey: true }), SHORTCUTS.LINK)).toBe(false);
+    expect(matchesShortcut(event('KeyH', 'H', { ctrlKey: true }), SHORTCUTS.HIGHLIGHT)).toBe(false);
   });
 
   it('keeps focus mode apart from the page search', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CanvasDocument, CanvasTextNode, CanvasTypedNode } from './model';
+import { readCanvasAppearance } from './nodeProps';
 import { canvasSvg, canvasSvgAssetSources, xmlSafeHtml } from './svgExport';
 import type { CanvasSvgContext, CanvasSvgMedia, CanvasSvgPalette } from './svgExport';
 
@@ -31,6 +32,7 @@ const context = (overrides: Partial<CanvasSvgContext> = {}): CanvasSvgContext =>
     ? PALETTE.presets[node.color] ?? PALETTE.edge
     : PALETTE.edge),
   shapeFill: () => PALETTE.card,
+  appearance: (node) => readCanvasAppearance(node),
   ...overrides,
 });
 
@@ -101,6 +103,53 @@ describe('canvasSvg', () => {
 
     expect(svg).toContain('<polygon points=');
     expect(svg).not.toContain('clip-path');
+  });
+
+  it('emits the appearance stroke width and dash pattern on shapes', () => {
+    const dashed = textNode({ id: 'dashed', obsidium: { shape: 'rectangle', strokeStyle: 'dashed', strokeWidth: 2 } });
+    const thick = textNode({ id: 'thick', obsidium: { shape: 'rectangle', strokeWidth: 4 } });
+
+    expect(canvasSvg(document([dashed]), context())).toContain('stroke-dasharray="8 6"');
+    expect(canvasSvg(document([thick]), context())).toContain('stroke-width="4"');
+  });
+
+  it('drops the fill for transparent shapes', () => {
+    const node = textNode({ id: 'glass', obsidium: { shape: 'rectangle', fill: 'transparent' } });
+    const svg = canvasSvg(document([node]), context());
+
+    expect(svg).toContain('fill="none"');
+  });
+
+  it('resolves preset and hex appearance fills through the palette', () => {
+    const preset = textNode({ id: 'preset', obsidium: { shape: 'rectangle', fill: '3' } });
+    const hex = textNode({ id: 'hex', obsidium: { shape: 'rectangle', fill: '#123456' } });
+
+    expect(canvasSvg(document([preset]), context())).toContain(`fill="${PALETTE.presets['3']}"`);
+    expect(canvasSvg(document([hex]), context())).toContain('fill="#123456"');
+  });
+
+  it('rounds rectangle corners only when the appearance asks for it', () => {
+    const round = textNode({ id: 'round', obsidium: { shape: 'rectangle', corners: 'round' } });
+    const sharp = textNode({ id: 'sharp', obsidium: { shape: 'rectangle', corners: 'sharp' } });
+
+    expect(canvasSvg(document([round]), context())).toContain('rx="8"');
+    expect(canvasSvg(document([sharp]), context())).not.toContain('rx="8"');
+  });
+
+  it('uses the appearance font size, family and alignment for text', () => {
+    const node = textNode({ id: 'styled', obsidium: { fontSize: 'xl', fontFamily: 'serif', textAlign: 'right' } });
+    const svg = canvasSvg(document([node]), context({ textMode: 'svg' }));
+
+    expect(svg).toContain('font-size="24"');
+    expect(svg).toContain('font-family="serif"');
+    expect(svg).toContain('text-anchor="end"');
+  });
+
+  it('wraps a translucent node in an opacity group', () => {
+    const node = textNode({ id: 'faded', obsidium: { opacity: 0.5 } });
+    const svg = canvasSvg(document([node]), context());
+
+    expect(svg).toContain('<g opacity="0.5">');
   });
 
   it('exports every node regardless of viewport', () => {

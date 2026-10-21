@@ -290,7 +290,7 @@
   --q-canvas-shape-fill: color-mix(in srgb, var(--q-canvas-node-color, var(--q-canvas-ink-solid)) 32%, var(--q-canvas-paper-solid));
 }
 
-.q-canvas__object--shape[data-fill='transparent'] {
+.q-canvas .q-canvas__object--shape[data-fill='transparent'] {
   --q-canvas-shape-fill: transparent;
 }
 
@@ -418,6 +418,17 @@ input.q-canvas__group-label {
 .q-canvas__resize[data-handle='bottom'] { left: 50%; top: 100%; cursor: ns-resize; }
 .q-canvas__resize[data-handle='bottom-left'] { left: 0; top: 100%; cursor: nesw-resize; }
 .q-canvas__resize[data-handle='left'] { left: 0; top: 50%; cursor: ew-resize; }
+
+.q-canvas__selection-frame {
+  position: absolute;
+  z-index: 3;
+  border: var(--q-border-1) dashed var(--q-canvas-selection, var(--q-text-accent));
+  pointer-events: none;
+}
+
+.q-canvas__selection-frame > .q-canvas__resize {
+  pointer-events: auto;
+}
 
 .q-canvas__edge-handle {
   fill: var(--q-canvas-ink, var(--q-text-primary));
