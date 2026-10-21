@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TargetedDragEvent, TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent } from 'preact';
 import { t } from '../../i18n';
 import { useTauriEvent } from '../../hooks/useTauriEvent';
-import { absolutePath, fileName, parentDirectory, relativePath, resolveNotePath, samePath } from '../../modules/paths';
+import { absolutePath, fileName, parentDirectory, resolveNotePath, samePath } from '../../modules/paths';
 import { splitNoteLink, type CanvasNoteSource, type CanvasNoteTarget } from './canvasNoteLinks';
 import { openExternalUrl } from '../../modules/openExternalUrl';
 import { isFileCommandError, isMarkdownPath, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
@@ -85,7 +85,7 @@ import { IconButton } from '../Common/IconButton';
 import { CanvasCard, type CanvasCardNode } from './CanvasCard';
 import { CanvasLinkDialog } from './CanvasLinkDialog';
 import { CanvasNotePicker } from './CanvasNotePicker';
-import { CanvasPropertiesPanel, type CanvasPanelTarget } from './CanvasPropertiesPanel';
+import { CanvasPropertiesPanel, type CanvasAppearanceCapabilities, type CanvasPanelTarget } from './CanvasPropertiesPanel';
 import { CanvasShape, type CanvasShapeKind } from './CanvasShape';
 import { CanvasToolbar, type CanvasGrid, type CanvasPaperStyle, type CanvasTool } from './CanvasToolbar';
 import './CanvasView.css';
@@ -119,6 +119,7 @@ interface CanvasViewProps {
 }
 
 const GRID_SIZE = 20;
+const MEDIA_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'bmp', 'svg', 'mp4', 'webm', 'mov', 'm4v'];
 const TEXT_CARD_MIN_HEIGHT = 40;
 const AUTOSAVE_DELAY_MS = 400;
 const CAMERA_PERSIST_DELAY_MS = 300;
@@ -132,8 +133,9 @@ const slashCommands = [
   { id: 'text', label: 'canvas.slash.text' },
   { id: 'new-note', label: 'canvas.slash.newNote' },
   { id: 'find-note', label: 'canvas.slash.findNote' },
+  { id: 'note', label: 'canvas.slash.note' },
+  { id: 'image', label: 'canvas.slash.image' },
   { id: 'link', label: 'canvas.slash.link' },
-  { id: 'file', label: 'canvas.slash.file' },
   { id: 'group', label: 'canvas.slash.group' },
   { id: 'edge', label: 'canvas.slash.edge' },
   { id: 'rectangle', label: 'canvas.slash.rectangle' },
@@ -223,6 +225,35 @@ function shapeKindOf(node: CanvasTypedNode): CanvasShapeKind | 'freehand' | null
   return shape === 'rectangle' || shape === 'diamond' || shape === 'ellipse' || shape === 'number' || shape === 'sticker' || shape === 'freehand'
     ? shape
     : null;
+}
+
+function appearanceCapabilities(node: CanvasTypedNode): CanvasAppearanceCapabilities {
+  const none: CanvasAppearanceCapabilities = {
+    fill: false, stroke: false, strokeWidth: false, strokeStyle: false, corners: false, font: false,
+  };
+  if (node.type !== 'text') return none;
+  const shape = shapeKindOf(node);
+  if (shape === 'freehand') return { ...none, stroke: true, strokeWidth: true, strokeStyle: true };
+  if (shape === 'sticker') return { ...none, fill: true, font: true };
+  if (shape === 'rectangle') return { fill: true, stroke: true, strokeWidth: true, strokeStyle: true, corners: true, font: true };
+  if (shape === 'diamond' || shape === 'ellipse' || shape === 'number') {
+    return { fill: true, stroke: true, strokeWidth: true, strokeStyle: true, corners: false, font: true };
+  }
+  return { ...none, font: true };
+}
+
+function intersectCapabilities(
+  left: CanvasAppearanceCapabilities,
+  right: CanvasAppearanceCapabilities,
+): CanvasAppearanceCapabilities {
+  return {
+    fill: left.fill && right.fill,
+    stroke: left.stroke && right.stroke,
+    strokeWidth: left.strokeWidth && right.strokeWidth,
+    strokeStyle: left.strokeStyle && right.strokeStyle,
+    corners: left.corners && right.corners,
+    font: left.font && right.font,
+  };
 }
 
 function nodeColorValue(node: CanvasTypedNode, palette: CanvasSvgPalette): string | undefined {
@@ -703,7 +734,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     } : { x: 0, y: 0 };
   }, []);
 
-  const addNode = useCallback((type: CanvasTool, point: { x: number; y: number }, file?: string, url?: string) => {
+  const addNode = useCallback((type: 'text' | 'sticker' | 'file' | 'link' | 'rectangle' | 'diamond' | 'ellipse', point: { x: number; y: number }, file?: string, url?: string) => {
     const current = documentRef.current;
     if (!current) return;
     let node: CanvasTypedNode;
@@ -752,6 +783,25 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     stageRef.current?.focus();
     stageRef.current?.setPointerCapture(event.pointerId);
   }, [nodeColor, setCanvasDocument, worldPoint]);
+
+  const attachImage = useCallback(async (point: CanvasPoint) => {
+    const selected = await open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: t('canvas.toolbar.tool.image'), extensions: MEDIA_EXTENSIONS }],
+    });
+    if (!selected || Array.isArray(selected)) return;
+    try {
+      const relative = await importIntoFiles(
+        workspacePath,
+        { kind: 'path', sourcePath: selected },
+        { fallbackName: 'image', fallbackExt: 'png' },
+      );
+      addNode('file', point, relative);
+    } catch {
+      setActionError(t('canvas.errors.imageImport'));
+    }
+  }, [addNode, workspacePath]);
 
   const addNumberMarker = useCallback((point: CanvasPoint) => {
     const current = documentRef.current;
@@ -822,11 +872,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     setSlashMenu(null);
     if (commandId === 'text') addNode('text', point);
     else if (commandId === 'new-note') await createCanvasNote(t('canvas.slash.defaultNoteTitle'), point);
-    else if (commandId === 'find-note') {
+    else if (commandId === 'find-note' || commandId === 'note') {
       notePlacementRef.current = point;
       setNotePickerOpen(true);
-    } else setActiveTool(commandId as CanvasTool);
-  }, [addNode, createCanvasNote, slashMenu]);
+    } else if (commandId === 'image') await attachImage(point);
+    else if (commandId === 'link') setLinkDraft({ mode: 'add', point, value: '' });
+    else setActiveTool(commandId as CanvasTool);
+  }, [addNode, attachImage, createCanvasNote, slashMenu]);
 
   useEffect(() => {
     if (slashMenu) slashInputRef.current?.focus();
@@ -1497,19 +1549,11 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (activeTool !== 'select') {
       if (activeTool === 'text' || activeTool === 'sticker') addNode(activeTool, point);
-      else if (activeTool === 'link') setLinkDraft({ mode: 'add', point, value: '' });
-      else if (activeTool === 'group') addGroup();
-      else if (activeTool === 'file') {
-        void open({ multiple: false, directory: false }).then((selectedPath) => {
-          if (!selectedPath) return;
-          try {
-            const file = relativePath(workspacePath, selectedPath);
-            addNode('file', point, file);
-          } catch {
-            setActionError(t('canvas.errors.fileOutsideWorkspace'));
-          }
-        });
-      }
+      else if (activeTool === 'note') {
+        notePlacementRef.current = point;
+        setNotePickerOpen(true);
+      } else if (activeTool === 'group') addGroup();
+      else if (activeTool === 'image') void attachImage(point);
       return;
     }
     if (event.button !== 0) return;
@@ -1521,7 +1565,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     dragRef.current = next;
     setDrag(next);
     stage.setPointerCapture(event.pointerId);
-  }, [activeTool, addGroup, addNode, addNumberMarker, beginShapeDrawing, camera, spaceHeld, worldPoint, workspacePath]);
+  }, [activeTool, addGroup, addNode, addNumberMarker, attachImage, beginShapeDrawing, camera, spaceHeld, worldPoint]);
 
   const handleDrop = useCallback((event: TargetedDragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1610,6 +1654,42 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     setCanvasDocument(addCanvasNode(current, node));
     setSelection([node.id]);
   }, [importMedia, nodeColor, path, setCanvasDocument, workspacePath]);
+
+  const ownsFocus = useCallback(() => {
+    const active = globalThis.document.activeElement as HTMLElement | null;
+    const section = stageRef.current?.closest('.q-canvas');
+    if (!section) return false;
+    if (!active || active === globalThis.document.body) return true;
+    return section.contains(active);
+  }, []);
+
+  useEffect(() => {
+    if (inactive) return undefined;
+    const isEditable = (target: EventTarget | null) =>
+      target instanceof HTMLElement && Boolean(target.closest('textarea,input,select,[contenteditable="true"]'));
+
+    const onPaste = (event: ClipboardEvent) => {
+      if (event.defaultPrevented || isEditable(event.target) || !ownsFocus()) return;
+      handlePaste(event);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      if (isEditable(event.target) || !ownsFocus()) return;
+      const key = event.key.toLowerCase();
+      if (key === 'c') {
+        if (copySelection()) event.preventDefault();
+      } else if (key === 'v') {
+        event.preventDefault();
+        pasteClipboard();
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('paste', onPaste);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [copySelection, handlePaste, inactive, ownsFocus, pasteClipboard]);
 
   const handleWheel = useCallback((event: WheelEvent) => {
     const stage = stageRef.current;
@@ -1717,8 +1797,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (!command && !event.altKey && !event.shiftKey) {
       const tool = ({
-        KeyV: 'select', KeyT: 'text', KeyF: 'file', KeyL: 'link', KeyG: 'group', KeyA: 'edge',
         KeyR: 'rectangle', KeyD: 'diamond', KeyE: 'ellipse', KeyN: 'number', KeyP: 'draw', KeyS: 'sticker',
+        KeyV: 'select', KeyT: 'text', KeyF: 'image', KeyL: 'note', KeyG: 'group', KeyA: 'edge',
       } as const)[event.code];
       if (tool) {
         event.preventDefault();
@@ -1907,6 +1987,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       ? {
         kind: 'nodes',
         appearance: readCanvasAppearance(selectedNode),
+        capabilities: selection.reduce<CanvasAppearanceCapabilities>((current, id) => {
+          const node = document?.nodes.find((item) => item.id === id);
+          return node ? intersectCapabilities(current, appearanceCapabilities(node)) : current;
+        }, appearanceCapabilities(selectedNode)),
         count: selection.length,
         canGroup: selection.length > 1,
         canUngroup: selectedGroups.length > 0,
@@ -2342,6 +2426,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               pasteClipboard(menuWorldPoint(menu));
               setMenu(null);
             }}>{t('canvas.menu.paste')}</button>
+            <button role="menuitem" onClick={() => {
+              setLinkDraft({ mode: 'add', point: menuWorldPoint(menu), value: '' });
+              setMenu(null);
+            }}>{t('canvas.menu.addLink')}</button>
             <button role="menuitem" onClick={() => {
               notePlacementRef.current = menuWorldPoint(menu);
               setNotePickerOpen(true);

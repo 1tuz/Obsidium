@@ -78,8 +78,8 @@ describe('CanvasToolbar', () => {
     const expected: [string, string][] = [
       ['Select and move', 'V'],
       ['Text card', 'T'],
-      ['File card', 'F'],
-      ['Link card', 'L'],
+      ['Photo or video', 'F'],
+      ['Note from the knowledge base', 'L'],
       ['Group', 'G'],
       ['Connection', 'A'],
       ['Rectangle', 'R'],

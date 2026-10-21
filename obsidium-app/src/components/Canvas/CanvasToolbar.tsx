@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import { Circle, FileCode, FileText, GitBranch, Image, Link2, ListOrdered, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
+import { Circle, FileCode, FileText, GitBranch, Image, ListOrdered, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { rhombus, stickerGlyph } from './CanvasGlyphs';
 import { IconButton } from '../Common/IconButton';
@@ -7,7 +7,7 @@ import './CanvasToolbar.css';
 
 export type CanvasPaperStyle = 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
 export type CanvasGrid = 'none' | 'dots' | 'lines';
-export type CanvasTool = 'select' | 'text' | 'file' | 'link' | 'group' | 'edge' | 'rectangle' | 'diamond' | 'ellipse' | 'number' | 'draw' | 'sticker';
+export type CanvasTool = 'select' | 'text' | 'image' | 'note' | 'group' | 'edge' | 'rectangle' | 'diamond' | 'ellipse' | 'number' | 'draw' | 'sticker';
 
 interface CanvasToolbarProps {
   paperStyle: CanvasPaperStyle;
@@ -29,8 +29,8 @@ interface CanvasToolbarProps {
 const tools = [
   { id: 'select', label: 'select', icon: MousePointer2, shortcut: 'V' },
   { id: 'text', label: 'text', icon: Type, shortcut: 'T' },
-  { id: 'file', label: 'file', icon: FileText, shortcut: 'F' },
-  { id: 'link', label: 'link', icon: Link2, shortcut: 'L' },
+  { id: 'image', label: 'image', icon: Image, shortcut: 'F' },
+  { id: 'note', label: 'note', icon: FileText, shortcut: 'L' },
   { id: 'group', label: 'group', icon: Users, shortcut: 'G' },
   { id: 'edge', label: 'edge', icon: GitBranch, shortcut: 'A' },
   { id: 'rectangle', label: 'rectangle', icon: Square, shortcut: 'R' },

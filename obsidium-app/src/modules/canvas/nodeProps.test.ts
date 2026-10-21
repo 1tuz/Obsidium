@@ -24,6 +24,9 @@ const textNode = (obsidium?: Record<string, unknown>): CanvasTypedNode => ({
 const shapeNode = (obsidium: Record<string, unknown> = {}): CanvasTypedNode =>
   textNode({ shape: 'rectangle', ...obsidium });
 
+const stickerNode = (obsidium: Record<string, unknown> = {}): CanvasTypedNode =>
+  textNode({ shape: 'sticker', ...obsidium });
+
 describe('canvas appearance', () => {
   it('centres text inside shapes and keeps plain text left aligned', () => {
     expect(canvasAppearanceDefaults(shapeNode()).textAlign).toBe('center');
@@ -72,5 +75,17 @@ describe('canvas appearance', () => {
   it('keeps an explicit no-fill choice in the file', () => {
     expect(withCanvasAppearance(shapeNode(), { fill: '2' }).obsidium).toMatchObject({ fill: '2' });
     expect(withCanvasAppearance(shapeNode({ fill: '2' }), { fill: null }).obsidium).toMatchObject({ fill: 'transparent' });
+  });
+
+  it('defaults a sticker to the yellow preset without storing it', () => {
+    expect(canvasAppearanceDefaults(stickerNode()).fill).toBe('3');
+    expect(readCanvasAppearance(stickerNode()).fill).toBe('3');
+    expect(withCanvasAppearance(stickerNode(), { strokeWidth: 4 }).obsidium).toEqual({ shape: 'sticker', strokeWidth: 4 });
+  });
+
+  it('keeps an explicit sticker no-fill distinct from the default', () => {
+    expect(readCanvasAppearance(stickerNode({ fill: 'transparent' })).fill).toBeNull();
+    expect(withCanvasAppearance(stickerNode(), { fill: null }).obsidium).toEqual({ shape: 'sticker', fill: 'transparent' });
+    expect(readCanvasAppearance(stickerNode({ fill: '5' })).fill).toBe('5');
   });
 });
