@@ -881,6 +881,39 @@ describe('CanvasView', () => {
     expect(renderer!.container.querySelectorAll('.q-canvas__object.is-selected')).toHaveLength(0);
   });
 
+  it('grows a rectangle while typing so centred text is never clipped', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'rect', type: 'text', x: 0, y: 0, width: 160, height: 100, text: '', obsidium: { shape: 'rectangle' } }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const object = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { object.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+    const textarea = renderer!.container.querySelector<HTMLTextAreaElement>('.q-canvas-card--shape textarea')!;
+    expect(textarea).not.toBeNull();
+    Object.defineProperty(textarea, 'clientHeight', { value: 100 });
+    Object.defineProperty(textarea, 'scrollHeight', { value: 260 });
+
+    const line = 'a wrapped line that is longer than the rectangle can show';
+    await actAndSettle(() => {
+      textarea.value = line;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(settleAutosave);
+
+    expect(textarea.value).toBe(line);
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0].height).toBe(260);
+    expect(saved.nodes[0]).toMatchObject({ type: 'text', text: line, obsidium: { shape: 'rectangle' } });
+  });
+
   it('counter-scales shape strokes and resize handles with the zoom', async () => {
     canvasSource.content = JSON.stringify({
       nodes: [{ id: 'rect', type: 'text', x: 0, y: 0, width: 160, height: 100, text: '', obsidium: { shape: 'rectangle' } }],

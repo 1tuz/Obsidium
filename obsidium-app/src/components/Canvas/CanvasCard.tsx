@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { memo } from 'preact/compat';
 import { useMemo, useRef } from 'react';
 import { renderMarkdownToHtml } from '../../modules/export/markdownToHtml';
+import { canvasTextOverflow } from '../../modules/canvas/textFit';
 import { CanvasMedia } from './CanvasMedia';
 import type { CanvasShapeKind } from './CanvasShape';
 import './CanvasCard.css';
@@ -134,7 +135,6 @@ export const CanvasCard = memo(function CanvasCard({
 }: CanvasCardProps) {
   const className = `q-canvas-card q-canvas-card--${node.type}${shape ? ' q-canvas-card--shape' : ''}${selected ? ' is-selected' : ''}`;
   const colorStyle = color ? { '--q-canvas-node-color': color } as Record<string, string> : undefined;
-
   if (node.type === 'group') {
     return <div className={className} style={colorStyle} role="group" aria-label="Canvas group">{children}</div>;
   }
@@ -143,15 +143,23 @@ export const CanvasCard = memo(function CanvasCard({
     return (
       <div className={className} style={colorStyle} data-node-id={node.id} aria-label="Text card">
         {editing
-          ? <textarea aria-label="Text card content" autoFocus value={node.text ?? ''} onInput={(event) => {
-            onChange?.(node.id, event.currentTarget.value);
-            onResize?.(node.id, event.currentTarget.scrollHeight);
-          }} onBlur={onEditComplete} onKeyDown={(event) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
-            event.currentTarget.blur();
-          }} />
+          ? <textarea
+            aria-label="Text card content"
+            autoFocus
+            value={node.text ?? ''}
+            onInput={(event) => {
+              const target = event.currentTarget;
+              onChange?.(node.id, target.value);
+              onResize?.(node.id, shape ? node.height + canvasTextOverflow(target) : target.scrollHeight);
+            }}
+            onBlur={onEditComplete}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              event.stopPropagation();
+              event.currentTarget.blur();
+            }}
+          />
           : compact
             ? <div className="q-canvas-card__markdown">{firstLine(node.text ?? '')}</div>
             : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}

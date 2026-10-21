@@ -54,6 +54,7 @@ import {
 } from '../../modules/canvas/interaction';
 import { canvasFreehandPath } from '../../modules/canvas/freehand';
 import { canvasNodeStyle, canvasPixels } from '../../modules/canvas/renderStyle';
+import { canvasTextOverflow } from '../../modules/canvas/textFit';
 import { mixCssColors } from '../../modules/canvas/colorMix';
 import { resolveCanvasMedia } from '../../modules/canvas/media';
 import { canvasSvg, canvasSvgAssetSources, type CanvasSvgMedia, type CanvasSvgPalette } from '../../modules/canvas/svgExport';
@@ -282,6 +283,14 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const cameraRef = useRef(camera);
   const dragRef = useRef<DragState | null>(null);
   const pressRef = useRef<{ node: CanvasTypedNode; shift: boolean } | null>(null);
+  const pendingMoveRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    camera: CanvasCamera;
+    document: CanvasDocument;
+    selected: ReadonlySet<string>;
+  } | null>(null);
   const dragMovedRef = useRef(false);
   const hashRef = useRef('');
   const savedTextRef = useRef('');
@@ -592,12 +601,36 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const current = documentRef.current;
     const node = current?.nodes.find((item) => item.id === nodeId);
     if (!current || !node || node.type !== 'text') return;
-    const obsidium = node.obsidium;
-    if (obsidium && typeof obsidium === 'object' && 'shape' in obsidium) return;
     const next = Math.max(TEXT_CARD_MIN_HEIGHT, Math.ceil(height));
     if (next <= node.height) return;
     setCanvasDocument(updateCanvasNode(current, nodeId, { height: next }), false);
   }, [setCanvasDocument]);
+
+  const fitTextOnEdit = useCallback((nodeId: string) => {
+    window.requestAnimationFrame(() => {
+      const card = stageRef.current?.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`);
+      const textarea = card?.querySelector<HTMLTextAreaElement>('textarea');
+      if (!card || !textarea) return;
+      const overflow = card.classList.contains('q-canvas-card--shape')
+        ? canvasTextOverflow(textarea)
+        : textarea.scrollHeight - textarea.clientHeight;
+      if (overflow > 0) {
+        resizeTextNode(nodeId, (documentRef.current?.nodes.find((item) => item.id === nodeId)?.height ?? 0) + overflow);
+      }
+      window.requestAnimationFrame(() => {
+        const current = stageRef.current?.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`);
+        const field = current?.querySelector<HTMLTextAreaElement>('textarea');
+        if (!field) return;
+        field.focus({ preventScroll: true });
+        field.setSelectionRange(field.value.length, field.value.length);
+      });
+    });
+  }, [resizeTextNode]);
+
+  const beginTextEditing = useCallback((nodeId: string) => {
+    setEditingId(nodeId);
+    fitTextOnEdit(nodeId);
+  }, [fitTextOnEdit]);
 
   const openNoteLink = useCallback(async (node: CanvasCardNode, rawTarget: string, rawSource: string) => {
     if (!onOpenNoteLink) return;
@@ -704,8 +737,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     };
     setCanvasDocument(addCanvasNode(current, node));
     setSelection([node.id]);
-    if (node.type === 'text') setEditingId(node.id);
-  }, [nodeColor, setCanvasDocument, shapeFill]);
+    if (node.type === 'text') beginTextEditing(node.id);
+  }, [beginTextEditing, nodeColor, setCanvasDocument, shapeFill]);
 
   const beginShapeDrawing = useCallback((type: 'rectangle' | 'diamond' | 'ellipse', event: { clientX: number; clientY: number; pointerId: number }) => {
     const current = documentRef.current;
@@ -1013,13 +1046,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       .filter((id) => nextSelection.includes(node.id) || !cluster.includes(id));
     setSelection(resolved);
     if (resolved.includes(node.id)) {
-      const nextDrag: DragState = {
-        kind: 'move', startX: event.clientX, startY: event.clientY, camera,
-        document: current, selected: new Set(resolved),
+      pendingMoveRef.current = {
+        pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+        camera, document: current, selected: new Set(resolved),
       };
-      dragRef.current = nextDrag;
-      setDrag(nextDrag);
-      stageRef.current?.setPointerCapture(event.pointerId);
     }
   }, [activeTool, camera, selectNode, selection, spaceHeld, worldPoint]);
 
@@ -1210,6 +1240,18 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   const handlePointerMove = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
     lastPointerRef.current = worldPoint(event);
+    const pending = pendingMoveRef.current;
+    if (pending && !dragRef.current
+      && (Math.abs(event.clientX - pending.startX) > 4 || Math.abs(event.clientY - pending.startY) > 4)) {
+      pendingMoveRef.current = null;
+      const next: DragState = {
+        kind: 'move', startX: pending.startX, startY: pending.startY, camera: pending.camera,
+        document: pending.document, selected: pending.selected,
+      };
+      dragRef.current = next;
+      setDrag(next);
+      stageRef.current?.setPointerCapture(pending.pointerId);
+    }
     const currentDrag = dragRef.current;
     if (!currentDrag) return;
     if ('startX' in currentDrag
@@ -1226,6 +1268,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   const handlePointerUp = useCallback((cancelled = false) => {
     flushPointerMove();
+    pendingMoveRef.current = null;
     const pressed = pressRef.current;
     pressRef.current = null;
     if (!cancelled && pressed && !dragMovedRef.current && !pressed.shift && pressed.node.type === 'file') {
@@ -1507,7 +1550,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       const node = selection.length === 1 ? current?.nodes.find((item) => item.id === selection[0]) : undefined;
       if (node?.type === 'text') {
         event.preventDefault();
-        setEditingId(node.id);
+        beginTextEditing(node.id);
       } else if (node?.type === 'file') {
         event.preventDefault();
         onOpenFile(absolutePath(workspacePath, node.file));
@@ -1941,7 +1984,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               onClick={(event) => handleNodeClick(event, node)}
               onDblClick={(event) => {
                 event.stopPropagation();
-                if (node.type === 'text') setEditingId(node.id);
+                if (node.type === 'text') beginTextEditing(node.id);
                 else if (node.type === 'file') onOpenFile(absolutePath(workspacePath, node.file));
                 else if (node.type === 'link') openUrl(node.url);
                 else if (node.type === 'group') setEditingId(node.id);
@@ -2098,7 +2141,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               const node = document.nodes.find((item) => item.id === menuNodeId);
               if (node?.type === 'file') onOpenFile(absolutePath(workspacePath, node.file));
               else if (node?.type === 'link') setLinkDraft({ mode: 'edit', nodeId: node.id, value: node.url });
-              else setEditingId(menuNodeId);
+              else beginTextEditing(menuNodeId);
               setMenu(null);
             }}>{t('canvas.menu.edit')}</button>
             <button role="menuitem" onClick={() => duplicateNode(menuNodeId)}>{t('canvas.menu.duplicate')}</button>

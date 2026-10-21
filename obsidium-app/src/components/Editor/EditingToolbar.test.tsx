@@ -30,6 +30,13 @@ describe('EditingToolbar', () => {
     expect(styles).not.toMatch(/\.q-editing-toolbar--top\s*\{[^}]*width:\s*max-content;/s);
   });
 
+  it('packs the toolbar groups instead of spreading them across the pane', () => {
+    const styles = readFileSync(resolve(process.cwd(), 'src/components/Editor/EditingToolbar.css'), 'utf8');
+    expect(styles).toMatch(/\.q-editing-toolbar\s*\{[^}]*justify-content:\s*flex-start;/s);
+    expect(styles).toMatch(/\.q-editing-toolbar--top\s*\{[^}]*justify-content:\s*flex-start;/s);
+    expect(styles).not.toMatch(/justify-content:\s*space-between/);
+  });
+
   it('keeps every heading level and image insertion reachable', async () => {
     act(() => { renderer = mountDom(<EditingToolbar view={readyView} position="top" />); });
     const trigger = renderer!.container.querySelector<HTMLButtonElement>('[aria-label="Headings"]')!;

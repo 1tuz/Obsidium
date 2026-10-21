@@ -6,7 +6,7 @@
   flex: 0 0 auto;
   flex-wrap: wrap;
   gap: var(--q-space-4);
-  justify-content: space-between;
+  justify-content: flex-start;
   width: 100%;
   max-width: 100%;
   min-height: var(--q-size-40);
@@ -21,7 +21,7 @@
 
 .q-editing-toolbar--top {
   align-self: stretch;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .q-editing-toolbar__group {
