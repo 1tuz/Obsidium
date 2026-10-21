@@ -10,6 +10,10 @@
   stroke: var(--q-canvas-shape-stroke);
 }
 
+.q-canvas__shape-body--sticker {
+  stroke: none;
+}
+
 .q-canvas__shape-outline {
   stroke: var(--q-canvas-selection, var(--q-text-accent));
 }

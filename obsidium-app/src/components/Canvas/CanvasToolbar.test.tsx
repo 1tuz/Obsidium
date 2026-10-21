@@ -86,6 +86,7 @@ describe('CanvasToolbar', () => {
       ['Diamond', 'D'],
       ['Ellipse', 'E'],
       ['Number marker', 'N'],
+      ['Sticker', 'S'],
       ['Freehand', 'P'],
     ];
     for (const [label, shortcut] of expected) {

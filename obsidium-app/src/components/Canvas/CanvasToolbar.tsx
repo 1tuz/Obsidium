@@ -1,13 +1,13 @@
 import { t } from '../../i18n';
 import { Circle, FileCode, FileText, GitBranch, Image, Link2, ListOrdered, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
 import { Icon } from '../Common/Icon';
-import { rhombus } from './CanvasGlyphs';
+import { rhombus, stickerGlyph } from './CanvasGlyphs';
 import { IconButton } from '../Common/IconButton';
 import './CanvasToolbar.css';
 
 export type CanvasPaperStyle = 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
 export type CanvasGrid = 'none' | 'dots' | 'lines';
-export type CanvasTool = 'select' | 'text' | 'file' | 'link' | 'group' | 'edge' | 'rectangle' | 'diamond' | 'ellipse' | 'number' | 'draw';
+export type CanvasTool = 'select' | 'text' | 'file' | 'link' | 'group' | 'edge' | 'rectangle' | 'diamond' | 'ellipse' | 'number' | 'draw' | 'sticker';
 
 interface CanvasToolbarProps {
   paperStyle: CanvasPaperStyle;
@@ -37,6 +37,7 @@ const tools = [
   { id: 'diamond', label: 'diamond', icon: rhombus, shortcut: 'D' },
   { id: 'ellipse', label: 'ellipse', icon: Circle, shortcut: 'E' },
   { id: 'number', label: 'number', icon: ListOrdered, shortcut: 'N' },
+  { id: 'sticker', label: 'sticker', icon: stickerGlyph, shortcut: 'S' },
   { id: 'draw', label: 'draw', icon: Pencil, shortcut: 'P' },
 ] as const;
 

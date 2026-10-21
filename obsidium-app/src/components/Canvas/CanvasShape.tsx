@@ -1,7 +1,7 @@
 import { canvasStrokeDasharray, type CanvasCorners, type CanvasStrokeStyle, type CanvasStrokeWidth } from '../../modules/canvas/nodeProps';
 import './CanvasShape.css';
 
-export type CanvasShapeKind = 'rectangle' | 'diamond' | 'ellipse' | 'number';
+export type CanvasShapeKind = 'rectangle' | 'diamond' | 'ellipse' | 'number' | 'sticker';
 
 interface CanvasShapeProps {
   shape: CanvasShapeKind;
@@ -27,6 +27,8 @@ interface ShapeGeometryProps {
   strokeDasharray?: string;
   corners?: CanvasCorners;
   pointerEvents?: 'none';
+  inset?: number;
+  style?: Record<string, string>;
 }
 
 function ShapeGeometry({
@@ -40,6 +42,8 @@ function ShapeGeometry({
   strokeDasharray,
   corners = 'round',
   pointerEvents,
+  inset = 1,
+  style,
 }: ShapeGeometryProps) {
   const geometry = {
     className,
@@ -49,7 +53,21 @@ function ShapeGeometry({
     'stroke-linejoin': 'round',
     ...(strokeDasharray === undefined ? {} : { 'stroke-dasharray': strokeDasharray }),
     ...(pointerEvents === undefined ? {} : { 'pointer-events': pointerEvents }),
+    ...(style === undefined ? {} : { style }),
   } as const;
+
+  if (shape === 'sticker') {
+    return (
+      <rect
+        {...geometry}
+        x={inset}
+        y={inset}
+        width={Math.max(0, width - inset * 2)}
+        height={Math.max(0, height - inset * 2)}
+        rx={10}
+      />
+    );
+  }
 
   if (shape === 'diamond') {
     return (
@@ -96,6 +114,7 @@ export function CanvasShape({
   strokeStyle = 'solid',
   corners = 'round',
 }: CanvasShapeProps) {
+  const sticker = shape === 'sticker';
   return (
     <svg
       className="q-canvas__shape"
@@ -108,12 +127,14 @@ export function CanvasShape({
         shape={shape}
         width={width}
         height={height}
-        className="q-canvas__shape-body"
-        stroke={stroke}
-        fill={fill}
-        strokeWidth={strokeWidth / zoom}
-        strokeDasharray={canvasStrokeDasharray(strokeStyle, strokeWidth, 1 / zoom)}
+        className={sticker ? 'q-canvas__shape-body q-canvas__shape-body--sticker' : 'q-canvas__shape-body'}
+        stroke={sticker ? 'none' : stroke}
+        fill={sticker ? undefined : fill}
+        strokeWidth={sticker ? 0 : strokeWidth / zoom}
+        strokeDasharray={sticker ? undefined : canvasStrokeDasharray(strokeStyle, strokeWidth, 1 / zoom)}
         corners={corners}
+        inset={sticker ? 0 : 1}
+        style={sticker && fill !== undefined ? { fill } : undefined}
       />
       {selected && (
         <ShapeGeometry

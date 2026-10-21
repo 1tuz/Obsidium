@@ -3,6 +3,7 @@ import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { importIntoFiles } from '../../modules/docs/vaultFiles';
+import { dropNoteOnTarget } from '../../modules/dragPayload';
 
 vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => path }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
@@ -363,6 +364,121 @@ describe('CanvasView', () => {
     expect(saved.nodes[0]).toMatchObject({ type: 'file', file: 'Notes/Plan.md' });
   });
 
+  it('accepts a note dragged from the tree onto the canvas surface', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    expect(stage.getAttribute('data-canvas-drop')).toBe('true');
+    await actAndSettle(() => {
+      dropNoteOnTarget({ kind: 'note', path: '/vault/Notes/Plan.md', name: 'Plan' }, 40, 40);
+    });
+    await act(settleAutosave);
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'file', file: 'Notes/Plan.md' });
+  });
+
+  it('reports an unsupported drop instead of silently doing nothing', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    const drop = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, 'dataTransfer', {
+      value: { files: [], getData: (kind: string) => kind === 'text/plain' ? '/elsewhere/Plan.md' : '' },
+    });
+    await actAndSettle(() => { stage.dispatchEvent(drop); });
+    expect(renderer!.container.querySelector('.q-canvas__warning')?.textContent).toBe('canvas.errors.dropUnsupported');
+  });
+
+  it('selects a connection from the wide hit path and deletes it on double click', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' },
+        { id: 'b', type: 'text', x: 240, y: 0, width: 100, height: 80, text: 'B' },
+      ],
+      edges: [{ id: 'edge', fromNode: 'a', toNode: 'b', toEnd: 'arrow' }],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const hit = renderer!.container.querySelector<SVGPathElement>('path.q-canvas__edge-hit')!;
+    expect(hit).not.toBeNull();
+    await actAndSettle(() => { hit.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(renderer!.container.querySelector('.q-canvas-properties')?.getAttribute('data-target')).toBe('edge');
+    await actAndSettle(() => { hit.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+    await act(settleAutosave);
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.edges).toEqual([]);
+  });
+
+  it('re-anchors a connection when its endpoint handle is dragged onto another card', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' },
+        { id: 'b', type: 'text', x: 240, y: 0, width: 100, height: 80, text: 'B' },
+        { id: 'c', type: 'text', x: 480, y: 0, width: 100, height: 80, text: 'C' },
+      ],
+      edges: [{ id: 'edge', fromNode: 'a', toNode: 'b', toEnd: 'arrow' }],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    const hit = renderer!.container.querySelector<SVGPathElement>('path.q-canvas__edge-hit')!;
+    await actAndSettle(() => { hit.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    const handles = renderer!.container.querySelectorAll<SVGCircleElement>('.q-canvas__edge-endpoint');
+    expect(handles).toHaveLength(2);
+    const target = renderer!.container.querySelector<HTMLElement>('.q-canvas__object');
+    expect(target).not.toBeNull();
+    await actAndSettle(() => {
+      handles[1].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 500, clientY: 10 }));
+      stage.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 520, clientY: 20 }));
+      stage.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 520, clientY: 20 }));
+    });
+    await act(settleAutosave);
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.edges[0].toAnchor).toBeDefined();
+  });
+
+  it('adds a sticker when the sticker tool is picked', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    Object.defineProperty(stage, 'setPointerCapture', { value: vi.fn() });
+    await actAndSettle(() => { stage.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 200, clientY: 160 })); });
+    const sticker = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-canvas-toolbar button')]
+      .find((button) => button.getAttribute('aria-label') === 'canvas.toolbar.tool.sticker')!;
+    await actAndSettle(() => { sticker.click(); });
+    await actAndSettle(() => { stage.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 260, clientY: 220 })); });
+    await act(settleAutosave);
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.nodes[0]).toMatchObject({ type: 'text', obsidium: { shape: 'sticker' } });
+    expect(canvas.getAttribute('data-active-tool')).toBe('sticker');
+  });
+
   it('creates a connection by dragging from one card to another with the arrow tool', async () => {
     canvasSource.content = JSON.stringify({
       nodes: [
@@ -412,12 +528,17 @@ describe('CanvasView', () => {
     expect(menu.getAttribute('aria-label')).toBe('canvas.menu.label');
     const items = [...menu.querySelectorAll('button')].map((item) => item.textContent);
     expect(items).toEqual([
-      'canvas.menu.addText', 'canvas.slash.findNote', 'canvas.menu.selectAll',
+      'canvas.menu.addText', 'canvas.slash.sticker', 'canvas.menu.copy', 'canvas.menu.paste',
+      'canvas.slash.findNote', 'canvas.menu.selectAll',
       'canvas.toolbar.fitView', 'canvas.toolbar.resetView',
       'canvas.toolbar.exportSvg', 'canvas.toolbar.exportPng', 'canvas.menu.exportJson',
     ]);
 
-    await actAndSettle(() => { [...menu.querySelectorAll<HTMLButtonElement>('button')][2].click(); });
+    await actAndSettle(() => {
+      [...menu.querySelectorAll<HTMLButtonElement>('button')]
+        .find((item) => item.textContent === 'canvas.menu.selectAll')!
+        .click();
+    });
     expect(renderer!.container.querySelector('.q-canvas__selection-count')?.textContent).toBe('canvas.selectionCount');
   });
 

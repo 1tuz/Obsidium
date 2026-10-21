@@ -349,6 +349,7 @@ function insetBox(node: CanvasTypedNode, inset: number): ForeignObjectBox {
 
 function shapeBox(node: CanvasTypedNode, shape: string): ForeignObjectBox {
   if (shape === 'number') return insetBox(node, 4);
+  if (shape === 'sticker') return insetBox(node, 16);
   if (shape === 'diamond') {
     return {
       x: node.x + node.width * 0.18,
@@ -392,7 +393,9 @@ function shapedTextNode(node: CanvasTypedNode, shape: string, context: CanvasSvg
   const dashes = dash ? ` stroke-dasharray="${dash}"` : '';
   const outline = `fill="${escapeXml(fill)}" stroke="${escapeXml(context.shapeStroke(node))}" stroke-width="${appearance.strokeWidth}"${dashes} />`;
   const radius = appearance.corners === 'round' && shape === 'rectangle' ? ` rx="${SHAPE_CORNER_RADIUS}" ry="${SHAPE_CORNER_RADIUS}"` : '';
-  const geometry = shape === 'diamond'
+  const geometry = shape === 'sticker'
+    ? `<rect x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" rx="${SHAPE_CORNER_RADIUS}" fill="${escapeXml(fill)}" stroke="none" />`
+    : shape === 'diamond'
     ? `<polygon points="${[
       [node.x + node.width / 2, node.y],
       [node.x + node.width, node.y + node.height / 2],
@@ -449,7 +452,7 @@ function linkNode(node: CanvasTypedNode, context: CanvasSvgContext): string {
 function textNode(node: CanvasTypedNode, context: CanvasSvgContext): string {
   const shape = nodeShape(node);
   if (shape === 'freehand') return freehandNode(node, context, context.appearance(node));
-  if (shape === 'rectangle' || shape === 'diamond' || shape === 'ellipse' || shape === 'number') {
+  if (shape === 'rectangle' || shape === 'diamond' || shape === 'ellipse' || shape === 'number' || shape === 'sticker') {
     return shapedTextNode(node, shape, context);
   }
   const markdown = context.markdown(node);

@@ -17,7 +17,7 @@ import {
 import { canvasColorCss, canvasFillCss } from '../../modules/canvas/palette';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
-import { CANVAS_GLYPHS } from './CanvasGlyphs';
+import { CANVAS_GLYPHS, copyGlyph, pasteGlyph } from './CanvasGlyphs';
 import './CanvasPropertiesPanel.css';
 
 export type CanvasPanelTarget =
@@ -32,6 +32,8 @@ export interface CanvasPropertiesPanelProps {
   onFront: () => void;
   onBack: () => void;
   onDuplicate: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
   onGroup: () => void;
   onUngroup: () => void;
   onDelete: () => void;
@@ -129,7 +131,7 @@ function Swatch({ label, pressed, color, variant, onClick }: { label: string; pr
   );
 }
 
-function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack, onDuplicate, onGroup, onUngroup, onDelete }: {
+function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack, onDuplicate, onCopy, onPaste, onGroup, onUngroup, onDelete }: {
   target: Extract<CanvasPanelTarget, { kind: 'nodes' }>;
   onAppearance: (patch: CanvasAppearancePatch) => void;
   onStroke?: (color: string) => void;
@@ -137,6 +139,8 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
   onFront: () => void;
   onBack: () => void;
   onDuplicate: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
   onGroup: () => void;
   onUngroup: () => void;
   onDelete: () => void;
@@ -244,6 +248,8 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
       </Section>
       <Section label={t('canvas.props.actions')} className="q-canvas-properties__section--actions">
         <IconButton label={t('canvas.selection.duplicate')} size="small" onClick={onDuplicate}><Icon icon={CANVAS_GLYPHS.duplicate} size={16} /></IconButton>
+        <IconButton label={t('canvas.props.copy')} size="small" onClick={onCopy}><Icon icon={copyGlyph} size={16} /></IconButton>
+        <IconButton label={t('canvas.props.paste')} size="small" onClick={onPaste}><Icon icon={pasteGlyph} size={16} /></IconButton>
         <IconButton label={t('canvas.selection.group')} size="small" disabled={!target.canGroup} onClick={onGroup}><Icon icon={CANVAS_GLYPHS.group} size={16} /></IconButton>
         <IconButton label={t('canvas.selection.ungroup')} size="small" disabled={!target.canUngroup} onClick={onUngroup}><Icon icon={CANVAS_GLYPHS.ungroup} size={16} /></IconButton>
         <IconButton label={t('canvas.selection.delete')} size="small" onClick={onDelete}><Icon icon="trash2" size={16} /></IconButton>
@@ -316,6 +322,8 @@ export function CanvasPropertiesPanel({
   onFront,
   onBack,
   onDuplicate,
+  onCopy,
+  onPaste,
   onGroup,
   onUngroup,
   onDelete,
@@ -349,6 +357,8 @@ export function CanvasPropertiesPanel({
             onFront={onFront}
             onBack={onBack}
             onDuplicate={onDuplicate}
+            onCopy={onCopy}
+            onPaste={onPaste}
             onGroup={onGroup}
             onUngroup={onUngroup}
             onDelete={onDelete}

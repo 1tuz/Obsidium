@@ -24,7 +24,7 @@ const NODE_APPEARANCE: CanvasAppearance = {
 
 type Handlers = Pick<
   CanvasPropertiesPanelProps,
-  'onAppearance' | 'onStroke' | 'onFill' | 'onFront' | 'onBack' | 'onDuplicate'
+  'onAppearance' | 'onStroke' | 'onFill' | 'onFront' | 'onBack' | 'onDuplicate' | 'onCopy' | 'onPaste'
   | 'onGroup' | 'onUngroup' | 'onDelete' | 'onRoute' | 'onFromEnd' | 'onToEnd' | 'onLabel' | 'onClose'
 >;
 
@@ -36,6 +36,8 @@ function createHandlers(): Handlers {
     onFront: vi.fn(),
     onBack: vi.fn(),
     onDuplicate: vi.fn(),
+    onCopy: vi.fn(),
+    onPaste: vi.fn(),
     onGroup: vi.fn(),
     onUngroup: vi.fn(),
     onDelete: vi.fn(),

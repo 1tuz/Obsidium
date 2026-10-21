@@ -32,6 +32,7 @@ import {
   alignCanvasNodes,
   canvasEdgeSides,
   canvasNodeAnchor,
+  moveCanvasEdgeEndpoint,
   canvasNodeAtPoint,
   canvasRectBetweenPoints,
   canvasSidePoint,
@@ -58,13 +59,15 @@ import {
 } from '../../modules/canvas/interaction';
 import { canvasFreehandPath } from '../../modules/canvas/freehand';
 import { readCanvasAppearance, withCanvasAppearance, type CanvasAppearancePatch } from '../../modules/canvas/nodeProps';
-import { CANVAS_PRESET_COLORS, canvasColorCss as canvasCssColor, canvasFillCss } from '../../modules/canvas/palette';
+import { CANVAS_PRESET_COLORS, canvasColorCss as canvasCssColor, canvasFillCss, canvasStickerFill } from '../../modules/canvas/palette';
 import { canvasNodeStyle, canvasPixels } from '../../modules/canvas/renderStyle';
 import { canvasTextOverflow } from '../../modules/canvas/textFit';
 import { mixCssColors } from '../../modules/canvas/colorMix';
 import { resolveCanvasMedia } from '../../modules/canvas/media';
 import { canvasSvg, canvasSvgAssetSources, type CanvasSvgMedia, type CanvasSvgPalette } from '../../modules/canvas/svgExport';
-import { snapToGuides, type CanvasGuide } from '../../modules/canvas/guides';
+import { snapPointToNodes, snapResizeRect, snapToGuides, type CanvasGuide, type CanvasSnapPoint } from '../../modules/canvas/guides';
+import { canvasWorkspacePath } from '../../modules/canvas/dropPath';
+import { registerNoteDropTarget } from '../../modules/dragPayload';
 import { mediaExtensionForFile, mediaKindForFile } from '../../modules/docs/imageEmbeds';
 import { importIntoFiles } from '../../modules/docs/vaultFiles';
 import {
@@ -101,7 +104,8 @@ type DragState =
   | { kind: 'shape'; start: CanvasPoint; startX: number; startY: number; nodeId: string; moved?: boolean }
   | { kind: 'pan'; startX: number; startY: number; camera: CanvasCamera }
   | { kind: 'marquee'; startX: number; startY: number; currentX: number; currentY: number; additive: boolean }
-  | { kind: 'connect'; fromId: string; fromSide: CanvasSide | 'auto'; startX: number; startY: number; camera: CanvasCamera; current: CanvasPoint; moved?: boolean }
+  | { kind: 'connect'; fromId: string; fromSide: CanvasSide | 'auto'; startX: number; startY: number; camera: CanvasCamera; current: CanvasPoint; moved?: boolean; snapped?: CanvasSnapPoint | null }
+  | { kind: 'edge-endpoint'; startX: number; startY: number; camera: CanvasCamera; document: CanvasDocument; edgeId: string; end: 'from' | 'to' }
   | { kind: 'camera'; startX: number; startY: number; camera: CanvasCamera };
 
 interface CanvasViewProps {
@@ -134,6 +138,7 @@ const slashCommands = [
   { id: 'rectangle', label: 'canvas.slash.rectangle' },
   { id: 'diamond', label: 'canvas.slash.diamond' },
   { id: 'number', label: 'canvas.slash.number' },
+  { id: 'sticker', label: 'canvas.slash.sticker' },
   { id: 'ellipse', label: 'canvas.slash.ellipse' },
 ] as const;
 
@@ -214,7 +219,7 @@ function shapeKindOf(node: CanvasTypedNode): CanvasShapeKind | 'freehand' | null
   const obsidium = node.obsidium;
   if (node.type !== 'text' || !obsidium || typeof obsidium !== 'object') return null;
   const shape = (obsidium as Record<string, unknown>).shape;
-  return shape === 'rectangle' || shape === 'diamond' || shape === 'ellipse' || shape === 'number' || shape === 'freehand'
+  return shape === 'rectangle' || shape === 'diamond' || shape === 'ellipse' || shape === 'number' || shape === 'sticker' || shape === 'freehand'
     ? shape
     : null;
 }
@@ -263,6 +268,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [edgeColor, setEdgeColor] = useState('');
   const [drag, setDrag] = useState<DragState | null>(null);
   const [guides, setGuides] = useState<CanvasGuide[]>([]);
+  const [snapPoint, setSnapPoint] = useState<CanvasSnapPoint | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
   const [notePickerOpen, setNotePickerOpen] = useState(false);
@@ -704,7 +710,16 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const base = { id: newId(), x: Math.round(point.x), y: Math.round(point.y), width: 280, ...(nodeColor ? { color: nodeColor } : {}) };
     if (type === 'file' && file) node = { ...base, height: 180, type, file };
     else if (type === 'link') node = { ...base, height: 180, type, url: url ?? 'https://' };
-    else node = {
+    else if (type === 'sticker') {
+      node = {
+        ...base,
+        width: 200,
+        height: 160,
+        type: 'text',
+        text: '',
+        obsidium: { shape: 'sticker' },
+      };
+    } else node = {
       ...base,
       height: type === 'text' ? TEXT_CARD_MIN_HEIGHT : 180,
       type: 'text',
@@ -765,10 +780,15 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         x: anchor ? anchor.x + anchor.width + GRID_SIZE : (viewport.width / 2 - camera.x) / camera.zoom,
         y: anchor ? anchor.y : (viewport.height / 2 - camera.y) / camera.zoom,
       };
-      addNode('file', point, relativePath(workspacePath, path));
+      const relative = canvasWorkspacePath(workspacePath, path);
+      if (!relative) {
+        setActionError(t('canvas.errors.noteMissing'));
+        return;
+      }
+      addNode('file', point, relative);
       notePlacementRef.current = null;
     } catch {
-      setActionError(t('canvas.errors.fileOutsideWorkspace'));
+      setActionError(t('canvas.errors.noteMissing'));
     }
   }, [addNode, camera, selection, viewport, workspacePath]);
 
@@ -779,7 +799,16 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     };
     try {
       const created = await createUniqueFile(workspacePath, title);
-      if (created) addNode('file', placement, relativePath(workspacePath, created));
+      if (!created) {
+        setActionError(t('canvas.errors.noteCreate'));
+        return;
+      }
+      const relative = canvasWorkspacePath(workspacePath, created);
+      if (!relative) {
+        setActionError(t('canvas.errors.noteCreate'));
+        return;
+      }
+      addNode('file', placement, relative);
     } catch (cause) {
       setActionError(String(cause));
     } finally {
@@ -949,6 +978,40 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     setMenu(null);
   }, [selection, setCanvasDocument]);
 
+  const copySelection = useCallback(() => {
+    const current = documentRef.current;
+    const selected = new Set(expandCanvasSelection(selection, current?.nodes ?? []));
+    clipboardRef.current = {
+      nodes: current?.nodes.filter((node): node is CanvasTypedNode => selected.has(node.id) && isCanvasNode(node)) ?? [],
+      edges: current?.edges.filter((edge) => selected.has(edge.fromNode) && selected.has(edge.toNode)) ?? [],
+    };
+    return clipboardRef.current.nodes.length > 0;
+  }, [selection]);
+
+  const pasteClipboard = useCallback((at?: CanvasPoint) => {
+    const current = documentRef.current;
+    const copiedNodes = clipboardRef.current.nodes;
+    if (!current || copiedNodes.length === 0) return;
+    const ids = new Map(copiedNodes.map((node) => [node.id, newId()]));
+    const left = Math.min(...copiedNodes.map((node) => node.x));
+    const top = Math.min(...copiedNodes.map((node) => node.y));
+    const target = at ?? { x: left + GRID_SIZE, y: top + GRID_SIZE };
+    const copies = copiedNodes.map((node) => ({
+      ...node,
+      id: ids.get(node.id)!,
+      x: Math.round(target.x + (node.x - left)),
+      y: Math.round(target.y + (node.y - top)),
+    }));
+    const edges = clipboardRef.current.edges.map((edge) => ({
+      ...edge,
+      id: newId(),
+      fromNode: ids.get(edge.fromNode)!,
+      toNode: ids.get(edge.toNode)!,
+    }));
+    setCanvasDocument({ ...current, nodes: [...current.nodes, ...copies], edges: [...current.edges, ...edges] });
+    setSelection(copies.map((node) => node.id));
+  }, [setCanvasDocument]);
+
   const duplicateSelection = useCallback(() => {
     const current = documentRef.current;
     if (!current || selection.length === 0) return;
@@ -1112,9 +1175,38 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       const moved = currentDrag.moved === true
         || Math.abs(pointer.clientX - currentDrag.startX) > 4
         || Math.abs(pointer.clientY - currentDrag.startY) > 4;
-      const next = { ...currentDrag, current: worldPoint(pointer), moved };
+      const raw = worldPoint(pointer);
+      const snap = snapPointToNodes(
+        raw,
+        documentRef.current?.nodes ?? [],
+        GUIDE_SNAP_THRESHOLD_PX / cameraRef.current.zoom,
+        new Set([currentDrag.fromId]),
+      );
+      setSnapPoint(snap.snapped);
+      const next = { ...currentDrag, current: snap.point, moved, snapped: snap.snapped };
       dragRef.current = next;
       setDrag(next);
+      return;
+    }
+    if (currentDrag.kind === 'edge-endpoint') {
+      const edge = currentDrag.document.edges.find((item) => item.id === currentDrag.edgeId);
+      const raw = worldPoint(pointer);
+      const anchorNodeId = currentDrag.end === 'from' ? edge?.fromNode : edge?.toNode;
+      const target = canvasNodeAtPoint(currentDrag.document.nodes, raw, undefined)
+        ?? currentDrag.document.nodes.find((node) => node.id === anchorNodeId)
+        ?? null;
+      if (edge && target) {
+        const snap = snapPointToNodes(raw, [target], GUIDE_SNAP_THRESHOLD_PX / cameraRef.current.zoom);
+        setSnapPoint(snap.snapped);
+        const current = documentRef.current;
+        if (current) {
+          const anchored = moveCanvasEdgeEndpoint(edge, currentDrag.end, target, snap.point);
+          const patch = currentDrag.end === 'from'
+            ? { ...anchored, fromNode: target.id }
+            : { ...anchored, toNode: target.id };
+          setCanvasDocument(updateCanvasEdge(current, edge.id, patch), false);
+        }
+      }
       return;
     }
     const dx = pointer.clientX - currentDrag.startX;
@@ -1151,7 +1243,20 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       }, pointer.shiftKey, 120, 80, grid === 'none' ? undefined : GRID_SIZE);
       const current = documentRef.current;
       if (current) {
-        let next = updateCanvasNode(current, original.id, resized);
+        const snapped = snapResizeRect(
+          { x: resized.x, y: resized.y, width: resized.width, height: resized.height },
+          currentDrag.document.nodes.filter((node) => node.id !== original.id),
+          currentDrag.handle,
+          GUIDE_SNAP_THRESHOLD_PX / currentDrag.camera.zoom,
+        );
+        setGuides(snapped.guides);
+        let next = updateCanvasNode(current, original.id, {
+          ...resized,
+          x: snapped.rect.x,
+          y: snapped.rect.y,
+          width: Math.max(24, snapped.rect.width),
+          height: Math.max(24, snapped.rect.height),
+        });
         if (original.type === 'group') {
           const memberIds = new Set(getCanvasGroupMemberIds(original, currentDrag.document.nodes));
           const members = currentDrag.document.nodes.filter((node) => memberIds.has(node.id));
@@ -1170,7 +1275,19 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       );
       const current = documentRef.current;
       if (current) {
-        const next: CanvasRect = { x: resized.x, y: resized.y, width: resized.width, height: resized.height };
+        const snapped = snapResizeRect(
+          { x: resized.x, y: resized.y, width: resized.width, height: resized.height },
+          current.nodes.filter((node) => !currentDrag.selected.has(node.id)),
+          currentDrag.handle,
+          GUIDE_SNAP_THRESHOLD_PX / currentDrag.camera.zoom,
+        );
+        setGuides(snapped.guides);
+        const next: CanvasRect = {
+          x: snapped.rect.x,
+          y: snapped.rect.y,
+          width: Math.max(24, snapped.rect.width),
+          height: Math.max(24, snapped.rect.height),
+        };
         setCanvasDocument({
           ...current,
           nodes: resizeCanvasSelection(current.nodes, currentDrag.selected, next),
@@ -1311,7 +1428,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         setSelectedEdgeId(edge.id);
         setSelection([]);
       }
-    } else if (currentDrag?.kind === 'move' || currentDrag?.kind === 'resize' || currentDrag?.kind === 'resize-selection' || currentDrag?.kind === 'edge-bend') {
+    } else if (currentDrag?.kind === 'move' || currentDrag?.kind === 'resize' || currentDrag?.kind === 'resize-selection' || currentDrag?.kind === 'edge-bend' || currentDrag?.kind === 'edge-endpoint') {
       const current = documentRef.current;
       if (current) {
         const history = historyRef.current;
@@ -1337,6 +1454,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     dragRef.current = null;
     setDrag(null);
     setGuides([]);
+    setSnapPoint(null);
   }, [edgeColor, flushPointerMove, onOpenFile, selection, setCanvasDocument, workspacePath, worldPoint]);
 
   const handleStagePointerDown = useCallback((event: TargetedPointerEvent<HTMLDivElement>) => {
@@ -1369,7 +1487,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       return;
     }
     if (activeTool !== 'select') {
-      if (activeTool === 'text') addNode(activeTool, point);
+      if (activeTool === 'text' || activeTool === 'sticker') addNode(activeTool, point);
       else if (activeTool === 'link') setLinkDraft({ mode: 'add', point, value: '' });
       else if (activeTool === 'group') addGroup();
       else if (activeTool === 'file') {
@@ -1404,13 +1522,16 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       void importMedia(Array.from(transfer.files), worldPoint(event));
       return;
     }
-    const absolute = transfer.getData('application/x-obsidium-file-path') || transfer.getData('text/plain');
-    if (!absolute) return;
+    const raw = transfer.getData('application/x-obsidium-file-path') || transfer.getData('text/plain') || transfer.getData('text/uri-list');
+    if (!raw) return;
+    const relative = canvasWorkspacePath(workspacePath, raw);
+    const absolute = relative ? absolutePath(workspacePath, relative) : raw;
     const point = worldPoint(event);
-    try {
-      addNode('file', { x: point.x, y: point.y }, relativePath(workspacePath, absolute));
+    if (relative) {
+      addNode('file', { x: point.x, y: point.y }, relative);
       return;
-    } catch {
+    }
+    {
       const media = resolveCanvasMedia({
         workspacePath,
         canvasPath: path,
@@ -1418,7 +1539,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         target: absolute,
       });
       if (!media) {
-        setActionError(t('canvas.errors.fileOutsideWorkspace'));
+        setActionError(t('canvas.errors.dropUnsupported'));
         return;
       }
       const current = documentRef.current;
@@ -1432,6 +1553,16 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setSelection([node.id]);
     }
   }, [addNode, importMedia, nodeColor, path, setCanvasDocument, worldPoint, workspacePath]);
+
+  useEffect(() => registerNoteDropTarget((payload, clientX, clientY) => {
+    const point = worldPoint({ clientX, clientY });
+    const relative = canvasWorkspacePath(workspacePath, payload.path);
+    if (!relative) {
+      setActionError(t('canvas.errors.dropUnsupported'));
+      return;
+    }
+    addNode('file', { x: point.x - 140, y: point.y - 60 }, relative);
+  }), [addNode, worldPoint, workspacePath]);
 
   const handlePaste = useCallback((event: ClipboardEvent) => {
     if ((event.target as HTMLElement).closest('textarea,input')) return;
@@ -1578,7 +1709,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     if (!command && !event.altKey && !event.shiftKey) {
       const tool = ({
         KeyV: 'select', KeyT: 'text', KeyF: 'file', KeyL: 'link', KeyG: 'group', KeyA: 'edge',
-        KeyR: 'rectangle', KeyD: 'diamond', KeyE: 'ellipse', KeyN: 'number', KeyP: 'draw',
+        KeyR: 'rectangle', KeyD: 'diamond', KeyE: 'ellipse', KeyN: 'number', KeyP: 'draw', KeyS: 'sticker',
       } as const)[event.code];
       if (tool) {
         event.preventDefault();
@@ -1593,36 +1724,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       event.preventDefault(); redo();
     } else if (command && event.key.toLowerCase() === 'c') {
       event.preventDefault();
-      const current = documentRef.current;
-      const selected = new Set(selection);
-      clipboardRef.current = {
-        nodes: current?.nodes.filter((node): node is CanvasTypedNode => selected.has(node.id) && isCanvasNode(node)) ?? [],
-        edges: current?.edges.filter((edge) => selected.has(edge.fromNode) && selected.has(edge.toNode)) ?? [],
-      };
+      copySelection();
     } else if (command && event.key.toLowerCase() === 'x') {
       event.preventDefault();
-      const current = documentRef.current;
-      const selected = new Set(selection);
-      clipboardRef.current = {
-        nodes: current?.nodes.filter((node): node is CanvasTypedNode => selected.has(node.id) && isCanvasNode(node)) ?? [],
-        edges: current?.edges.filter((edge) => selected.has(edge.fromNode) && selected.has(edge.toNode)) ?? [],
-      };
-      if (current) for (const id of selection) setCanvasDocument(removeCanvasNode(documentRef.current ?? current, id));
-      setSelection([]);
-    } else if (command && event.key.toLowerCase() === 'v' && documentRef.current && clipboardRef.current.nodes.length) {
+      if (copySelection()) deleteSelection();
+    } else if (command && event.key.toLowerCase() === 'v') {
       event.preventDefault();
-      const current = documentRef.current;
-      const copiedNodes = clipboardRef.current.nodes;
-      const ids = new Map(copiedNodes.map((node) => [node.id, newId()]));
-      const copies = copiedNodes.map((node) => ({ ...node, id: ids.get(node.id)!, x: node.x + GRID_SIZE, y: node.y + GRID_SIZE }));
-      const edges = clipboardRef.current.edges.map((edge) => ({
-        ...edge,
-        id: newId(),
-        fromNode: ids.get(edge.fromNode)!,
-        toNode: ids.get(edge.toNode)!,
-      }));
-      setCanvasDocument({ ...current, nodes: [...current.nodes, ...copies], edges: [...current.edges, ...edges] });
-      setSelection(copies.map((node) => node.id));
+      pasteClipboard();
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
       deleteSelection();
@@ -1630,7 +1738,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setSelection([]); setSelectedEdgeId(null); setEdgeSource(null); setEditingId(null); setMenu(null); setSlashMenu(null); setLinkDraft(null);
       setActiveTool('select');
     }
-  }, [camera, deleteSelection, duplicateSelection, fitView, onOpenFile, openUrl, redo, reorderSelection, spaceHeld, undo, viewport, workspacePath, zoomBy]);
+  }, [camera, copySelection, deleteSelection, duplicateSelection, fitView, onOpenFile, openUrl, pasteClipboard, redo, reorderSelection, spaceHeld, undo, viewport, workspacePath, zoomBy]);
 
   const handleKeyUp = useCallback((event: TargetedKeyboardEvent<HTMLElement>) => {
     if (event.key !== ' ') return;
@@ -1876,6 +1984,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       </div>}
       <div
         className={`q-canvas__stage q-canvas__stage--${grid}`}
+        data-canvas-drop="true"
         ref={attachStage}
         tabIndex={0}
         onPointerDown={handleStagePointerDown}
@@ -1910,17 +2019,33 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             const routing = edgeRouting(edge);
             const bend = { x: routing.bend.x * camera.zoom, y: routing.bend.y * camera.zoom };
             const path = getCanvasEdgePath({ from, to }, routing.route, bend);
-            const handle = {
-              x: (from.x + to.x) / 2 + bend.x,
-              y: (from.y + to.y) / 2 + bend.y,
-            };
             const arrowheads = canvasEdgeArrowheads({ from, to }, routing.route, bend, Math.max(10, Math.min(16, 12 * camera.zoom)));
-            return <g key={edge.id}>
+            const selected = selectedEdgeId === edge.id;
+            const select = (event: { stopPropagation: () => void }) => {
+              event.stopPropagation();
+              setSelectedEdgeId(edge.id);
+              setSelection([]);
+            };
+            return <g key={edge.id} className={selected ? 'is-selected' : undefined}>
               <path
-                className={selectedEdgeId === edge.id ? 'is-selected' : undefined}
+                className="q-canvas__edge-hit"
                 d={path}
-                stroke={selectedEdgeId === edge.id ? 'var(--q-canvas-selection, var(--q-text-accent))' : color ?? 'var(--q-canvas-edge)'}
-                onClick={(event) => { event.stopPropagation(); setSelectedEdgeId(edge.id); setSelection([]); }}
+                onClick={select}
+                onPointerDown={(event) => event.stopPropagation()}
+                onDblClick={(event) => {
+                  event.stopPropagation();
+                  const current = documentRef.current;
+                  if (!current) return;
+                  setCanvasDocument(removeCanvasEdge(current, edge.id));
+                  setSelectedEdgeId(null);
+                }}
+                aria-hidden="true"
+              />
+              <path
+                className={selected ? 'is-selected' : undefined}
+                d={path}
+                stroke={selected ? 'var(--q-canvas-selection, var(--q-text-accent))' : color ?? 'var(--q-canvas-edge)'}
+                onClick={select}
                 role="button"
                 tabIndex={0}
                 aria-label={`${edge.fromNode} → ${edge.toNode}`}
@@ -1928,27 +2053,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               />
               {edge.fromEnd === 'arrow' && arrowheads.start && <polygon className="q-canvas__arrow" points={arrowheads.start} fill={color ?? 'var(--q-canvas-edge)'} pointerEvents="none" />}
               {edge.toEnd !== 'none' && arrowheads.end && <polygon className="q-canvas__arrow" points={arrowheads.end} fill={color ?? 'var(--q-canvas-edge)'} pointerEvents="none" />}
-              {selectedEdgeId === edge.id && routing.route !== 'straight' && <circle
-                className="q-canvas__edge-handle"
-                cx={handle.x}
-                cy={handle.y}
-                r="6"
-                role="button"
-                tabIndex={0}
-                aria-label={t('canvas.edgeBend')}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  const next: DragState = {
-                    kind: 'edge-bend', startX: event.clientX, startY: event.clientY,
-                    camera, edgeId: edge.id, route: routing.route, bend: routing.bend,
-                  };
-                  dragRef.current = next; setDrag(next); stageRef.current?.setPointerCapture(event.pointerId);
-                }}
-              />}
               {typeof edge.label === 'string' && edge.label.trim() !== '' && <text
+                className="q-canvas__edge-label"
                 x={(from.x + to.x) / 2 + bend.x}
                 y={(from.y + to.y) / 2 + bend.y - 8}
                 textAnchor="middle"
+                onClick={select}
               >{edge.label}</text>}
             </g>;
           })}
@@ -1991,7 +2101,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             const obsidium = node.obsidium && typeof node.obsidium === 'object' ? node.obsidium as Record<string, unknown> : {};
             const fill = shape && obsidium.fill === 'transparent' ? 'transparent' : undefined;
             const appearance = readCanvasAppearance(node);
-            const shapeFill = shape && appearance.fill ? canvasFillCss(appearance.fill) : undefined;
+            const stickerFill = shape === 'sticker' ? canvasStickerFill(appearance.fill) : undefined;
+            const shapeFill = stickerFill ?? (shape && appearance.fill ? canvasFillCss(appearance.fill) : undefined);
             return <div
               key={node.id}
               className={`q-canvas__object${selected ? ' is-selected' : ''}${shape ? ' q-canvas__object--shape' : ''}${shape === 'number' ? ' q-canvas__object--ellipse q-canvas__object--number' : shape === 'ellipse' ? ' q-canvas__object--ellipse' : shape === 'rectangle' ? ' q-canvas__object--rectangle' : shape === 'diamond' ? ' q-canvas__object--diamond' : shapeName === 'freehand' ? ' q-canvas__object--freehand' : ''}`}
@@ -2067,7 +2178,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               {freehandPoints.length > 1 && <svg className="q-canvas__freehand" viewBox={`0 0 ${node.width} ${node.height}`} aria-hidden="true">
                 <path d={canvasFreehandPath(freehandPoints)} stroke="var(--q-canvas-node-color, var(--q-canvas-edge))" />
               </svg>}
-              {(activeTool === 'select' || activeTool === 'edge') && !spaceHeld && node.type !== 'group' && !groupMemberIds.has(node.id) && (['top', 'right', 'bottom', 'left'] as const).map((side) => <button
+              {(activeTool === 'select' || activeTool === 'edge') && !selectedEdgeId && !spaceHeld && node.type !== 'group' && !groupMemberIds.has(node.id) && (['top', 'right', 'bottom', 'left'] as const).map((side) => <button
                 key={side}
                 type="button"
                 className="q-canvas__connect"
@@ -2092,6 +2203,68 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
             </div>;
           })}
         </div>
+        <svg className="q-canvas__edge-overlay" width={viewport.width} height={viewport.height}>
+          {snapPoint && (() => {
+            const at = screenPoint(snapPoint);
+            return <g className="q-canvas__snap" aria-hidden="true">
+              <circle cx={at.x} cy={at.y} r="9" />
+              <circle cx={at.x} cy={at.y} r="3" />
+            </g>;
+          })()}
+          {selectedEdge && (() => {
+            const geometry = getCanvasEdgeGeometry(selectedEdge, nodeIndex);
+            if (!geometry) return null;
+            const from = screenPoint(geometry.from);
+            const to = screenPoint(geometry.to);
+            const routing = edgeRouting(selectedEdge);
+            const bend = { x: routing.bend.x * camera.zoom, y: routing.bend.y * camera.zoom };
+            const handle = { x: (from.x + to.x) / 2 + bend.x, y: (from.y + to.y) / 2 + bend.y };
+            const startDrag = (next: DragState) => {
+              dragRef.current = next;
+              setDrag(next);
+            };
+            return <g>
+              {(['from', 'to'] as const).map((end) => <circle
+                key={end}
+                className="q-canvas__edge-endpoint"
+                cx={end === 'from' ? from.x : to.x}
+                cy={end === 'from' ? from.y : to.y}
+                r="6"
+                role="button"
+                tabIndex={0}
+                aria-label={`${t('canvas.edgeEndpoint')} ${end === 'from' ? '→' : '←'}`}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  event.preventDefault();
+                  const current = documentRef.current;
+                  if (!current) return;
+                  startDrag({
+                    kind: 'edge-endpoint', startX: event.clientX, startY: event.clientY,
+                    camera, document: current, edgeId: selectedEdge.id, end,
+                  });
+                  stageRef.current?.setPointerCapture(event.pointerId);
+                }}
+              />)}
+              {routing.route !== 'straight' && <circle
+                className="q-canvas__edge-handle"
+                cx={handle.x}
+                cy={handle.y}
+                r="6"
+                role="button"
+                tabIndex={0}
+                aria-label={t('canvas.edgeBend')}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  startDrag({
+                    kind: 'edge-bend', startX: event.clientX, startY: event.clientY,
+                    camera, edgeId: selectedEdge.id, route: routing.route, bend: routing.bend,
+                  });
+                  stageRef.current?.setPointerCapture(event.pointerId);
+                }}
+              />}
+            </g>;
+          })()}
+        </svg>
         {drag?.kind === 'marquee' && <div className="q-canvas__marquee" style={{
           left: canvasPixels(Math.min(drag.startX - (stageRef.current?.getBoundingClientRect().left ?? 0), drag.currentX - (stageRef.current?.getBoundingClientRect().left ?? 0))),
           top: canvasPixels(Math.min(drag.startY - (stageRef.current?.getBoundingClientRect().top ?? 0), drag.currentY - (stageRef.current?.getBoundingClientRect().top ?? 0))),
@@ -2147,6 +2320,18 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               addNode('text', menuWorldPoint(menu));
               setMenu(null);
             }}>{t('canvas.menu.addText')}</button>
+            <button role="menuitem" onClick={() => {
+              addNode('sticker', menuWorldPoint(menu));
+              setMenu(null);
+            }}>{t('canvas.slash.sticker')}</button>
+            <button role="menuitem" disabled={selection.length === 0} onClick={() => {
+              copySelection();
+              setMenu(null);
+            }}>{t('canvas.menu.copy')}</button>
+            <button role="menuitem" disabled={clipboardRef.current.nodes.length === 0} onClick={() => {
+              pasteClipboard(menuWorldPoint(menu));
+              setMenu(null);
+            }}>{t('canvas.menu.paste')}</button>
             <button role="menuitem" onClick={() => {
               notePlacementRef.current = menuWorldPoint(menu);
               setNotePickerOpen(true);
@@ -2237,6 +2422,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           onFront={() => reorderSelection('front')}
           onBack={() => reorderSelection('back')}
           onDuplicate={duplicateSelection}
+          onCopy={copySelection}
+          onPaste={() => pasteClipboard()}
           onGroup={addGroup}
           onUngroup={ungroupSelection}
           onDelete={deleteSelection}

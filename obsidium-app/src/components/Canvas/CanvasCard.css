@@ -155,3 +155,39 @@
   border-style: dashed;
   background: var(--q-bg-surface-subtle);
 }
+
+.q-canvas-card--sticker {
+  border: 0;
+  border-radius: var(--q-radius-md);
+  background: transparent;
+  padding: var(--q-space-16);
+  overflow: hidden;
+  color: var(--q-text-primary);
+  font-size: var(--q-canvas-font-size, 16px);
+  font-weight: var(--q-font-weight-ui-medium);
+  text-align: center;
+}
+
+.q-canvas__object > .q-canvas-card.q-canvas-card--sticker {
+  padding: var(--q-space-16);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.q-canvas__object:hover > .q-canvas-card.q-canvas-card--sticker {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.q-canvas-card--sticker.is-selected {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.q-canvas-card--sticker textarea,
+.q-canvas-card--sticker .q-canvas-card__markdown {
+  text-align: center;
+  align-content: center;
+  font-size: var(--q-canvas-font-size, 16px);
+}

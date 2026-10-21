@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CanvasNode } from './model';
+import type { CanvasEdge, CanvasNode } from './model';
 import {
   alignCanvasNodes,
   canvasEdgeSides,
@@ -13,6 +13,7 @@ import {
   getCanvasGroupMemberIds,
   getCanvasEdgeGeometry,
   getCanvasEdgePath,
+  moveCanvasEdgeEndpoint,
   redoCanvasHistory,
   resizeCanvasGroup,
   resizeCanvasNode,
@@ -274,5 +275,20 @@ describe('canvas interactions', () => {
     history = commitCanvasHistory(history, 'branch');
     expect(history.future).toEqual([]);
     expect(redoCanvasHistory(history)).toBe(history);
+  });
+});
+
+describe('moveCanvasEdgeEndpoint', () => {
+  const node = { id: 'n', type: 'text' as const, x: 100, y: 50, width: 200, height: 100 };
+
+  it('stores the pointer as a fraction of the node box', () => {
+    const edge: CanvasEdge = { id: 'e', fromNode: 'n', toNode: 'm' };
+    expect(moveCanvasEdgeEndpoint(edge, 'from', node, { x: 150, y: 100 }).fromAnchor).toEqual({ x: 0.25, y: 0.5 });
+    expect(moveCanvasEdgeEndpoint(edge, 'to', node, { x: 300, y: 150 }).toAnchor).toEqual({ x: 1, y: 1 });
+  });
+
+  it('clamps a pointer outside the node to its border', () => {
+    const edge: CanvasEdge = { id: 'e', fromNode: 'n', toNode: 'm' };
+    expect(moveCanvasEdgeEndpoint(edge, 'to', node, { x: 0, y: 0 }).toAnchor).toEqual({ x: 0, y: 0 });
   });
 });
