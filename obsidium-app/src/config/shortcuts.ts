@@ -65,6 +65,23 @@ export const SHORTCUTS = {
     primary: true,
     shift: true,
   },
+  HIGHLIGHT: {
+    code: 'KeyH',
+    key: 'H',
+    primary: true,
+    shift: true,
+  },
+  INLINE_CODE: {
+    code: 'KeyE',
+    key: 'E',
+    primary: true,
+  },
+  LINK: {
+    code: 'KeyL',
+    key: 'L',
+    primary: true,
+    shift: true,
+  },
   INDENT: {
     key: 'Tab',
   },
@@ -157,4 +174,9 @@ export function shortcutModifiers(shortcut: ShortcutToken): string[] {
 
 export function formatShortcut(shortcut: ShortcutToken, separator = ' + '): string {
   return [...shortcutModifiers(shortcut), shortcut.display ?? shortcut.key].join(separator);
+}
+
+export function ariaKeyshortcut(shortcut: ShortcutToken): string {
+  const modifiers = shortcutModifiers(shortcut).map((modifier) => modifier === 'Ctrl' ? 'Control' : modifier);
+  return [...modifiers, shortcut.display ?? shortcut.key].join('+');
 }

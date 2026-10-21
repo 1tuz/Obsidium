@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { Circle, FileCode, FileText, GitBranch, Image, Link2, ListOrdered, MousePointer2, Pencil, Redo2, Search, Square, Type, Undo2, Users } from 'lucide';
 import { Icon } from '../Common/Icon';
-import { CANVAS_GLYPHS } from './CanvasGlyphs';
+import { rhombus } from './CanvasGlyphs';
 import { IconButton } from '../Common/IconButton';
 import './CanvasToolbar.css';
 
@@ -13,14 +13,10 @@ interface CanvasToolbarProps {
   paperStyle: CanvasPaperStyle;
   grid: CanvasGrid;
   activeTool: CanvasTool;
-  color: string;
-  fill: 'default' | 'transparent';
   canUndo: boolean;
   canRedo: boolean;
   onPaperStyleChange: (style: CanvasPaperStyle) => void;
   onGridChange: (grid: CanvasGrid) => void;
-  onColorChange: (color: string) => void;
-  onFillChange: (fill: 'default' | 'transparent') => void;
   onOpenSlash: () => void;
   onToolChange: (tool: CanvasTool) => void;
   onUndo: () => void;
@@ -38,7 +34,7 @@ const tools = [
   { id: 'group', label: 'group', icon: Users, shortcut: 'G' },
   { id: 'edge', label: 'edge', icon: GitBranch, shortcut: 'A' },
   { id: 'rectangle', label: 'rectangle', icon: Square, shortcut: 'R' },
-  { id: 'diamond', label: 'diamond', icon: CANVAS_GLYPHS.diamond, shortcut: 'D' },
+  { id: 'diamond', label: 'diamond', icon: rhombus, shortcut: 'D' },
   { id: 'ellipse', label: 'ellipse', icon: Circle, shortcut: 'E' },
   { id: 'number', label: 'number', icon: ListOrdered, shortcut: 'N' },
   { id: 'draw', label: 'draw', icon: Pencil, shortcut: 'P' },
@@ -48,14 +44,10 @@ export function CanvasToolbar({
   paperStyle,
   grid,
   activeTool,
-  color,
-  fill,
   canUndo,
   canRedo,
   onPaperStyleChange,
   onGridChange,
-  onColorChange,
-  onFillChange,
   onOpenSlash,
   onToolChange,
   onUndo,
@@ -74,21 +66,23 @@ export function CanvasToolbar({
             title={`${t(`canvas.toolbar.tool.${label}`)} (${shortcut})`}
             size="medium"
             aria-pressed={activeTool === id}
+            aria-keyshortcuts={shortcut}
             onClick={() => onToolChange(id)}
           >
             <Icon icon={icon} />
+            <kbd className="q-canvas-toolbar__key" aria-hidden="true">{shortcut}</kbd>
           </IconButton>
         ))}
       </div>
-      {onAddNote && <div className="q-canvas-toolbar__history" role="group">
+      {onAddNote && <div className="q-canvas-toolbar__group q-canvas-toolbar__divider" role="group">
         <IconButton label={t('canvas.toolbar.addNote')} size="medium" onClick={onAddNote}><Icon icon={Search} /></IconButton>
       </div>}
-      <button type="button" className="q-canvas-toolbar__slash" onClick={onOpenSlash}>{t('canvas.slash.open')}</button>
-      <div className="q-canvas-toolbar__history" role="group" aria-label={t('canvas.toolbar.history')}>
+      <button type="button" className="q-canvas-toolbar__slash q-canvas-toolbar__divider" onClick={onOpenSlash}>{t('canvas.slash.open')}</button>
+      <div className="q-canvas-toolbar__history q-canvas-toolbar__divider" role="group" aria-label={t('canvas.toolbar.history')}>
         <IconButton label={t('canvas.toolbar.undo')} size="medium" disabled={!canUndo} onClick={onUndo}><Icon icon={Undo2} /></IconButton>
         <IconButton label={t('canvas.toolbar.redo')} size="medium" disabled={!canRedo} onClick={onRedo}><Icon icon={Redo2} /></IconButton>
       </div>
-      <label className="q-canvas-toolbar__setting">
+      <label className="q-canvas-toolbar__setting q-canvas-toolbar__divider">
         <span>{t('canvas.toolbar.paperStyle')}</span>
         <select aria-label={t('canvas.toolbar.paperStyle')} value={paperStyle} onChange={(event) => onPaperStyleChange(event.currentTarget.value as CanvasPaperStyle)}>
           {(['paper-white', 'ivory', 'parchment', 'sepia', 'dark-paper'] as const).map(style => (
@@ -96,12 +90,6 @@ export function CanvasToolbar({
           ))}
         </select>
       </label>
-      {(onExportSvg || onExportPng) && (
-        <div className="q-canvas-toolbar__history" role="group" aria-label={t('canvas.toolbar.export')}>
-          {onExportSvg && <IconButton label={t('canvas.toolbar.exportSvg')} size="medium" onClick={onExportSvg}><Icon icon={FileCode} /></IconButton>}
-          {onExportPng && <IconButton label={t('canvas.toolbar.exportPng')} size="medium" onClick={onExportPng}><Icon icon={Image} /></IconButton>}
-        </div>
-      )}
       <label className="q-canvas-toolbar__setting">
         <span>{t('canvas.toolbar.grid')}</span>
         <select aria-label={t('canvas.toolbar.grid')} value={grid} onChange={(event) => onGridChange(event.currentTarget.value as CanvasGrid)}>
@@ -110,22 +98,12 @@ export function CanvasToolbar({
           ))}
         </select>
       </label>
-      <label className="q-canvas-toolbar__setting">
-        <span>{t('canvas.fill.label')}</span>
-        <select aria-label={t('canvas.fill.label')} value={fill} onChange={(event) => onFillChange(event.currentTarget.value as 'default' | 'transparent')}>
-          <option value="default">{t('canvas.fill.default')}</option>
-          <option value="transparent">{t('canvas.fill.transparent')}</option>
-        </select>
-      </label>
-      <label className="q-canvas-toolbar__setting q-canvas-toolbar__color">
-        <span>{t('canvas.toolbar.colorLabel')}</span>
-        <select aria-label={t('canvas.toolbar.colorLabel')} value={color} onChange={(event) => onColorChange(event.currentTarget.value)}>
-          <option value="">{t('canvas.toolbar.color.default')}</option>
-          {(['1', '2', '3', '4', '5', '6'] as const).map((value) => (
-            <option key={value} value={value}>{t(`canvas.toolbar.color.${value}`)}</option>
-          ))}
-        </select>
-      </label>
+      {(onExportSvg || onExportPng) && (
+        <div className="q-canvas-toolbar__group" role="group" aria-label={t('canvas.toolbar.export')}>
+          {onExportSvg && <IconButton label={t('canvas.toolbar.exportSvg')} size="medium" onClick={onExportSvg}><Icon icon={FileCode} /></IconButton>}
+          {onExportPng && <IconButton label={t('canvas.toolbar.exportPng')} size="medium" onClick={onExportPng}><Icon icon={Image} /></IconButton>}
+        </div>
+      )}
     </div>
   );
 }

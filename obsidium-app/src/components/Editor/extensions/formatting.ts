@@ -1,8 +1,9 @@
 import { StateCommand, EditorSelection, Prec } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-import { keymap } from "@codemirror/view";
+import { keymap, type Command, type KeyBinding } from "@codemirror/view";
 import type { SyntaxNode } from "@lezer/common";
 import { codeMirrorKey, SHORTCUTS } from "../../../config/shortcuts";
+import { inlineMarkdownEdit } from "../toolbarMarkdown";
 import { findAncestor } from "./syntaxAncestor";
 
 function createToggleCommand(
@@ -72,8 +73,54 @@ export const toggleBoldCommand = createToggleCommand("StrongEmphasis", "**", /^(
 export const toggleItalicCommand = createToggleCommand("Emphasis", "*", /^(\*|_)(.*)(\*|_)$/s);
 export const toggleStrikeCommand = createToggleCommand("Strikethrough", "~~", /^(~~)(.*)(~~)$/s);
 
-export const formattingKeymap = Prec.highest(keymap.of([
+export function inlineWrapCommand(marker: string): Command {
+    return (view) => {
+        const state = view.state;
+        const source = state.doc.toString();
+        const spec = state.changeByRange(range => {
+            const edit = inlineMarkdownEdit(source, range.from, range.to, marker);
+            return {
+                changes: { from: edit.from, to: edit.to, insert: edit.insert },
+                range: EditorSelection.range(edit.anchor, edit.head)
+            };
+        });
+        view.dispatch(state.update(spec, { scrollIntoView: true, userEvent: "input" }));
+        return true;
+    };
+}
+
+function createLinkCommand(image: boolean): Command {
+    return (view) => {
+        const state = view.state;
+        const spec = state.changeByRange(range => {
+            const selected = state.doc.sliceString(range.from, range.to);
+            const label = selected || (image ? "alt" : "link");
+            const prefix = image ? "![" : "[";
+            const insert = `${prefix}${label}](https://)`;
+            const start = selected ? range.from + prefix.length + label.length + 2 : range.from + prefix.length;
+            const end = selected ? start + 8 : start + label.length;
+            return {
+                changes: { from: range.from, to: range.to, insert },
+                range: EditorSelection.range(start, end)
+            };
+        });
+        view.dispatch(state.update(spec, { scrollIntoView: true, userEvent: "input" }));
+        return true;
+    };
+}
+
+export const toggleHighlightCommand = inlineWrapCommand("==");
+export const toggleInlineCodeCommand = inlineWrapCommand("`");
+export const insertLinkCommand = createLinkCommand(false);
+export const insertImageCommand = createLinkCommand(true);
+
+export const formattingKeyBindings: readonly KeyBinding[] = [
     { key: codeMirrorKey(SHORTCUTS.BOLD), run: toggleBoldCommand },
     { key: codeMirrorKey(SHORTCUTS.ITALIC), run: toggleItalicCommand },
-    { key: codeMirrorKey(SHORTCUTS.STRIKETHROUGH), run: toggleStrikeCommand }
-]));
+    { key: codeMirrorKey(SHORTCUTS.STRIKETHROUGH), run: toggleStrikeCommand },
+    { key: codeMirrorKey(SHORTCUTS.HIGHLIGHT), run: toggleHighlightCommand },
+    { key: codeMirrorKey(SHORTCUTS.INLINE_CODE), run: toggleInlineCodeCommand },
+    { key: codeMirrorKey(SHORTCUTS.LINK), run: insertLinkCommand }
+];
+
+export const formattingKeymap = Prec.highest(keymap.of(formattingKeyBindings));

@@ -10,7 +10,7 @@
   border-radius: var(--q-radius-lg);
   background: var(--q-bg-surface);
   color: var(--q-text-primary);
-  font-family: var(--q-font-family-ui);
+  font-family: var(--q-canvas-font-family, var(--q-font-family-ui));
 }
 
 .q-canvas-card.is-selected {
@@ -35,7 +35,9 @@
   padding: var(--q-space-12);
   overflow: auto;
   overflow-wrap: anywhere;
-  font-size: var(--q-font-size-ui-base);
+  font-family: var(--q-canvas-font-family, var(--q-font-family-ui));
+  font-size: var(--q-canvas-font-size, var(--q-font-size-ui-base));
+  text-align: var(--q-canvas-text-align, left);
   line-height: var(--q-font-line-height-relaxed);
 }
 
@@ -92,6 +94,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
+  text-align: var(--q-canvas-text-align, left);
   line-height: var(--q-font-line-height-relaxed);
   overflow: hidden;
   resize: none;
@@ -100,7 +103,7 @@
 .q-canvas-card--text.q-canvas-card--shape textarea {
   overflow: hidden;
   align-content: center;
-  text-align: center;
+  text-align: var(--q-canvas-text-align, center);
 }
 
 .q-canvas-card--link {
@@ -118,7 +121,7 @@
   padding: var(--q-space-12);
   overflow: hidden;
   align-content: center;
-  text-align: center;
+  text-align: var(--q-canvas-text-align, center);
 }
 
 .q-canvas-card--shape .q-canvas-card__markdown > :first-child {

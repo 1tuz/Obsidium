@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { CanvasMedia } from './CanvasMedia';
-import { CanvasSelectionToolbar } from './CanvasSelectionToolbar';
 import { CanvasShape } from './CanvasShape';
 
 describe('CanvasShape', () => {
@@ -116,44 +115,5 @@ describe('CanvasMedia', () => {
     expect(media.getAttribute('data-state')).toBe('ready');
     act(() => renderer!.update(<CanvasMedia kind="image" src="b.png" label="Diagram" />));
     expect(renderer!.container.querySelector('.q-canvas-card__media')!.getAttribute('data-state')).toBe('loading');
-  });
-});
-
-describe('CanvasSelectionToolbar', () => {
-  let renderer: MountedDom | null = null;
-
-  afterEach(() => {
-    if (renderer) act(() => renderer?.unmount());
-    renderer = null;
-  });
-
-  it('renders actions with translated labels and disabled group states', () => {
-    const handlers = {
-      onFront: vi.fn(),
-      onBack: vi.fn(),
-      onDuplicate: vi.fn(),
-      onGroup: vi.fn(),
-      onUngroup: vi.fn(),
-      onDelete: vi.fn(),
-    };
-    act(() => {
-      renderer = mountDom(
-        <CanvasSelectionToolbar x={40} y={80} canGroup={false} canUngroup {...handlers} />,
-      );
-    });
-    const toolbar = renderer!.container.querySelector('.q-canvas__selection-toolbar') as HTMLElement;
-    expect(toolbar.getAttribute('role')).toBe('toolbar');
-    expect(toolbar.style.left).toBe('40px');
-    expect(toolbar.style.top).toBe('80px');
-    const buttons = toolbar.querySelectorAll('button');
-    expect(buttons).toHaveLength(6);
-    const group = toolbar.querySelector('button[aria-label="Group"]') as HTMLButtonElement;
-    const ungroup = toolbar.querySelector('button[aria-label="Ungroup"]') as HTMLButtonElement;
-    expect(group.disabled).toBe(true);
-    expect(ungroup.disabled).toBe(false);
-    act(() => ungroup.click());
-    expect(handlers.onUngroup).toHaveBeenCalledTimes(1);
-    act(() => (toolbar.querySelector('button[aria-label="Delete"]') as HTMLButtonElement).click());
-    expect(handlers.onDelete).toHaveBeenCalledTimes(1);
   });
 });

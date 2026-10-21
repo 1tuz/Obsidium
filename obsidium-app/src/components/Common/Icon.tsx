@@ -1,7 +1,7 @@
 import { createElement, useEffect, useState } from 'react';
 import type { IconNode } from 'lucide';
 import type { IconId } from './iconCatalog';
-import { ensureLucideCatalog, getIconId, getIconMarkup, getIconSet, getLucideIcon, subscribeIconSet } from '../../modules/iconSet';
+import { ensureLucideCatalog, getIconId, getIconMarkup, getIconSet, getLucideIcon, getMappedIconId, subscribeIconSet } from '../../modules/iconSet';
 
 interface IconProps {
   icon: IconNode | IconId;
@@ -13,8 +13,9 @@ interface IconProps {
 export function Icon({ icon, size = 24, strokeWidth = 2, className }: IconProps) {
   const [iconSet, updateIconSet] = useState(getIconSet);
   const [, updateCatalog] = useState(0);
+  const mappedId = getMappedIconId(icon);
   const iconId = getIconId(icon);
-  const markup = iconSet === 'lucide' ? null : getIconMarkup(iconSet, iconId);
+  const markup = mappedId && iconSet !== 'lucide' ? getIconMarkup(iconSet, mappedId) : null;
   const renderedSet = markup ? iconSet : 'lucide';
   const lucideIcon = typeof icon === 'string' ? getLucideIcon(iconId) : icon;
 

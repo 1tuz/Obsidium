@@ -56,12 +56,74 @@ describe('CanvasToolbar', () => {
     expect(canvasToolbarSource).toContain('settings.editor.styles.');
   });
 
+  it('renders a shortcut badge and aria key shortcut on every tool button', () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasToolbar
+          activeTool="select"
+          paperStyle="ivory"
+          grid="none"
+          canUndo
+          canRedo={false}
+          onToolChange={() => {}}
+          onPaperStyleChange={() => {}}
+          onGridChange={() => {}}
+          onOpenSlash={() => {}}
+          onUndo={() => {}}
+          onRedo={() => {}}
+        />,
+      );
+    });
+
+    const expected: [string, string][] = [
+      ['Select and move', 'V'],
+      ['Text card', 'T'],
+      ['File card', 'F'],
+      ['Link card', 'L'],
+      ['Group', 'G'],
+      ['Connection', 'A'],
+      ['Rectangle', 'R'],
+      ['Diamond', 'D'],
+      ['Ellipse', 'E'],
+      ['Number marker', 'N'],
+      ['Freehand', 'P'],
+    ];
+    for (const [label, shortcut] of expected) {
+      const tool = renderer!.container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+      expect(tool.getAttribute('aria-keyshortcuts')).toBe(shortcut);
+      expect(tool.title).toBe(`${label} (${shortcut})`);
+      expect(tool.querySelector('kbd.q-canvas-toolbar__key')?.textContent).toBe(shortcut);
+    }
+  });
+
+  it('draws the diamond tool as a rhombus outline instead of the lucide gem', () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasToolbar
+          activeTool="diamond"
+          paperStyle="ivory"
+          grid="none"
+          canUndo
+          canRedo={false}
+          onToolChange={() => {}}
+          onPaperStyleChange={() => {}}
+          onGridChange={() => {}}
+          onOpenSlash={() => {}}
+          onUndo={() => {}}
+          onRedo={() => {}}
+        />,
+      );
+    });
+
+    const diamond = renderer!.container.querySelector<HTMLButtonElement>('button[aria-label="Diamond"]')!;
+    const path = diamond.querySelector('path');
+    expect(path?.getAttribute('d')?.startsWith('M12 2.5')).toBe(true);
+  });
+
   it('dispatches tool, paper, grid and history actions with accessible controls', async () => {
     const onToolChange = vi.fn();
     const onPaperStyleChange = vi.fn();
     const onGridChange = vi.fn();
-    const onColorChange = vi.fn();
-    const onFillChange = vi.fn();
     const onUndo = vi.fn();
     const onRedo = vi.fn();
     const onExportSvg = vi.fn();
@@ -72,8 +134,6 @@ describe('CanvasToolbar', () => {
       renderer = mountDom(
         <CanvasToolbar
           activeTool="select"
-          color=""
-          fill="default"
           paperStyle="ivory"
           grid="none"
           canUndo
@@ -81,8 +141,6 @@ describe('CanvasToolbar', () => {
           onToolChange={onToolChange}
           onPaperStyleChange={onPaperStyleChange}
           onGridChange={onGridChange}
-          onColorChange={onColorChange}
-          onFillChange={onFillChange}
           onOpenSlash={onOpenSlash}
           onUndo={onUndo}
           onRedo={onRedo}
@@ -101,14 +159,11 @@ describe('CanvasToolbar', () => {
     await actAndSettle(() => button('Find and add a note').click());
     await actAndSettle(() => renderer!.container.querySelector<HTMLButtonElement>('.q-canvas-toolbar__slash')!.click());
     const selects = renderer!.container.querySelectorAll('select');
+    expect(selects).toHaveLength(2);
     selects[0].value = 'sepia';
     await actAndSettle(() => { selects[0].dispatchEvent(new Event('change', { bubbles: true })); });
     selects[1].value = 'dots';
     await actAndSettle(() => { selects[1].dispatchEvent(new Event('change', { bubbles: true })); });
-    selects[2].value = 'transparent';
-    await actAndSettle(() => { selects[2].dispatchEvent(new Event('change', { bubbles: true })); });
-    selects[3].value = '4';
-    await actAndSettle(() => { selects[3].dispatchEvent(new Event('change', { bubbles: true })); });
     await actAndSettle(() => button('Undo').click());
     await actAndSettle(() => button('Export as SVG').click());
     await actAndSettle(() => button('Export as PNG').click());
@@ -121,8 +176,6 @@ describe('CanvasToolbar', () => {
     expect(onAddNote).toHaveBeenCalledOnce();
     expect(onPaperStyleChange).toHaveBeenCalledWith('sepia');
     expect(onGridChange).toHaveBeenCalledWith('dots');
-    expect(onFillChange).toHaveBeenCalledWith('transparent');
-    expect(onColorChange).toHaveBeenCalledWith('4');
     expect(onOpenSlash).toHaveBeenCalledOnce();
     expect(onUndo).toHaveBeenCalledOnce();
     expect(onRedo).not.toHaveBeenCalled();

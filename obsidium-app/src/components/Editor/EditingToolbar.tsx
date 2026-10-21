@@ -11,6 +11,7 @@ import {
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
+import { ariaKeyshortcut, formatShortcut, SHORTCUTS, type ShortcutToken } from '../../config/shortcuts';
 import { runEditingAction, type EditingAction } from './editingToolbarActions';
 import { applyColoredHighlight, removeColoredHighlight } from './extensions/highlightr';
 import './EditingToolbar.css';
@@ -27,6 +28,7 @@ interface EditingToolbarProps {
 interface ButtonDefinition {
   action: EditingAction;
   icon: IconNode;
+  shortcut?: ShortcutToken;
 }
 
 interface MenuDefinition {
@@ -38,11 +40,15 @@ interface MenuDefinition {
 
 const GROUPS: readonly (readonly ButtonDefinition[])[] = [
   [{ action: 'undo', icon: Undo2 }, { action: 'redo', icon: Redo2 }],
-  [{ action: 'bold', icon: Bold }, { action: 'italic', icon: Italic },
-    { action: 'strike', icon: Strikethrough }, { action: 'highlight', icon: Highlighter },
-    { action: 'inlineCode', icon: Code }, { action: 'clearFormat', icon: Type }],
+  [{ action: 'bold', icon: Bold, shortcut: SHORTCUTS.BOLD },
+    { action: 'italic', icon: Italic, shortcut: SHORTCUTS.ITALIC },
+    { action: 'strike', icon: Strikethrough, shortcut: SHORTCUTS.STRIKETHROUGH },
+    { action: 'highlight', icon: Highlighter, shortcut: SHORTCUTS.HIGHLIGHT },
+    { action: 'inlineCode', icon: Code, shortcut: SHORTCUTS.INLINE_CODE },
+    { action: 'clearFormat', icon: Type }],
   [{ action: 'quote', icon: Quote }, { action: 'callout', icon: QuoteIcon }],
-  [{ action: 'link', icon: Link2 }, { action: 'image', icon: Image }, { action: 'table', icon: Table2 },
+  [{ action: 'link', icon: Link2, shortcut: SHORTCUTS.LINK },
+    { action: 'image', icon: Image }, { action: 'table', icon: Table2 },
     { action: 'codeBlock', icon: Code }, { action: 'rule', icon: Minus }],
   [{ action: 'indent', icon: IndentIncrease }, { action: 'outdent', icon: IndentDecrease }],
   [{ action: 'moveUp', icon: ArrowUp }, { action: 'moveDown', icon: ArrowDown }],
@@ -202,6 +208,25 @@ export function EditingToolbar({
     </div>
   );
 
+  const renderButton = ({ action, icon, shortcut }: ButtonDefinition) => {
+    const label = t(`editor.formatting.${action}`);
+    return (
+      <IconButton
+        key={action}
+        size="small"
+        label={label}
+        title={shortcut ? `${label} (${formatShortcut(shortcut)})` : label}
+        aria-keyshortcuts={shortcut ? ariaKeyshortcut(shortcut) : undefined}
+        onClick={() => {
+          if (action === 'highlight' && highlightrEnabled) setPaletteOpen((open) => !open);
+          else run(action);
+        }}
+      >
+        <Icon icon={icon} />
+      </IconButton>
+    );
+  };
+
   return (
     <div
       ref={toolbarRef}
@@ -213,22 +238,7 @@ export function EditingToolbar({
     >
       {GROUPS.slice(0, 2).map((group, index) => (
         <div className="q-editing-toolbar__group" key={`group-${index}`}>
-          {group.map(({ action, icon }) => {
-            const label = t(`editor.formatting.${action}`);
-            return (
-              <IconButton
-                key={action}
-                size="small"
-                label={label}
-                onClick={() => {
-                  if (action === 'highlight' && highlightrEnabled) setPaletteOpen((open) => !open);
-                  else run(action);
-                }}
-              >
-                <Icon icon={icon} />
-              </IconButton>
-            );
-          })}
+          {group.map(renderButton)}
         </div>
       ))}
       <div className="q-editing-toolbar__group">
@@ -236,14 +246,7 @@ export function EditingToolbar({
       </div>
       {GROUPS.slice(2).map((group, index) => (
         <div className="q-editing-toolbar__group" key={`group-tail-${index}`}>
-          {group.map(({ action, icon }) => {
-            const label = t(`editor.formatting.${action}`);
-            return (
-              <IconButton key={action} size="small" label={label} onClick={() => run(action)}>
-                <Icon icon={icon} />
-              </IconButton>
-            );
-          })}
+          {group.map(renderButton)}
         </div>
       ))}
       {highlightrEnabled && paletteOpen && view && createPortal(<div className="q-editing-toolbar__palette"
