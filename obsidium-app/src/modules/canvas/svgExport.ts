@@ -224,15 +224,9 @@ function nodeShape(node: CanvasTypedNode): string | null {
   return obsidium.shape;
 }
 
-function isTransparentFill(node: CanvasTypedNode): boolean {
-  const obsidium = node.obsidium;
-  return Boolean(obsidium && typeof obsidium === 'object' && 'fill' in obsidium && obsidium.fill === 'transparent');
-}
-
-function appearanceFill(node: CanvasTypedNode, appearance: CanvasAppearance, context: CanvasSvgContext): string {
-  if (isTransparentFill(node) || appearance.fill === 'transparent') return 'none';
-  if (appearance.fill === null) return context.shapeFill(node);
-  return colorValue(context.palette, appearance.fill, context.shapeFill(node));
+function appearanceFill(appearance: CanvasAppearance, context: CanvasSvgContext): string {
+  if (appearance.fill === null || appearance.fill === 'transparent') return 'none';
+  return colorValue(context.palette, appearance.fill, 'none');
 }
 
 function fileTitle(node: CanvasTypedNode): string {
@@ -388,7 +382,7 @@ function freehandNode(node: CanvasTypedNode, context: CanvasSvgContext, appearan
 
 function shapedTextNode(node: CanvasTypedNode, shape: string, context: CanvasSvgContext): string {
   const appearance = context.appearance(node);
-  const fill = appearanceFill(node, appearance, context);
+  const fill = appearanceFill(appearance, context);
   const dash = canvasStrokeDasharray(appearance.strokeStyle, appearance.strokeWidth);
   const dashes = dash ? ` stroke-dasharray="${dash}"` : '';
   const outline = `fill="${escapeXml(fill)}" stroke="${escapeXml(context.shapeStroke(node))}" stroke-width="${appearance.strokeWidth}"${dashes} />`;

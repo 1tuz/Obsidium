@@ -22,7 +22,7 @@ import './CanvasPropertiesPanel.css';
 
 export type CanvasPanelTarget =
   | { kind: 'nodes'; appearance: CanvasAppearance; count: number; canGroup: boolean; canUngroup: boolean; stroke?: string }
-  | { kind: 'edge'; route: CanvasEdgeRoute; fromEnd: 'none' | 'arrow'; toEnd: 'none' | 'arrow'; label: string };
+  | { kind: 'edge'; route: CanvasEdgeRoute; fromEnd: 'none' | 'arrow'; toEnd: 'none' | 'arrow'; label: string; color?: string };
 
 export interface CanvasPropertiesPanelProps {
   target: CanvasPanelTarget;
@@ -258,8 +258,9 @@ function NodeSections({ target, onAppearance, onStroke, onFill, onFront, onBack,
   );
 }
 
-function EdgeSections({ target, onRoute, onFromEnd, onToEnd, onLabel, onDelete }: {
+function EdgeSections({ target, onStroke, onRoute, onFromEnd, onToEnd, onLabel, onDelete }: {
   target: Extract<CanvasPanelTarget, { kind: 'edge' }>;
+  onStroke?: (color: string) => void;
   onRoute: (route: CanvasEdgeRoute) => void;
   onFromEnd: (end: 'none' | 'arrow') => void;
   onToEnd: (end: 'none' | 'arrow') => void;
@@ -268,6 +269,18 @@ function EdgeSections({ target, onRoute, onFromEnd, onToEnd, onLabel, onDelete }
 }) {
   return (
     <>
+      <Section label={t('canvas.props.stroke')} className="q-canvas-properties__section--stroke">
+        <Swatch label={t('canvas.toolbar.color.default')} pressed={!target.color} variant="ink" onClick={() => onStroke?.('')} />
+        {PRESET_VALUES.map((value) => (
+          <Swatch
+            key={value}
+            label={t(`canvas.toolbar.color.${value}`)}
+            pressed={target.color === value}
+            color={canvasColorCss(value)}
+            onClick={() => onStroke?.(value)}
+          />
+        ))}
+      </Section>
       <section className="q-canvas-properties__section q-canvas-properties__section--route">
         <span className="q-canvas-properties__label">{t('canvas.props.route')}</span>
         <div className="q-canvas-properties__row" role="group" aria-label={t('canvas.props.route')}>
@@ -366,6 +379,7 @@ export function CanvasPropertiesPanel({
         ) : (
           <EdgeSections
             target={target}
+            onStroke={onStroke}
             onRoute={onRoute}
             onFromEnd={onFromEnd}
             onToEnd={onToEnd}

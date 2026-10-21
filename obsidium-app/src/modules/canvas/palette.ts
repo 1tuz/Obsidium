@@ -16,7 +16,7 @@ export const canvasColorCss = (value: unknown): string | undefined => {
 
 export const canvasFillCss = (value: unknown): string | undefined => {
   const color = canvasColorCss(value);
-  return color ? `color-mix(in srgb, ${color} 18%, var(--q-canvas-paper))` : undefined;
+  return color ? `color-mix(in srgb, ${color} 42%, var(--q-canvas-paper))` : undefined;
 };
 
 export const canvasStickerFill = (value: unknown): string => {

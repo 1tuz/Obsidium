@@ -70,12 +70,14 @@ export const snapPointToNodes = (
   nodes: readonly CanvasNode[],
   threshold = 10,
   excludeIds?: ReadonlySet<string>,
+  includeCenter = true,
 ): { point: { x: number; y: number }; snapped: CanvasSnapPoint | null } => {
   if (!(threshold > 0)) return { point, snapped: null };
   let best: { point: { x: number; y: number }; snapped: CanvasSnapPoint; distance: number } | null = null;
   for (const node of nodes) {
     if (excludeIds?.has(node.id)) continue;
     for (const candidate of canvasNodeSnapPoints(node)) {
+      if (!includeCenter && candidate.kind === 'center') continue;
       const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
       if (distance > threshold) continue;
       if (best === null || distance < best.distance) {

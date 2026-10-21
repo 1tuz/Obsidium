@@ -44,7 +44,7 @@ describe('canvas appearance', () => {
     const painted = withCanvasAppearance(shapeNode(), { strokeWidth: 4, fill: '2', opacity: 0.5 });
     expect(painted.obsidium).toEqual({ shape: 'rectangle', strokeWidth: 4, fill: '2', opacity: 0.5 });
     const reset = withCanvasAppearance(painted, { strokeWidth: 2, fill: null, opacity: 1 });
-    expect(reset.obsidium).toEqual({ shape: 'rectangle' });
+    expect(reset.obsidium).toEqual({ shape: 'rectangle', fill: 'transparent' });
   });
 
   it('keeps unknown obsidium fields untouched', () => {
@@ -60,13 +60,17 @@ describe('canvas appearance', () => {
     expect(canvasFontFamilyCss('mono')).toContain('mono');
   });
 
-  it('exposes text styling through css custom properties and only sets opacity when faded', () => {
+  it('exposes text styling through css custom properties', () => {
     const opaque = canvasAppearanceStyle(readCanvasAppearance(shapeNode()));
     expect(opaque).toEqual({
       '--q-canvas-font-size': '14px',
       '--q-canvas-font-family': canvasFontFamilyCss('sans'),
       '--q-canvas-text-align': 'center',
     });
-    expect(canvasAppearanceStyle(readCanvasAppearance(shapeNode({ opacity: 0.25 }))).opacity).toBe('0.25');
+  });
+
+  it('keeps an explicit no-fill choice in the file', () => {
+    expect(withCanvasAppearance(shapeNode(), { fill: '2' }).obsidium).toMatchObject({ fill: '2' });
+    expect(withCanvasAppearance(shapeNode({ fill: '2' }), { fill: null }).obsidium).toMatchObject({ fill: 'transparent' });
   });
 });

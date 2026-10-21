@@ -425,6 +425,27 @@ export const redoCanvasHistory = <T>(history: CanvasHistory<T>): CanvasHistory<T
 
 export type CanvasEdgeEnd = 'from' | 'to';
 
+export const canvasAnchorOnOutline = (
+  node: CanvasNode,
+  point: CanvasPoint,
+  fallbackToward?: CanvasPoint,
+): CanvasPoint => {
+  const outline = canvasOutlinePoint(node, point)
+    ?? (fallbackToward ? canvasOutlinePoint(node, fallbackToward) : null);
+  if (!outline) return canvasNodeAnchor(node, point);
+  return canvasNodeAnchor(node, outline);
+};
+
+export const canvasEdgeAnchor = (
+  node: CanvasNode,
+  pointer: CanvasPoint,
+  toward: CanvasPoint,
+): CanvasPoint => {
+  const inside = pointer.x >= node.x && pointer.x <= node.x + node.width
+    && pointer.y >= node.y && pointer.y <= node.y + node.height;
+  return canvasAnchorOnOutline(node, inside ? toward : pointer, toward);
+};
+
 export const moveCanvasEdgeEndpoint = <T extends CanvasEdge>(
   edge: T,
   end: CanvasEdgeEnd,
