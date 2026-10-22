@@ -8,6 +8,7 @@ use super::paths::{canonical_path, canonical_workspace, same_path};
 use super::progress::IndexProgress;
 use super::worker::WorkerHandle;
 use super::{ChangeNotifier, IndexNotifier};
+use rusqlite::Connection;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -74,6 +75,7 @@ pub struct OpenIndex {
     worker: WorkerHandle,
     pub progress: Arc<IndexProgress>,
     pub metadata_path: PathBuf,
+    pub metadata: Arc<Mutex<Connection>>,
     pub generation: u64,
     visible: Arc<AtomicBool>,
 }
@@ -168,7 +170,7 @@ impl SearchService {
         remove_stale_indexes(&storage, &index_dir);
         let progress = Arc::new(IndexProgress::new(index.document_count(), generation));
         let metadata_path = storage.join("documents.sqlite3");
-        drop(metadata::open(&metadata_path)?);
+        let metadata = Arc::new(Mutex::new(metadata::open(&metadata_path)?));
         let visible = Arc::new(AtomicBool::new(visible));
         let worker = WorkerHandle::spawn(
             root.clone(),
@@ -184,6 +186,7 @@ impl SearchService {
             worker,
             progress,
             metadata_path,
+            metadata,
             generation,
             visible,
         })
@@ -243,6 +246,31 @@ impl SearchService {
             .ok_or_else(|| self.missing_index())
     }
 
+    pub fn with_metadata<T>(
+        &self,
+        workspace: &str,
+        read: impl FnOnce(&OpenIndex, &Connection) -> Result<T, SearchError>,
+    ) -> Result<T, SearchError> {
+        if self.with_index(workspace, |_| Ok(())).is_err() {
+            self.prepare(workspace)?;
+        }
+        self.with_index(workspace, |open| {
+            let connection = open.metadata.lock().map_err(SearchError::task)?;
+            read(open, &connection)
+        })
+    }
+
+    pub fn with_metadata_containing<T>(
+        &self,
+        path: &Path,
+        read: impl FnOnce(&OpenIndex, &Connection) -> Result<T, SearchError>,
+    ) -> Result<Option<T>, SearchError> {
+        self.with_index_containing(path, |open| {
+            let connection = open.metadata.lock().map_err(SearchError::task)?;
+            read(open, &connection)
+        })
+    }
+
     pub fn with_index_containing<T>(
         &self,
         path: &Path,
@@ -280,15 +308,6 @@ impl SearchService {
                 message: "Index is not ready".to_owned(),
             }
         }
-    }
-
-    pub fn index_paths(&self, workspace: &str) -> Result<(PathBuf, PathBuf), SearchError> {
-        let paths = |open: &OpenIndex| Ok((open.root.clone(), open.metadata_path.clone()));
-        if let Ok(found) = self.with_index(workspace, paths) {
-            return Ok(found);
-        }
-        self.prepare(workspace)?;
-        self.with_index(workspace, paths)
     }
 
     pub fn active_root(&self) -> Option<PathBuf> {
