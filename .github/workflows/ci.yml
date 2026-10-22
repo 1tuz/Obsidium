@@ -3,8 +3,6 @@ name: CI
 on:
   push:
     branches-ignore: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,9 +15,6 @@ concurrency:
 jobs:
   route:
     runs-on: ubuntu-24.04
-    # Owner branches are already checked on push; a pull_request run here would only duplicate it.
-    # Fork pull requests have no push run of their own, so they get the checks from this trigger.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     permissions:
       contents: read
     outputs:

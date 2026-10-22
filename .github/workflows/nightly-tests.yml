@@ -98,14 +98,6 @@ jobs:
           cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p aquilum-core \
             benchmark_indexing -- --ignored --nocapture
 
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: benchmark-results
-          path: .artifacts/benchmarks
-          if-no-files-found: ignore
-          retention-days: 14
-
   compile:
     name: Compile check on ${{ matrix.platform }}
     strategy:
