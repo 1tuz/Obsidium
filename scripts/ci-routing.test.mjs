@@ -21,6 +21,12 @@ test('CI has no pull request trigger that can require a second approval', () => 
   assert.doesNotMatch(ci, /github\.event_name == 'pull_request'/u);
 });
 
+test('owner merge never asks GitHub to enable auto-merge', () => {
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /gh pr merge[^\n]*--merge/u);
+  assert.doesNotMatch(ci, /--auto/u);
+});
+
 test('manual CI runs every lightweight check and does not auto-merge', () => {
   assert.deepEqual(route('workflow_dispatch'), {
     runChecks: true,

@@ -198,4 +198,12 @@ jobs:
               --body "Opened by CI after the full diff passed the required checks for ${GITHUB_SHA}."
             pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number')"
           fi
-          gh pr merge "$pr_number" --repo "$GH_REPO" --auto --merge
+          if gh pr merge "$pr_number" --repo "$GH_REPO" --merge; then
+            exit 0
+          fi
+          if gh pr update-branch "$pr_number" --repo "$GH_REPO"; then
+            echo "::notice::Branch was behind main; the update triggers the next run, which merges it."
+            exit 0
+          fi
+          echo "::error::Neither the merge nor the branch update succeeded for pull request ${pr_number}." >&2
+          exit 1
