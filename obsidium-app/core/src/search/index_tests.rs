@@ -149,7 +149,9 @@ fn a_multi_word_query_ranks_partial_matches_instead_of_returning_nothing() {
         ),
     ]);
 
-    let (_terms, results) = index.search_defaults("физика тика кадр плавность", 10).unwrap();
+    let (_terms, results) = index
+        .search_defaults("физика тика кадр плавность", 10)
+        .unwrap();
     assert_eq!(
         results.len(),
         2,

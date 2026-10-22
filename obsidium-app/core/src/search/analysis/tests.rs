@@ -41,7 +41,11 @@ fn a_copy_of_the_note_surfaces_and_unrelated_notes_do_not() {
     let (_index_directory, index) = indexed(&[
         (source.clone(), "источник", COPY.to_owned()),
         (copy.clone(), "копия", COPY.to_owned()),
-        (other.clone(), "другое", "рецепт борща свёкла капуста бульон сметана".to_owned()),
+        (
+            other.clone(),
+            "другое",
+            "рецепт борща свёкла капуста бульон сметана".to_owned(),
+        ),
     ]);
 
     let results = analyze(
@@ -53,7 +57,11 @@ fn a_copy_of_the_note_surfaces_and_unrelated_notes_do_not() {
     )
     .unwrap();
 
-    assert_eq!(results.len(), 1, "only the copy must be reported: {results:?}");
+    assert_eq!(
+        results.len(),
+        1,
+        "only the copy must be reported: {results:?}"
+    );
     assert!(results[0].path.contains("копия.md"));
     assert_eq!(results[0].similarity, Some(1.0));
     assert!(!results[0].reasons.is_empty());

@@ -150,12 +150,7 @@ impl Profile {
             .filter(|(term, _)| other.frequencies.contains_key(*term))
             .map(|(term, frequency)| (term.clone(), *frequency))
             .collect::<Vec<_>>();
-        shared.sort_by(|left, right| {
-            right
-                .1
-                .cmp(&left.1)
-                .then_with(|| left.0.cmp(&right.0))
-        });
+        shared.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
         shared
             .into_iter()
             .take(MAX_REASONS)
@@ -178,7 +173,8 @@ mod tests {
     #[test]
     fn a_reordered_copy_is_not_a_full_match() {
         let original = Profile::new("планирование недели обзор встреч команды планирование недели");
-        let reordered = Profile::new("обзор встреч команды планирование недели планирование недели");
+        let reordered =
+            Profile::new("обзор встреч команды планирование недели планирование недели");
         let overlap = original.jaccard(&reordered);
         assert!(overlap < 1.0, "shingles must stay order sensitive");
         assert!(overlap > 0.0);

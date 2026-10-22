@@ -291,6 +291,9 @@ mod tests {
             [машина[0].clone(), автомобиль[0].clone()]
         );
         let велосипед = super::analyzed_query_terms("велосипед");
-        assert_eq!(synonym_variants(&велосипед[0], &groups), [велосипед[0].clone()]);
+        assert_eq!(
+            synonym_variants(&велосипед[0], &groups),
+            [велосипед[0].clone()]
+        );
     }
 }

@@ -320,7 +320,8 @@ mod tests {
     }
 
     #[test]
-    fn counts_distinct_notes_linking_to_each_document() {        let outgoing = HashMap::from([
+    fn counts_distinct_notes_linking_to_each_document() {
+        let outgoing = HashMap::from([
             (node("X"), HashSet::from([node("A"), node("B")])),
             (node("Y"), HashSet::from([node("A")])),
         ]);
@@ -343,13 +344,7 @@ mod tests {
             paths: HashMap::new(),
         };
 
-        assert!(graph.links_to(
-            Path::new("C:/vault/X.md"),
-            Path::new("C:/vault/A.md")
-        ));
-        assert!(!graph.links_to(
-            Path::new("C:/vault/A.md"),
-            Path::new("C:/vault/X.md")
-        ));
+        assert!(graph.links_to(Path::new("C:/vault/X.md"), Path::new("C:/vault/A.md")));
+        assert!(!graph.links_to(Path::new("C:/vault/A.md"), Path::new("C:/vault/X.md")));
     }
 }
