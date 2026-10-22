@@ -27,12 +27,13 @@ rust_workspace:
   - 'obsidium-app/core/Cargo.toml'
   - 'obsidium-app/src-tauri/Cargo.toml'
   - 'obsidium-app/cli/Cargo.toml'
-  - 'obsidium-app/src-tauri/Cargo.lock'
   - 'obsidium-app/rust-toolchain*'
   - 'obsidium-app/.cargo/**'
   - '.cargo/**'
   - 'rustfmt.toml'
   - '.rustfmt.toml'
+rust_lock:
+  - 'obsidium-app/src-tauri/Cargo.lock'
 docs:
   - '*.md'
   - '**/*.md'

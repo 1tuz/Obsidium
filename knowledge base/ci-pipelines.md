@@ -32,6 +32,17 @@
 роняет проверку workflow. Если понадобится проверять чужой форк, его ветку запускают через
 `workflow_dispatch` с явным выбором ref, а не через второй триггер.
 
+## Почему job автомержа сливает напрямую, а не включает auto-merge
+
+Прошлая версия заканчивалась `gh pr merge --auto --merge`. Это не работает: job `auto-merge` сам
+является проверкой на головной коммит PR, поэтому в момент вызова его собственный check ещё в
+прогрессе, PR получает `mergeStateStatus: UNSTABLE`, а `enablePullRequestAutoMerge` на таком PR
+падает с ошибкой «Pull request is in unstable status». Владельцу оставалось нажать Merge руками.
+Теперь job сливает прямо: `needs: [route, quality]` уже гарантирует пройденный `Quality gate`, а
+прямой merge смотрит только на обязательные проверки и не зависит от состояния своего же check.
+Если ветка отстала от `main` (защита требует актуальности), job делает `gh pr update-branch`, и
+следующий push-прогон сливает её. Запрет на `--auto` закреплён тестом `scripts/ci-routing.test.mjs`.
+
 ## Роутинг изменённых областей
 
 `scripts/ci-routing.mjs` отвечает только на вопрос «запускать ли проверки». Что именно проверять,
@@ -43,12 +54,30 @@
 | `frontend_related` | изменённые `.ts/.tsx/.js/.jsx` | `scripts/run-related-vitest.mjs` — только связанные тесты |
 | `frontend_full` | манифест, конфиги Vite/TS, CSS/JSON, `src/styles/**` | полный `npm test` |
 | `rust_core` / `rust_app` / `rust_cli` | соответствующие каталоги | `cargo test -p <крейт>` |
-| `rust_workspace` | `Cargo.toml`, `Cargo.lock`, toolchain | `cargo test --workspace` |
+| `rust_workspace` | `Cargo.toml`, toolchain, cargo config | `cargo test --workspace` |
+| `rust_lock` | `obsidium-app/src-tauri/Cargo.lock` | `cargo metadata --locked` без компиляции |
 | `workflow` | `.github/**`, скрипты роутинга | проверка YAML (строгий парсер, ловит дубли ключей), `actionlint`, тесты роутинга |
 | `release_contract`, `installer_scripts` | контракт релиза, установщики | адресные тесты |
 
 Ручной запуск `workflow_dispatch` включает все лёгкие флаги разом, поэтому полную проверку можно
 получить без тега.
+
+### Почему `Cargo.lock` не запускает сборку workspace
+
+Релизный коммит меняет в `Cargo.lock` одну строку — версию самого `aquilum-app`. Раньше этого хватало,
+чтобы `rust_workspace` включал `cargo test --workspace`: холодный прогон без кеша, потому что ключ
+`Swatinem/rust-cache` содержит хэш lockfile, то есть примерно двадцать минут на компиляцию Tauri ради
+двух изменённых цифр.
+
+Теперь lockfile живёт в отдельном флаге `rust_lock` и проверяется командой `cargo metadata --locked`:
+она подтверждает, что закоммиченный lock разрешается вместе с манифестами, и ничего не компилирует.
+`--locked` роняет шаг, если lock устарел. Офлайн-режим здесь не используется: на чистом раннере нет
+локального кеша реестра, и `CARGO_NET_OFFLINE` падает на первом же `serde`; индекс скачивается за
+десятки секунд, что на два порядка дешевле компиляции. Реальная правка зависимостей почти всегда идёт вместе с
+`Cargo.toml` и попадает в `rust_workspace` с полными тестами. Чистый `cargo update` без правки
+манифеста компиляцией в push-прогоне не проверяется: это ловит ночной `cargo test --workspace` и job
+`compile`. Компромисс сознательный — цена ошибки ограничена сутками до ночного прогона, а цена
+прежнего поведения платилась на каждом релизе.
 
 ## Что добавлено 22.10.2026
 

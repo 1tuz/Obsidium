@@ -51,7 +51,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: manual
         run: |
-          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace docs workflow release_contract installer_scripts; do
+          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace rust_lock docs workflow release_contract installer_scripts; do
             echo "$name=true" >> "$GITHUB_OUTPUT"
           done
 
@@ -140,9 +140,13 @@ jobs:
         run: node ../scripts/run-related-vitest.mjs
 
       - uses: dtolnay/rust-toolchain@stable
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.changes.outputs.rust_lock == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_lock == 'true'
         with:
           components: rustfmt
+
+      - name: Resolve the committed lockfile
+        if: steps.changes.outputs.rust_lock == 'true' || steps.manual.outputs.rust_lock == 'true'
+        run: cargo metadata --locked --format-version 1 --manifest-path obsidium-app/src-tauri/Cargo.toml > /dev/null
 
       - uses: Swatinem/rust-cache@v2
         if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
@@ -198,4 +202,12 @@ jobs:
               --body "Opened by CI after the full diff passed the required checks for ${GITHUB_SHA}."
             pr_number="$(gh pr list --repo "$GH_REPO" --head "$BRANCH_NAME" --base main --state open --json number --jq '.[0].number')"
           fi
-          gh pr merge "$pr_number" --repo "$GH_REPO" --auto --merge
+          if gh pr merge "$pr_number" --repo "$GH_REPO" --merge; then
+            exit 0
+          fi
+          if gh pr update-branch "$pr_number" --repo "$GH_REPO"; then
+            echo "::notice::Branch was behind main; the update triggers the next run, which merges it."
+            exit 0
+          fi
+          echo "::error::Neither the merge nor the branch update succeeded for pull request ${pr_number}." >&2
+          exit 1
