@@ -54,12 +54,28 @@
 | `frontend_related` | изменённые `.ts/.tsx/.js/.jsx` | `scripts/run-related-vitest.mjs` — только связанные тесты |
 | `frontend_full` | манифест, конфиги Vite/TS, CSS/JSON, `src/styles/**` | полный `npm test` |
 | `rust_core` / `rust_app` / `rust_cli` | соответствующие каталоги | `cargo test -p <крейт>` |
-| `rust_workspace` | `Cargo.toml`, `Cargo.lock`, toolchain | `cargo test --workspace` |
+| `rust_workspace` | `Cargo.toml`, toolchain, cargo config | `cargo test --workspace` |
+| `rust_lock` | `obsidium-app/src-tauri/Cargo.lock` | `cargo metadata --locked` без компиляции |
 | `workflow` | `.github/**`, скрипты роутинга | проверка YAML (строгий парсер, ловит дубли ключей), `actionlint`, тесты роутинга |
 | `release_contract`, `installer_scripts` | контракт релиза, установщики | адресные тесты |
 
 Ручной запуск `workflow_dispatch` включает все лёгкие флаги разом, поэтому полную проверку можно
 получить без тега.
+
+### Почему `Cargo.lock` не запускает сборку workspace
+
+Релизный коммит меняет в `Cargo.lock` одну строку — версию самого `aquilum-app`. Раньше этого хватало,
+чтобы `rust_workspace` включал `cargo test --workspace`: холодный прогон без кеша, потому что ключ
+`Swatinem/rust-cache` содержит хэш lockfile, то есть примерно двадцать минут на компиляцию Tauri ради
+двух изменённых цифр.
+
+Теперь lockfile живёт в отдельном флаге `rust_lock` и проверяется командой `cargo metadata --locked`
+с `CARGO_NET_OFFLINE`: она за доли секунды подтверждает, что закоммиченный lock разрешается вместе с
+манифестами, и ничего не компилирует. Реальная правка зависимостей почти всегда идёт вместе с
+`Cargo.toml` и попадает в `rust_workspace` с полными тестами. Чистый `cargo update` без правки
+манифеста компиляцией в push-прогоне не проверяется: это ловит ночной `cargo test --workspace` и job
+`compile`. Компромисс сознательный — цена ошибки ограничена сутками до ночного прогона, а цена
+прежнего поведения платилась на каждом релизе.
 
 ## Что добавлено 22.10.2026
 

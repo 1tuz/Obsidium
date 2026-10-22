@@ -27,6 +27,14 @@ test('owner merge never asks GitHub to enable auto-merge', () => {
   assert.doesNotMatch(ci, /--auto/u);
 });
 
+test('a lockfile-only change resolves the lock instead of compiling the workspace', () => {
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /Resolve the committed lockfile/u);
+  assert.match(ci, /cargo metadata --locked/u);
+  const filters = readFileSync('.github/filters.yml', 'utf8');
+  assert.match(filters, /rust_lock:\n\s+- 'obsidium-app\/src-tauri\/Cargo\.lock'/u);
+});
+
 test('manual CI runs every lightweight check and does not auto-merge', () => {
   assert.deepEqual(route('workflow_dispatch'), {
     runChecks: true,

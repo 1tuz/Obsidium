@@ -32,7 +32,7 @@ expected = {
   'shared frontend module' => { 'frontend_types' => true, 'frontend_related' => true },
   'Rust core' => { 'rust_core' => true },
   'frontend dependency' => { 'frontend_types' => true, 'frontend_full' => true },
-  'Rust dependency' => { 'rust_workspace' => true },
+  'Rust dependency' => { 'rust_lock' => true },
   'multiple areas' => { 'frontend_types' => true, 'frontend_related' => true, 'rust_core' => true },
   'workflow only' => { 'workflow' => true },
   'installer scripts' => { 'installer_scripts' => true },
@@ -45,6 +45,9 @@ cases.each do |name, paths|
   end
   if name == 'documentation'
     raise 'documentation must not trigger application tests' if actual.values_at('frontend_types', 'frontend_related', 'frontend_full', 'rust_core', 'rust_app', 'rust_cli', 'rust_workspace').include?(true)
+  end
+  if name == 'Rust dependency'
+    raise 'a lockfile change must not rebuild the workspace' if actual['rust_workspace']
   end
   puts "#{name}: #{actual.select { |_, value| value }.keys.join(', ')}"
 end
