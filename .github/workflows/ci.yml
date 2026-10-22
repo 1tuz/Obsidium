@@ -146,8 +146,6 @@ jobs:
 
       - name: Resolve the committed lockfile
         if: steps.changes.outputs.rust_lock == 'true' || steps.manual.outputs.rust_lock == 'true'
-        env:
-          CARGO_NET_OFFLINE: 'true'
         run: cargo metadata --locked --format-version 1 --manifest-path obsidium-app/src-tauri/Cargo.toml > /dev/null
 
       - uses: Swatinem/rust-cache@v2
