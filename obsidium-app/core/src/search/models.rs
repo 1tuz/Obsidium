@@ -48,6 +48,8 @@ pub struct IndexRevision {
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
     pub path: String,
+    #[serde(skip)]
+    pub score: f32,
     pub title: String,
     pub extension: String,
     pub snippet: String,

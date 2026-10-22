@@ -6,12 +6,14 @@ pub mod documents;
 pub mod files;
 pub mod history;
 pub mod link_title;
+pub mod links;
 pub mod mcp;
 pub mod migration;
 pub mod search;
 pub mod settings;
 pub mod ui_state;
 pub mod web_agent;
+pub mod wiki;
 pub mod wikixiv;
 
 pub use app_core::{Core, CoreEvent, EventSink, TaskFailed};

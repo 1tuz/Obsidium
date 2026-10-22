@@ -21,6 +21,7 @@ mod history {
     pub use aquilum_core::history::*;
     pub mod commands;
 }
+mod links;
 mod mcp {
     pub use aquilum_core::mcp::*;
     pub mod commands;
@@ -195,6 +196,7 @@ pub fn run() {
             search::graph::commands::get_graph_cluster_ids,
             wikixiv::commands::wikixiv_search,
             link_title::commands::fetch_page_title,
+            links::apply_suggested_link,
             ui_state::commands::list_ui_workspaces,
             ui_state::commands::forget_ui_workspace,
             ui_state::commands::set_ui_workspace_home_page,

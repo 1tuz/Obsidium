@@ -31,6 +31,7 @@ pub fn definitions() -> Vec<Value> {
             json!({
                 "path": { "type": "string", "description": "Путь к папке базы знаний или её address из list_workspaces" },
                 "workspace": { "type": "string", "description": "Синоним path: путь к папке базы знаний или её address из list_workspaces" },
+                "address": { "type": "string", "description": "Синоним path: кратчайший однозначный хвост пути из list_workspaces" },
                 "note": { "type": "string", "description": "Заметка, которую открыть после переключения" },
             }),
             &[],
@@ -40,6 +41,7 @@ pub fn definitions() -> Vec<Value> {
             "Открыть заметку в интерфейсе приложения и сделать её активной вкладкой. ВНИМАНИЕ: это визуальное переключение экрана пользователя! Вызывать ТОЛЬКО по прямой просьбе пользователя открыть заметку на экране. Заметка из другой базы (workspace) переключит приложение на эту базу.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "workspace": workspace_property(),
             }),
             &["note"],

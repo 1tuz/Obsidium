@@ -1,13 +1,16 @@
 use super::workspace::{indexed_vault, requested_vault};
-use super::{limit, optional_text, shorten, text, tool, workspace_property};
+use super::{limit, offset, optional_text, shorten, text, tool, workspace_property};
 use crate::app_core::Core;
 use crate::files::document::read_text;
 use crate::search::analysis::models::AnalysisMethod;
 use crate::search::headings;
+use crate::search::models::SearchResult;
+use crate::search::query::MAX_RESULTS;
 use crate::wikixiv::models::SearchRequest;
 use serde_json::{json, Value};
+use std::cmp::Ordering;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
 const SNIPPET_LIMIT: usize = 300;
 const CONTEXT_LIMIT: usize = 200;
@@ -17,11 +20,12 @@ pub fn definitions() -> Vec<Value> {
     vec![
         tool(
             "search_notes",
-            "Полнотекстовый поиск по базе знаний со стеммингом. Слова запроса объединяются по «ИЛИ» и ранжируются, поэтому длинный запрос находит и частичные совпадения: смотрите matchedTerms, какие слова нашлись. У каждого результата есть heading — раздел с совпадением, и backlinks — сколько заметок на него ссылаются. Поле hasMore говорит, осталось ли что-то за пределами выдачи. Ищет по тексту заметок: frontmatter в полнотекстовый индекс не входит, по его полям ищет find_notes.",
+            "Полнотекстовый поиск по базе знаний со стеммингом. Слова запроса объединяются по «ИЛИ» и ранжируются, поэтому длинный запрос находит и частичные совпадения: смотрите matchedTerms, какие слова нашлись. У каждого результата есть heading — раздел с совпадением, и backlinks — сколько заметок на него ссылаются. Порядок устойчивый: score по убыванию, затем путь по возрастанию. Поле hasMore говорит, осталось ли совпадение за пределами выдачи; следующая страница запрашивается через offset. Ищет по тексту заметок: frontmatter в полнотекстовый индекс не входит, по его полям ищет find_notes.",
             json!({
                 "query": { "type": "string", "description": "Поисковый запрос: чем больше слов, тем выше в выдаче заметки, где нашлись все" },
                 "folder": { "type": "string", "description": "Искать только в этой папке, пусто — вся база" },
-                "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10" },
+                "offset": { "type": "integer", "description": "Сколько подходящих результатов пропустить, чтобы получить следующую страницу; по умолчанию 0" },
+                "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10, максимум 50" },
                 "workspace": workspace_property(),
             }),
             &["query"],
@@ -39,6 +43,7 @@ pub fn definitions() -> Vec<Value> {
             "Похожие заметки по тексту (BM25F): что писать рядом, что дублируется, что развить.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10" },
                 "workspace": workspace_property(),
             }),
@@ -49,6 +54,7 @@ pub fn definitions() -> Vec<Value> {
             "Связанные заметки по графу ссылок [[...]] (Adamic-Adar): общие соседи, а не общий текст.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10" },
                 "workspace": workspace_property(),
             }),
@@ -59,6 +65,7 @@ pub fn definitions() -> Vec<Value> {
             "Возможные дубли заметки: почти одинаковый текст без общего индекса — пересечение шинглов и близкая длина.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10" },
                 "workspace": workspace_property(),
             }),
@@ -69,6 +76,7 @@ pub fn definitions() -> Vec<Value> {
             "Заметки, где встречается заголовок указанной, но ссылки [[...]] на неё нет.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10" },
                 "workspace": workspace_property(),
             }),
@@ -79,6 +87,7 @@ pub fn definitions() -> Vec<Value> {
             "Заметки, которые ссылаются на указанную: по одной строке на заметку, mentions — сколько раз ссылка встречается, heading и context — раздел и строка первого упоминания.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "workspace": workspace_property(),
             }),
             &["note"],
@@ -88,6 +97,7 @@ pub fn definitions() -> Vec<Value> {
             "Ссылки [[...]] из указанной заметки, включая ещё не созданные, по одной строке на цель; mentions — сколько раз она упомянута.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "workspace": workspace_property(),
             }),
             &["note"],
@@ -97,6 +107,7 @@ pub fn definitions() -> Vec<Value> {
             "Статьи Wikipedia по теме заметки.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "workspace": workspace_property(),
             }),
             &["note"],
@@ -137,31 +148,40 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
         return Err(format!("Папка не найдена: {}", vault.relative(folder)));
     }
     let size = limit(arguments, 10, 50);
-    let asked = if folder.is_some() {
-        size.saturating_mul(4).min(200)
-    } else {
-        size + 1
-    };
-    let response = core
-        .search
-        .search(
-            &vault.root.to_string_lossy(),
-            &text(arguments, "query")?,
-            Some(asked),
-            &core.settings.get_config().search,
-        )
-        .map_err(|error| error.to_string())?;
+    let skip = offset(arguments);
+    let needed = skip.saturating_add(size).saturating_add(1);
+    let workspace = vault.root.to_string_lossy();
+    let query = text(arguments, "query")?;
+    let settings = core.settings.get_config().search;
 
-    let mut inside = response.results.iter().filter(|result| {
-        folder
-            .as_ref()
-            .is_none_or(|folder| Path::new(&result.path).starts_with(folder))
-    });
-    let shown = inside.by_ref().take(size).collect::<Vec<_>>();
+    let mut window = needed.min(MAX_RESULTS).max(1);
+    let (terms, indexing, hits) = loop {
+        let response = core
+            .search
+            .search(&workspace, &query, Some(window), &settings)
+            .map_err(|error| error.to_string())?;
+        let found = response.results.len();
+        let mut hits = response
+            .results
+            .into_iter()
+            .filter(|result| {
+                folder
+                    .as_ref()
+                    .is_none_or(|folder| Path::new(&result.path).starts_with(folder))
+            })
+            .collect::<Vec<_>>();
+        if hits.len() >= needed || found < window || window >= MAX_RESULTS {
+            hits.sort_by(rank);
+            break (response.query_terms, response.status.updating, hits);
+        }
+        window = window.saturating_mul(2).min(MAX_RESULTS);
+    };
+
+    let shown = hits.iter().skip(skip).take(size).collect::<Vec<_>>();
     let counts = core
         .search
         .backlink_counts(
-            &vault.root.to_string_lossy(),
+            &workspace,
             &shown
                 .iter()
                 .map(|result| result.path.clone())
@@ -183,13 +203,21 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
         })
         .collect::<Vec<_>>();
 
-    let has_more = inside.next().is_some();
+    let has_more = hits.len() > skip.saturating_add(size);
     Ok(json!({
-        "indexing": response.status.updating,
-        "terms": response.query_terms,
+        "indexing": indexing,
+        "terms": terms,
         "results": results,
         "hasMore": has_more,
     }))
+}
+
+fn rank(left: &SearchResult, right: &SearchResult) -> Ordering {
+    right
+        .score
+        .partial_cmp(&left.score)
+        .unwrap_or(Ordering::Equal)
+        .then_with(|| left.path.cmp(&right.path))
 }
 
 fn dataview_syntax(arguments: &Value) -> Result<Value, String> {
@@ -300,7 +328,7 @@ fn wiki_sources(core: &Core, arguments: &Value) -> Result<Value, String> {
         SearchRequest {
             text: content,
             document_path: Some(note.to_string_lossy().into_owned()),
-            generation: WIKI_GENERATION.fetch_add(1, Ordering::Relaxed),
+            generation: WIKI_GENERATION.fetch_add(1, AtomicOrdering::Relaxed),
         },
         enabled,
     )?;

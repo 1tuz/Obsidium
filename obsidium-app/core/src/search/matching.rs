@@ -41,6 +41,7 @@ pub fn result_from_document(
     document: &TantivyDocument,
     fields: SearchFields,
     terms: &[String],
+    score: f32,
 ) -> Option<SearchResult> {
     let path = stored_text(document, fields.id)?;
     let title = stored_text(document, fields.title).unwrap_or_default();
@@ -64,6 +65,7 @@ pub fn result_from_document(
         .to_owned();
     Some(SearchResult {
         path,
+        score,
         title,
         extension,
         snippet: make_excerpt(&body, first_body_match),

@@ -69,7 +69,14 @@ pub fn yaml_block(text: &str) -> Option<&str> {
     block(text).map(|(yaml, _)| yaml)
 }
 
-pub fn set(text: &str, updates: &[(String, String)]) -> Result<String, String> {
+#[derive(Clone, Debug, PartialEq)]
+pub enum FieldValue {
+    Scalar(String),
+    List(Vec<String>),
+    Remove,
+}
+
+pub fn set(text: &str, updates: &[(String, FieldValue)]) -> Result<String, String> {
     if updates.is_empty() {
         return Ok(text.to_owned());
     }
@@ -80,12 +87,14 @@ pub fn set(text: &str, updates: &[(String, String)]) -> Result<String, String> {
                     .to_owned(),
             );
         }
-        let created = updates
-            .iter()
-            .map(|(key, value)| entry(key, value))
-            .collect::<Vec<_>>()
-            .join("\n");
-        return Ok(format!("---\n{created}\n---\n{text}"));
+        let mut created = Vec::new();
+        for (key, value) in updates {
+            created.extend(render(key, value)?);
+        }
+        if created.is_empty() {
+            return Ok(text.to_owned());
+        }
+        return Ok(format!("---\n{}\n---\n{text}", created.join("\n")));
     };
 
     let line_ending = if text[found.yaml_start..found.yaml_end].contains("\r\n") {
@@ -103,9 +112,11 @@ pub fn set(text: &str, updates: &[(String, String)]) -> Result<String, String> {
                 let existing = lines[index]
                     .split_once(':')
                     .map_or_else(|| key.clone(), |(name, _)| name.trim().to_owned());
-                lines[index] = entry(&existing, value);
+                let end = value_end(&lines, index);
+                let replacement = render(&existing, value)?;
+                lines.splice(index..end, replacement);
             }
-            None => lines.push(entry(key, value)),
+            None => lines.extend(render(key, value)?),
         }
     }
 
@@ -118,6 +129,45 @@ pub fn set(text: &str, updates: &[(String, String)]) -> Result<String, String> {
         &text[..found.yaml_start],
         &text[found.yaml_end..]
     ))
+}
+
+fn render(key: &str, value: &FieldValue) -> Result<Vec<String>, String> {
+    match value {
+        FieldValue::Scalar(value) => Ok(vec![entry(key, value)]),
+        FieldValue::Remove => Ok(Vec::new()),
+        FieldValue::List(items) if items.is_empty() => Ok(vec![format!("{key}: []")]),
+        FieldValue::List(items) => {
+            let mut lines = Vec::with_capacity(items.len() + 1);
+            lines.push(format!("{key}:"));
+            for item in items {
+                let quoted = serde_json::to_string(item).map_err(|error| error.to_string())?;
+                lines.push(format!("  - {quoted}"));
+            }
+            Ok(lines)
+        }
+    }
+}
+
+fn value_end(lines: &[String], start: usize) -> usize {
+    let mut end = start + 1;
+    let mut cursor = start + 1;
+    while cursor < lines.len() {
+        if lines[cursor].trim().is_empty() {
+            cursor += 1;
+            continue;
+        }
+        if !continues(&lines[cursor]) {
+            break;
+        }
+        end = cursor + 1;
+        cursor += 1;
+    }
+    end
+}
+
+fn continues(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    line.starts_with([' ', '\t']) || trimmed == "-" || trimmed.starts_with("- ")
 }
 
 fn entry(key: &str, value: &str) -> String {
@@ -175,7 +225,7 @@ pub fn unquote(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{set, strip_frontmatter};
+    use super::{set, strip_frontmatter, FieldValue};
     use crate::search::fields::note_fields;
 
     fn keys(text: &str) -> Vec<String> {
@@ -195,8 +245,8 @@ mod tests {
 
     const BOOK: &str = "---\ncreated: 31-08-2026 | (19:31)\ncover: true\ntype: book\nauthor: Иван Ефремов\nПуть к файлу: \n---\nТело заметки.\n";
 
-    fn update(key: &str, value: &str) -> Vec<(String, String)> {
-        vec![(key.to_owned(), value.to_owned())]
+    fn update(key: &str, value: &str) -> Vec<(String, FieldValue)> {
+        vec![(key.to_owned(), FieldValue::Scalar(value.to_owned()))]
     }
 
     #[test]
@@ -278,6 +328,85 @@ mod tests {
         assert_eq!(
             updated,
             "---\r\ntitle: new\r\nplugin:\r\n  title: nested\r\n---\r\nbody"
+        );
+    }
+
+    fn list(key: &str, items: &[&str]) -> Vec<(String, FieldValue)> {
+        vec![(
+            key.to_owned(),
+            FieldValue::List(items.iter().map(|item| (*item).to_owned()).collect()),
+        )]
+    }
+
+    fn remove(key: &str) -> Vec<(String, FieldValue)> {
+        vec![(key.to_owned(), FieldValue::Remove)]
+    }
+
+    #[test]
+    fn writing_a_list_over_a_scalar_turns_the_value_into_a_block_list() {
+        let note = "---\ntype: book\nauthor: Ефремов\ntags: old\nstatus: draft\n---\nтело\n";
+
+        let updated = set(note, &list("tags", &["a", "b"])).unwrap();
+
+        assert_eq!(
+            updated,
+            "---\ntype: book\nauthor: Ефремов\ntags:\n  - \"a\"\n  - \"b\"\nstatus: draft\n---\nтело\n"
+        );
+    }
+
+    #[test]
+    fn replacing_a_block_list_removes_every_old_item() {
+        let note = "---\ntags:\n  - old1\n  - old2\nauthor: X\n---\nтело\n";
+
+        let updated = set(note, &update("tags", "\"single\"")).unwrap();
+
+        assert_eq!(updated, "---\ntags: \"single\"\nauthor: X\n---\nтело\n");
+    }
+
+    #[test]
+    fn replacing_an_inline_list_keeps_comments_blank_lines_and_order() {
+        let note = "---\n# комментарий\ntags: [old, other]\n\nstatus: draft\n---\nтело\n";
+
+        let updated = set(note, &list("tags", &["new"])).unwrap();
+
+        assert_eq!(
+            updated,
+            "---\n# комментарий\ntags:\n  - \"new\"\n\nstatus: draft\n---\nтело\n"
+        );
+    }
+
+    #[test]
+    fn removing_a_key_deletes_its_whole_value_and_keeps_the_body() {
+        let note = "---\ntags:\n  - a\n  - b\nauthor: X\n---\nтело\n";
+
+        let updated = set(note, &remove("tags")).unwrap();
+
+        assert_eq!(updated, "---\nauthor: X\n---\nтело\n");
+        assert_eq!(set(note, &remove("нет такого")).unwrap(), note);
+    }
+
+    #[test]
+    fn a_list_written_into_crlf_frontmatter_keeps_the_line_ending() {
+        let note = "---\r\ntags: old\r\nauthor: X\r\n---\r\nbody\r\n";
+
+        let updated = set(note, &list("tags", &["a"])).unwrap();
+
+        assert_eq!(
+            updated,
+            "---\r\ntags:\r\n  - \"a\"\r\nauthor: X\r\n---\r\nbody\r\n"
+        );
+    }
+
+    #[test]
+    fn an_empty_list_stays_a_list() {
+        let note = "---\ntags: old\n---\nтело\n";
+
+        let updated = set(note, &list("tags", &[])).unwrap();
+
+        assert_eq!(updated, "---\ntags: []\n---\nтело\n");
+        assert_eq!(
+            note_fields(&updated)[0].kind,
+            crate::search::fields::FieldKind::List
         );
     }
 

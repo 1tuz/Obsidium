@@ -1,3 +1,4 @@
+mod context;
 mod frontmatter;
 mod history;
 mod links;
@@ -8,6 +9,9 @@ mod transaction;
 mod trash;
 mod workspace;
 mod workspace_locator;
+
+#[cfg(test)]
+mod contract;
 
 use super::vault::Vault;
 use crate::app_core::Core;
@@ -37,13 +41,15 @@ pub const INSTRUCTIONS: &str = concat!(
     "Фоновая работа с другой базой знаний: передайте её address из list_workspaces аргументом workspace — ",
     "поиск, чтение и правка пойдут в фоновом гостевом индексе, а у пользователя на экране ничего не переключится. ",
     "Запрещено вызывать switch_workspace и open_note для чтения или записи — они переключают видимое окно пользователя! ",
-    "switch_workspace и open_note вызываются ИСКЛЮЧИТЕЛЬНО по прямой просьбе пользователя показать/открыть базу или заметку на экране."
+    "switch_workspace и open_note вызываются ИСКЛЮЧИТЕЛЬНО по прямой просьбе пользователя показать/открыть базу или заметку на экране. ",
+    "Запись (create_note, update_note, set_frontmatter, restore_version) по умолчанию не открывает вкладку: open: true передавайте только тогда, когда пользователь попросил показать результат."
 );
 
 pub fn definitions() -> Vec<Value> {
     let mut all = search::definitions();
     all.extend(notes::definitions());
     all.extend(frontmatter::definitions());
+    all.extend(context::definitions());
     all.extend(links::definitions());
     all.extend(tasks::definitions());
     all.extend(transaction::definitions());
@@ -57,6 +63,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Result<Value, String>
     search::call(core, name, arguments)
         .or_else(|| notes::call(core, name, arguments))
         .or_else(|| frontmatter::call(core, name, arguments))
+        .or_else(|| context::call(core, name, arguments))
         .or_else(|| links::call(core, name, arguments))
         .or_else(|| tasks::call(core, name, arguments))
         .or_else(|| transaction::call(core, name, arguments))
@@ -67,15 +74,31 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Result<Value, String>
 }
 
 pub fn tool(name: &str, description: &str, properties: Value, required: &[&str]) -> Value {
+    tool_with(name, description, properties, required, json!({}))
+}
+
+pub fn tool_with(
+    name: &str,
+    description: &str,
+    properties: Value,
+    required: &[&str],
+    keywords: Value,
+) -> Value {
+    let mut input = json!({
+        "type": "object",
+        "properties": properties,
+        "required": required,
+        "additionalProperties": false,
+    });
+    if let (Some(input), Some(keywords)) = (input.as_object_mut(), keywords.as_object()) {
+        for (keyword, value) in keywords {
+            input.insert(keyword.clone(), value.clone());
+        }
+    }
     json!({
         "name": name,
         "description": description,
-        "inputSchema": {
-            "type": "object",
-            "properties": properties,
-            "required": required,
-            "additionalProperties": false,
-        },
+        "inputSchema": input,
     })
 }
 
@@ -90,9 +113,28 @@ pub fn write_retrying(
     version_name: Option<&str>,
     next: impl Fn(&str) -> Result<String, String>,
 ) -> Result<(bool, String), String> {
+    write_retrying_with_hash(core, note, source, version_name, None, next)
+}
+
+pub fn write_retrying_with_hash(
+    core: &Core,
+    note: &Path,
+    source: Source,
+    version_name: Option<&str>,
+    expected_hash: Option<&str>,
+    next: impl Fn(&str) -> Result<String, String>,
+) -> Result<(bool, String), String> {
     let mut conflicts = 0;
     loop {
         let snapshot = read_file_snapshot_impl(note).map_err(|error| error.to_string())?;
+        if let Some(expected) = expected_hash {
+            if expected != snapshot.hash {
+                return Err(
+                    "Заметка изменилась после чтения: hash не совпал — перечитайте её и повторите правку"
+                        .to_owned(),
+                );
+            }
+        }
         let content = next(&snapshot.content)?;
         if content == snapshot.content {
             return Ok((false, content));
@@ -115,7 +157,7 @@ pub fn write_retrying(
 }
 
 pub fn open_after_write(core: &Core, vault: &Vault, note: &Path, arguments: &Value) {
-    if vault.visible && flag(arguments, "open", true) && !core.active_note.is(note) {
+    if vault.visible && flag(arguments, "open", false) && !core.active_note.is(note) {
         super::bridge::open_note_after_write(core, note);
     }
 }

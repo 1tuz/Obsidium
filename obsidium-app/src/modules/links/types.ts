@@ -17,4 +17,9 @@ export interface WikiLinkResolution {
   complete: boolean;
 }
 
+export interface SuggestedLinkResult {
+  changed: boolean;
+  path: string;
+}
+
 export type WikiLinkResolver = (targets: string[]) => Promise<WikiLinkResolution>;

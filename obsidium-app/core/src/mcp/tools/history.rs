@@ -19,6 +19,7 @@ pub fn definitions() -> Vec<Value> {
             "Версии заметки из её истории, от новых к старым. id — для read_version, restore_version и name_version; atMs — время в миллисекундах Unix; source — кто правил: me — пользователь, agent — агент (каждый вызов агента — отдельная версия), external — правка снаружи, links — ссылки после переименования другой заметки, start — исходный текст, restore и revert — восстановление версии и отмена её изменений (fromMs — время той версии); name — название версии.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "offset": { "type": "integer", "description": "Сколько версий пропустить, чтобы получить следующую страницу" },
                 "limit": { "type": "integer", "description": "Сколько версий вернуть, по умолчанию 50, максимум 200" },
                 "workspace": workspace_property(),
@@ -30,6 +31,7 @@ pub fn definitions() -> Vec<Value> {
             "Текст одной версии заметки по id из note_history. Длинный текст отдаётся частями: смотрите поля truncated и nextOffset.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "version": { "type": "string", "description": "id версии из note_history" },
                 "offset": { "type": "integer", "description": "С какого символа читать" },
                 "limit": { "type": "integer", "description": "Сколько символов вернуть, по умолчанию 8000" },
@@ -42,9 +44,10 @@ pub fn definitions() -> Vec<Value> {
             "Восстановить версию заметки: её текст становится текущим. Текст до восстановления сам остаётся в истории, поэтому восстановление обратимо. Вызывайте по просьбе пользователя.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "version": { "type": "string", "description": "id версии из note_history" },
                 "versionName": version_name_property(),
-                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении, по умолчанию да; в другой базе вкладка не открывается" },
+                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении; по умолчанию нет. Передавайте true, только если пользователь прямо попросил показать заметку, и не вызывайте для этого open_note или switch_workspace" },
                 "workspace": workspace_property(),
             }),
             &["note", "version"],
@@ -54,6 +57,7 @@ pub fn definitions() -> Vec<Value> {
             "Назвать версию заметки, переименовать её или снять название пустым name. Без version называется последняя версия заметки. Названные версии не удаляются по сроку хранения истории.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "version": { "type": "string", "description": "id версии из note_history; без него — последняя версия заметки" },
                 "name": { "type": "string", "description": "Название; пустая строка снимает его" },
                 "workspace": workspace_property(),
