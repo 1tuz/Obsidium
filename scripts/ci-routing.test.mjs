@@ -64,6 +64,33 @@ test('nightly runs full checks at 02:00 UTC+3 and has no release publication', (
   assert.doesNotMatch(nightly, /tauri-action|gh release|upload-artifact/iu);
 });
 
+test('the agent surface filter covers the CLI, MCP, links, wiki, and task sources', () => {
+  const filters = readFileSync('.github/filters.yml', 'utf8');
+  const block = filters.match(/agent_surface:\n((?:\s+- '[^']+'\n)+)/u);
+  assert.ok(block, 'agent_surface filter is missing');
+  for (const pattern of [
+    'obsidium-app/cli/**',
+    'obsidium-app/core/src/mcp/**',
+    'obsidium-app/core/src/links/**',
+    'obsidium-app/core/src/wiki/**',
+    'obsidium-app/core/src/search/tasks/**',
+    'scripts/agent-smoke.mjs',
+  ]) {
+    assert.ok(block[1].includes(`- '${pattern}'`), `agent_surface must include ${pattern}`);
+  }
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /steps\.changes\.outputs\.agent_surface == 'true'/u);
+  assert.match(ci, /node scripts\/agent-smoke\.mjs/u);
+  assert.match(ci, /cargo build --locked --manifest-path obsidium-app\/src-tauri\/Cargo\.toml -p obsidium-cli/u);
+});
+
+test('nightly runs the full agent surface smoke test', () => {
+  const nightly = readFileSync('.github/workflows/nightly-tests.yml', 'utf8');
+  assert.match(nightly, /agent-integration:/u);
+  assert.match(nightly, /timeout-minutes:/u);
+  assert.match(nightly, /node scripts\/agent-smoke\.mjs --full/u);
+});
+
 test('release builds all platforms before the single publish job', () => {
   const release = readFileSync('.github/workflows/release.yml', 'utf8');
   assert.match(release, /tags:\s*\[['"]v\*['"]\]/u);

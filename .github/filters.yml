@@ -23,6 +23,13 @@ rust_app:
   - 'obsidium-app/src-tauri/capabilities/**'
 rust_cli:
   - 'obsidium-app/cli/**/*.rs'
+agent_surface:
+  - 'obsidium-app/cli/**'
+  - 'obsidium-app/core/src/mcp/**'
+  - 'obsidium-app/core/src/links/**'
+  - 'obsidium-app/core/src/wiki/**'
+  - 'obsidium-app/core/src/search/tasks/**'
+  - 'scripts/agent-smoke.mjs'
 rust_workspace:
   - 'obsidium-app/core/Cargo.toml'
   - 'obsidium-app/src-tauri/Cargo.toml'

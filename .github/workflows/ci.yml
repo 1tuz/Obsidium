@@ -51,7 +51,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: manual
         run: |
-          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace rust_lock docs workflow release_contract installer_scripts; do
+          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace rust_lock agent_surface docs workflow release_contract installer_scripts; do
             echo "$name=true" >> "$GITHUB_OUTPUT"
           done
 
@@ -140,7 +140,7 @@ jobs:
         run: node ../scripts/run-related-vitest.mjs
 
       - uses: dtolnay/rust-toolchain@stable
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.changes.outputs.rust_lock == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_lock == 'true'
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.changes.outputs.rust_lock == 'true' || steps.changes.outputs.agent_surface == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_lock == 'true' || steps.manual.outputs.agent_surface == 'true'
         with:
           components: rustfmt
 
@@ -149,7 +149,7 @@ jobs:
         run: cargo metadata --locked --format-version 1 --manifest-path obsidium-app/src-tauri/Cargo.toml > /dev/null
 
       - uses: Swatinem/rust-cache@v2
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.changes.outputs.agent_surface == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.agent_surface == 'true'
         with:
           workspaces: obsidium-app/src-tauri -> target
 
@@ -184,6 +184,12 @@ jobs:
             [[ "$APP_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p aquilum-app
             [[ "$CLI_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-cli
           fi
+
+      - name: Run the agent surface smoke test
+        if: steps.changes.outputs.agent_surface == 'true' || steps.manual.outputs.agent_surface == 'true'
+        run: |
+          cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli
+          node scripts/agent-smoke.mjs
 
   auto-merge:
     name: Merge owner changes after checks

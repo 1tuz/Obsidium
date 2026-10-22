@@ -65,6 +65,27 @@ jobs:
           bash scripts/test-install-scripts.sh
           pwsh -NoProfile -File scripts/test-install-windows.ps1
 
+  agent-integration:
+    name: Agent surface integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: obsidium-app/src-tauri -> target
+
+      - name: Build the CLI
+        run: cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli
+
+      - name: Run the full agent surface smoke test
+        run: node scripts/agent-smoke.mjs --full
+
   performance:
     name: Search and indexing budgets
     runs-on: ubuntu-24.04
