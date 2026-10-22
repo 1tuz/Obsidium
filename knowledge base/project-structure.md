@@ -1,82 +1,89 @@
 # Структура проекта Obsidium
 
-## Статус: ✅ Фаза 1 — Базовый сетап завершён
+Статус: актуально на 2026-10-22. Переписан по факту: прежняя версия описывала React, Tiptap и
+Windows-пути, которых в коде давно нет.
 
 ## Расположение
 
-```
-D:\My programs\Obsidium\
-├── knowledge base\        ← документация проекта
-├── .artifacts\            ← ВСЕ сборки (gitignore); dev ≠ release
-│   ├── cargo-dev\         ← только debug (tauri dev / cargo test)
-│   ├── cargo-release\     ← только release (npm run release)
-│   ├── dist\              ← production-фронт Vite
-│   └── releases\          ← setup.exe + latest.json по версиям → GitHub Release
-│
-└── obsidium-app\          ← исходный код приложения
+```text
+Obsidium/
+├── knowledge base/          ← документация проекта (эта папка)
+├── .artifacts/              ← ВСЕ сборки (gitignore); dev ≠ release
+│   ├── cargo-dev/           ← только debug (tauri dev / cargo test)
+│   ├── cargo-release/       ← только release (npm run release)
+│   ├── dist/                ← production-фронт Vite
+│   └── releases/            ← setup.exe + latest.json по версиям → GitHub Release
+├── .github/workflows/       ← CI, nightly, release, macOS-артефакт, sync upstream
+├── scripts/                 ← CI-роутинг, проверки формата, установщики, релиз
+└── obsidium-app/
     ├── index.html
     ├── package.json
-    ├── vite.config.ts     ← outDir → ../.artifacts/dist
-    ├── scripts\build-release.ps1
-    ├── src\
-    └── src-tauri\
-        ├── .cargo\config.toml  ← target-dir → ../../.artifacts/cargo-dev
-        ├── Cargo.toml
-        └── tauri.conf.json
+    ├── core/                ← Rust-ядро (aquilum-core): без UI
+    │   ├── Cargo.toml
+    │   └── src/{documents,files,history,link_title,mcp,search,settings,ui_state,wikixiv}/
+    ├── cli/                 ← headless CLI (obsidium-cli) поверх того же ядра
+    ├── src/                 ← Preact + TypeScript, CodeMirror 6
+    ├── src-tauri/           ← Tauri-хост (aquilum-app): команды, окно, MCP-мост
+    ├── tests/
+    └── vendor/foliate-js/   ← submodule, читалка книг
 ```
 
 Правила изоляции сборок: [[build-artifacts-separation]].
 Релиз и автообновление: [[release-and-updates]].
 Открытие и сохранение стандартных файлов: [[standard-files]].
+Структура внутри `src/`: `components/` — то, что рисует; `modules/` — то, что решает (без JSX);
+`styles/` — токены и темы.
+
+## Пространство крейтов
+
+`obsidium-app/src-tauri/Cargo.toml` — корень workspace, участники: `.` (`aquilum-app`), `../core`
+(`aquilum-core`), `../cli` (`obsidium-cli`). Ядро не зависит от Tauri, поэтому его тесты идут на
+любой платформе без WebView-зависимостей, а CLI переиспользует тот же код, что и приложение
+([[headless-cli-and-mcp-transactions]]).
 
 ## Установленные зависимости
 
-### Фронтенд (npm)
+### Фронтенд (npm, `obsidium-app/package.json`)
 
-| Пакет | Версия | Назначение |
-|-------|--------|-----------|
-| **react** | ^19.1.0 | UI фреймворк |
-| **react-dom** | ^19.1.0 | React рендеринг |
-| **yjs** | ^13.6.31 | CRDT — ядро синхронизации |
-| **y-indexeddb** | ^9.0.12 | Офлайн-хранение Yjs документов |
-| **@tiptap/react** | ^3.27.3 | Редактор — React-обёртка |
-| **@tiptap/starter-kit** | ^3.27.3 | Базовый набор расширений |
-| **@tiptap/extension-collaboration** | ^3.27.3 | Tiptap ↔ Yjs биндинг |
-| **@tiptap/pm** | ^3.27.3 | ProseMirror ядро |
-| + 20 расширений Tiptap | ^3.27.3 | Bold, italic, списки, ссылки и т.д. |
+| Пакет | Назначение |
+|-------|-----------|
+| **preact** | UI-фреймворк; в коде импорты идут из `react`, пакет подменяет `@preact/preset-vite` |
+| **@codemirror/* (`state`, `view`, `commands`, `language`, `lang-markdown`, `language-data`, `search`, `autocomplete`, `collab`, `merge`)** | Редактор, live preview, поиск по заметке, история версий |
+| **@lezer/{common,highlight,markdown}** | Разбор и подсветка Markdown |
+| **motion** | Анимации интерфейса |
+| **pdfjs-dist** | Просмотр PDF |
+| **@tauri-apps/api + plugin-{autostart,dialog,opener}** | Мост к Rust-хосту |
+| **@phosphor-icons/core, @tabler/icons, lucide** | Иконки ([[icon-system]]) |
 
-### Бэкенд (Rust / Cargo)
+Ни `yjs`, ни `y-indexeddb`, ни `@tiptap/*` во фронтенде нет: CRDT-реплика документа живёт в ядре
+(`core/src/documents/replica.rs` на `yrs`), а редактор — CodeMirror 6 поверх текста заметки.
 
-| Крейт | Версия | Назначение |
-|-------|--------|-----------|
-| **tauri** | 2 | Десктоп-оболочка |
-| **tauri-plugin-opener** | 2 | Открытие ссылок/файлов |
-| **serde** | 1 | Сериализация данных |
-| **serde_json** | 1 | JSON парсинг |
+### Бэкенд (`obsidium-app/core/Cargo.toml`)
 
-### Dev-зависимости
+| Крейт | Назначение |
+|-------|-----------|
+| **rusqlite** (bundled) | Служебная база: поля frontmatter, задачи, wiki-связи, состояние UI |
+| **tantivy** (`mmap`, `lz4-compression`, `stemmer`) | Полнотекстовый индекс |
+| **rust-stemmers** | Стемминг RU/EN (Snowball) внутри собственного токенайзера |
+| **notify** | Наблюдение за файлами vault |
+| **atomic-write-file**, **blake3** | Атомарная запись и хэши для проверки конфликтов |
+| **walkdir**, **unicode-normalization**, **pulldown-cmark** | Обход vault, нормализация, разбор Markdown |
+| **ureq**, **httparse** | Сетевые запросы только для Викиксива ([[wikixiv]]) |
+| **yrs** | Совместимость с Yjs-обновлениями на стороне Rust |
 
-| Пакет | Версия | Назначение |
-|-------|--------|-----------|
-| **@tauri-apps/cli** | ^2 | Tauri CLI |
-| **typescript** | ~5.8.3 | TypeScript |
-| **vite** | ^7.0.4 | Сборщик |
-| **@vitejs/plugin-react** | ^4.6.0 | React плагин для Vite |
+Модели эмбеддингов в зависимостях нет: поиск полностью лексический, см.
+[[search-indexing-workspaces-part-2]].
 
-## Про установщик для пользователей
+### Хост (`obsidium-app/src-tauri/Cargo.toml`)
 
-> **Tauri автоматически создаёт standalone `.exe` / `.msi` установщик.**
-> Пользователю НЕ нужен Node.js, Rust или что-либо ещё.
-> Всё компилируется в нативный бинарник (~5-10 MB vs ~150 MB у Electron).
->
-> Команда для сборки установщика: `npm run tauri build`
+`tauri` 2, `tauri-plugin-{opener,dialog,single-instance,updater(optional),autostart}`,
+`objc2*` на macOS для темы окна, `webview2-com`/`windows` на Windows.
 
-## Следующие шаги
+## Что проверяется в CI, а не локально
 
-1. Создать дизайн-систему (CSS-токены, масштабирование)
-2. Настроить структуру папок (`components/`, `modules/`, `hooks/`)
-3. Интегрировать Yjs как State Manager
-4. Написать парсер Markdown ↔ Yjs
+Сборки, полный набор тестов и бенчмарки живут в GitHub Actions ([[ci-pipelines]]). Локально
+допустимы адресные проверки: `cargo check -p aquilum-core`, `npx tsc --noEmit`, тесты одного
+модуля. Полные `cargo test --workspace` и `npm test` — ночной workflow.
 
 ## Техдолг
 
