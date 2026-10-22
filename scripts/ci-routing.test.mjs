@@ -35,6 +35,12 @@ test('a lockfile-only change resolves the lock instead of compiling the workspac
   assert.match(filters, /rust_lock:\n\s+- 'obsidium-app\/src-tauri\/Cargo\.lock'/u);
 });
 
+test('a version-only release bump does not rebuild the workspace', () => {
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /Only package versions changed/u);
+  assert.match(ci, /cargo test --locked --manifest-path "\$manifest" --workspace/u);
+});
+
 test('manual CI runs every lightweight check and does not auto-merge', () => {
   assert.deepEqual(route('workflow_dispatch'), {
     runChecks: true,
