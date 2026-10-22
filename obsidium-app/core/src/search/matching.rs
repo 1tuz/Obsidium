@@ -45,6 +45,7 @@ pub fn result_from_document(
     let path = stored_text(document, fields.id)?;
     let title = stored_text(document, fields.title).unwrap_or_default();
     let body = stored_text(document, fields.body).unwrap_or_default();
+    let tags = stored_text(document, fields.tags).unwrap_or_default();
     let file_name = Path::new(&path)
         .file_name()
         .and_then(|value| value.to_str())
@@ -73,7 +74,18 @@ pub fn result_from_document(
                 .map(|heading| heading.title.clone())
         }),
         matched_terms: matched_terms(terms, &name_matches, &body_matches),
+        matched_tags: matched_tags(&tags, terms),
     })
+}
+
+/// Tags the note already carries that the query touched, so a result can say why it is here.
+fn matched_tags(tags: &str, terms: &[String]) -> Vec<String> {
+    tags.split([' ', ','])
+        .map(str::trim)
+        .filter(|tag| !tag.is_empty())
+        .filter(|tag| !find_prefix_matches(tag, terms).is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
 }
 
 pub fn find_prefix_matches(text: &str, terms: &[String]) -> Vec<(usize, usize, usize)> {

@@ -37,7 +37,8 @@ pub async fn search_knowledge_base(
     limit: Option<usize>,
 ) -> Result<SearchResponse, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.search(&workspace_path, &query, limit)).await
+    let settings = core.settings.get_config().search;
+    run_blocking(move || service.search(&workspace_path, &query, limit, &settings)).await
 }
 
 #[tauri::command]

@@ -29,7 +29,7 @@ fn run_case(document_count: usize) {
     let started = Instant::now();
     let search_results = bench
         .search_index
-        .search("architecture topic", 50)
+        .search_defaults("architecture topic", 50)
         .unwrap()
         .1;
     let search_us = started.elapsed().as_micros();

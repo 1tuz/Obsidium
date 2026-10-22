@@ -3,7 +3,9 @@ import { Icon } from '../Common/Icon';
 import type { SearchResult } from '../../modules/search';
 import { highlightMatches } from './highlight';
 import './SearchResultCard.css';
-import { plural } from '../../i18n';
+import { plural, t } from '../../i18n';
+
+const MAX_TAGS = 2;
 
 interface SearchResultCardProps {
   result: SearchResult;
@@ -41,6 +43,16 @@ export function SearchResultCard({
               </span>
             )}
           </span>
+          {result.heading && (
+            <span className="q-search-result__heading" title={result.heading}>
+              {result.heading}
+            </span>
+          )}
+          {result.matchedTags.slice(0, MAX_TAGS).map((tag) => (
+            <span key={tag} className="q-search-result__tag" title={t('search.matchedTag')}>
+              #{tag}
+            </span>
+          ))}
         </span>
         <span className="q-search-result__count">{formatMatchCount(result.matchCount)}</span>
       </span>

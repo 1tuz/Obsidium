@@ -56,6 +56,7 @@ pub struct SearchResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub heading: Option<String>,
     pub matched_terms: Vec<String>,
+    pub matched_tags: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]

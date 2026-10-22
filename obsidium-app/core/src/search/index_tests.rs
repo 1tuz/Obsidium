@@ -38,15 +38,24 @@ fn excerpt_is_stable_and_keeps_the_first_match_visible() {
 }
 
 fn indexed(documents: &[(&str, &str, &str)]) -> (tempfile::TempDir, SearchIndex) {
+    let tagged = documents
+        .iter()
+        .map(|(path, title, body)| (*path, *title, *body, ""))
+        .collect::<Vec<_>>();
+    indexed_tagged(&tagged)
+}
+
+fn indexed_tagged(documents: &[(&str, &str, &str, &str)]) -> (tempfile::TempDir, SearchIndex) {
     let directory = tempfile::tempdir().unwrap();
     let index = SearchIndex::open(directory.path()).unwrap();
     let mut writer = index.index.writer(15_000_000).unwrap();
-    for (path, title, body) in documents {
+    for (path, title, body, tags) in documents {
         writer
             .add_document(doc!(
                 index.fields.id => *path,
                 index.fields.path => *path,
                 index.fields.title => *title,
+                index.fields.tags => *tags,
                 index.fields.body => *body,
             ))
             .unwrap();
@@ -57,6 +66,56 @@ fn indexed(documents: &[(&str, &str, &str)]) -> (tempfile::TempDir, SearchIndex)
 }
 
 #[test]
+fn a_tag_match_lifts_a_note_above_a_body_only_match() {
+    let (_directory, index) = indexed_tagged(&[
+        ("notes/alpha.md", "Alpha", "проект и план", "проект"),
+        ("notes/beta.md", "Beta", "проект и план", ""),
+    ]);
+
+    let results = index.search_defaults("проект", 10).unwrap().1;
+
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].title, "Alpha");
+    assert_eq!(results[0].matched_tags, ["проект"]);
+    assert!(results[1].matched_tags.is_empty());
+}
+
+#[test]
+fn a_tag_filter_keeps_only_notes_carrying_the_tag() {
+    let (_directory, index) = indexed_tagged(&[
+        ("notes/alpha.md", "Alpha", "план", "проект"),
+        ("notes/beta.md", "Beta", "план", "книги"),
+    ]);
+
+    let results = index.search_defaults("tag:проект план", 10).unwrap().1;
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].title, "Alpha");
+}
+
+#[test]
+fn a_folder_filter_narrows_the_path_and_an_extension_filter_uses_its_tokens() {
+    let (_directory, index) = indexed(&[
+        ("Проекты/план.md", "План", "сроки"),
+        ("Архив/план.md", "План", "сроки"),
+        ("Проекты/доска.canvas", "Доска", "сроки"),
+    ]);
+
+    let in_folder = index.search_defaults("folder:проекты сроки", 10).unwrap().1;
+    assert_eq!(in_folder.len(), 2);
+
+    let markdown = index.search_defaults("ext:md сроки", 10).unwrap().1;
+    assert_eq!(markdown.len(), 2);
+
+    let both = index
+        .search_defaults("folder:проекты ext:canvas сроки", 10)
+        .unwrap()
+        .1;
+    assert_eq!(both.len(), 1);
+    assert_eq!(both[0].title, "Доска");
+}
+
+#[test]
 fn disk_index_searches_title_and_body_by_case_insensitive_prefix() {
     let (_guard, index) = indexed(&[(
         "C:/vault/Квантовая заметка.md",
@@ -64,8 +123,8 @@ fn disk_index_searches_title_and_body_by_case_insensitive_prefix() {
         "Внутри есть быстрый поиск и ещё один поиск.",
     )]);
 
-    assert_eq!(index.search("КВАН", 10).unwrap().1.len(), 1);
-    let body_results = index.search("ПОИ", 10).unwrap().1;
+    assert_eq!(index.search_defaults("КВАН", 10).unwrap().1.len(), 1);
+    let body_results = index.search_defaults("ПОИ", 10).unwrap().1;
     assert_eq!(body_results[0].match_count, 2);
     assert!(body_results[0].snippet.contains("поиск"));
 }
@@ -90,7 +149,7 @@ fn a_multi_word_query_ranks_partial_matches_instead_of_returning_nothing() {
         ),
     ]);
 
-    let (_terms, results) = index.search("физика тика кадр плавность", 10).unwrap();
+    let (_terms, results) = index.search_defaults("физика тика кадр плавность", 10).unwrap();
     assert_eq!(
         results.len(),
         2,

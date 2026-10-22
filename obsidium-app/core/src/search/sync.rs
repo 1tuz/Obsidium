@@ -376,7 +376,7 @@ mod tests {
         synchronizer.apply_paths(HashSet::from([note])).unwrap();
         assert!(synchronizer.holds_writer());
         assert!(
-            !index.search("второе", 5).unwrap().1.is_empty(),
+            !index.search_defaults("второе", 5).unwrap().1.is_empty(),
             "правка видна поиску сразу"
         );
         assert!(

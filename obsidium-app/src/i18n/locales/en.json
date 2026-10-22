@@ -131,6 +131,7 @@
     "open": "open",
     "newPane": "new pane",
     "create": "create",
+    "matchedTag": "Matched tag",
     "matches": {
       "one": "{{count}} match",
       "other": "{{count}} matches"

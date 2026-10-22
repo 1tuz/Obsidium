@@ -48,6 +48,8 @@ impl Default for AnalysisSettings {
 pub struct SearchIndexSettings {
     pub candidate_pool_size: usize,
     pub max_query_terms: usize,
+    /// Groups of interchangeable words; a query term expands to its whole group.
+    pub synonym_groups: Vec<Vec<String>>,
 }
 
 impl Default for SearchIndexSettings {
@@ -55,6 +57,7 @@ impl Default for SearchIndexSettings {
         Self {
             candidate_pool_size: 256,
             max_query_terms: 64,
+            synonym_groups: Vec::new(),
         }
     }
 }

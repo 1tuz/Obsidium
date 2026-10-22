@@ -126,6 +126,7 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
             &vault.root.to_string_lossy(),
             &text(arguments, "query")?,
             Some(asked),
+            &core.settings.get_config().search,
         )
         .map_err(|error| error.to_string())?;
 

@@ -214,6 +214,7 @@ impl SearchService {
         workspace: &str,
         query: &str,
         limit: Option<usize>,
+        settings: &crate::settings::models::SearchIndexSettings,
     ) -> Result<SearchResponse, SearchError> {
         let found = self.with_index(workspace, |open| {
             Ok((Arc::clone(&open.index), Arc::clone(&open.progress)))
@@ -224,7 +225,7 @@ impl SearchService {
             Err(error) => return Err(error),
         };
         let limit = limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
-        let (query_terms, results) = index.search(query, limit)?;
+        let (query_terms, results) = index.search(query, limit, settings)?;
         Ok(SearchResponse {
             query_terms,
             results,

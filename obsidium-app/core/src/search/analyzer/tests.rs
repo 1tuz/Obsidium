@@ -13,7 +13,7 @@ fn tokens(text: &str) -> Vec<String> {
 
 #[test]
 fn index_version_tracks_text_and_link_parsing() {
-    assert_eq!(ANALYZER_VERSION, 12);
+    assert_eq!(ANALYZER_VERSION, 13);
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn stemmed_query_matches_inflected_document() {
     index.reload().unwrap();
 
     assert_eq!(tokens("нейронные"), tokens("нейронных"));
-    let (_terms, results) = index.search("нейронных", 10).unwrap();
+    let (_terms, results) = index.search_defaults("нейронных", 10).unwrap();
     assert!(
         results.iter().any(|result| result.path.contains("note.md")),
         "omnisearch should hit via analyzer, got {results:?}"
