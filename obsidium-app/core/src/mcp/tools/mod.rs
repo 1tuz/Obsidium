@@ -1,7 +1,9 @@
 mod frontmatter;
 mod history;
+mod links;
 mod notes;
 mod search;
+mod tasks;
 mod transaction;
 mod trash;
 mod workspace;
@@ -42,6 +44,8 @@ pub fn definitions() -> Vec<Value> {
     let mut all = search::definitions();
     all.extend(notes::definitions());
     all.extend(frontmatter::definitions());
+    all.extend(links::definitions());
+    all.extend(tasks::definitions());
     all.extend(transaction::definitions());
     all.extend(trash::definitions());
     all.extend(history::definitions());
@@ -53,6 +57,8 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Result<Value, String>
     search::call(core, name, arguments)
         .or_else(|| notes::call(core, name, arguments))
         .or_else(|| frontmatter::call(core, name, arguments))
+        .or_else(|| links::call(core, name, arguments))
+        .or_else(|| tasks::call(core, name, arguments))
         .or_else(|| transaction::call(core, name, arguments))
         .or_else(|| trash::call(core, name, arguments))
         .or_else(|| history::call(core, name, arguments))
