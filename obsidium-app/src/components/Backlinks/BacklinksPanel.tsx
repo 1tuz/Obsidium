@@ -66,6 +66,12 @@ function sourceMethodLabel(method: SidebarSourceMethod): string {
   return t(`analysis.methods.${method}`);
 }
 
+function analysisCounter(result: AnalysisResult, method: SidebarSourceMethod): string {
+  if (method === 'unlinkedMentions') return String(Math.round(result.rawScore));
+  if (result.confidence !== undefined) return `${(result.confidence * 100).toFixed(1)}%`;
+  return result.rawScore.toFixed(2);
+}
+
 function BacklinksPanelComponent({
   workspacePath,
   documentPath,
@@ -152,7 +158,11 @@ function BacklinksPanelComponent({
         : 'backlinks.outgoingEmpty');
   const analysisReasonLabel = activeSourceMethod === 'adamicAdar'
     ? t('analysis.commonNeighbors')
-    : t('analysis.commonTerms');
+    : activeSourceMethod === 'duplicates'
+      ? t('analysis.similarity')
+      : activeSourceMethod === 'unlinkedMentions'
+        ? t('analysis.mention')
+        : t('analysis.commonTerms');
   const analysisValueLabel = t('analysis.scoreColumn');
   const loading = isWixiv
     ? wikixivLoading
@@ -300,9 +310,7 @@ function BacklinksPanelComponent({
               <SidebarDocumentItem
                 key={result.path}
                 label={result.title}
-                counter={result.confidence !== undefined
-                  ? `${(result.confidence * 100).toFixed(1)}%`
-                  : result.rawScore.toFixed(2)}
+                counter={analysisCounter(result, activeSourceMethod)}
                 title={result.reasons.length > 0
                   ? `${result.title}\n${analysisReasonLabel}: ${result.reasons.join(', ')}`
                   : result.title}

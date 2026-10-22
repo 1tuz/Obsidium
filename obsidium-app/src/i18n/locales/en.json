@@ -182,11 +182,15 @@
     "scoreColumn": "Relevance",
     "commonTerms": "Common terms",
     "commonNeighbors": "Common neighbors",
+    "similarity": "Text overlap",
+    "mention": "Mentions",
     "error": "Analysis failed",
     "empty": "No related notes",
     "methods": {
       "adamicAdar": "Adamic adar",
       "bm25f": "BM25F",
+      "duplicates": "Duplicates",
+      "unlinkedMentions": "Unlinked mentions",
       "wixiv": "Wiki"
     }
   },
@@ -381,6 +385,8 @@
       "methods": "Analysis methods",
       "bm25f": "BM25F — text similarity",
       "adamicAdar": "Adamic-Adar — link graph",
+      "duplicates": "Duplicates — near-identical text",
+      "unlinkedMentions": "Unlinked mentions — title without a link",
       "wiki": "Wiki — Wikipedia search",
       "bm25fParams": "BM25F parameters",
       "bTitle": "b (title)",

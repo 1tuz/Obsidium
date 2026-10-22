@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub enum AnalysisMethod {
     AdamicAdar,
     Bm25f,
+    Duplicates,
+    UnlinkedMentions,
 }
 
 #[derive(Clone, Debug, Serialize)]

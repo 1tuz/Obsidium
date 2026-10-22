@@ -1,5 +1,7 @@
 use super::bm25f;
+use super::duplicates;
 use super::graph::GraphSnapshot;
+use super::mentions;
 use super::models::{AnalysisMethod, AnalysisResult};
 use crate::search::error::SearchError;
 use crate::search::models::SearchIndexState;
@@ -65,6 +67,16 @@ impl SearchService {
                     message: "Adamic-Adar analysis is disabled".to_owned(),
                 })
             }
+            AnalysisMethod::Duplicates if !config.analysis.enable_duplicates => {
+                Err(SearchError::Unavailable {
+                    message: "Duplicate analysis is disabled".to_owned(),
+                })
+            }
+            AnalysisMethod::UnlinkedMentions if !config.analysis.enable_unlinked_mentions => {
+                Err(SearchError::Unavailable {
+                    message: "Unlinked mention analysis is disabled".to_owned(),
+                })
+            }
             AnalysisMethod::Bm25f => bm25f::analyze(
                 &index,
                 &document,
@@ -72,10 +84,22 @@ impl SearchService {
                 &config.analysis.bm25f_params,
                 &config.search,
             ),
+            AnalysisMethod::Duplicates => duplicates::analyze(
+                &index,
+                &document,
+                limit,
+                &config.search,
+                &config.analysis.bm25f_params,
+            ),
             AnalysisMethod::AdamicAdar => {
                 let graph =
                     self.link_graph(&root, generation, revision, &metadata_path, cacheable)?;
                 Ok(graph.adamic_adar(&document, limit))
+            }
+            AnalysisMethod::UnlinkedMentions => {
+                let graph =
+                    self.link_graph(&root, generation, revision, &metadata_path, cacheable)?;
+                mentions::analyze(&index, &graph, &document, limit)
             }
         }
     }

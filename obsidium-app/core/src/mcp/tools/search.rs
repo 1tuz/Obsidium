@@ -55,6 +55,26 @@ pub fn definitions() -> Vec<Value> {
             &["note"],
         ),
         tool(
+            "duplicate_notes",
+            "Возможные дубли заметки: почти одинаковый текст без общего индекса — пересечение шинглов и близкая длина.",
+            json!({
+                "note": { "type": "string", "description": "Путь или название заметки" },
+                "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10" },
+                "workspace": workspace_property(),
+            }),
+            &["note"],
+        ),
+        tool(
+            "unlinked_mentions",
+            "Заметки, где встречается заголовок указанной, но ссылки [[...]] на неё нет.",
+            json!({
+                "note": { "type": "string", "description": "Путь или название заметки" },
+                "limit": { "type": "integer", "description": "Сколько заметок вернуть, по умолчанию 10" },
+                "workspace": workspace_property(),
+            }),
+            &["note"],
+        ),
+        tool(
             "backlinks",
             "Заметки, которые ссылаются на указанную: по одной строке на заметку, mentions — сколько раз ссылка встречается, heading и context — раздел и строка первого упоминания.",
             json!({
@@ -98,6 +118,8 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, 
         "dataview_syntax" => dataview_syntax(arguments),
         "related_notes" => analyze(core, arguments, AnalysisMethod::Bm25f),
         "linked_notes" => analyze(core, arguments, AnalysisMethod::AdamicAdar),
+        "duplicate_notes" => analyze(core, arguments, AnalysisMethod::Duplicates),
+        "unlinked_mentions" => analyze(core, arguments, AnalysisMethod::UnlinkedMentions),
         "backlinks" => backlinks(core, arguments),
         "outgoing_links" => outgoing_links(core, arguments),
         "wiki_sources" => wiki_sources(core, arguments),

@@ -28,6 +28,8 @@ impl Default for Bm25fParams {
 pub struct AnalysisSettings {
     pub enable_bm25f: bool,
     pub enable_adamic_adar: bool,
+    pub enable_duplicates: bool,
+    pub enable_unlinked_mentions: bool,
     pub enable_wikixiv: bool,
     pub bm25f_params: Bm25fParams,
 }
@@ -37,6 +39,8 @@ impl Default for AnalysisSettings {
         Self {
             enable_bm25f: true,
             enable_adamic_adar: true,
+            enable_duplicates: true,
+            enable_unlinked_mentions: true,
             enable_wikixiv: true,
             bm25f_params: Bm25fParams::default(),
         }

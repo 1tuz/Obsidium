@@ -26,6 +26,8 @@ interface Bm25fParams {
 interface AnalysisSettings {
   enableBm25f: boolean;
   enableAdamicAdar: boolean;
+  enableDuplicates: boolean;
+  enableUnlinkedMentions: boolean;
   enableWikixiv: boolean;
   bm25fParams: Bm25fParams;
 }
@@ -33,6 +35,7 @@ interface AnalysisSettings {
 interface SearchIndexSettings {
   candidatePoolSize: number;
   maxQueryTerms: number;
+  synonymGroups: string[][];
 }
 
 interface EditorSettings extends FontSettings {

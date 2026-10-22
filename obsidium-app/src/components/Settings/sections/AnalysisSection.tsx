@@ -37,6 +37,20 @@ export function AnalysisSection({ config, onChange }: SettingsSectionProps) {
             onChange={(enableAdamicAdar) => patchAnalysis({ enableAdamicAdar })}
           />
         </Row>
+        <Row label={t('settings.analysis.duplicates')}>
+          <Switch
+            label={t('analysis.methods.duplicates')}
+            checked={config.analysis.enableDuplicates}
+            onChange={(enableDuplicates) => patchAnalysis({ enableDuplicates })}
+          />
+        </Row>
+        <Row label={t('settings.analysis.unlinkedMentions')}>
+          <Switch
+            label={t('analysis.methods.unlinkedMentions')}
+            checked={config.analysis.enableUnlinkedMentions}
+            onChange={(enableUnlinkedMentions) => patchAnalysis({ enableUnlinkedMentions })}
+          />
+        </Row>
         <Row label={t('settings.analysis.wiki')}>
           <Switch
             label="Wiki"

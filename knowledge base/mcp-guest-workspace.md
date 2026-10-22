@@ -55,7 +55,8 @@
 `index_paths` по-прежнему вызовет `prepare`, то есть это переключение, как и раньше.
 
 Какие инструменты открывают гостя. Индекс нужен поиску (`search_notes`, `find_notes`), ссылкам
-(`backlinks`, `outgoing_links`), анализу (`related_notes`, `linked_notes`), а также `rename_note` и
+(`backlinks`, `outgoing_links`), анализу (`related_notes`, `linked_notes`, `duplicate_notes`,
+`unlinked_mentions`), а также `rename_note` и
 `move_note`: без индекса ссылок переименование не обновит входящие `[[...]]`. Чтение, список,
 оглавление, создание, правка и удаление работают с файлами напрямую и индекс не открывают. Если гость
 этой базы уже открыт, их правки доходят до него через `notify_paths`. Если нет, следующий

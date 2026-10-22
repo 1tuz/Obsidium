@@ -1,4 +1,4 @@
-export type AnalysisMethod = 'adamicAdar' | 'bm25f';
+export type AnalysisMethod = 'adamicAdar' | 'bm25f' | 'duplicates' | 'unlinkedMentions';
 
 export type SidebarSourceMethod = AnalysisMethod | 'wixiv';
 
@@ -14,10 +14,18 @@ export interface AnalysisResult {
 interface AnalysisMethodFlags {
   enableBm25f: boolean;
   enableAdamicAdar: boolean;
+  enableDuplicates: boolean;
+  enableUnlinkedMentions: boolean;
   enableWikixiv: boolean;
 }
 
-const SIDEBAR_METHOD_ORDER: SidebarSourceMethod[] = ['bm25f', 'adamicAdar', 'wixiv'];
+const SIDEBAR_METHOD_ORDER: SidebarSourceMethod[] = [
+  'bm25f',
+  'adamicAdar',
+  'duplicates',
+  'unlinkedMentions',
+  'wixiv',
+];
 
 export function enabledSidebarMethods(
   flags: AnalysisMethodFlags | null | undefined,
@@ -26,6 +34,8 @@ export function enabledSidebarMethods(
   const enabled: Record<SidebarSourceMethod, boolean> = {
     bm25f: flags.enableBm25f,
     adamicAdar: flags.enableAdamicAdar,
+    duplicates: flags.enableDuplicates,
+    unlinkedMentions: flags.enableUnlinkedMentions,
     wixiv: flags.enableWikixiv,
   };
   return SIDEBAR_METHOD_ORDER.filter((method) => enabled[method]);
