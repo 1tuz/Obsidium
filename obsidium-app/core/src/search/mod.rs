@@ -9,7 +9,6 @@ pub mod fields;
 pub mod graph;
 pub mod guest;
 pub mod headings;
-pub mod hybrid;
 pub mod index;
 pub mod index_document;
 #[cfg(test)]
@@ -23,7 +22,6 @@ pub mod paths;
 pub mod progress;
 pub mod query;
 pub mod schema;
-pub mod semantic;
 pub mod service;
 pub mod suggest;
 pub mod sync;
