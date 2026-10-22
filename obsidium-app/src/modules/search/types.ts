@@ -19,6 +19,7 @@ export interface SearchResult {
   matchOffset: number;
   heading?: string;
   matchedTerms: string[];
+  matchedTags: string[];
 }
 
 export interface SearchResponse {

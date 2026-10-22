@@ -64,3 +64,66 @@ jobs:
           bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
           bash scripts/test-install-scripts.sh
           pwsh -NoProfile -File scripts/test-install-windows.ps1
+
+  performance:
+    name: Search and indexing budgets
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: obsidium-app/src-tauri -> target
+
+      - name: Install Tauri Linux test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+
+      - name: Run search and indexing benchmarks with a regression ceiling
+        env:
+          OBSIDIUM_BENCH_SIZES: 1000,10000
+          # Deliberately generous: the gate exists to catch an accidental quadratic pass,
+          # not to police a noisy shared runner.
+          OBSIDIUM_BENCH_BUDGET_MS: 40000
+        run: |
+          cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p aquilum-core \
+            benchmark_search_pipeline -- --ignored --nocapture
+          cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p aquilum-core \
+            benchmark_indexing -- --ignored --nocapture
+
+  compile:
+    name: Compile check on ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+          - platform: Windows x64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: obsidium-app/src-tauri -> target
+          key: ${{ matrix.target }}
+
+      - name: Check the whole workspace for platform-specific code
+        run: cargo check --locked --manifest-path obsidium-app/src-tauri/Cargo.toml --workspace --all-targets --target ${{ matrix.target }}

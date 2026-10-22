@@ -84,6 +84,13 @@ impl GraphSnapshot {
             .collect()
     }
 
+    pub fn links_to(&self, source: &Path, target: &Path) -> bool {
+        let target = identity(target);
+        self.outgoing
+            .get(&identity(source))
+            .is_some_and(|targets| targets.contains(&target))
+    }
+
     pub fn adamic_adar(&self, document: &Path, limit: usize) -> Vec<AnalysisResult> {
         let current = identity(document);
         let Some(current_neighbours) = self.neighbours.get(&current) else {
@@ -326,5 +333,18 @@ mod tests {
         let documents =
             ["A", "B", "X"].map(|name| std::path::PathBuf::from(format!("C:/vault/{name}.md")));
         assert_eq!(graph.incoming_counts(&documents), vec![2, 1, 0]);
+    }
+
+    #[test]
+    fn reports_a_direct_link_between_two_documents() {
+        let outgoing = HashMap::from([(node("X"), HashSet::from([node("A")]))]);
+        let graph = GraphSnapshot {
+            neighbours: HashMap::new(),
+            outgoing,
+            paths: HashMap::new(),
+        };
+
+        assert!(graph.links_to(Path::new("C:/vault/X.md"), Path::new("C:/vault/A.md")));
+        assert!(!graph.links_to(Path::new("C:/vault/A.md"), Path::new("C:/vault/X.md")));
     }
 }

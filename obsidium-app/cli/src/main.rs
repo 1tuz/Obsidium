@@ -94,7 +94,12 @@ fn search(
     wait_for_index(core, workspace)?;
     let result = core
         .search
-        .search(workspace, &query, Some(limit))
+        .search(
+            workspace,
+            &query,
+            Some(limit),
+            &core.settings.get_config().search,
+        )
         .map_err(|error| error.to_string())?;
     if json_output {
         return print_value(

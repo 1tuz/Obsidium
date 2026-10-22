@@ -29,7 +29,7 @@ fn run_case(document_count: usize) {
     let started = Instant::now();
     let search_results = bench
         .search_index
-        .search("architecture topic", 50)
+        .search_defaults("architecture topic", 50)
         .unwrap()
         .1;
     let search_us = started.elapsed().as_micros();
@@ -70,4 +70,30 @@ fn run_case(document_count: usize) {
     );
     println!("BENCH-SEARCH {line}");
     record("search_pipeline", &line);
+    assert_budgets(document_count, initial_scan_ms, warm_scan_ms, search_us);
+}
+
+fn assert_budgets(
+    document_count: usize,
+    initial_scan_ms: u128,
+    warm_scan_ms: u128,
+    search_us: u128,
+) {
+    let Ok(budget) = std::env::var("OBSIDIUM_BENCH_BUDGET_MS") else {
+        return;
+    };
+    let Ok(per_thousand_ms) = budget.trim().parse::<u128>() else {
+        return;
+    };
+    let allowed = per_thousand_ms.saturating_mul(document_count.max(1) as u128) / 1000;
+    for (name, value) in [
+        ("initial_scan_ms", initial_scan_ms),
+        ("warm_scan_ms", warm_scan_ms),
+        ("search_ms", search_us / 1000),
+    ] {
+        assert!(
+            value <= allowed,
+            "BENCH-SEARCH budget exceeded: {name}={value}ms for {document_count} documents, allowed {allowed}ms (OBSIDIUM_BENCH_BUDGET_MS={per_thousand_ms})"
+        );
+    }
 }

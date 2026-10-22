@@ -9,7 +9,6 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:search-benchmark": "node scripts/benchmark-hybrid-search.mjs",
     "check:colors": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/find-hardcoded-colors.ps1",
     "check:colors:strict": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/find-hardcoded-colors.ps1 -Strict",
     "migrate:created": "node scripts/migrate-created.mjs",

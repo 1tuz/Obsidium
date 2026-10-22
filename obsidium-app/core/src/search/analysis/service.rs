@@ -1,5 +1,7 @@
 use super::bm25f;
+use super::duplicates;
 use super::graph::GraphSnapshot;
+use super::mentions;
 use super::models::{AnalysisMethod, AnalysisResult};
 use crate::search::error::SearchError;
 use crate::search::models::SearchIndexState;
@@ -7,7 +9,7 @@ use crate::search::paths::canonical_path;
 use crate::search::service::{CachedGraph, SearchService};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::settings::models::AppConfig;
 
@@ -23,7 +25,7 @@ impl SearchService {
         limit: Option<usize>,
         config: &AppConfig,
     ) -> Result<Vec<AnalysisResult>, SearchError> {
-        let (root, generation, revision, index, metadata_path, cacheable) =
+        let (root, generation, revision, index, metadata, cacheable) =
             self.with_index(workspace, |open| {
                 let status = open.progress.snapshot();
                 if status.updating {
@@ -43,7 +45,7 @@ impl SearchService {
                     open.generation,
                     status.revision,
                     Arc::clone(&open.index),
-                    open.metadata_path.clone(),
+                    Arc::clone(&open.metadata),
                     open.is_visible(),
                 ))
             })?;
@@ -65,6 +67,16 @@ impl SearchService {
                     message: "Adamic-Adar analysis is disabled".to_owned(),
                 })
             }
+            AnalysisMethod::Duplicates if !config.analysis.enable_duplicates => {
+                Err(SearchError::Unavailable {
+                    message: "Duplicate analysis is disabled".to_owned(),
+                })
+            }
+            AnalysisMethod::UnlinkedMentions if !config.analysis.enable_unlinked_mentions => {
+                Err(SearchError::Unavailable {
+                    message: "Unlinked mention analysis is disabled".to_owned(),
+                })
+            }
             AnalysisMethod::Bm25f => bm25f::analyze(
                 &index,
                 &document,
@@ -72,10 +84,20 @@ impl SearchService {
                 &config.analysis.bm25f_params,
                 &config.search,
             ),
+            AnalysisMethod::Duplicates => duplicates::analyze(
+                &index,
+                &document,
+                limit,
+                &config.search,
+                &config.analysis.bm25f_params,
+            ),
             AnalysisMethod::AdamicAdar => {
-                let graph =
-                    self.link_graph(&root, generation, revision, &metadata_path, cacheable)?;
+                let graph = self.link_graph(&root, generation, revision, &metadata, cacheable)?;
                 Ok(graph.adamic_adar(&document, limit))
+            }
+            AnalysisMethod::UnlinkedMentions => {
+                let graph = self.link_graph(&root, generation, revision, &metadata, cacheable)?;
+                mentions::analyze(&index, &graph, &document, limit)
             }
         }
     }
@@ -85,17 +107,17 @@ impl SearchService {
         workspace: &str,
         documents: &[PathBuf],
     ) -> Result<Vec<usize>, SearchError> {
-        let (root, generation, revision, metadata_path, cacheable) =
+        let (root, generation, revision, metadata, cacheable) =
             self.with_index(workspace, |open| {
                 Ok((
                     open.root.clone(),
                     open.generation,
                     open.progress.snapshot().revision,
-                    open.metadata_path.clone(),
+                    Arc::clone(&open.metadata),
                     open.is_visible(),
                 ))
             })?;
-        let graph = self.link_graph(&root, generation, revision, &metadata_path, cacheable)?;
+        let graph = self.link_graph(&root, generation, revision, &metadata, cacheable)?;
         Ok(graph.incoming_counts(documents))
     }
 
@@ -104,14 +126,15 @@ impl SearchService {
         root: &Path,
         generation: u64,
         revision: u64,
-        metadata_path: &Path,
+        metadata: &Arc<Mutex<Connection>>,
         cacheable: bool,
     ) -> Result<Arc<GraphSnapshot>, SearchError> {
+        let load = || -> Result<Arc<GraphSnapshot>, SearchError> {
+            let connection = metadata.lock().map_err(SearchError::task)?;
+            Ok(Arc::new(GraphSnapshot::load(&connection, root)?))
+        };
         if !cacheable {
-            return Ok(Arc::new(GraphSnapshot::load(
-                &Connection::open(metadata_path)?,
-                root,
-            )?));
+            return load();
         }
         let cached_graph = {
             let cache = self.analysis_graph.read().map_err(SearchError::task)?;
@@ -125,10 +148,7 @@ impl SearchService {
         if let Some(graph) = cached_graph {
             return Ok(graph);
         }
-        let loaded = Arc::new(GraphSnapshot::load(
-            &Connection::open(metadata_path)?,
-            root,
-        )?);
+        let loaded = load()?;
         let mut cache = self.analysis_graph.write().map_err(SearchError::task)?;
         if let Some(cached) = cache.as_ref().filter(|cached| {
             cached.root == root && cached.generation == generation && cached.revision == revision

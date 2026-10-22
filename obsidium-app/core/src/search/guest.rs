@@ -183,7 +183,7 @@ mod tests {
 
         fn finds(&self, workspace: &str, word: &str) -> bool {
             self.service
-                .search(workspace, word, Some(10))
+                .search(workspace, word, Some(10), &Default::default())
                 .is_ok_and(|response| !response.results.is_empty())
         }
 
@@ -217,7 +217,7 @@ mod tests {
                 .service
                 .with_index(&home, |open| Ok(open
                     .index
-                    .search("чужая", 10)?
+                    .search_defaults("чужая", 10)?
                     .1
                     .is_empty()))
                 .unwrap(),

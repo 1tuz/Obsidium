@@ -11,6 +11,7 @@ pub struct SearchFields {
     pub id: Field,
     pub path: Field,
     pub title: Field,
+    pub tags: Field,
     pub body: Field,
 }
 
@@ -105,7 +106,16 @@ impl SearchIndex {
         &self,
         input: &str,
         limit: usize,
+        settings: &crate::settings::models::SearchIndexSettings,
     ) -> Result<(Vec<String>, Vec<SearchResult>), SearchError> {
-        query::search(self, input, limit)
+        query::search(self, input, limit, settings)
+    }
+
+    pub fn search_defaults(
+        &self,
+        input: &str,
+        limit: usize,
+    ) -> Result<(Vec<String>, Vec<SearchResult>), SearchError> {
+        self.search(input, limit, &Default::default())
     }
 }

@@ -172,9 +172,24 @@ fn update_document(
         index.fields.id => absolute_path.as_ref(),
         index.fields.path => searchable_path,
         index.fields.title => title,
+        index.fields.tags => tags_text(body),
         index.fields.body => body,
     ))?;
     Ok(())
+}
+
+fn tags_text(body: &str) -> String {
+    fields::note_fields(body)
+        .into_iter()
+        .find(|field| field.key.eq_ignore_ascii_case("tags"))
+        .map(|field| {
+            if field.items.is_empty() {
+                field.text
+            } else {
+                field.items.join(" ")
+            }
+        })
+        .unwrap_or_default()
 }
 
 fn upsert(

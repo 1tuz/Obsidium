@@ -83,7 +83,10 @@ fn run_case(mut bench: BenchIndex, label: &str, threads_before: usize) {
         .unwrap();
     });
     let search20 = best(|| {
-        bench.search_index.search("кадр замер frame", 21).unwrap();
+        bench
+            .search_index
+            .search_defaults("кадр замер frame", 21)
+            .unwrap();
     });
 
     let line = format!(

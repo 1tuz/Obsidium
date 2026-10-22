@@ -131,6 +131,7 @@
     "open": "открыть",
     "newPane": "новая панель",
     "create": "создать",
+    "matchedTag": "Совпавший тег",
     "matches": {
       "one": "{{count}} совпадение",
       "few": "{{count}} совпадения",
@@ -183,11 +184,15 @@
     "scoreColumn": "Релевантность",
     "commonTerms": "Общие термины",
     "commonNeighbors": "Общие соседи",
+    "similarity": "Пересечение текста",
+    "mention": "Упоминания",
     "error": "Не удалось выполнить анализ",
     "empty": "Нет подходящих заметок",
     "methods": {
       "adamicAdar": "Adamic adar",
       "bm25f": "BM25F",
+      "duplicates": "Дубли",
+      "unlinkedMentions": "Непривязанные упоминания",
       "wixiv": "Wiki"
     }
   },
@@ -382,6 +387,8 @@
       "methods": "Методы анализа",
       "bm25f": "BM25F — текстовое сходство",
       "adamicAdar": "Adamic-Adar — граф связей",
+      "duplicates": "Дубли — почти одинаковый текст",
+      "unlinkedMentions": "Непривязанные упоминания — заголовок без ссылки",
       "wiki": "Wiki — поиск по Wikipedia",
       "bm25fParams": "Параметры BM25F",
       "bTitle": "b (заголовок)",

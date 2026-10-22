@@ -28,6 +28,8 @@ impl Default for Bm25fParams {
 pub struct AnalysisSettings {
     pub enable_bm25f: bool,
     pub enable_adamic_adar: bool,
+    pub enable_duplicates: bool,
+    pub enable_unlinked_mentions: bool,
     pub enable_wikixiv: bool,
     pub bm25f_params: Bm25fParams,
 }
@@ -37,6 +39,8 @@ impl Default for AnalysisSettings {
         Self {
             enable_bm25f: true,
             enable_adamic_adar: true,
+            enable_duplicates: true,
+            enable_unlinked_mentions: true,
             enable_wikixiv: true,
             bm25f_params: Bm25fParams::default(),
         }
@@ -48,6 +52,8 @@ impl Default for AnalysisSettings {
 pub struct SearchIndexSettings {
     pub candidate_pool_size: usize,
     pub max_query_terms: usize,
+    /// Groups of interchangeable words; a query term expands to its whole group.
+    pub synonym_groups: Vec<Vec<String>>,
 }
 
 impl Default for SearchIndexSettings {
@@ -55,6 +61,7 @@ impl Default for SearchIndexSettings {
         Self {
             candidate_pool_size: 256,
             max_query_terms: 64,
+            synonym_groups: Vec::new(),
         }
     }
 }
