@@ -2,7 +2,7 @@
 name = "obsidium-app"
 version = "0.5.15"
 description = "Fast local-first Markdown knowledge base"
-authors = ["Dmitriy Chaplinskiy"]
+authors = ["Obsidium contributors"]
 license = "AGPL-3.0-only"
 edition = "2021"
 

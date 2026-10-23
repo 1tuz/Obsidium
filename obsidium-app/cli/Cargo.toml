@@ -2,7 +2,7 @@
 name = "obsidium-cli"
 version = "0.2.8"
 description = "Headless CLI for Obsidium"
-authors = ["Dmitriy Chaplinskiy"]
+authors = ["Obsidium contributors"]
 license = "AGPL-3.0-only"
 edition = "2021"
 workspace = "../src-tauri"
