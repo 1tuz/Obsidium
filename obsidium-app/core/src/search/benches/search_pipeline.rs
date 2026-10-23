@@ -34,6 +34,19 @@ fn run_case(document_count: usize) {
         .1;
     let search_us = started.elapsed().as_micros();
 
+    let mut repeated_search_us = (0..5)
+        .map(|_| {
+            let started = Instant::now();
+            bench
+                .search_index
+                .search_defaults("architecture topic", 50)
+                .unwrap();
+            started.elapsed().as_micros()
+        })
+        .collect::<Vec<_>>();
+    repeated_search_us.sort_unstable();
+    let repeated_search_median_us = repeated_search_us[repeated_search_us.len() / 2];
+
     let search_settings = crate::settings::models::SearchIndexSettings::default();
     let bm25f_params = crate::settings::models::Bm25fParams::default();
 
@@ -62,7 +75,7 @@ fn run_case(document_count: usize) {
     let metadata_bytes = fs::metadata(&bench.metadata).map_or(0, |value| value.len());
 
     let line = format!(
-        "documents={document_count} initial_scan_ms={initial_scan_ms} warm_scan_ms={warm_scan_ms} search_us={search_us} bm25f_cold_us={bm25f_cold_us} bm25f_warm_us={bm25f_warm_us} candidate_pool={} max_query_terms={} search_results={} analysis_results={} index_bytes={index_bytes} metadata_bytes={metadata_bytes}",
+        "documents={document_count} initial_scan_ms={initial_scan_ms} warm_scan_ms={warm_scan_ms} search_us={search_us} repeated_search_median_us={repeated_search_median_us} bm25f_cold_us={bm25f_cold_us} bm25f_warm_us={bm25f_warm_us} candidate_pool={} max_query_terms={} search_results={} analysis_results={} index_bytes={index_bytes} metadata_bytes={metadata_bytes}",
         search_settings.candidate_pool_size,
         search_settings.max_query_terms,
         search_results.len(),

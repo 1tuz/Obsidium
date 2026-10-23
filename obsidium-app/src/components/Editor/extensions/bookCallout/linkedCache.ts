@@ -10,7 +10,27 @@ import type { BookCalloutModel } from './model';
 import type { BookCalloutViewData } from './widgetDom';
 import defaultBookCover from '../../../../assets/covers/default-book-cover.webp';
 
+const MAX_HYDRATION_CACHE_ENTRIES = 128;
 const hydrationCache = new Map<string, BookCalloutViewData>();
+
+function cachedHydration(key: string): BookCalloutViewData | undefined {
+  const known = hydrationCache.get(key);
+  if (known) {
+    hydrationCache.delete(key);
+    hydrationCache.set(key, known);
+  }
+  return known;
+}
+
+function rememberHydration(key: string, data: BookCalloutViewData): void {
+  hydrationCache.delete(key);
+  hydrationCache.set(key, data);
+  while (hydrationCache.size > MAX_HYDRATION_CACHE_ENTRIES) {
+    const oldest = hydrationCache.keys().next().value;
+    if (oldest === undefined) break;
+    hydrationCache.delete(oldest);
+  }
+}
 
 function hydrationCacheKey(workspacePath: string, wikiTarget: string): string {
   return `${workspacePath}\0${wikiTarget}`;
@@ -35,7 +55,7 @@ export function resolveCalloutData(
 ): BookCalloutViewData | null {
   if (!model.wikiTarget || !workspacePath) return viewDataFromModel(model, workspacePath);
 
-  const cached = hydrationCache.get(hydrationCacheKey(workspacePath, model.wikiTarget));
+  const cached = cachedHydration(hydrationCacheKey(workspacePath, model.wikiTarget));
   if (cached) {
     const pages = cached.bookPagePath
       ? getPages(cached.bookPagePath) ?? cached.pages
@@ -85,7 +105,7 @@ export async function prefetchLinkedCallouts(
   for (const model of models) {
     const target = model.wikiTarget;
     if (!target || byTarget.has(target)) continue;
-    const cached = hydrationCache.get(hydrationCacheKey(workspacePath, target));
+    const cached = cachedHydration(hydrationCacheKey(workspacePath, target));
     if (!refresh && cached?.bookPagePath) continue;
     byTarget.set(target, model);
   }
@@ -110,8 +130,8 @@ export async function prefetchLinkedCallouts(
       ? viewDataFromEntry(base, path, hydrateFromFm(path, fieldsByPath.get(path)), workspacePath)
       : base;
     const key = hydrationCacheKey(workspacePath, target);
-    const previous = hydrationCache.get(key);
-    hydrationCache.set(key, data);
+    const previous = cachedHydration(key);
+    rememberHydration(key, data);
     if (previous && bookCalloutSignature(previous) === bookCalloutSignature(data)) return;
     changed = true;
     if (data.coverUrl) covers.push(data.coverUrl);

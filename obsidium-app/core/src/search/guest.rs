@@ -44,6 +44,7 @@ impl SearchService {
                 "[aquilum:guest] закрыта {}: агенту нужна другая база",
                 previous.index.root.display()
             );
+            self.mark_storage_used(&previous.index.root);
             previous.index.stop();
         }
         let started = Instant::now();
@@ -117,6 +118,7 @@ impl SearchService {
             closed.index.root.display(),
             limit.as_secs()
         );
+        self.mark_storage_used(&closed.index.root);
         closed.index.stop();
         None
     }
