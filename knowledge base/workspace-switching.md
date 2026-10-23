@@ -52,10 +52,10 @@
 Раньше указатель лежал в `localStorage['obsidium_workspace']`, и это был баг: localStorage
 привязан к origin WebView, а origin у сборок разный — dev отдаёт страницу с
 `http://127.0.0.1:1420`, релиз с `http://tauri.localhost`. В
-`%LOCALAPPDATA%\com.dmitriy.obsidium-app\EBWebView` лежат два независимых хранилища, поэтому
+`%LOCALAPPDATA%\com.obsidium.app\EBWebView` лежат два независимых хранилища, поэтому
 dev и релиз помнили разные базы знаний. Всё остальное состояние приложения
 (`settings.json`, `window-state.json`, `ui-state.sqlite3`, индекс `search-v2`) живёт в
-`%APPDATA%\com.dmitriy.obsidium-app` и общее для обеих сборок, потому что путь строится из
+`%APPDATA%\com.obsidium.app` и общее для обеих сборок, потому что путь строится из
 одного `identifier` в `tauri.conf.json`.
 
 Правило на будущее: **состояние, которое должно совпадать у dev и релиза, нельзя держать в

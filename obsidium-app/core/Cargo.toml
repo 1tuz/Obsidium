@@ -2,7 +2,7 @@
 name = "obsidium-core"
 version = "0.5.15"
 description = "Obsidium core: documents, files, search, history and settings without any UI"
-authors = ["Dmitriy Chaplinskiy"]
+authors = ["Obsidium contributors"]
 license = "AGPL-3.0-only"
 edition = "2021"
 workspace = "../src-tauri"
