@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,6 +29,16 @@ const coreChanged = await setFilePattern(coreCargoTomlPath, /^version\s*=\s*"[^"
 
 if (tauriChanged || cargoChanged || coreChanged) {
   console.log(`Synced app version ${version} from package.json`);
+}
+
+if (cargoChanged || coreChanged) {
+  const result = spawnSync(
+    'cargo',
+    ['metadata', '--format-version', '1', '--manifest-path', join(projectRoot, 'src-tauri', 'Cargo.toml')],
+    { stdio: ['ignore', 'ignore', 'inherit'] },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error('cargo metadata failed after the version sync');
 }
 
 console.log(version);
