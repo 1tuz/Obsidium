@@ -244,6 +244,39 @@ fn search_notes_pages_through_folder_hits_beyond_the_first_window() {
 }
 
 #[test]
+fn search_notes_pages_past_the_hundredth_hit_without_duplicates() {
+    let notes = (0..140)
+        .map(|index| (format!("Batch/{index:03}.md"), "маркер\n".to_owned()))
+        .collect::<Vec<_>>();
+    let fixture = fixture_with(notes);
+    fixture.wait_for_index();
+
+    let mut seen = Vec::new();
+    let mut offset = 0;
+    loop {
+        let page = call(
+            &fixture.core,
+            "search_notes",
+            &json!({ "query": "маркер", "offset": offset, "limit": 50 }),
+        )
+        .unwrap();
+        let paths = fixture.paths(&page);
+        assert!(paths.len() <= 50, "страница не больше лимита: {page}");
+        seen.extend(paths);
+        if !page["hasMore"].as_bool().unwrap() {
+            break;
+        }
+        offset += 50;
+        assert!(offset < 500, "выдача обязана закончиться");
+    }
+
+    let unique = seen.iter().collect::<std::collections::HashSet<_>>().len();
+    assert_eq!(seen.len(), 140, "страницы не повторяют и не теряют заметки");
+    assert_eq!(unique, 140, "дубликатов между страницами нет");
+    fixture.core.shutdown();
+}
+
+#[test]
 fn set_frontmatter_writes_and_removes_list_values() {
     let fixture = fixture_with([
         (

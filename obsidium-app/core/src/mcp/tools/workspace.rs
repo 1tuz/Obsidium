@@ -118,7 +118,7 @@ fn open_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     if !vault.visible {
         return switch_to(core, &vault.root, Some(&note));
     }
-    let target = vault.note(&note)?;
+    let target = vault.note(core, &note)?;
     bridge::open_note(core, &target, true);
     Ok(json!({ "opened": vault.relative(&target) }))
 }
@@ -139,7 +139,7 @@ fn switch_to(core: &Core, path: &Path, note: Option<&str>) -> Result<Value, Stri
     let vault = Vault::active(core)?;
     let opened = match note {
         Some(note) => {
-            let target = vault.note(note)?;
+            let target = vault.note(core, note)?;
             bridge::open_note(core, &target, false);
             Some(vault.relative(&target))
         }

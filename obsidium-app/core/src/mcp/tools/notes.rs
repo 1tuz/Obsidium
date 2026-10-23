@@ -155,7 +155,7 @@ fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
     let Some(many) = optional_names(arguments, "notes")? else {
         let size = limit(arguments, READ_LIMIT, 40_000);
-        return read_one(&vault, &text(arguments, "note")?, arguments, size);
+        return read_one(core, &vault, &text(arguments, "note")?, arguments, size);
     };
     if many.len() > BATCH_LIMIT {
         return Err(format!(
@@ -166,7 +166,7 @@ fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     let size = limit(arguments, MANY_READ_LIMIT, 40_000);
     let notes = many
         .iter()
-        .map(|name| match read_one(&vault, name, arguments, size) {
+        .map(|name| match read_one(core, &vault, name, arguments, size) {
             Ok(note) => note,
             Err(error) => json!({ "note": name, "error": error }),
         })
@@ -174,8 +174,8 @@ fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     Ok(json!({ "notes": notes }))
 }
 
-fn read_one(vault: &Vault, name: &str, arguments: &Value, size: usize) -> Result<Value, String> {
-    let note = vault.note(name)?;
+fn read_one(core: &Core, vault: &Vault, name: &str, arguments: &Value, size: usize) -> Result<Value, String> {
+    let note = vault.note(core, name)?;
     let snapshot = read_file_snapshot_impl(&note).map_err(|error| error.to_string())?;
     let content = snapshot.content;
     let meta = super::frontmatter::map(&content);
@@ -230,7 +230,7 @@ pub fn window(text: &str, offset: usize, size: usize) -> Result<(&str, usize), S
 
 fn note_outline(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let content = read_text(&note).map_err(|error| error.to_string())?;
     let items = headings::headings(&content)
         .iter()
@@ -366,7 +366,7 @@ fn requested_notes(arguments: &Value) -> Result<Vec<(String, String)>, String> {
 fn update_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let edit = Edit {
         mode: optional_text(arguments, "mode").unwrap_or_else(|| "append".to_owned()),
         content: content(arguments, "content")?,
@@ -473,7 +473,7 @@ fn write_section(
 fn rename_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let title = text(arguments, "title")?;
     if title.contains(['/', '\\']) {
         return Err(
@@ -502,7 +502,7 @@ fn rename_note(core: &Core, arguments: &Value) -> Result<Value, String> {
 fn move_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let file_name = note
         .file_name()
         .ok_or("Не удалось определить имя файла")?
@@ -575,7 +575,7 @@ fn move_inside_vault(
 fn delete_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let target = gate::trash(core, &vault.root, &note).map_err(|error| error.to_string())?;
     Ok(json!({
         "deleted": vault.relative(&note),

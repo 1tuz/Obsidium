@@ -110,7 +110,7 @@ fn list_tasks(core: &Core, arguments: &Value) -> Result<Value, String> {
         }
     };
     let paths = match optional_text(arguments, "note") {
-        Some(note) => Some(vec![canonical_path(&vault.note(&note)?)
+        Some(note) => Some(vec![canonical_path(&vault.note(core, &note)?)
             .to_string_lossy()
             .into_owned()]),
         None => match optional_text(arguments, "folder") {
@@ -197,7 +197,7 @@ fn mutate(
 ) -> Result<Value, String> {
     require_write(core)?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let expected = optional_text(arguments, "expectedHash");
     let (changed, _) = write_retrying_with_hash(
         core,

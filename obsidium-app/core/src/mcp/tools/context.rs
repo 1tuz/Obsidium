@@ -80,7 +80,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, 
 fn get_note_context(core: &Core, arguments: &Value) -> Result<Value, String> {
     let name = text(arguments, "note")?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&name)?;
+    let note = vault.note(core, &name)?;
     let snapshot = read_file_snapshot_impl(&note).map_err(|error| error.to_string())?;
     let body = snapshot.content;
     let limit = limit(arguments, DEFAULT_LIMIT, MAX_LIMIT).max(MIN_LIMIT);

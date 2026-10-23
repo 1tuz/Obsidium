@@ -178,8 +178,8 @@ pub fn plan_link(
     kind: LinkKind,
 ) -> Result<LinkPlan, String> {
     require_write(core)?;
-    let source_path = vault.note(source)?;
-    let target_path = vault.note(target)?;
+    let source_path = vault.note(core, source)?;
+    let target_path = vault.note(core, target)?;
     ensure_distinct(vault, &source_path, &target_path)?;
     let snapshot = read_file_snapshot_impl(&source_path).map_err(|error| error.to_string())?;
     let resolver = Resolver::new(vault, &source_path);
@@ -221,8 +221,8 @@ pub fn plan_unlink(
     kind: LinkKind,
 ) -> Result<LinkPlan, String> {
     require_write(core)?;
-    let source_path = vault.note(source)?;
-    let target_path = vault.note(target)?;
+    let source_path = vault.note(core, source)?;
+    let target_path = vault.note(core, target)?;
     ensure_distinct(vault, &source_path, &target_path)?;
     let snapshot = read_file_snapshot_impl(&source_path).map_err(|error| error.to_string())?;
     let resolver = Resolver::new(vault, &source_path);

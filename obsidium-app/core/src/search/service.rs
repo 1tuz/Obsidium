@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 const DEFAULT_LIMIT: usize = 50;
-const MAX_LIMIT: usize = 100;
+const MAX_LIMIT: usize = crate::search::query::MAX_WINDOW;
 
 #[derive(Clone)]
 pub struct SearchService {

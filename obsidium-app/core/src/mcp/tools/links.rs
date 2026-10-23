@@ -81,7 +81,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, 
 
 fn suggest_links(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let results = links::suggest(core, &vault, &note, limit(arguments, 10, SUGGEST_LIMIT))?;
     Ok(json!({
         "note": vault.relative(&note),
@@ -147,7 +147,7 @@ fn unlink_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
 
 fn graph_neighborhood(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let depth = depth(arguments);
     let direction = Direction::parse(&optional_text(arguments, "direction").unwrap_or_default())?;
     let workspace = vault.root.to_string_lossy().into_owned();
