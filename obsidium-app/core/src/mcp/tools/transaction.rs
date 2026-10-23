@@ -19,6 +19,7 @@ const TRANSACTIONS_FOLDER: &str = "transactions";
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct EditRequest {
+    #[serde(alias = "path")]
     note: String,
     content: String,
     expected_hash: Option<String>,
@@ -56,10 +57,12 @@ pub fn definitions() -> Vec<Value> {
         "type": "object",
         "properties": {
             "note": { "type": "string", "description": "Путь или точное название существующей заметки" },
+            "path": { "type": "string", "description": "Синоним note: путь заметки из результатов поиска" },
             "content": { "type": "string", "description": "Полный новый текст заметки" },
             "expectedHash": { "type": "string", "description": "Опциональный hash из read_note/предыдущего preview" }
         },
-        "required": ["note", "content"],
+        "required": ["content"],
+        "anyOf": [{ "required": ["note"] }, { "required": ["path"] }],
         "additionalProperties": false
     });
     vec![
@@ -440,6 +443,23 @@ mod tests {
         assert_eq!(
             fs::read_to_string(vault.root.join("B.md")).unwrap(),
             "before B"
+        );
+    }
+
+    #[test]
+    fn an_edit_accepts_path_instead_of_note() {
+        let (_guard, core, vault) = fixture();
+        let args = json!({
+            "workspace": vault.root.to_string_lossy(),
+            "edits": [{ "path": "A.md", "content": "after A" }]
+        });
+
+        let previewed = preview(&core, &args).unwrap();
+        assert_eq!(previewed["changes"][0]["path"], "A.md");
+        apply(&core, &args).unwrap();
+        assert_eq!(
+            fs::read_to_string(vault.root.join("A.md")).unwrap(),
+            "after A"
         );
     }
 
