@@ -16,16 +16,24 @@ export function validateVersions(root, tag) {
   const cargoManifest = 'obsidium-app/src-tauri/Cargo.toml';
   const cargoContent = readFileSync(join(root, cargoManifest), 'utf8');
   const cargoVersion = /^version\s*=\s*"([^"]+)"/mu.exec(cargoContent)?.[1];
+  const coreManifest = 'obsidium-app/core/Cargo.toml';
+  const coreContent = readFileSync(join(root, coreManifest), 'utf8');
+  const coreVersion = /^version\s*=\s*"([^"]+)"/mu.exec(coreContent)?.[1];
   const lockVersion = /^name\s*=\s*"aquilum-app"\nversion\s*=\s*"([^"]+)"/mu.exec(cargoLock)?.[1];
+  const coreLockVersion = /^name\s*=\s*"aquilum-core"\nversion\s*=\s*"([^"]+)"/mu.exec(cargoLock)?.[1];
   if (!cargoVersion) throw new Error(`${cargoManifest} has no package version`);
+  if (!coreVersion) throw new Error(`${coreManifest} has no package version`);
   if (!lockVersion) throw new Error('obsidium-app/src-tauri/Cargo.lock has no aquilum-app package');
+  if (!coreLockVersion) throw new Error('obsidium-app/src-tauri/Cargo.lock has no aquilum-core package');
   const versions = [
     ['obsidium-app/package.json', packageJson.version],
     ['obsidium-app/package-lock.json', packageLock.version],
     ['obsidium-app/package-lock.json packages root', packageLock.packages?.['']?.version],
     ['obsidium-app/src-tauri/tauri.conf.json', tauri.version],
     [cargoManifest, cargoVersion],
+    [coreManifest, coreVersion],
     ['obsidium-app/src-tauri/Cargo.lock aquilum-app', lockVersion],
+    ['obsidium-app/src-tauri/Cargo.lock aquilum-core', coreLockVersion],
   ];
   for (const [path, found] of versions) {
     if (found !== version) throw new Error(`${path} version ${found} does not match ${tag}`);
