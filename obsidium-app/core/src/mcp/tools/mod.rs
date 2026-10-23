@@ -96,6 +96,15 @@ pub fn tool_with(
     required: &[&str],
     keywords: Value,
 ) -> Value {
+    let both_names = properties.get("note").is_some() && properties.get("path").is_some();
+    let required_a_note = required
+        .iter()
+        .any(|field| matches!(*field, "note" | "path"));
+    let required = required
+        .iter()
+        .copied()
+        .filter(|field| !(both_names && matches!(*field, "note" | "path")))
+        .collect::<Vec<_>>();
     let mut input = json!({
         "type": "object",
         "properties": properties,
@@ -105,6 +114,12 @@ pub fn tool_with(
     if let (Some(input), Some(keywords)) = (input.as_object_mut(), keywords.as_object()) {
         for (keyword, value) in keywords {
             input.insert(keyword.clone(), value.clone());
+        }
+        if both_names && required_a_note && !input.contains_key("anyOf") {
+            input.insert(
+                "anyOf".to_owned(),
+                json!([{ "required": ["note"] }, { "required": ["path"] }]),
+            );
         }
     }
     json!({

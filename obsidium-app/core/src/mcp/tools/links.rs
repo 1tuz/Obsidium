@@ -21,6 +21,7 @@ pub fn definitions() -> Vec<Value> {
             "Кандидаты в связи для заметки: текстовое сходство (BM25F), общие соседи по графу (Adamic-Adar), возможные дубли и упоминания без ссылки. Поле method называет способ, которым найден кандидат, — это не семантический поиск. alreadyLinked показывает, что связь уже есть.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "limit": { "type": "integer", "description": "Сколько кандидатов вернуть, по умолчанию 10, максимум 50" },
                 "workspace": workspace_property(),
             }),
@@ -31,6 +32,7 @@ pub fn definitions() -> Vec<Value> {
             "Связать две заметки: wiki-ссылка [[...]] в тексте или структурное поле frontmatter (parent, related, depends_on, blocks). Повторный вызов не добавляет вторую связь и ничего не пишет. preview возвращает план без записи.",
             json!({
                 "note": { "type": "string", "description": "Заметка-источник: путь или название" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки-источника" },
                 "target": { "type": "string", "description": "Заметка-цель: путь или название" },
                 "kind": { "type": "string", "enum": ["wiki", "parent", "related", "depends_on", "blocks"], "description": "Вид связи, по умолчанию wiki" },
                 "preview": { "type": "boolean", "description": "Только показать план правки, ничего не записывая" },
@@ -45,6 +47,7 @@ pub fn definitions() -> Vec<Value> {
             "Убрать одну связь между заметками: wiki-ссылку или запись структурного поля. Остальные упоминания и текст заметки не меняются.",
             json!({
                 "note": { "type": "string", "description": "Заметка-источник: путь или название" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки-источника" },
                 "target": { "type": "string", "description": "Заметка-цель: путь или название" },
                 "kind": { "type": "string", "enum": ["wiki", "parent", "related", "depends_on", "blocks"], "description": "Вид связи, по умолчанию wiki" },
                 "preview": { "type": "boolean", "description": "Только показать план правки, ничего не записывая" },
@@ -59,6 +62,7 @@ pub fn definitions() -> Vec<Value> {
             "Соседи заметки по графу связей до указанной глубины: путь, расстояние и вид связи, которой сосед найден, плюс рёбра между показанными заметками. direction: both — в обе стороны, in — кто ссылается на заметку, out — на кого ссылается она.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "depth": { "type": "integer", "minimum": 1, "maximum": 4, "description": "Глубина обхода от 1 до 4, по умолчанию 2" },
                 "direction": { "type": "string", "enum": ["both", "in", "out"], "description": "Направление обхода, по умолчанию both" },
                 "limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Сколько заметок вернуть, по умолчанию 25, максимум 100" },
