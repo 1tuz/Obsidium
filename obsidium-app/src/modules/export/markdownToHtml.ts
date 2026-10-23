@@ -317,7 +317,7 @@ function renderBlock(node: SyntaxNode, context: RenderContext): string {
   return `<p class="q-print-paragraph">${withHashtags(nodeText(context, node))}</p>`;
 }
 
-function documentBody(markdown: string): string {
+export function documentBody(markdown: string): string {
   const frontmatter = frontmatterRange(markdown);
   return frontmatter ? markdown.slice(frontmatter.to).replace(/^\n+/, '') : markdown;
 }

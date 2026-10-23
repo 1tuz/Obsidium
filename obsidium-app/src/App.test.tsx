@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { actAndSettle, mountDom, type MountedDom } from './testing/mountDom';
 import { setTheme } from './modules/theme';
+import { t } from './i18n';
 
 const editorLifecycle: string[] = [];
 const graphLifecycle: string[] = [];
@@ -137,7 +138,11 @@ vi.mock('./components/Layout/Sidebar', () => ({
 }));
 
 vi.mock('./components/Canvas/CanvasView', () => ({
-  CanvasView: () => <div data-testid="canvas-toolbar" role="toolbar" />,
+  CanvasView: ({ onOpenFile }: { onOpenFile: (path: string) => void }) => (
+    <div data-testid="canvas-toolbar" role="toolbar">
+      <button id="open-note-from-canvas" onClick={() => onOpenFile('/vault/From canvas.md')} />
+    </div>
+  ),
 }));
 
 vi.mock('./components/Pdf/PdfViewer', () => ({
@@ -253,6 +258,24 @@ describe('App editor lifecycle', () => {
 
     expect(find('open-file-from-new-tab')).toHaveLength(0);
     expect(editorLifecycle).toHaveLength(0);
+  });
+
+  it('returns from a note opened on the canvas back to the canvas', async () => {
+    await renderWithSession();
+
+    click('open-canvas');
+    await actAndSettle();
+    expect(attribute('active-file', 'data-path')).toBe('C:\\notes\\board.canvas');
+
+    click('open-note-from-canvas');
+    await actAndSettle();
+    expect(attribute('active-file', 'data-path')).toBe('/vault/From canvas.md');
+
+    const back = [...renderer!.container.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.getAttribute('aria-label') === t('editor.back'))!;
+    act(() => back.click());
+    await actAndSettle();
+    expect(attribute('active-file', 'data-path')).toBe('C:\\notes\\board.canvas');
   });
 
   it('keeps the quick theme switch in the sidebar while settings are loading', () => {

@@ -1,3 +1,4 @@
+import { mixCssColors } from './colorMix';
 import { describe, expect, it } from 'vitest';
 import type { CanvasDocument, CanvasTextNode, CanvasTypedNode } from './model';
 import { readCanvasAppearance } from './nodeProps';
@@ -120,12 +121,14 @@ describe('canvasSvg', () => {
     expect(svg).toContain('fill="none"');
   });
 
-  it('resolves preset and hex appearance fills through the palette', () => {
+  it('washes preset and hex appearance fills into the paper like the board does', () => {
     const preset = textNode({ id: 'preset', obsidium: { shape: 'rectangle', fill: '3' } });
     const hex = textNode({ id: 'hex', obsidium: { shape: 'rectangle', fill: '#123456' } });
 
-    expect(canvasSvg(document([preset]), context())).toContain(`fill="${PALETTE.presets['3']}"`);
-    expect(canvasSvg(document([hex]), context())).toContain('fill="#123456"');
+    expect(canvasSvg(document([preset]), context()))
+      .toContain(`fill="${mixCssColors(PALETTE.presets['3'], PALETTE.paper, 0.58)}"`);
+    expect(canvasSvg(document([hex]), context()))
+      .toContain(`fill="${mixCssColors('#123456', PALETTE.paper, 0.58)}"`);
   });
 
   it('rounds rectangle corners only when the appearance asks for it', () => {

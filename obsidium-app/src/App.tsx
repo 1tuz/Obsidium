@@ -249,10 +249,8 @@ export default function App() {
     if (offset === undefined && activeFile === path && paneId === undefined) return;
     const isNote = isMarkdownPath(path);
     if (isNote) beginOpenTrace(path);
-    if (record && isNote) {
-      if (activeFile && activeFile !== path && isMarkdownPath(activeFile)) {
-        push(activeFile);
-      }
+    if (record) {
+      if (activeFile && activeFile !== path) push(activeFile);
       push(path);
     }
     if (offset !== undefined) {

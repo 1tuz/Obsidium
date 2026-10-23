@@ -2,6 +2,12 @@ import { isFileCommandError, renameFile, writeFileAtomic } from './fileGateway';
 import { fileStem, siblingPath } from '../paths';
 import { sanitizeFileName } from './documentFactory';
 
+function extensionOf(path: string): string {
+  const dot = path.lastIndexOf('.');
+  const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  return dot > separator ? path.slice(dot) : '';
+}
+
 export async function renameWorkspaceFile(
   oldPath: string,
   newStem: string,
@@ -9,8 +15,7 @@ export async function renameWorkspaceFile(
 ): Promise<string | null> {
   const stem = sanitizeFileName(newStem);
   if (!stem || stem === fileStem(oldPath)) return null;
-  const extension = oldPath.toLowerCase().endsWith('.base') ? '.base' : '.md';
-  const newPath = siblingPath(oldPath, `${stem}${extension}`);
+  const newPath = siblingPath(oldPath, `${stem}${extensionOf(oldPath)}`);
   const renamed = await renameFile(oldPath, newPath);
   if (transformContent) {
     const content = transformContent(renamed.content, stem);

@@ -615,7 +615,7 @@ describe('CanvasView', () => {
     expect(menu.getAttribute('aria-label')).toBe('canvas.menu.label');
     const items = [...menu.querySelectorAll('button')].map((item) => item.textContent);
     expect(items).toEqual([
-      'canvas.menu.addText', 'canvas.slash.sticker', 'canvas.menu.copy', 'canvas.menu.paste',
+      'canvas.menu.addText', 'canvas.slash.sticker', 'canvas.menu.copy', 'canvas.menu.copyImage', 'canvas.menu.paste',
       'canvas.menu.addLink', 'canvas.slash.findNote', 'canvas.menu.selectAll',
       'canvas.toolbar.fitView', 'canvas.toolbar.resetView',
       'canvas.toolbar.exportSvg', 'canvas.toolbar.exportPng', 'canvas.menu.exportJson',

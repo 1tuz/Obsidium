@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { copyFile, isBasePath, isFileCommandError, isMarkdownPath, trashFile } from '../../modules/documents/fileGateway';
+import { copyFile, isBasePath, isCanvasPath, isFileCommandError, isMarkdownPath, trashFile } from '../../modules/documents/fileGateway';
 import { renameFolder } from '../../modules/documents/workspaceFolder';
 import {
   isRenameConflict,
@@ -44,7 +44,8 @@ export function useFileTreeActions({
 
     onPatchFileInTree?.(path, { name: trimmed });
     try {
-      const newPath = isMarkdownPath(path) || isBasePath(path)
+      const isFile = isMarkdownPath(path) || isBasePath(path) || isCanvasPath(path);
+      const newPath = isFile
         ? await renameWorkspaceFile(path, trimmed)
         : await renameFolder(path, trimmed);
       if (newPath) onPathMoved?.(path, newPath);

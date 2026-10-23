@@ -34,6 +34,19 @@ describe('renameWorkspaceFile', () => {
     expect(renameFile).toHaveBeenCalledWith('C:/vault/Old.base', 'C:/vault/Roadmap.base');
   });
 
+  it('keeps the canvas extension when renaming a board', async () => {
+    const renamed = await renameWorkspaceFile('C:/vault/Old.canvas', 'Board');
+
+    expect(renamed).toBe('C:/vault/Board.canvas');
+    expect(renameFile).toHaveBeenCalledWith('C:/vault/Old.canvas', 'C:/vault/Board.canvas');
+  });
+
+  it('does not mistake a dot inside a folder name for an extension', async () => {
+    const renamed = await renameWorkspaceFile('C:/vault/v1.2/Notes', 'Ideas');
+
+    expect(renamed).toBe('C:/vault/v1.2/Ideas');
+  });
+
   it('transforms the renamed Base with the hash returned by the rename command', async () => {
     const transform = vi.fn((content: string, stem: string) => `${content}\nname: ${stem}`);
 

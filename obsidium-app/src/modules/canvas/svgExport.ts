@@ -1,4 +1,5 @@
-import { renderMarkdownToHtml } from '../export/markdownToHtml';
+import { documentBody, renderMarkdownToHtml } from '../export/markdownToHtml';
+import { mixCssColors } from './colorMix';
 import { canvasFreehandPath } from './freehand';
 import { getCanvasEdgeGeometry, getCanvasEdgePath } from './interaction';
 import { canvasFreehandPoints } from './model';
@@ -224,13 +225,24 @@ function nodeShape(node: CanvasTypedNode): string | null {
   return obsidium.shape;
 }
 
-function appearanceFill(appearance: CanvasAppearance, context: CanvasSvgContext): string {
+function appearanceFill(appearance: CanvasAppearance, context: CanvasSvgContext, shape?: string): string {
   if (appearance.fill === null || appearance.fill === 'transparent') return 'none';
-  return colorValue(context.palette, appearance.fill, 'none');
+  const base = colorValue(context.palette, appearance.fill, 'none');
+  if (base === 'none') return 'none';
+  return mixCssColors(base, context.palette.paper, shape === 'sticker' ? 0.18 : 0.58);
+}
+
+function cardFill(node: CanvasTypedNode, context: CanvasSvgContext): string {
+  const base = colorValue(context.palette, node.color, '');
+  return base ? mixCssColors(base, context.palette.card, 0.84) : context.palette.card;
+}
+
+function cardStroke(node: CanvasTypedNode, context: CanvasSvgContext): string {
+  return colorValue(context.palette, node.color, context.palette.border);
 }
 
 function fileTitle(node: CanvasTypedNode): string {
-  if (node.type !== 'file') return '';
+  if (node.type !== 'file' || typeof node.file !== 'string') return '';
   return node.file.split(/[\\/]/).pop() ?? node.file;
 }
 
@@ -240,7 +252,7 @@ function groupLabel(node: CanvasTypedNode): string {
 }
 
 function linkTarget(node: CanvasTypedNode): string {
-  return node.type === 'link' ? node.url : '';
+  return node.type === 'link' && typeof node.url === 'string' ? node.url : '';
 }
 
 const PLAIN_TEXT_SIZE = 14;
@@ -251,7 +263,7 @@ function plainTextLines(markdown: string, box: ForeignObjectBox, size = PLAIN_TE
   const scale = size / PLAIN_TEXT_SIZE;
   const charWidth = PLAIN_TEXT_CHAR_WIDTH * scale;
   const lineHeight = PLAIN_TEXT_LINE_HEIGHT * scale;
-  const plain = markdown
+  const plain = documentBody(markdown)
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
@@ -382,7 +394,7 @@ function freehandNode(node: CanvasTypedNode, context: CanvasSvgContext, appearan
 
 function shapedTextNode(node: CanvasTypedNode, shape: string, context: CanvasSvgContext): string {
   const appearance = context.appearance(node);
-  const fill = appearanceFill(appearance, context);
+  const fill = appearanceFill(appearance, context, shape);
   const dash = canvasStrokeDasharray(appearance.strokeStyle, appearance.strokeWidth);
   const dashes = dash ? ` stroke-dasharray="${dash}"` : '';
   const outline = `fill="${escapeXml(fill)}" stroke="${escapeXml(context.shapeStroke(node))}" stroke-width="${appearance.strokeWidth}"${dashes} />`;
@@ -431,7 +443,7 @@ function mediaNode(node: CanvasTypedNode, media: CanvasSvgMedia, context: Canvas
 function fileNode(node: CanvasTypedNode, context: CanvasSvgContext): string {
   const media = context.media(node);
   if (media) return mediaNode(node, media, context);
-  const frame = `<rect x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" rx="10" fill="${escapeXml(colorValue(context.palette, node.color, context.palette.card))}" stroke="${escapeXml(context.palette.border)}" stroke-width="1" />`;
+  const frame = `<rect x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" rx="10" fill="${escapeXml(cardFill(node, context))}" stroke="${escapeXml(cardStroke(node, context))}" stroke-width="1" />`;
   const markdown = context.markdown(node);
   return `<g>${frame}${textElement(node.x + 12, node.y + 22, fileTitle(node), context.palette.ink, ' font-weight="600"')}${markdown ? foreignObject({ x: node.x + 12, y: node.y + 32, width: node.width - 24, height: node.height - 44 }, markdown, context, context.appearance(node)) : ''}</g>`;
 }
@@ -439,7 +451,7 @@ function fileNode(node: CanvasTypedNode, context: CanvasSvgContext): string {
 function linkNode(node: CanvasTypedNode, context: CanvasSvgContext): string {
   const media = context.media(node);
   if (media && media.kind === 'image') return mediaNode(node, media, context);
-  const frame = `<rect x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" rx="10" fill="${escapeXml(colorValue(context.palette, node.color, context.palette.card))}" stroke="${escapeXml(context.palette.border)}" stroke-width="1" />`;
+  const frame = `<rect x="${number(node.x)}" y="${number(node.y)}" width="${number(node.width)}" height="${number(node.height)}" rx="10" fill="${escapeXml(cardFill(node, context))}" stroke="${escapeXml(cardStroke(node, context))}" stroke-width="1" />`;
   return `<g>${frame}${textElement(node.x + 12, node.y + 22, linkTarget(node), context.palette.ink)}</g>`;
 }
 

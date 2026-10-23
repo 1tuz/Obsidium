@@ -61,6 +61,7 @@ import {
 import { canvasFreehandPath } from '../../modules/canvas/freehand';
 import { readCanvasAppearance, withCanvasAppearance, type CanvasAppearancePatch } from '../../modules/canvas/nodeProps';
 import { CANVAS_PRESET_COLORS, canvasColorCss as canvasCssColor, canvasFillCss, canvasStickerFill } from '../../modules/canvas/palette';
+import { copyPngToClipboard, svgToPngBlob } from '../../modules/canvas/svgToPng';
 import { canvasNodeStyle, canvasPixels } from '../../modules/canvas/renderStyle';
 import { canvasTextOverflow } from '../../modules/canvas/textFit';
 import { mixCssColors } from '../../modules/canvas/colorMix';
@@ -1078,6 +1079,20 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     return clipboardRef.current.nodes.length > 0;
   }, [selection]);
 
+  const copySelectionAsImage = useCallback(() => {
+    const current = documentRef.current;
+    if (!current || selection.length === 0) return;
+    const selected = new Set(expandCanvasSelection(selection, current.nodes));
+    const nodes = current.nodes.filter((node) => selected.has(node.id));
+    const edges = current.edges.filter((edge) => selected.has(edge.fromNode) && selected.has(edge.toNode));
+    void exportContext({ ...current, nodes, edges }, 'svg')
+      .then((svg) => copyPngToClipboard(svg))
+      .then((copied) => {
+        if (!copied) setActionError(t('canvas.errors.copyImageUnavailable'));
+      })
+      .catch(() => setActionError(t('canvas.errors.copyImageUnavailable')));
+  }, [exportContext, selection]);
+
   const pasteClipboard = useCallback((at?: CanvasPoint) => {
     const current = documentRef.current;
     const copiedNodes = clipboardRef.current.nodes;
@@ -1867,6 +1882,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       if (event.shiftKey) redo(); else undo();
     } else if (command && event.key.toLowerCase() === 'y') {
       event.preventDefault(); redo();
+    } else if (command && event.shiftKey && event.key.toLowerCase() === 'c') {
+      event.preventDefault();
+      copySelectionAsImage();
     } else if (command && event.key.toLowerCase() === 'c') {
       event.preventDefault();
       copySelection();
@@ -1883,7 +1901,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       setSelection([]); setSelectedEdgeId(null); setEdgeSource(null); setEditingId(null); setMenu(null); setSlashMenu(null); setLinkDraft(null);
       setActiveTool('select');
     }
-  }, [camera, chooseTool, copySelection, deleteSelection, duplicateSelection, fitView, onOpenFile, openUrl, pasteClipboard, redo, reorderSelection, spaceHeld, undo, viewport, workspacePath, zoomBy]);
+  }, [camera, chooseTool, copySelection, copySelectionAsImage, deleteSelection, duplicateSelection, fitView, onOpenFile, openUrl, pasteClipboard, redo, reorderSelection, spaceHeld, undo, viewport, workspacePath, zoomBy]);
 
   const handleKeyUp = useCallback((event: TargetedKeyboardEvent<HTMLElement>) => {
     if (event.key !== ' ') return;
@@ -1968,31 +1986,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     const current = documentRef.current;
     if (!current) return;
     const name = `${fileName(path).replace(/\.canvas$/i, '')}.png`;
-    void exportContext(current, 'svg').then((svg) => {
-      const source = new Blob([svg], { type: 'image/svg+xml' });
-      const sourceUrl = URL.createObjectURL(source);
-      const image = new Image();
-      const fail = () => { URL.revokeObjectURL(sourceUrl); setActionError(t('canvas.errors.exportFailed')); };
-      image.onload = () => {
-        try {
-          const scale = Math.min(2, 4096 / Math.max(image.width, image.height));
-          const canvas = window.document.createElement('canvas');
-          canvas.width = Math.max(1, Math.round(image.width * scale));
-          canvas.height = Math.max(1, Math.round(image.height * scale));
-          canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob((blob) => {
-            if (blob) downloadBlob(blob, name);
-            else setActionError(t('canvas.errors.exportFailed'));
-            URL.revokeObjectURL(sourceUrl);
-          });
-        } catch {
-          fail();
-        }
-      };
-      image.onerror = fail;
-      image.src = sourceUrl;
-    }).catch((cause: unknown) => setActionError(String(cause)));
+    void exportContext(current, 'svg')
+      .then((svg) => svgToPngBlob(svg))
+      .then((blob) => downloadBlob(blob, name))
+      .catch(() => setActionError(t('canvas.errors.exportFailed')));
   }, [exportContext, path]);
+
 
   const exportJson = useCallback(() => {
     const current = documentRef.current;
@@ -2479,6 +2478,10 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
               copySelection();
               setMenu(null);
             }}>{t('canvas.menu.copy')}</button>
+            <button role="menuitem" disabled={selection.length === 0} onClick={() => {
+              copySelectionAsImage();
+              setMenu(null);
+            }}>{t('canvas.menu.copyImage')}</button>
             <button role="menuitem" disabled={clipboardRef.current.nodes.length === 0} onClick={() => {
               pasteClipboard(menuWorldPoint(menu));
               setMenu(null);
