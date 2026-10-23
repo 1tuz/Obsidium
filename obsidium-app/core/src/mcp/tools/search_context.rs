@@ -29,6 +29,8 @@ const RRF_K: f64 = 60.0;
 const TEXT_WEIGHT: f64 = 1.0;
 const TAGS_WEIGHT: f64 = 0.6;
 const GRAPH_WEIGHT: f64 = 0.4;
+const GRAPH_ONLY_PENALTY: f64 = 0.5;
+const ARCHIVE_PENALTY: f64 = 0.45;
 
 pub fn definitions() -> Vec<Value> {
     vec![tool(
@@ -98,10 +100,12 @@ struct Candidate {
     distance: Option<usize>,
     via: Option<PathBuf>,
     matched_tags: Vec<String>,
+    archived: bool,
 }
 
 impl Candidate {
     fn new(path: PathBuf) -> Self {
+        let archived = is_archived(&path);
         Self {
             path,
             text_rank: None,
@@ -110,6 +114,7 @@ impl Candidate {
             distance: None,
             via: None,
             matched_tags: Vec::new(),
+            archived,
         }
     }
 
@@ -123,7 +128,20 @@ impl Candidate {
 
     fn score(&self) -> f64 {
         let (text, tags, graph) = self.signal();
-        text + tags + graph
+        let base = if text == 0.0 {
+            graph * GRAPH_ONLY_PENALTY
+        } else {
+            text + tags + graph
+        };
+        base * self.archive_penalty()
+    }
+
+    fn archive_penalty(&self) -> f64 {
+        if self.archived {
+            ARCHIVE_PENALTY
+        } else {
+            1.0
+        }
     }
 }
 
@@ -637,6 +655,16 @@ fn frontmatter_tags(content: &str) -> Vec<String> {
             }
         })
         .unwrap_or_default()
+}
+
+fn is_archived(path: &Path) -> bool {
+    path.components().any(|component| {
+        let name = component.as_os_str().to_string_lossy().to_lowercase();
+        matches!(
+            name.as_str(),
+            "архив" | "archive" | "archived" | "archive-old" | "старое"
+        )
+    })
 }
 
 fn normalize_tag(tag: &str) -> String {
