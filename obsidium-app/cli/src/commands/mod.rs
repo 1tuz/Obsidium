@@ -3,7 +3,9 @@ use crate::error::{CliResult, Failure};
 use crate::output::Options;
 use aquilum_core::Core;
 
+mod context;
 mod graph;
+mod knowledge;
 mod links;
 mod note;
 mod query;
@@ -20,6 +22,8 @@ pub fn dispatch(
 ) -> CliResult<()> {
     match command {
         "search" => search::run(core, args, options, workspace),
+        "context" => context::run(core, args, options, workspace),
+        "knowledge" => knowledge::run(core, args, options, workspace),
         "note" => note::run(core, args, options, workspace),
         "task" => task::run(core, args, options, workspace),
         "links" => links::run(core, args, options, workspace),
