@@ -3,7 +3,7 @@ import { blockingWheelGesture } from '../wheelGesture';
 import { matchesShortcut, SHORTCUTS, ZOOM_IN_ALIASES } from '../../config/shortcuts';
 import { clamp } from '../math';
 
-const STORAGE_KEY = 'aquilum-scale-factor';
+const STORAGE_KEY = 'obsidium-scale-factor';
 const ROOT_FONT_SIZE_PX = 16;
 export const MIN_SCALE = 0.7;
 export const MAX_SCALE = 1.5;

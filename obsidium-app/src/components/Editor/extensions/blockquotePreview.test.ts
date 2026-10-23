@@ -72,7 +72,7 @@ describe('blockquote preview', () => {
   });
 
   it('hides bar under mounted [!quote] widget, shows while editing', () => {
-    const doc = '> [!quote] Quote [1](aquilum-reader:cfi=x)\nafter';
+    const doc = '> [!quote] Quote [1](obsidium-reader:cfi=x)\nafter';
     expect(linesWithBar(doc, doc.indexOf('after'))).toEqual([]);
     expect(linesWithBar(doc, doc.indexOf('Quote'))).toEqual([1]);
   });
@@ -93,7 +93,7 @@ describe('blockquote preview', () => {
 
 describe('callout markers', () => {
   it('greys every [!name] marker, whatever the callout is', () => {
-    expect(calloutMarkers('> [!quote] text [1](aquilum-reader:cfi=x)', 5)).toEqual(['[!quote]']);
+    expect(calloutMarkers('> [!quote] text [1](obsidium-reader:cfi=x)', 5)).toEqual(['[!quote]']);
     expect(calloutMarkers('> [!book] Title\n> Автор: A')).toEqual(['[!book]']);
     expect(calloutMarkers('> [!warning] Careful')).toEqual(['[!warning]']);
   });
@@ -103,7 +103,7 @@ describe('callout markers', () => {
   });
 
   it('costs nothing while the caret is outside the callout', () => {
-    const doc = '> [!quote] text [1](aquilum-reader:cfi=x)\nafter';
+    const doc = '> [!quote] text [1](obsidium-reader:cfi=x)\nafter';
     expect(calloutMarkers(doc, doc.indexOf('after'))).toEqual([]);
     expect(calloutMarkers('> [!book] Title\n\nafter', '> [!book] Title\n\n'.length)).toEqual([]);
   });

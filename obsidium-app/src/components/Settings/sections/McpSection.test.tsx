@@ -47,7 +47,7 @@ describe('McpSection', () => {
       setLanguage(locale);
       const hint = t('settings.history.retentionHint');
       expect(hint).not.toContain('aquilum');
-      expect(hint).not.toContain('.aquilum');
+      expect(hint).not.toContain('.obsidium');
     }
   });
 });

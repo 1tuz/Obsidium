@@ -2,7 +2,7 @@ use crate::args::{read_stdin, required, Args};
 use crate::client::{call, optional};
 use crate::error::{CliResult, Failure};
 use crate::output::{emit, Options};
-use aquilum_core::Core;
+use obsidium_core::Core;
 use serde_json::{json, Value};
 
 const USAGE: &str =

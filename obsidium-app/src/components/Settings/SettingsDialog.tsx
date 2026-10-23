@@ -25,7 +25,7 @@ export function SettingsDialog({
   onClose,
 }: SettingsDialogProps) {
   const { config, isLoading, persist } = useSettingsPersist();
-  const [storedSection, setSection] = useLocalState<SettingsSectionId>('aquilum_settings_section', 'ui');
+  const [storedSection, setSection] = useLocalState<SettingsSectionId>('obsidium_settings_section', 'ui');
   const section = settingsSections().some(({ id }) => id === storedSection) ? storedSection : 'ui';
 
   return (

@@ -38,6 +38,20 @@ impl Args {
             .to_owned()
     }
 
+    pub fn reject_unknown_flags(&self, start: usize) -> CliResult<()> {
+        match self
+            .items
+            .iter()
+            .skip(start)
+            .find(|item| item.starts_with("--"))
+        {
+            Some(flag) => Err(Failure::usage(format!(
+                "неизвестный флаг: {flag}. Список флагов: obsidium help"
+            ))),
+            None => Ok(()),
+        }
+    }
+
     pub fn take_flag(&mut self, name: &str) -> bool {
         let Some(index) = self.items.iter().position(|item| item == name) else {
             return false;

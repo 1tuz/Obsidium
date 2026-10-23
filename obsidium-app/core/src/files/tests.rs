@@ -22,11 +22,11 @@ fn stat_returns_byte_length_without_reading_content() {
 fn snapshot_contains_content_and_hash() {
     let directory = tempfile::tempdir().expect("temp directory");
     let path = directory.path().join("note.md");
-    fs::write(&path, "Привет, Aquilum!").expect("fixture");
+    fs::write(&path, "Привет, Obsidium!").expect("fixture");
 
     let snapshot = read_file_snapshot_impl(&path).expect("snapshot");
 
-    assert_eq!(snapshot.content, "Привет, Aquilum!");
+    assert_eq!(snapshot.content, "Привет, Obsidium!");
     assert_eq!(snapshot.hash, hash_bytes(snapshot.content.as_bytes()));
 }
 
@@ -97,7 +97,7 @@ fn expected_hash_prevents_overwrite() {
     let path = directory.path().join("note.md");
     fs::write(&path, "external change").expect("fixture");
 
-    let error = write_file_atomic_impl(&path, "aquilum change", Some("stale-hash"))
+    let error = write_file_atomic_impl(&path, "obsidium change", Some("stale-hash"))
         .expect_err("conflict expected");
 
     assert!(matches!(error, FileCommandError::Conflict { .. }));

@@ -7,7 +7,7 @@ import {
   setFrontmatterExpanded,
 } from '../extensions/frontmatterUi';
 
-const STORAGE_KEY = 'aquilum_metadata_expanded';
+const STORAGE_KEY = 'obsidium_metadata_expanded';
 
 function storageKey(filePath: string): string {
   return `${STORAGE_KEY}:${filePath}`;

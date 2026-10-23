@@ -18,7 +18,7 @@ if (!version) throw new Error('package.json has no version field');
 
 const releaseRoot = join(artifactsRoot, 'releases', version);
 
-const signingKeyPath = join(process.env.USERPROFILE || process.env.HOME, '.tauri', 'aquilum.key');
+const signingKeyPath = join(process.env.USERPROFILE || process.env.HOME, '.tauri', 'obsidium.key');
 if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
   if (!existsSync(signingKeyPath)) {
     throw new Error(`Private signing key not found at: ${signingKeyPath}\nGenerate once: npx tauri signer generate -w "${signingKeyPath}"\nThen set password for this session:\n  set TAURI_SIGNING_PRIVATE_KEY_PASSWORD=your-password`);
@@ -44,7 +44,7 @@ const tauriConfig = JSON.parse(await readFile(join(projectRoot, 'src-tauri', 'ta
 const productName = tauriConfig.productName || 'Obsidium';
 const setupCandidates = [
   `${productName}_${version}_x64-setup.exe`,
-  `aquilum-app_${version}_x64-setup.exe`,
+  `obsidium-app_${version}_x64-setup.exe`,
 ];
 const setupName = setupCandidates.find((name) => existsSync(join(buildRoot, 'release', 'bundle', 'nsis', name))) || setupCandidates[0];
 const setupPath = join(buildRoot, 'release', 'bundle', 'nsis', setupName);

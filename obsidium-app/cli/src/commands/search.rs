@@ -2,7 +2,7 @@ use crate::args::Args;
 use crate::client::{call, optional};
 use crate::error::{CliResult, Failure};
 use crate::output::{emit, Options};
-use aquilum_core::Core;
+use obsidium_core::Core;
 use serde_json::{json, Value};
 
 const PAGE_LIMIT: usize = 50;
@@ -16,6 +16,7 @@ pub fn run(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> 
         .unwrap_or(10)
         .clamp(1, PAGE_LIMIT);
     let offset = args.take_number("--offset")?.unwrap_or(0);
+    args.reject_unknown_flags(1)?;
     let query = args.rest_from(1);
     if query.is_empty() {
         return Err(Failure::usage(USAGE));

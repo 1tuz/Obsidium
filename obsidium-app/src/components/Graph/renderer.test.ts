@@ -95,7 +95,7 @@ describe('GraphRenderer motion settling', () => {
     renderer.fit();
 
     document.documentElement.dataset.motion = 'off';
-    document.documentElement.dispatchEvent(new Event('aquilum-motion-change'));
+    document.documentElement.dispatchEvent(new Event('obsidium-motion-change'));
 
     expect((renderer as unknown as { store: { snapshot: GraphSnapshot | null } }).store.snapshot?.epoch.low)
       .toBe(3);

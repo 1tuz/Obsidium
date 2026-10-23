@@ -10,7 +10,7 @@ const translations: Record<Locale, TranslationMap> = {
   en: en as TranslationMap,
 };
 
-const STORAGE_KEY = 'aquilum_locale';
+const STORAGE_KEY = 'obsidium_locale';
 
 let currentLocale: Locale = 'en';
 

@@ -2,7 +2,7 @@ use crate::args::{required, Args};
 use crate::client::{call, optional};
 use crate::error::{CliResult, Failure};
 use crate::output::{emit, Options};
-use aquilum_core::Core;
+use obsidium_core::Core;
 use serde_json::{json, Value};
 
 pub fn run(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> CliResult<()> {

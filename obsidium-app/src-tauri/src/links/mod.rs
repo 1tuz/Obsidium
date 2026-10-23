@@ -1,4 +1,4 @@
-pub use aquilum_core::links::*;
+pub use obsidium_core::links::*;
 
 use crate::app_core::Core;
 use crate::mcp::vault::Vault;

@@ -26,23 +26,18 @@ describe('bookQuotes', () => {
     const md = formatBookQuote('Hello', 'epubcfi(/6/4!/4)', 'files/book.epub', 1);
     expect(md).toContain('book=files%2Fbook.epub');
     expect(parseReaderQuoteHref(
-      'aquilum-reader:book=files%2Fbook.epub&cfi=epubcfi(%2F6%2F4!%2F4)',
+      'obsidium-reader:book=files%2Fbook.epub&cfi=epubcfi(%2F6%2F4!%2F4)',
     )).toEqual({
       bookFile: 'files/book.epub',
       cfi: 'epubcfi(/6/4!/4)',
     });
   });
 
-  it('reads old and new reader link schemes', () => {
-    expect(parseReaderQuoteHref('aquilum-reader:cfi=old')).toEqual({ cfi: 'old' });
-    expect(parseReaderQuoteHref('obsidium-reader:cfi=new')).toEqual({ cfi: 'new' });
-  });
-
   it('parses legacy inline quote links without [!quote]', () => {
-    const parsed = parseReaderQuoteLine('> [Hello world](aquilum-reader:cfi=abc)');
+    const parsed = parseReaderQuoteLine('> [Hello world](obsidium-reader:cfi=abc)');
     expect(parsed).toEqual({
       quoteText: 'Hello world',
-      href: 'aquilum-reader:cfi=abc',
+      href: 'obsidium-reader:cfi=abc',
     });
   });
 
@@ -63,9 +58,9 @@ describe('collectBookQuoteRefs', () => {
   it('collects cfi, label and book from quote lines', () => {
     const doc = [
       'intro',
-      '> [!quote] First one [1](aquilum-reader:book=Files%2Ftest.fb2&cfi=epubcfi%28%2F6%2F4%29)',
+      '> [!quote] First one [1](obsidium-reader:book=Files%2Ftest.fb2&cfi=epubcfi%28%2F6%2F4%29)',
       '',
-      '> [!quote] Second one [2](aquilum-reader:book=Files%2Ftest.fb2&cfi=epubcfi%28%2F6%2F10%29)',
+      '> [!quote] Second one [2](obsidium-reader:book=Files%2Ftest.fb2&cfi=epubcfi%28%2F6%2F10%29)',
     ].join('\n');
 
     expect(collectBookQuoteRefs(doc)).toEqual([
@@ -75,8 +70,8 @@ describe('collectBookQuoteRefs', () => {
   });
 
   it('drops a quote once its line is gone from the note', () => {
-    const kept = '> [!quote] Kept [1](aquilum-reader:cfi=abc)';
-    const removed = '> [!quote] Removed [2](aquilum-reader:cfi=def)';
+    const kept = '> [!quote] Kept [1](obsidium-reader:cfi=abc)';
+    const removed = '> [!quote] Removed [2](obsidium-reader:cfi=def)';
     expect(collectBookQuoteRefs(`${kept}\n${removed}`)).toHaveLength(2);
     expect(collectBookQuoteRefs(kept)).toEqual([
       { cfi: 'abc', label: '1', bookFile: undefined },
@@ -84,7 +79,7 @@ describe('collectBookQuoteRefs', () => {
   });
 
   it('numbers legacy quotes that carry no ref label', () => {
-    const doc = '> Legacy[[→]](aquilum-reader:cfi=abc)';
+    const doc = '> Legacy[[→]](obsidium-reader:cfi=abc)';
     expect(collectBookQuoteRefs(doc)).toEqual([
       { cfi: 'abc', label: '1', bookFile: undefined },
     ]);

@@ -3,7 +3,6 @@ import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart';
 import { useEffect, useRef, useState } from 'react';
 import { Switch } from '../../Common/Switch';
 import { t } from '../../../i18n';
-import { openExternalUrl } from '../../../modules/openExternalUrl';
 import type { AppConfig } from '../../../modules/settings';
 import { checkForUpdate, installUpdate, UPDATES_UNAVAILABLE } from '../../../modules/updates';
 import { TextButton } from '../../Common/TextButton';
@@ -155,11 +154,6 @@ export function SystemSection({ config, onChange }: {
       </Section>
 
       <Section title={t('settings.system.about')}>
-        <Row label={t('settings.system.author')} description={t('settings.system.authorHint')}>
-          <TextButton onClick={() => void openExternalUrl('https://t.me/dmitriy_yiu')}>
-            https://t.me/dmitriy_yiu
-          </TextButton>
-        </Row>
         <Row label={t('settings.system.version')} description={t('settings.system.versionHint')}>
           <span className="q-settings-version">{version}</span>
         </Row>

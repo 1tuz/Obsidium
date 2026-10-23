@@ -604,7 +604,7 @@ mod tests {
                 ("начало и середина".to_owned(), Source::Me)
             ]
         );
-        assert!(!fixture.vault.join(".aquilum").exists());
+        assert!(!fixture.vault.join(".obsidium").exists());
 
         let restored = restore_from_trash_impl(&fixture.vault, &trashed)
             .unwrap()
@@ -625,7 +625,7 @@ mod tests {
                 ("начало и середина от агента".to_owned(), Source::Agent),
             ]
         );
-        assert!(!trash_path(&fixture.vault).join(".aquilum").exists());
+        assert!(!trash_path(&fixture.vault).join(".obsidium").exists());
     }
 
     #[test]
@@ -876,8 +876,8 @@ mod tests {
             write("текст!", Source::Agent, "hash", None),
         );
 
-        assert!(!fixture.vault.join(".aquilum").exists());
-        assert!(!fixture.data.join(".aquilum").exists());
+        assert!(!fixture.vault.join(".obsidium").exists());
+        assert!(!fixture.data.join(".obsidium").exists());
     }
 
     #[test]

@@ -1,5 +1,5 @@
 [package]
-name = "aquilum-core"
+name = "obsidium-core"
 version = "0.5.15"
 description = "Obsidium core: documents, files, search, history and settings without any UI"
 authors = ["Dmitriy Chaplinskiy"]

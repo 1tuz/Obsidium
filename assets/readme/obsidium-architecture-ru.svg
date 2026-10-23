@@ -76,7 +76,7 @@
 
         <rect x="840" y="218" width="376" height="226" rx="8" fill="#eb6c36" fill-opacity=".08" stroke="#eb6c36" stroke-width="1.4"/>
         <text x="868" y="252" fill="#eef2fa" font-family="'Geist',system-ui,sans-serif" font-size="18" font-weight="600">Ядро Rust</text>
-        <text x="868" y="276" fill="#aebbd0" font-family="'Geist Mono',ui-monospace,monospace" font-size="10">aquilum-core · общая библиотека</text>
+        <text x="868" y="276" fill="#aebbd0" font-family="'Geist Mono',ui-monospace,monospace" font-size="10">obsidium-core · общая библиотека</text>
         <path d="M868 292H1188" stroke="#aebbd0" stroke-opacity=".24" stroke-width="1"/>
         <text x="868" y="318" fill="#eef2fa" font-family="'Geist',system-ui,sans-serif" font-size="11">Документы (Yrs) · файлы · watcher</text>
         <text x="868" y="344" fill="#eef2fa" font-family="'Geist',system-ui,sans-serif" font-size="11">Поиск · связи · граф базы знаний</text>

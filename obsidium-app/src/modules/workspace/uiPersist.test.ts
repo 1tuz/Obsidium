@@ -10,7 +10,7 @@ const WORKSPACE = 'C:\\notes';
 const memory = new Map<string, string>();
 
 function saveForTest(workspacePath: string, absolutePaths: string[]) {
-  const key = `aquilum_expanded_folders:${workspacePath.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()}`;
+  const key = `obsidium_expanded_folders:${workspacePath.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()}`;
   localStorage.setItem(
     key,
     JSON.stringify(absolutePaths.flatMap((path) => {
@@ -87,7 +87,7 @@ describe('navigation history persistence', () => {
 
   it('returns empty history for corrupt storage', () => {
     localStorage.setItem(
-      `aquilum_nav_history:${WORKSPACE.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()}`,
+      `obsidium_nav_history:${WORKSPACE.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()}`,
       '{not-json',
     );
     expect(loadNavigationHistory(WORKSPACE)).toEqual({ entries: [], index: -1 });

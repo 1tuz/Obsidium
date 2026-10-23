@@ -54,7 +54,7 @@ run_with_mocks Linux x86_64 "$temporary_root/install.log" "$temporary_root/home"
 
 : > "$temporary_root/uninstall.log"
 run_with_mocks Linux x86_64 "$temporary_root/uninstall.log" "$temporary_root/home" bash "$script_dir/uninstall.sh"
-[[ "$(cat "$temporary_root/uninstall.log")" == *"dpkg --remove com.dmitriy.aquilum-app"* ]]
+[[ "$(cat "$temporary_root/uninstall.log")" == *"dpkg --remove com.obsidium.app"* ]]
 [[ "$(cat "$temporary_root/home/Documents/notes.md")" == 'settings stay' ]]
 
 for unsupported in 'Linux aarch64' 'Darwin x86_64' 'FreeBSD x86_64'; do

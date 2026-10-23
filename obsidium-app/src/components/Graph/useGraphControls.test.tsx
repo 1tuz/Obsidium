@@ -191,8 +191,8 @@ describe('useGraphControls persistence', () => {
   it('migrates existing graph settings and presets into app settings', () => {
     graphMocks.config = { graph: { preferences: null, presets: null } };
     graphMocks.legacy = {
-      aquilum_graph_preferences: { ...DEFAULT_PREFERENCES, nodeSize: 1.4 },
-      aquilum_graph_presets: { Research: DEFAULT_PREFERENCES },
+      obsidium_graph_preferences: { ...DEFAULT_PREFERENCES, nodeSize: 1.4 },
+      obsidium_graph_presets: { Research: DEFAULT_PREFERENCES },
     };
 
     act(() => { renderer = mountDom(<ControlsHarness />); });

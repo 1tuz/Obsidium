@@ -231,7 +231,7 @@ Report bugs and suggest improvements in [Issues](https://github.com/1tuz/Obsidiu
 
 ## Source code and license
 
-Obsidium is based on the [upstream project](https://github.com/Freaction/Aquilum) by Dmitriy Chaplinskiy (© 2026). This fork adds:
+Obsidium is a modified version of an upstream project; the original sources stay reachable through the sync workflow (see [knowledge base/upstream-sync.md](knowledge%20base/upstream-sync.md)). This fork adds:
 
 - GitHub Actions checks and installer builds for Windows, Apple Silicon macOS, and Ubuntu 24.
 - One-line install and uninstall scripts for macOS, Ubuntu, and Windows that leave user data untouched.

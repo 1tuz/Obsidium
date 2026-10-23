@@ -2,7 +2,7 @@ import { readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { migrateNote } from './lib/migrate-created.mjs';
 
-const SKIPPED_FOLDERS = new Set(['.git', '.obsidian', '.aquilum', 'node_modules', '.trash', 'Templates', 'Шаблоны']);
+const SKIPPED_FOLDERS = new Set(['.git', '.obsidian', '.obsidium', 'node_modules', '.trash', 'Templates', 'Шаблоны']);
 const SHOWN_EXAMPLES = 12;
 
 async function markdownFiles(root, folder = root) {

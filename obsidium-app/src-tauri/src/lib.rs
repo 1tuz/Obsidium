@@ -5,36 +5,36 @@ mod export;
 mod updater;
 mod window_state;
 
-use aquilum_core::{app_core, migration};
+use obsidium_core::{app_core, migration};
 
 // Each core module is re-exported under its old path, with the Tauri commands for it next to it, so
 // `crate::search::...` keeps working in the shell and commands still sit beside their module.
 mod documents {
-    pub use aquilum_core::documents::*;
+    pub use obsidium_core::documents::*;
     pub mod commands;
 }
 mod files {
-    pub use aquilum_core::files::*;
+    pub use obsidium_core::files::*;
     pub mod commands;
 }
 mod history {
-    pub use aquilum_core::history::*;
+    pub use obsidium_core::history::*;
     pub mod commands;
 }
 mod links;
 mod mcp {
-    pub use aquilum_core::mcp::*;
+    pub use obsidium_core::mcp::*;
     pub mod commands;
 }
 mod link_title {
-    pub use aquilum_core::link_title::*;
+    pub use obsidium_core::link_title::*;
     pub mod commands;
 }
 mod search {
-    pub use aquilum_core::search::*;
+    pub use obsidium_core::search::*;
     pub mod commands;
     pub mod analysis {
-        pub use aquilum_core::search::analysis::*;
+        pub use obsidium_core::search::analysis::*;
         pub mod commands;
     }
     pub mod graph {
@@ -42,15 +42,15 @@ mod search {
     }
 }
 mod settings {
-    pub use aquilum_core::settings::*;
+    pub use obsidium_core::settings::*;
     pub mod commands;
 }
 mod ui_state {
-    pub use aquilum_core::ui_state::*;
+    pub use obsidium_core::ui_state::*;
     pub mod commands;
 }
 mod wikixiv {
-    pub use aquilum_core::wikixiv::*;
+    pub use obsidium_core::wikixiv::*;
     pub mod commands;
 }
 
@@ -106,7 +106,7 @@ pub fn run() {
             let events: Arc<dyn app_core::EventSink> =
                 Arc::new(move |event: app_core::CoreEvent| {
                     if let Err(error) = handle.emit(event.name(), &event) {
-                        eprintln!("[aquilum] событие {} не отправлено: {error}", event.name());
+                        eprintln!("[obsidium] событие {} не отправлено: {error}", event.name());
                     }
                 });
             let core = app_core::Core::open(&app_data_dir, events);
@@ -269,7 +269,7 @@ fn paint_canvas(window: &tauri::WebviewWindow, theme: &str) {
     if let Err(error) =
         window.set_background_color(Some(if dark { DARK_CANVAS } else { LIGHT_CANVAS }))
     {
-        eprintln!("[aquilum] фон окна не задан: {error}");
+        eprintln!("[obsidium] фон окна не задан: {error}");
     }
 }
 
