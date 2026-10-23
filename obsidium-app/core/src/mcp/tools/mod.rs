@@ -1,9 +1,12 @@
+mod connections;
 mod context;
 mod frontmatter;
 mod history;
 mod links;
 mod notes;
+mod review;
 mod search;
+mod search_context;
 mod tasks;
 mod transaction;
 mod trash;
@@ -32,10 +35,13 @@ pub const INSTRUCTIONS: &str = concat!(
     "get_workspace и возьмите путь из поля activeNote. ",
     "Перед выводами о содержимом базы проверяйте поле indexing: пока индекс строится, ",
     "поиск может вернуть неполный результат.\n",
-    "Порядок работы: незнакомую базу начинайте с list_notes sort=links — сверху окажутся хабы, ",
-    "на которые ссылается больше всего заметок; дальше ищите, а не перебирайте наугад; ",
-    "длинную заметку читайте не целиком, а через note_outline и нужный раздел; правьте ",
-    "разделом, а не всей заметкой.\n",
+    "Порядок работы: начните с search_context — он возвращает готовые фрагменты с путём, заголовком и номерами строк, ",
+    "поэтому читать заметки целиком для поиска не нужно. Уточняйте чтение через get_note_context (heading, lineStart/lineEnd) ",
+    "или read_note с heading. Если тема разбросана по заметкам и нужны связи между ними — discover_connections. ",
+    "Актуализацию базы начинайте с review_knowledge: он отдаёт кандидатов на проверку с причиной и фрагментом, ",
+    "а проверку фактов по внешним источникам выполняете вы сами.\n",
+    "Порядок работы в незнакомой базе: search_context по теме, затем точечное чтение нужных источников, затем связи — только если они правда нужны; ",
+    "не начинайте с list_notes или обхода всех файлов. Длинную заметку читайте не целиком, а через note_outline и нужный раздел; правьте разделом, а не всей заметкой.\n",
     "Для согласованной правки нескольких заметок используйте preview_transaction → apply_transaction; ",
     "сохраняйте transactionId, чтобы при необходимости вызвать rollback_transaction.\n",
     "Фоновая работа с другой базой знаний: передайте её address из list_workspaces аргументом workspace — ",
@@ -46,10 +52,13 @@ pub const INSTRUCTIONS: &str = concat!(
 );
 
 pub fn definitions() -> Vec<Value> {
-    let mut all = search::definitions();
+    let mut all = search_context::definitions();
+    all.extend(search::definitions());
     all.extend(notes::definitions());
     all.extend(frontmatter::definitions());
     all.extend(context::definitions());
+    all.extend(connections::definitions());
+    all.extend(review::definitions());
     all.extend(links::definitions());
     all.extend(tasks::definitions());
     all.extend(transaction::definitions());
@@ -60,10 +69,13 @@ pub fn definitions() -> Vec<Value> {
 }
 
 pub fn call(core: &Core, name: &str, arguments: &Value) -> Result<Value, String> {
-    search::call(core, name, arguments)
+    search_context::call(core, name, arguments)
+        .or_else(|| search::call(core, name, arguments))
         .or_else(|| notes::call(core, name, arguments))
         .or_else(|| frontmatter::call(core, name, arguments))
         .or_else(|| context::call(core, name, arguments))
+        .or_else(|| connections::call(core, name, arguments))
+        .or_else(|| review::call(core, name, arguments))
         .or_else(|| links::call(core, name, arguments))
         .or_else(|| tasks::call(core, name, arguments))
         .or_else(|| transaction::call(core, name, arguments))
