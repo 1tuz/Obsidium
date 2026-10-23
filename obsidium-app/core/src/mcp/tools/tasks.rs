@@ -23,6 +23,7 @@ pub fn definitions() -> Vec<Value> {
             "Задачи из чекбоксов заметок: можно взять одну заметку, папку или всю базу, отфильтровать по статусу и подстроке текста. taskId — устойчивый адрес задачи: он не меняется, когда выше появляются новые строки, и его принимают update_task, toggle_task и delete_task.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки, пусто — вся база или папка" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "folder": { "type": "string", "description": "Папка, пусто — вся база" },
                 "status": { "type": "string", "enum": ["open", "done", "all"], "description": "open — незакрытые, done — закрытые, all — все (по умолчанию)" },
                 "query": { "type": "string", "description": "Подстрока в тексте задачи" },
@@ -37,6 +38,7 @@ pub fn definitions() -> Vec<Value> {
             "Добавить задачу-чекбокс в заметку: в конец файла или первым пунктом указанного раздела. Служебные идентификаторы в markdown не пишутся — строка остаётся обычным «- [ ] Текст».",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "text": { "type": "string", "description": "Текст задачи" },
                 "underHeading": { "type": "string", "description": "Заголовок раздела, куда вставить задачу; пусто — в конец заметки" },
                 "expectedHash": { "type": "string", "description": "hash из read_note: если файл изменился, правка не применится" },
@@ -49,6 +51,7 @@ pub fn definitions() -> Vec<Value> {
             "Изменить текст задачи, сохраняя отступ, маркер списка и состояние чекбокса. Задача адресуется taskId, а line — только подсказка: если по строке задача не совпала, поиск идёт по всему тексту заметки.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "taskId": { "type": "string", "description": "taskId из list_tasks; можно передать точный текст задачи" },
                 "line": { "type": "integer", "description": "Номер строки (1-based) как подсказка, если taskId неизвестен" },
                 "text": { "type": "string", "description": "Новый текст задачи" },
@@ -62,6 +65,7 @@ pub fn definitions() -> Vec<Value> {
             "Переключить чекбокс задачи: по умолчанию меняет «[ ]» на «[x]» и обратно, done задаёт состояние явно. Остальной текст строки не меняется.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "taskId": { "type": "string", "description": "taskId из list_tasks; можно передать точный текст задачи" },
                 "line": { "type": "integer", "description": "Номер строки (1-based) как подсказка, если taskId неизвестен" },
                 "done": { "type": "boolean", "description": "true — закрыть, false — открыть; пусто — переключить" },
@@ -75,6 +79,7 @@ pub fn definitions() -> Vec<Value> {
             "Удалить строку задачи целиком; соседние строки и остальной файл остаются байт в байт. Задача адресуется taskId, line — только подсказка.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "taskId": { "type": "string", "description": "taskId из list_tasks; можно передать точный текст задачи" },
                 "line": { "type": "integer", "description": "Номер строки (1-based) как подсказка, если taskId неизвестен" },
                 "expectedHash": { "type": "string", "description": "hash из read_note: если файл изменился, правка не применится" },
@@ -110,7 +115,7 @@ fn list_tasks(core: &Core, arguments: &Value) -> Result<Value, String> {
         }
     };
     let paths = match optional_text(arguments, "note") {
-        Some(note) => Some(vec![canonical_path(&vault.note(&note)?)
+        Some(note) => Some(vec![canonical_path(&vault.note(core, &note)?)
             .to_string_lossy()
             .into_owned()]),
         None => match optional_text(arguments, "folder") {
@@ -197,7 +202,7 @@ fn mutate(
 ) -> Result<Value, String> {
     require_write(core)?;
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let expected = optional_text(arguments, "expectedHash");
     let (changed, _) = write_retrying_with_hash(
         core,

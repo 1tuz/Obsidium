@@ -63,7 +63,7 @@ pub fn map(text: &str) -> Value {
 fn set_frontmatter(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let updates = field_updates(arguments)?;
     let version_name = optional_text(arguments, "versionName");
     let expected_hash = optional_text(arguments, "expectedHash");

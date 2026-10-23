@@ -21,6 +21,7 @@ pub fn definitions() -> Vec<Value> {
             "Кандидаты в связи для заметки: текстовое сходство (BM25F), общие соседи по графу (Adamic-Adar), возможные дубли и упоминания без ссылки. Поле method называет способ, которым найден кандидат, — это не семантический поиск. alreadyLinked показывает, что связь уже есть.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "limit": { "type": "integer", "description": "Сколько кандидатов вернуть, по умолчанию 10, максимум 50" },
                 "workspace": workspace_property(),
             }),
@@ -31,6 +32,7 @@ pub fn definitions() -> Vec<Value> {
             "Связать две заметки: wiki-ссылка [[...]] в тексте или структурное поле frontmatter (parent, related, depends_on, blocks). Повторный вызов не добавляет вторую связь и ничего не пишет. preview возвращает план без записи.",
             json!({
                 "note": { "type": "string", "description": "Заметка-источник: путь или название" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки-источника" },
                 "target": { "type": "string", "description": "Заметка-цель: путь или название" },
                 "kind": { "type": "string", "enum": ["wiki", "parent", "related", "depends_on", "blocks"], "description": "Вид связи, по умолчанию wiki" },
                 "preview": { "type": "boolean", "description": "Только показать план правки, ничего не записывая" },
@@ -45,6 +47,7 @@ pub fn definitions() -> Vec<Value> {
             "Убрать одну связь между заметками: wiki-ссылку или запись структурного поля. Остальные упоминания и текст заметки не меняются.",
             json!({
                 "note": { "type": "string", "description": "Заметка-источник: путь или название" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки-источника" },
                 "target": { "type": "string", "description": "Заметка-цель: путь или название" },
                 "kind": { "type": "string", "enum": ["wiki", "parent", "related", "depends_on", "blocks"], "description": "Вид связи, по умолчанию wiki" },
                 "preview": { "type": "boolean", "description": "Только показать план правки, ничего не записывая" },
@@ -59,6 +62,7 @@ pub fn definitions() -> Vec<Value> {
             "Соседи заметки по графу связей до указанной глубины: путь, расстояние и вид связи, которой сосед найден, плюс рёбра между показанными заметками. direction: both — в обе стороны, in — кто ссылается на заметку, out — на кого ссылается она.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "depth": { "type": "integer", "minimum": 1, "maximum": 4, "description": "Глубина обхода от 1 до 4, по умолчанию 2" },
                 "direction": { "type": "string", "enum": ["both", "in", "out"], "description": "Направление обхода, по умолчанию both" },
                 "limit": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Сколько заметок вернуть, по умолчанию 25, максимум 100" },
@@ -81,7 +85,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, 
 
 fn suggest_links(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let results = links::suggest(core, &vault, &note, limit(arguments, 10, SUGGEST_LIMIT))?;
     Ok(json!({
         "note": vault.relative(&note),
@@ -103,11 +107,12 @@ fn link_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     if let Some(name) = optional_text(arguments, "versionName") {
         plan.version_name = name;
     }
-    check_hash(arguments, &plan)?;
+    let expected_hash = optional_text(arguments, "expectedHash");
+    check_hash(expected_hash.as_deref(), &plan)?;
     if flag(arguments, "preview", false) {
         return Ok(planned(&vault, &plan));
     }
-    let applied = links::apply_link(core, &vault, &plan)?;
+    let applied = links::apply_link(core, &vault, &plan, expected_hash.as_deref())?;
     Ok(json!({
         "source": vault.relative(&plan.source),
         "target": vault.relative(&plan.target),
@@ -131,11 +136,12 @@ fn unlink_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     if let Some(name) = optional_text(arguments, "versionName") {
         plan.version_name = name;
     }
-    check_hash(arguments, &plan)?;
+    let expected_hash = optional_text(arguments, "expectedHash");
+    check_hash(expected_hash.as_deref(), &plan)?;
     if flag(arguments, "preview", false) {
         return Ok(planned(&vault, &plan));
     }
-    let applied = links::apply_link(core, &vault, &plan)?;
+    let applied = links::apply_link(core, &vault, &plan, expected_hash.as_deref())?;
     Ok(json!({
         "source": vault.relative(&plan.source),
         "target": vault.relative(&plan.target),
@@ -147,7 +153,7 @@ fn unlink_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
 
 fn graph_neighborhood(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let depth = depth(arguments);
     let direction = Direction::parse(&optional_text(arguments, "direction").unwrap_or_default())?;
     let workspace = vault.root.to_string_lossy().into_owned();
@@ -192,8 +198,8 @@ fn depth(arguments: &Value) -> usize {
         .clamp(neighborhood::MIN_DEPTH, neighborhood::MAX_DEPTH)
 }
 
-fn check_hash(arguments: &Value, plan: &LinkPlan) -> Result<(), String> {
-    let Some(expected) = optional_text(arguments, "expectedHash") else {
+fn check_hash(expected: Option<&str>, plan: &LinkPlan) -> Result<(), String> {
+    let Some(expected) = expected else {
         return Ok(());
     };
     if expected != plan.hash {
@@ -439,6 +445,62 @@ mod tests {
         assert_eq!(
             paths(&back),
             vec!["C.md".to_owned(), "B.md".to_owned(), "A.md".to_owned()]
+        );
+    }
+
+    #[test]
+    fn a_stale_expected_hash_blocks_the_link_and_keeps_the_note() {
+        let (_guard, core, vault) = fixture(&[("A.md", "заметка A\n"), ("B.md", "заметка B\n")]);
+        let before = fs::read_to_string(vault.root.join("A.md")).unwrap();
+
+        let error = invoke(
+            &core,
+            "link_notes",
+            &request(
+                &vault,
+                json!({ "note": "A", "target": "B", "expectedHash": "0".repeat(64) }),
+            ),
+        )
+        .unwrap_err();
+        assert!(error.contains("изменилась"), "{error}");
+        assert_eq!(fs::read_to_string(vault.root.join("A.md")).unwrap(), before);
+    }
+
+    #[test]
+    fn a_conflict_after_a_caller_hash_is_not_retried() {
+        let (_guard, core, vault) = fixture(&[("A.md", "заметка A\n"), ("B.md", "заметка B\n")]);
+        let plan =
+            crate::links::plan_link(&core, &vault, "A", "B", crate::links::LinkKind::Wiki).unwrap();
+        let changed = "заметка A\nдописано\n";
+        fs::write(vault.root.join("A.md"), changed).unwrap();
+
+        let error =
+            crate::links::apply_link(&core, &vault, &plan, Some(plan.hash.as_str())).unwrap_err();
+        assert!(error.contains("изменился"), "{error}");
+        assert_eq!(
+            fs::read_to_string(vault.root.join("A.md")).unwrap(),
+            changed
+        );
+    }
+
+    #[test]
+    fn unlinking_a_list_item_removes_the_whole_line() {
+        let (_guard, core, vault) = fixture(&[
+            ("A.md", "- [[B]]\n- [[C]]\n"),
+            ("B.md", "заметка B\n"),
+            ("C.md", "заметка C\n"),
+        ]);
+
+        let applied = invoke(
+            &core,
+            "unlink_notes",
+            &request(&vault, json!({ "note": "A", "target": "B" })),
+        )
+        .unwrap();
+        assert_eq!(applied["changed"], true);
+        assert_eq!(
+            fs::read_to_string(vault.root.join("A.md")).unwrap(),
+            "- [[C]]\n"
         );
     }
 

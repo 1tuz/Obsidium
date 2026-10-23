@@ -4,11 +4,9 @@ use crate::app_core::Core;
 use crate::files::document::read_text;
 use crate::search::analysis::models::AnalysisMethod;
 use crate::search::headings;
-use crate::search::models::SearchResult;
-use crate::search::query::MAX_RESULTS;
+use crate::search::query::MAX_WINDOW;
 use crate::wikixiv::models::SearchRequest;
 use serde_json::{json, Value};
-use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
@@ -154,8 +152,8 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     let query = text(arguments, "query")?;
     let settings = core.settings.get_config().search;
 
-    let mut window = needed.min(MAX_RESULTS).max(1);
-    let (terms, indexing, hits) = loop {
+    let mut window = needed.min(MAX_WINDOW).max(1);
+    let (terms, indexing, hits, engine_full) = loop {
         let response = core
             .search
             .search(&workspace, &query, Some(window), &settings)
@@ -170,14 +168,22 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
                     .is_none_or(|folder| Path::new(&result.path).starts_with(folder))
             })
             .collect::<Vec<_>>();
-        if hits.len() >= needed || found < window || window >= MAX_RESULTS {
-            hits.sort_by(rank);
-            break (response.query_terms, response.status.updating, hits);
+        let engine_full = found >= window;
+        if hits.len() >= needed || !engine_full || window >= MAX_WINDOW {
+            hits.truncate(needed);
+            break (
+                response.query_terms,
+                response.status.updating,
+                hits,
+                engine_full,
+            );
         }
-        window = window.saturating_mul(2).min(MAX_RESULTS);
+        window = window.saturating_mul(2).min(MAX_WINDOW);
     };
 
     let shown = hits.iter().skip(skip).take(size).collect::<Vec<_>>();
+    let has_more = hits.len() > skip.saturating_add(size);
+    let truncated = engine_full && hits.len() < needed;
     let counts = core
         .search
         .backlink_counts(
@@ -203,21 +209,14 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
         })
         .collect::<Vec<_>>();
 
-    let has_more = hits.len() > skip.saturating_add(size);
     Ok(json!({
         "indexing": indexing,
         "terms": terms,
         "results": results,
+        "offset": skip,
         "hasMore": has_more,
+        "truncated": truncated,
     }))
-}
-
-fn rank(left: &SearchResult, right: &SearchResult) -> Ordering {
-    right
-        .score
-        .partial_cmp(&left.score)
-        .unwrap_or(Ordering::Equal)
-        .then_with(|| left.path.cmp(&right.path))
 }
 
 fn dataview_syntax(arguments: &Value) -> Result<Value, String> {
@@ -232,7 +231,7 @@ fn dataview_syntax(arguments: &Value) -> Result<Value, String> {
 
 fn analyze(core: &Core, arguments: &Value, method: AnalysisMethod) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let config = core.settings.get_config();
     let results = core
         .search
@@ -260,7 +259,7 @@ fn analyze(core: &Core, arguments: &Value, method: AnalysisMethod) -> Result<Val
 
 fn backlinks(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let links = core
         .search
         .backlinks(&vault.root.to_string_lossy(), &note.to_string_lossy())
@@ -289,7 +288,7 @@ fn backlinks(core: &Core, arguments: &Value) -> Result<Value, String> {
 
 fn outgoing_links(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = indexed_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let links = core
         .search
         .outgoing_links(&vault.root.to_string_lossy(), &note.to_string_lossy())
@@ -321,7 +320,7 @@ fn outgoing_links(core: &Core, arguments: &Value) -> Result<Value, String> {
 
 fn wiki_sources(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
-    let note = vault.note(&text(arguments, "note")?)?;
+    let note = vault.note(core, &text(arguments, "note")?)?;
     let content = read_text(&note).map_err(|error| error.to_string())?;
     let enabled = core.settings.get_config().analysis.enable_wikixiv;
     let result = core.wikixiv.search(

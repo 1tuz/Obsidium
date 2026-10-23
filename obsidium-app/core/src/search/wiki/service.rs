@@ -22,6 +22,36 @@ impl SearchService {
         })
     }
 
+    pub fn paths_by_title(
+        &self,
+        workspace: &str,
+        title: &str,
+    ) -> Result<Option<Vec<PathBuf>>, SearchError> {
+        let needle = title_key(Path::new(title.trim().trim_end_matches(".md")));
+        if needle.is_empty() {
+            return Ok(None);
+        }
+        let status = self.status(Some(workspace));
+        if status.updating || status.indexed_documents == 0 {
+            return Ok(None);
+        }
+        self.with_metadata(workspace, |open, connection| {
+            let mut statement =
+                connection.prepare("SELECT path FROM wiki_documents WHERE title_key = ?1")?;
+            let rows = statement.query_map([needle], |row| row.get::<_, String>(0))?;
+            let mut paths = Vec::new();
+            for row in rows {
+                let path = PathBuf::from(row?);
+                if path.is_file() && path.starts_with(&open.root) {
+                    paths.push(path);
+                }
+            }
+            paths.sort();
+            Ok(paths)
+        })
+        .map(Some)
+    }
+
     pub fn backlink_counts(
         &self,
         workspace: &str,

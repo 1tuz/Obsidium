@@ -17,6 +17,13 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use walkdir::WalkDir;
 
+pub fn require_write(core: &Core) -> Result<(), String> {
+    if core.settings.get_config().mcp.allow_write {
+        return Ok(());
+    }
+    Err("Изменение заметок запрещено в настройках Obsidium".to_owned())
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Relocation {

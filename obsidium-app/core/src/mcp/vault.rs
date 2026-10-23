@@ -21,24 +21,38 @@ impl Vault {
             .ok_or_else(|| "База знаний не открыта — выберите её в приложении".to_owned())
     }
 
-    pub fn note(&self, input: &str) -> Result<PathBuf, String> {
+    pub fn note(&self, core: &Core, input: &str) -> Result<PathBuf, String> {
         let direct = self.note_path(input)?;
         if direct.is_file() {
             return Ok(direct);
         }
-        let mut matches = self.find_by_title(input);
+        let workspace = self.root.to_string_lossy();
+        let indexed = core
+            .search
+            .paths_by_title(&workspace, input)
+            .ok()
+            .flatten()
+            .filter(|paths| !paths.is_empty());
+        let mut matches = match indexed {
+            Some(paths) => paths,
+            None => self.find_by_title(input),
+        };
         match matches.len() {
             0 => Err(self.not_found(input)),
             1 => Ok(matches.remove(0)),
-            _ => Err(format!(
-                "Несколько заметок с таким названием, укажите путь: {}",
-                matches
-                    .iter()
-                    .map(|path| self.relative(path))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
+            _ => Err(self.ambiguous(&matches)),
         }
+    }
+
+    fn ambiguous(&self, matches: &[PathBuf]) -> String {
+        format!(
+            "Несколько заметок с таким названием, укажите путь: {}",
+            matches
+                .iter()
+                .map(|path| self.relative(path))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 
     fn not_found(&self, input: &str) -> String {
@@ -161,16 +175,23 @@ impl Vault {
 #[cfg(test)]
 mod tests {
     use super::Vault;
+    use crate::app_core::{Core, EventSink};
     use std::fs;
+    use std::sync::Arc;
 
-    fn vault() -> (tempfile::TempDir, Vault) {
+    fn vault() -> (tempfile::TempDir, Arc<Core>, Vault) {
         let directory = tempfile::tempdir().unwrap();
+        let data = directory.path().join("data");
+        fs::create_dir_all(&data).unwrap();
         let root = crate::search::paths::canonical_path(directory.path());
         fs::create_dir_all(root.join("Проекты")).unwrap();
         fs::write(root.join("Проекты/Obsidium.md"), "заметка").unwrap();
         fs::write(root.join("Идея.md"), "другая").unwrap();
+        let events: Arc<dyn EventSink> = Arc::new(|_| {});
+        let core = Core::open(&data, events);
         (
             directory,
+            core,
             Vault {
                 root,
                 visible: true,
@@ -180,29 +201,29 @@ mod tests {
 
     #[test]
     fn resolves_relative_path_with_and_without_extension() {
-        let (_guard, vault) = vault();
+        let (_guard, core, vault) = vault();
         assert_eq!(
-            vault.relative(&vault.note("Проекты/Obsidium.md").unwrap()),
+            vault.relative(&vault.note(&core, "Проекты/Obsidium.md").unwrap()),
             "Проекты/Obsidium.md"
         );
         assert_eq!(
-            vault.relative(&vault.note("Проекты\\Obsidium").unwrap()),
+            vault.relative(&vault.note(&core, "Проекты\\Obsidium").unwrap()),
             "Проекты/Obsidium.md"
         );
     }
 
     #[test]
     fn resolves_note_by_title() {
-        let (_guard, vault) = vault();
+        let (_guard, core, vault) = vault();
         assert_eq!(
-            vault.relative(&vault.note("obsidium").unwrap()),
+            vault.relative(&vault.note(&core, "obsidium").unwrap()),
             "Проекты/Obsidium.md"
         );
     }
 
     #[test]
     fn rejects_paths_that_escape_the_vault() {
-        let (_guard, vault) = vault();
+        let (_guard, core, vault) = vault();
         assert!(vault.note_path("../secrets.md").is_err());
         assert!(vault.note_path("Проекты/../../secrets.md").is_err());
         assert!(vault.note_path("C:/Windows/system.ini").is_err());
@@ -211,7 +232,7 @@ mod tests {
 
     #[test]
     fn rejects_a_sibling_folder_whose_name_starts_with_the_vault_name() {
-        let (_guard, vault) = vault();
+        let (_guard, core, vault) = vault();
         let sibling = vault
             .root
             .parent()
@@ -226,7 +247,7 @@ mod tests {
 
     #[test]
     fn a_foreign_vault_keeps_its_own_boundary() {
-        let (_guard, vault) = vault();
+        let (_guard, core, vault) = vault();
         let other = tempfile::tempdir().unwrap();
         let foreign = Vault {
             root: crate::search::paths::canonical_path(other.path()),
@@ -244,23 +265,26 @@ mod tests {
 
     #[test]
     fn reports_missing_and_ambiguous_notes() {
-        let (_guard, vault) = vault();
-        assert!(vault.note("Нет такой").is_err());
-        let similar = vault.note("Идея старая").unwrap_err();
+        let (_guard, core, vault) = vault();
+        assert!(vault.note(&core, "Нет такой").is_err());
+        let similar = vault.note(&core, "Идея старая").unwrap_err();
         assert!(similar.contains("Похожие: Идея.md"), "{similar}");
 
         fs::create_dir_all(vault.root.join("Архив")).unwrap();
         fs::write(vault.root.join("Архив/Obsidium.md"), "копия").unwrap();
         assert!(
-            vault.note("Проекты/Obsidium.md").is_ok(),
+            vault.note(&core, "Проекты/Obsidium.md").is_ok(),
             "точный путь остаётся однозначным"
         );
-        assert!(vault.note("Obsidium").is_err(), "по названию два кандидата");
+        assert!(
+            vault.note(&core, "Obsidium").is_err(),
+            "по названию два кандидата"
+        );
     }
 
     #[test]
     fn skips_hidden_folders_such_as_trash() {
-        let (_guard, vault) = vault();
+        let (_guard, core, vault) = vault();
         let trash = vault.root.join(crate::files::trash::TRASH_FOLDER);
         fs::create_dir_all(&trash).unwrap();
         fs::write(trash.join("Удалённая.md"), "мусор").unwrap();

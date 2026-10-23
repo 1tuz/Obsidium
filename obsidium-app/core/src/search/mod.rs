@@ -5,6 +5,7 @@ mod benches;
 pub mod created;
 pub mod dataview;
 pub mod error;
+pub mod excerpt;
 pub mod fields;
 pub mod graph;
 pub mod guest;

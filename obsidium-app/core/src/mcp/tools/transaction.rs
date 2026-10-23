@@ -120,12 +120,12 @@ fn requests(arguments: &Value) -> Result<Vec<EditRequest>, String> {
     Ok(edits)
 }
 
-fn plan(vault: &Vault, arguments: &Value) -> Result<Vec<PlannedEdit>, String> {
+fn plan(core: &Core, vault: &Vault, arguments: &Value) -> Result<Vec<PlannedEdit>, String> {
     let mut seen = HashSet::new();
     requests(arguments)?
         .into_iter()
         .map(|edit| {
-            let path = vault.note(&edit.note)?;
+            let path = vault.note(core, &edit.note)?;
             let relative = vault.relative(&path);
             if !seen.insert(relative.to_lowercase()) {
                 return Err(format!("Заметка указана в транзакции дважды: {relative}"));
@@ -154,7 +154,7 @@ fn plan(vault: &Vault, arguments: &Value) -> Result<Vec<PlannedEdit>, String> {
 
 fn preview(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
-    let planned = plan(&vault, arguments)?;
+    let planned = plan(core, &vault, arguments)?;
     Ok(json!({
         "workspace": vault.root.to_string_lossy(),
         "changes": planned.iter().map(|edit| json!({
@@ -171,7 +171,7 @@ fn preview(core: &Core, arguments: &Value) -> Result<Value, String> {
 fn apply(core: &Core, arguments: &Value) -> Result<Value, String> {
     require_write(core)?;
     let vault = requested_vault(core, arguments)?;
-    let planned = plan(&vault, arguments)?;
+    let planned = plan(core, &vault, arguments)?;
     let id = Uuid::new_v4().simple().to_string();
     let version_name = optional_text(arguments, "versionName")
         .unwrap_or_else(|| format!("Agent transaction {}", &id[..8]));
@@ -249,7 +249,7 @@ fn rollback(core: &Core, arguments: &Value) -> Result<Value, String> {
 
     let mut resolved = Vec::new();
     for (index, edit) in stored.edits.iter().enumerate() {
-        let note = vault.note(&edit.path)?;
+        let note = vault.note(core, &edit.path)?;
         let current = read_file_snapshot_impl(&note).map_err(|error| error.to_string())?;
         if current.hash != edit.after_hash {
             return Err(format!(

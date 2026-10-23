@@ -4,6 +4,11 @@ const HELP: &str = r#"Obsidium CLI — тонкий клиент инструм�
   obsidium [--workspace PATH] [--json] [--compact] <команда> [аргументы]
 
 Команды:
+  context search "запрос" [--folder F] [--tags a,b] [--limit N] [--max-chars N]
+                        [--graph-depth N] [--seeds A,B] [--deep]
+  context connections "тема" | --notes A,B [--depth N] [--limit N]
+  knowledge review [--folder F] [--tags a,b] [--checks LIST] [--stale-days N]
+                   [--offset N] [--limit N]
   search <query...> [--folder F] [--limit N] [--offset N]
   note read <path> [--heading H] [--offset N] [--limit N]
   note create <path> [--content TEXT | --stdin] [--version-name NAME]
@@ -47,6 +52,13 @@ const HELP: &str = r#"Obsidium CLI — тонкий клиент инструм�
   --file plan.json   JSON-план транзакции: {"edits": [...]} или {"transactionId": "..."}
   --sections LIST    через запятую: frontmatter, outline, content, tasks, backlinks,
                      outgoing, related
+  --tags a,b         фильтр по тегам
+  --checks LIST      какие проверки выполнять: stale, duplicates, brokenLinks,
+                     unlinkedMentions, fieldInconsistency, volatile
+  --max-chars N      бюджет ответа search_context в символах
+  --graph-depth N    глубина обхода связей в search_context, 0..2
+  --deep             режим deep: дополнительное ранжирование через BM25F и Adamic-Adar
+  --seeds A,B        исходные заметки для search_context
   --version-name N   название версии в истории заметки
   --kind K           вид связи: wiki, parent, related, depends_on, blocks
   --expected-hash H  hash из read_note: защита от параллельной правки
@@ -56,6 +68,9 @@ const HELP: &str = r#"Obsidium CLI — тонкий клиент инструм�
   OBSIDIUM_DATA_DIR    каталог данных Obsidium
 
 Команда и инструмент MCP:
+  context search       search_context
+  context connections  discover_connections
+  knowledge review     review_knowledge
   search               search_notes
   note read            read_note
   note create          create_note

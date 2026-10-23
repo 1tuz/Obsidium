@@ -105,6 +105,71 @@ fn tool_names_are_unique_and_required_fields_are_declared() {
 }
 
 #[test]
+fn every_note_tool_accepts_note_or_path_and_rejects_neither() {
+    let fixture = fixture();
+    let mut checked = 0;
+    for definition in definitions() {
+        let name = definition["name"].as_str().unwrap();
+        let schema = &definition["inputSchema"];
+        let properties = schema["properties"].as_object().unwrap();
+        if !properties.contains_key("note") || !properties.contains_key("path") {
+            continue;
+        }
+        if schema.get("anyOf").is_none() {
+            continue;
+        }
+        for name_field in ["note", "path"] {
+            let mut probe = json!({ name_field: "A" });
+            for required in schema["required"].as_array().unwrap() {
+                let required = required.as_str().unwrap();
+                let kind = properties
+                    .get(required)
+                    .and_then(|property| property["type"].as_str())
+                    .unwrap_or("string");
+                let placeholder = match kind {
+                    "integer" | "number" => json!(1),
+                    "boolean" => json!(true),
+                    "array" => json!([]),
+                    "object" => json!({}),
+                    _ => json!("x"),
+                };
+                probe[name_field] = json!("A");
+                probe
+                    .as_object_mut()
+                    .unwrap()
+                    .insert(required.to_owned(), placeholder);
+            }
+            validate(schema, &probe)
+                .unwrap_or_else(|error| panic!("{name}: {name_field} отклонён схемой: {error}"));
+        }
+        let error = call(&fixture.core, name, &json!({}))
+            .expect_err(&format!("{name}: вызов без note и path должен падать"));
+        let mut allowed = vec!["note", "path"];
+        allowed.extend(
+            schema["required"]
+                .as_array()
+                .map(|fields| {
+                    fields
+                        .iter()
+                        .filter_map(|field| field.as_str())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default(),
+        );
+        assert!(
+            allowed.iter().any(|field| error.contains(field)),
+            "{name}: ошибка не называет пропущенный аргумент ({allowed:?}): {error}"
+        );
+        checked += 1;
+    }
+    assert!(
+        checked >= 25,
+        "проверено слишком мало инструментов: {checked}"
+    );
+    fixture.core.shutdown();
+}
+
+#[test]
 fn every_tool_names_its_missing_required_field() {
     let fixture = fixture();
     for definition in definitions() {
@@ -120,8 +185,9 @@ fn every_tool_names_its_missing_required_field() {
         }
         let error = call(&fixture.core, name, &json!({}))
             .expect_err(&format!("{name}: вызов без аргументов должен падать"));
+        let names_note = error.contains("note") || error.contains("path");
         assert!(
-            required.iter().any(|field| error.contains(field.as_str())),
+            names_note || required.iter().any(|field| error.contains(field.as_str())),
             "{name}: ошибка не называет обязательное поле ({required:?}): {error}"
         );
     }
@@ -240,6 +306,39 @@ fn search_notes_pages_through_folder_hits_beyond_the_first_window() {
         first_paths,
         "повторный запрос отдаёт тот же порядок"
     );
+    fixture.core.shutdown();
+}
+
+#[test]
+fn search_notes_pages_past_the_hundredth_hit_without_duplicates() {
+    let notes = (0..140)
+        .map(|index| (format!("Batch/{index:03}.md"), "маркер\n".to_owned()))
+        .collect::<Vec<_>>();
+    let fixture = fixture_with(notes);
+    fixture.wait_for_index();
+
+    let mut seen = Vec::new();
+    let mut offset = 0;
+    loop {
+        let page = call(
+            &fixture.core,
+            "search_notes",
+            &json!({ "query": "маркер", "offset": offset, "limit": 50 }),
+        )
+        .unwrap();
+        let paths = fixture.paths(&page);
+        assert!(paths.len() <= 50, "страница не больше лимита: {page}");
+        seen.extend(paths);
+        if !page["hasMore"].as_bool().unwrap() {
+            break;
+        }
+        offset += 50;
+        assert!(offset < 500, "выдача обязана закончиться");
+    }
+
+    let unique = seen.iter().collect::<std::collections::HashSet<_>>().len();
+    assert_eq!(seen.len(), 140, "страницы не повторяют и не теряют заметки");
+    assert_eq!(unique, 140, "дубликатов между страницами нет");
     fixture.core.shutdown();
 }
 

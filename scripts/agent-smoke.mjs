@@ -118,6 +118,27 @@ function seed() {
   ).join('\n');
   writeFileSync(bigNote, `# Большая заметка\n\npaginate\n\n${filler}\n`);
   writeFileSync(path.join(secondVault, 'Other.md'), '# Other\n\nsecondmarker only here\n');
+  writeFileSync(
+    path.join(vault, 'Поиск.md'),
+    '# Поиск\n\nвступление\n\n## Раздел поиска\n\nseedspecificterm находится на этой строке\n',
+  );
+  mkdirSync(path.join(vault, 'Graph'), { recursive: true });
+  writeFileSync(path.join(vault, 'Graph/Alpha.md'), '# Alpha\n\n[[Graph/Middle]]\n');
+  writeFileSync(path.join(vault, 'Graph/Middle.md'), '# Middle\n\n[[Graph/Beta]]\n');
+  writeFileSync(path.join(vault, 'Graph/Beta.md'), '# Beta\n\nконец\n');
+  writeFileSync(
+    path.join(vault, 'Review.md'),
+    '# Review\n\nСсылка [[Нет такой]] ведёт в никуда\n',
+  );
+  writeFileSync(path.join(vault, 'Volatile.md'), '# Volatile\n\nkubectl apply -f deployment.yaml\n');
+  mkdirSync(path.join(vault, 'Many'), { recursive: true });
+  for (let index = 0; index < 140; index += 1) {
+    const name = `Note-${String(index).padStart(3, '0')}.md`;
+    writeFileSync(
+      path.join(vault, 'Many', name),
+      `# Note ${index}\n\nmanymarker ${index}\n`,
+    );
+  }
 }
 
 async function quickChecks() {
@@ -139,6 +160,103 @@ async function quickChecks() {
     assert.equal(new Set(paths).size, 4, paths.join(', '));
     assert.equal(first.hasMore, true);
     assert.equal(second.hasMore, false);
+  });
+
+  await check('context search points at the seeded line and matches the note hash', () => {
+    const answer = eventually('context search seedspecificterm', () => {
+      const value = json(
+        cli(['context', 'search', 'seedspecificterm']),
+        'context search',
+      );
+      return value.indexing
+        ? undefined
+        : value.results.some((result) => result.path === 'Поиск.md')
+          ? value
+          : undefined;
+    });
+    const hit = answer.results.find((result) => result.path === 'Поиск.md');
+    assert.equal(hit.heading, 'Раздел поиска');
+    const lines = readFileSync(path.join(vault, 'Поиск.md'), 'utf8').split('\n');
+    const excerpt = lines.slice(hit.lineStart - 1, hit.lineEnd).join('\n');
+    assert.match(excerpt, /seedspecificterm/u, excerpt);
+    const note = json(cli(['note', 'read', 'Поиск.md']), 'note read search seed');
+    assert.equal(hit.hash, note.hash);
+  });
+
+  await check('context search --max-chars keeps the response budget', () => {
+    const answer = json(
+      cli(['context', 'search', 'seedspecificterm', '--max-chars', '900']),
+      'context search budget',
+    );
+    assert.ok(answer.results.length > 0, JSON.stringify(answer));
+    assert.ok(answer.budget.usedChars <= 900, JSON.stringify(answer.budget));
+  });
+
+  await check('knowledge review reports the broken link and volatile line', () => {
+    const broken = eventually('knowledge review brokenLinks', () => {
+      const value = json(
+        cli(['knowledge', 'review', '--checks', 'brokenLinks']),
+        'knowledge review broken',
+      );
+      return value.indexing
+        ? undefined
+        : value.findings.some((finding) => finding.path === 'Review.md')
+          ? value
+          : undefined;
+    });
+    const finding = broken.findings.find((item) => item.path === 'Review.md');
+    assert.equal(finding.kind, 'brokenLinks');
+    assert.equal(finding.evidence.lineStart, 3);
+    assert.match(finding.evidence.excerpt, /Нет такой/u);
+
+    const volatile = eventually('knowledge review volatile', () => {
+      const value = json(
+        cli(['knowledge', 'review', '--checks', 'volatile']),
+        'knowledge review volatile',
+      );
+      return value.indexing
+        ? undefined
+        : value.findings.some((item) => item.path === 'Volatile.md')
+          ? value
+          : undefined;
+    });
+    const line = volatile.findings.find((item) => item.path === 'Volatile.md');
+    assert.equal(line.kind, 'volatile');
+    assert.equal(line.evidence.lineStart, 3);
+    assert.match(line.evidence.excerpt, /kubectl apply/u);
+  });
+
+  await check('context connections finds the chain and no direct edge', () => {
+    const answer = eventually('context connections', () => {
+      const value = json(
+        cli(['context', 'connections', '--notes', 'Graph/Alpha.md,Graph/Beta.md']),
+        'context connections',
+      );
+      return value.paths.some(
+        (chain) => chain.length === 3 && chain.includes('Graph/Middle.md'),
+      )
+        ? value
+        : undefined;
+    });
+    const chain = answer.paths.find(
+      (item) => item.length === 3 && item.includes('Graph/Middle.md'),
+    );
+    assert.deepEqual([chain[0], chain[2]].sort(), ['Graph/Alpha.md', 'Graph/Beta.md']);
+    const direct = answer.edges.find(
+      (edge) =>
+        (edge.from === 'Graph/Alpha.md' && edge.to === 'Graph/Beta.md') ||
+        (edge.from === 'Graph/Beta.md' && edge.to === 'Graph/Alpha.md'),
+    );
+    assert.ok(!direct || direct.existing !== true, JSON.stringify(direct));
+  });
+
+  await check('search --offset 100 returns a page past the first hundred hits', () => {
+    const payload = eventually('search offset 100', () => {
+      const value = search('manymarker', ['--folder', 'Many', '--offset', '100', '--limit', '50']);
+      return value.indexing ? undefined : value.results.length > 0 ? value : undefined;
+    });
+    assert.equal(payload.offset, 100);
+    assert.ok(payload.results.length > 0, JSON.stringify(payload));
   });
 
   await check('note read --json returns the note contract', () => {
@@ -166,7 +284,6 @@ async function quickChecks() {
 
   await check('links add is idempotent and remove drops the edge', () => {
     const notePath = path.join(vault, 'Заметки.md');
-    const before = readFileSync(notePath, 'utf8');
     const added = json(cli(['links', 'add', 'Заметки.md', 'Kubernetes']), 'links add');
     assert.equal(added.changed, true);
     const linked = readFileSync(notePath, 'utf8');
@@ -180,8 +297,9 @@ async function quickChecks() {
     });
     const removed = json(cli(['links', 'remove', 'Заметки.md', 'Kubernetes']), 'links remove');
     assert.equal(removed.changed, true);
-    assert.ok(!readFileSync(notePath, 'utf8').includes('[[Kubernetes]]'));
-    assert.ok(before.includes('paginate'));
+    const afterRemoval = readFileSync(notePath, 'utf8');
+    assert.ok(!afterRemoval.includes('[[Kubernetes]]'), afterRemoval);
+    assert.ok(afterRemoval.includes('paginate'), afterRemoval);
   });
 
   await check('task add and toggle update the note text', () => {

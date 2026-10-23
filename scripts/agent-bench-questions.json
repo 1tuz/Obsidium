@@ -1,0 +1,760 @@
+[
+  {
+    "id": "q01-exact-rollout-undo",
+    "query": "kubectl rollout undo deployment/api",
+    "lang": "en",
+    "kind": "exact",
+    "expected": [
+      {
+        "path": "Kubernetes/Откат деплоя.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Точная команда отката есть только в заметке про откат деплоя."
+  },
+  {
+    "id": "q02-exact-openssl",
+    "query": "openssl s_client -connect example.com:443",
+    "lang": "en",
+    "kind": "exact",
+    "expected": [
+      {
+        "path": "TLS/Проверка цепочки сертификатов.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Точная команда проверки цепочки."
+  },
+  {
+    "id": "q03-exact-helm-upgrade",
+    "query": "helm upgrade --atomic --timeout 10m",
+    "lang": "en",
+    "kind": "exact",
+    "expected": [
+      {
+        "path": "Kubernetes/Orphan-заметка про Helm.md",
+        "lineStart": 10,
+        "lineEnd": 10
+      }
+    ],
+    "notes": "Точная команда helm есть в заметке-сироте, текстовый поиск должен её найти."
+  },
+  {
+    "id": "q04-exact-pg-dump",
+    "query": "pg_dump -Fc --compress=9",
+    "lang": "en",
+    "kind": "exact",
+    "expected": [
+      {
+        "path": "Databases/Резервное копирование PostgreSQL.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Точная команда с уровнем сжатия; в архивной копии сжатия нет.",
+    "mustNotInclude": [
+      "Архив/Резервное копирование PostgreSQL (v1).md"
+    ]
+  },
+  {
+    "id": "q05-exact-cluster-issuer",
+    "query": "ClusterIssuer letsencrypt-prod",
+    "lang": "en",
+    "kind": "exact",
+    "expected": [
+      {
+        "path": "Kubernetes/cert-manager.md",
+        "lineStart": 10,
+        "lineEnd": 10
+      }
+    ],
+    "notes": "Имя ClusterIssuer встречается только в актуальной заметке cert-manager."
+  },
+  {
+    "id": "q06-ru-rollback",
+    "query": "как откатить деплой в Kubernetes",
+    "lang": "ru",
+    "kind": "ru",
+    "expected": [
+      {
+        "path": "Kubernetes/Откат деплоя.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Русский запрос про откат; ответ — команда rollout undo."
+  },
+  {
+    "id": "q07-ru-backup-postgres",
+    "query": "резервное копирование PostgreSQL",
+    "lang": "ru",
+    "kind": "ru",
+    "expected": [
+      {
+        "path": "Databases/Резервное копирование PostgreSQL.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Русский запрос про бэкап PostgreSQL."
+  },
+  {
+    "id": "q08-ru-key-rotation",
+    "query": "ротация ключей TLS",
+    "lang": "ru",
+    "kind": "ru",
+    "expected": [
+      {
+        "path": "TLS/Ротация ключей.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Русский запрос про ротацию ключей."
+  },
+  {
+    "id": "q09-ru-crashloop",
+    "query": "почему поды падают в CrashLoopBackOff",
+    "lang": "ru",
+    "kind": "ru",
+    "expected": [
+      {
+        "path": "Kubernetes/Поды в CrashLoopBackOff.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Русский запрос про падающие поды."
+  },
+  {
+    "id": "q10-ru-jenkins-agents",
+    "query": "настройка агентов Jenkins",
+    "lang": "ru",
+    "kind": "ru",
+    "expected": [
+      {
+        "path": "Jenkins/Агенты и метки.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Русский запрос про настройку агентов."
+  },
+  {
+    "id": "q11-en-hpa",
+    "query": "horizontal pod autoscaler",
+    "lang": "en",
+    "kind": "en",
+    "expected": [
+      {
+        "path": "Kubernetes/Horizontal Pod Autoscaler.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Английский термин совпадает с заголовком заметки."
+  },
+  {
+    "id": "q12-en-502",
+    "query": "nginx ingress 502 bad gateway",
+    "lang": "en",
+    "kind": "en",
+    "expected": [
+      {
+        "path": "Ingress/Ошибка 502.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Английская формулировка ошибки 502."
+  },
+  {
+    "id": "q13-en-replication",
+    "query": "postgres replication lag",
+    "lang": "en",
+    "kind": "en",
+    "expected": [
+      {
+        "path": "Databases/Репликация.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Английский термин про отставание репликации."
+  },
+  {
+    "id": "q14-en-parallel",
+    "query": "jenkins parallel stages",
+    "lang": "en",
+    "kind": "en",
+    "expected": [
+      {
+        "path": "Jenkins/Параллельные стадии.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Английский термин про параллельные стадии."
+  },
+  {
+    "id": "q15-en-redis",
+    "query": "redis persistence",
+    "lang": "en",
+    "kind": "en",
+    "expected": [
+      {
+        "path": "Databases/Redis.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Английский термин про сохранение данных Redis."
+  },
+  {
+    "id": "q16-paraphrase-rollback",
+    "query": "вернуть предыдущую версию приложения",
+    "lang": "ru",
+    "kind": "paraphrase",
+    "expected": [
+      {
+        "path": "Kubernetes/Откат деплоя.md",
+        "lineStart": 10,
+        "lineEnd": 10
+      }
+    ],
+    "notes": "Перефраз без слова «откат»; в заметке есть дословная формулировка."
+  },
+  {
+    "id": "q17-paraphrase-extend-cert",
+    "query": "продлить срок действия сертификата",
+    "lang": "ru",
+    "kind": "paraphrase",
+    "expected": [
+      {
+        "path": "TLS/Ротация ключей.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Перефраз про продление сертификата через ротацию."
+  },
+  {
+    "id": "q18-paraphrase-parallel-build",
+    "query": "ускорить сборку за счёт параллельных шагов",
+    "lang": "ru",
+    "kind": "paraphrase",
+    "expected": [
+      {
+        "path": "Jenkins/Параллельные стадии.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Перефраз про ускорение сборки."
+  },
+  {
+    "id": "q19-paraphrase-memory-limit",
+    "query": "ограничить потребление памяти контейнером",
+    "lang": "ru",
+    "kind": "paraphrase",
+    "expected": [
+      {
+        "path": "Kubernetes/Ресурсы и лимиты.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Перефраз про лимиты памяти."
+  },
+  {
+    "id": "q20-paraphrase-slow-queries",
+    "query": "найти медленные запросы в базе",
+    "lang": "ru",
+    "kind": "paraphrase",
+    "expected": [
+      {
+        "path": "Databases/Индексы и планы запросов.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Перефраз про поиск медленных запросов."
+  },
+  {
+    "id": "q21-synthesis-cert-ingress",
+    "query": "как cert-manager и ingress-nginx работают вместе",
+    "lang": "ru",
+    "kind": "synthesis",
+    "expected": [
+      {
+        "path": "Kubernetes/cert-manager.md",
+        "lineStart": 10,
+        "lineEnd": 10
+      },
+      {
+        "path": "Ingress/TLS termination.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Нужны обе заметки: выдача сертификата и завершение TLS на контроллере."
+  },
+  {
+    "id": "q22-synthesis-commit-to-cluster",
+    "query": "путь кода от коммита до кластера",
+    "lang": "ru",
+    "kind": "synthesis",
+    "expected": [
+      {
+        "path": "Jenkins/Пайплайн деплоя.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "Ingress/Ingress для деплоя.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Синтез: сборка в Jenkins и маршрут Ingress для выкладки."
+  },
+  {
+    "id": "q23-synthesis-postgres-backup",
+    "query": "резервное копирование и восстановление PostgreSQL",
+    "lang": "ru",
+    "kind": "synthesis",
+    "expected": [
+      {
+        "path": "Databases/Резервное копирование PostgreSQL.md",
+        "lineStart": 10,
+        "lineEnd": 10
+      },
+      {
+        "path": "Databases/PostgreSQL.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Синтез: бэкап и целевая версия PostgreSQL."
+  },
+  {
+    "id": "q24-synthesis-monitoring",
+    "query": "мониторинг и алерты в кластере",
+    "lang": "ru",
+    "kind": "synthesis",
+    "expected": [
+      {
+        "path": "Kubernetes/Мониторинг Prometheus.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "Kubernetes/Обзор Kubernetes.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Синтез: сбор метрик и общее описание кластера."
+  },
+  {
+    "id": "q25-synthesis-secrets-tls",
+    "query": "безопасность секретов и TLS",
+    "lang": "ru",
+    "kind": "synthesis",
+    "expected": [
+      {
+        "path": "Kubernetes/Секреты и ConfigMap.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "TLS/Протоколы и шифры.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Синтез: хранение секретов и разрешённые версии TLS."
+  },
+  {
+    "id": "q26-graph-jenkins-ingress",
+    "query": "как связаны Jenkins и Ingress",
+    "lang": "ru",
+    "kind": "graph",
+    "expected": [
+      {
+        "path": "Проекты/Мост Jenkins и Ingress.md"
+      }
+    ],
+    "notes": "Мост между Jenkins и Ingress; проверяется обход графа."
+  },
+  {
+    "id": "q27-graph-two-hop",
+    "query": "что находится на два шага от Jenkins в сторону Ingress",
+    "lang": "ru",
+    "kind": "graph",
+    "expected": [
+      {
+        "path": "Ingress/Ingress для деплоя.md"
+      }
+    ],
+    "notes": "Два шага: пайплайн → мост → Ingress для деплоя."
+  },
+  {
+    "id": "q28-graph-kubernetes-tls",
+    "query": "какие заметки связывают Kubernetes и TLS",
+    "lang": "ru",
+    "kind": "graph",
+    "expected": [
+      {
+        "path": "Kubernetes/Обзор Kubernetes.md"
+      },
+      {
+        "path": "TLS/Обзор TLS.md"
+      }
+    ],
+    "notes": "Обзоры связаны ссылкой из Kubernetes в TLS."
+  },
+  {
+    "id": "q29-graph-jenkins-neighbors",
+    "query": "соседи Jenkins по графу ссылок",
+    "lang": "ru",
+    "kind": "graph",
+    "expected": [
+      {
+        "path": "Jenkins/Обзор Jenkins.md"
+      },
+      {
+        "path": "Jenkins/Параллельные стадии.md"
+      }
+    ],
+    "notes": "Хаб Jenkins и соседняя заметка про параллельные стадии."
+  },
+  {
+    "id": "q30-graph-databases-hub",
+    "query": "что общего у PostgreSQL и Redis",
+    "lang": "ru",
+    "kind": "graph",
+    "expected": [
+      {
+        "path": "Databases/Обзор баз данных.md"
+      }
+    ],
+    "notes": "Общий хаб базы данных связывает PostgreSQL и Redis."
+  },
+  {
+    "id": "q31-duplicate-ingress-port",
+    "query": "service port 8443",
+    "lang": "en",
+    "kind": "duplicate",
+    "expected": [
+      {
+        "path": "Kubernetes/Настройка ingress-nginx.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Ловушка near-duplicate: в архивной копии порт 8080.",
+    "mustNotInclude": [
+      "Архив/Настройка ingress-nginx (копия).md"
+    ]
+  },
+  {
+    "id": "q32-duplicate-letsencrypt-webroot",
+    "query": "letsencrypt webroot /var/www/letsencrypt",
+    "lang": "en",
+    "kind": "duplicate",
+    "expected": [
+      {
+        "path": "TLS/Выпуск сертификатов Let's Encrypt.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Ловушка near-duplicate: в архиве webroot /srv/acme.",
+    "mustNotInclude": [
+      "Архив/Выпуск сертификатов Let's Encrypt (старое).md"
+    ]
+  },
+  {
+    "id": "q33-duplicate-docker-build",
+    "query": "docker build --pull --no-cache",
+    "lang": "en",
+    "kind": "duplicate",
+    "expected": [
+      {
+        "path": "Jenkins/Сборка Docker-образа.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Ловушка near-duplicate: в черновике нет --pull.",
+    "mustNotInclude": [
+      "Архив/Сборка Docker-образа (черновик).md"
+    ]
+  },
+  {
+    "id": "q34-duplicate-pg-dump",
+    "query": "pg_dump -Fc --compress=9",
+    "lang": "en",
+    "kind": "duplicate",
+    "expected": [
+      {
+        "path": "Databases/Резервное копирование PostgreSQL.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Ловушка near-duplicate: в архивной копии нет сжатия.",
+    "mustNotInclude": [
+      "Архив/Резервное копирование PostgreSQL (v1).md"
+    ]
+  },
+  {
+    "id": "q35-duplicate-path-type",
+    "query": "pathType: Prefix",
+    "lang": "en",
+    "kind": "duplicate",
+    "expected": [
+      {
+        "path": "Ingress/Маршрутизация по путям.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Ловушка near-duplicate: в копии ImplementationSpecific.",
+    "mustNotInclude": [
+      "Архив/Маршрутизация по путям (копия).md"
+    ]
+  },
+  {
+    "id": "q36-duplicate-migration-count",
+    "query": "миграция 42 сервиса",
+    "lang": "ru",
+    "kind": "duplicate",
+    "expected": [
+      {
+        "path": "Проекты/Миграция на Kubernetes.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Ловушка near-duplicate: в архиве 37 сервисов.",
+    "mustNotInclude": [
+      "Архив/Миграция на Kubernetes (старое).md"
+    ]
+  },
+  {
+    "id": "q37-contradiction-cert-manager",
+    "query": "какая версия cert-manager используется",
+    "lang": "ru",
+    "kind": "contradiction",
+    "expected": [
+      {
+        "path": "Kubernetes/cert-manager.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "Kubernetes/Установка cert-manager (старое).md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Две заметки называют разные версии; правильный ответ должен показать обе."
+  },
+  {
+    "id": "q38-contradiction-java",
+    "query": "какая версия Java нужна агентам Jenkins",
+    "lang": "ru",
+    "kind": "contradiction",
+    "expected": [
+      {
+        "path": "Jenkins/Агенты и метки.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "Jenkins/Агенты на Java 17.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Противоречие про Java 11 и Java 17."
+  },
+  {
+    "id": "q39-contradiction-postgres",
+    "query": "PostgreSQL 14 16",
+    "lang": "ru",
+    "kind": "contradiction",
+    "expected": [
+      {
+        "path": "Databases/PostgreSQL.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "Databases/PostgreSQL 14 (старое).md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Противоречие про PostgreSQL 14 и 16."
+  },
+  {
+    "id": "q40-contradiction-timeout",
+    "query": "proxy-read-timeout",
+    "lang": "en",
+    "kind": "contradiction",
+    "expected": [
+      {
+        "path": "Ingress/Аннотации ingress-nginx.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "Ingress/Аннотации nginx (новые).md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Противоречие про таймаут 60 и 300 секунд."
+  },
+  {
+    "id": "q41-contradiction-kubernetes",
+    "query": "какая версия Kubernetes в кластере",
+    "lang": "ru",
+    "kind": "contradiction",
+    "expected": [
+      {
+        "path": "Kubernetes/Версия кластера.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      },
+      {
+        "path": "Архив/Версия кластера (2023).md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Противоречие про версии Kubernetes 1.30.2 и 1.27.4."
+  },
+  {
+    "id": "q42-stale-postgres",
+    "query": "актуальная версия PostgreSQL",
+    "lang": "ru",
+    "kind": "stale",
+    "expected": [
+      {
+        "path": "Databases/PostgreSQL.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Старые данные не должны выдаваться за актуальные.",
+    "mustNotInclude": [
+      "Databases/PostgreSQL 14 (старое).md"
+    ]
+  },
+  {
+    "id": "q43-stale-cert-manager",
+    "query": "актуальная версия cert-manager",
+    "lang": "ru",
+    "kind": "stale",
+    "expected": [
+      {
+        "path": "Kubernetes/cert-manager.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Старая инструкция 2023 года не должна быть ответом.",
+    "mustNotInclude": [
+      "Kubernetes/Установка cert-manager (старое).md"
+    ]
+  },
+  {
+    "id": "q44-stale-kubernetes",
+    "query": "актуальная версия Kubernetes",
+    "lang": "ru",
+    "kind": "stale",
+    "expected": [
+      {
+        "path": "Kubernetes/Версия кластера.md",
+        "lineStart": 9,
+        "lineEnd": 9
+      }
+    ],
+    "notes": "Архивная версия 1.27.4 устарела.",
+    "mustNotInclude": [
+      "Архив/Версия кластера (2023).md"
+    ]
+  },
+  {
+    "id": "q45-large-worker-zone",
+    "query": "eu-west-1c",
+    "lang": "en",
+    "kind": "large",
+    "expected": [
+      {
+        "path": "Kubernetes/Большая карта кластера.md",
+        "lineStart": 487,
+        "lineEnd": 487
+      }
+    ],
+    "notes": "Ответ глубоко в заметке больше 20 КБ."
+  },
+  {
+    "id": "q46-large-incident",
+    "query": "RabbitMQ переполнилась",
+    "lang": "ru",
+    "kind": "large",
+    "expected": [
+      {
+        "path": "Архив/Большой разбор инцидента.md",
+        "lineStart": 487,
+        "lineEnd": 487
+      }
+    ],
+    "notes": "Ответ глубоко в большом разборе инцидента."
+  },
+  {
+    "id": "q47-large-slow-join",
+    "query": "таблице orders",
+    "lang": "ru",
+    "kind": "large",
+    "expected": [
+      {
+        "path": "Databases/Огромный справочник SQL.md",
+        "lineStart": 487,
+        "lineEnd": 487
+      }
+    ],
+    "notes": "Ответ глубоко в огромном справочнике SQL."
+  },
+  {
+    "id": "q48-empty-terraform",
+    "query": "terraform dynamodb",
+    "lang": "en",
+    "kind": "empty",
+    "expected": [],
+    "notes": "В корпусе нет Terraform и DynamoDB; любой результат — ложное срабатывание."
+  },
+  {
+    "id": "q49-empty-kafka",
+    "query": "kafka consumer",
+    "lang": "en",
+    "kind": "empty",
+    "expected": [],
+    "notes": "В корпусе нет Kafka; любой результат — ложное срабатывание."
+  },
+  {
+    "id": "q50-empty-angular",
+    "query": "angular prerender",
+    "lang": "en",
+    "kind": "empty",
+    "expected": [],
+    "notes": "В корпусе нет Angular; любой результат — ложное срабатывание."
+  }
+]

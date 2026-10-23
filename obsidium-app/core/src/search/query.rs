@@ -9,6 +9,7 @@ use tantivy::schema::{Field, IndexRecordOption};
 use tantivy::{TantivyDocument, Term};
 
 pub const MAX_RESULTS: usize = 100;
+pub const MAX_WINDOW: usize = 1_000;
 const MIN_PREFIX_CHARS: usize = 2;
 const MIN_FUZZY_CHARS: usize = 5;
 const MAX_SYNONYM_GROUP: usize = 8;
@@ -58,7 +59,7 @@ pub fn search(
     let searcher = search_index.reader.searcher();
     let top_docs = searcher.search(
         &query,
-        &TopDocs::with_limit(limit.min(MAX_RESULTS)).order_by_score(),
+        &TopDocs::with_limit(limit.min(MAX_WINDOW)).order_by_score(),
     )?;
     let mut results = Vec::with_capacity(top_docs.len());
     for (score, address) in top_docs {
