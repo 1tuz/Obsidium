@@ -144,7 +144,7 @@
 ## Проверки
 
 `quality` в `.github/workflows/ci.yml` запускает контрактные тесты вместе с `cargo test -p
-aquilum-core`, а при изменениях в CLI или MCP-слое — сборку `obsidium-cli` и `scripts/agent-smoke.mjs`:
+obsidium-core`, а при изменениях в CLI или MCP-слое — сборку `obsidium-cli` и `scripts/agent-smoke.mjs`:
 поиск, чтение с хэшем, конфликт, идемпотентная ссылка, задачи, контекст, dataview, транзакция и обмен
 JSON-RPC через stdio. Ночной `agent-integration` повторяет тот же сценарий в полном режиме:
 кириллические пути, длинная заметка с окнами чтения, вторая база без утечки состояния, два

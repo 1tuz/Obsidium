@@ -113,7 +113,7 @@ fn refuses_a_store_written_by_a_newer_build() {
 
 #[test]
 fn reopening_keeps_what_was_written() {
-    let directory = std::env::temp_dir().join(format!("aquilum-store-{}", std::process::id()));
+    let directory = std::env::temp_dir().join(format!("obsidium-store-{}", std::process::id()));
     std::fs::create_dir_all(&directory).expect("directory");
     let path = directory.join("documents.sqlite3");
     {

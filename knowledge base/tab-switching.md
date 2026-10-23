@@ -110,7 +110,7 @@ UI (тайтлбар / сайдбар / поиск / бэклинки / анал
 
 | Слой | Что хранит | Где |
 |---|---|---|
-| **Навигация** | Порядок посещённых документов | `localStorage` (`aquilum_nav_history:<workspace>`) |
+| **Навигация** | Порядок посещённых документов | `localStorage` (`obsidium_nav_history:<workspace>`) |
 | **View state** | Курсор, выделение, scroll | SQLite ui-state (`view_states`) |
 | **UI chrome** | Открытость левого/правого сайдбара, expanded folders | `localStorage` (`uiPersist`) |
 

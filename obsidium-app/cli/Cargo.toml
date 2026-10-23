@@ -12,5 +12,5 @@ name = "obsidium"
 path = "src/main.rs"
 
 [dependencies]
-aquilum-core = { path = "../core" }
+obsidium-core = { path = "../core" }
 serde_json = "1"

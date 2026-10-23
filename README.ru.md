@@ -223,7 +223,7 @@ Obsidium не требует облачного аккаунта. Сеть ис�
 
 ## Исходный код и лицензия
 
-Obsidium основан на [исходном проекте](https://github.com/Freaction/Aquilum) Дмитрия Чаплинского (© 2026). Форк добавляет:
+Obsidium — изменённая версия исходного проекта; оригинальные исходники доступны через workflow синхронизации (см. [knowledge base/upstream-sync.md](knowledge%20base/upstream-sync.md)). Форк добавляет:
 
 - Проверки и сборки установщиков для Windows, Apple Silicon macOS и Ubuntu 24 через GitHub Actions.
 - Установка и удаление одной командой в macOS, Ubuntu и Windows без удаления пользовательских данных.

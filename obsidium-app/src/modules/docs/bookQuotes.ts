@@ -1,5 +1,5 @@
 export const READER_LINK_SCHEME = 'obsidium-reader:';
-const LEGACY_READER_LINK_SCHEME = 'aquilum-reader:';
+
 
 type ReaderQuoteHref = {
   cfi: string;
@@ -13,10 +13,10 @@ type ParsedReaderQuote = {
 };
 
 const READER_QUOTE_HEADER_RE = /^>\s*\[!quote\]\s*/i;
-const READER_QUOTE_REF_BODY_RE = /^(.+?)\s+\[(\d+)\]\(((?:obsidium|aquilum)-reader:[^)]+)\)\s*$/;
-const READER_QUOTE_BODY_RE = /^(.+?)\[\[(?:→|↗)\]\]\(((?:obsidium|aquilum)-reader:[^)]+)\)\s*$/;
+const READER_QUOTE_REF_BODY_RE = /^(.+?)\s+\[(\d+)\]\(((?:obsidium)-reader:[^)]+)\)\s*$/;
+const READER_QUOTE_BODY_RE = /^(.+?)\[\[(?:→|↗)\]\]\(((?:obsidium)-reader:[^)]+)\)\s*$/;
 const READER_QUOTE_LINE_PREFIX_RE = /^>\s/;
-const READER_QUOTE_INLINE_BODY_RE = /^\[(.+?)\]\(((?:obsidium|aquilum)-reader:[^)]+)\)$/;
+const READER_QUOTE_INLINE_BODY_RE = /^\[(.+?)\]\(((?:obsidium)-reader:[^)]+)\)$/;
 
 function escapeReaderQuoteText(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
@@ -63,7 +63,7 @@ export function formatReaderQuoteRef(number: number): string {
 }
 
 export function isReaderQuoteHref(url: string): boolean {
-  return readerLinkScheme(url.trim()) !== null;
+  return url.trim().startsWith(READER_LINK_SCHEME);
 }
 
 export function formatBookQuote(
@@ -131,9 +131,8 @@ export function collectBookQuoteRefs(docText: string): BookQuoteRef[] {
 
 export function parseReaderQuoteHref(url: string): ReaderQuoteHref | null {
   const trimmed = url.trim();
-  const scheme = readerLinkScheme(trimmed);
-  if (!scheme) return null;
-  const rest = trimmed.slice(scheme.length);
+  if (!trimmed.startsWith(READER_LINK_SCHEME)) return null;
+  const rest = trimmed.slice(READER_LINK_SCHEME.length);
   if (rest.startsWith('cfi=')) {
     try {
       return { cfi: decodeURIComponent(rest.slice(4)) };
@@ -150,10 +149,4 @@ export function parseReaderQuoteHref(url: string): ReaderQuoteHref | null {
   } catch {
     return null;
   }
-}
-
-function readerLinkScheme(url: string): string | null {
-  if (url.startsWith(READER_LINK_SCHEME)) return READER_LINK_SCHEME;
-  if (url.startsWith(LEGACY_READER_LINK_SCHEME)) return LEGACY_READER_LINK_SCHEME;
-  return null;
 }

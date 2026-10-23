@@ -52,7 +52,7 @@ function workspaceStorageKey(prefix: string, workspacePath: string): string {
 }
 
 function expandedKey(workspacePath: string): string {
-  return workspaceStorageKey('aquilum_expanded_folders', workspacePath);
+  return workspaceStorageKey('obsidium_expanded_folders', workspacePath);
 }
 
 export function loadExpandedFolderPaths(workspacePath: string): string[] {
@@ -110,11 +110,11 @@ export function useExpandedFolders(workspacePath: string | null) {
 }
 
 function tabsCacheKey(workspacePath: string): string {
-  return `${workspaceStorageKey('aquilum_tabs_cache', workspacePath)}:${getWindowId()}`;
+  return `${workspaceStorageKey('obsidium_tabs_cache', workspacePath)}:${getWindowId()}`;
 }
 
 function legacyTabsCacheKey(workspacePath: string): string {
-  return workspaceStorageKey('aquilum_tabs_cache', workspacePath);
+  return workspaceStorageKey('obsidium_tabs_cache', workspacePath);
 }
 
 interface StoredTabSession {
@@ -173,7 +173,7 @@ export function saveTabSessionCache(
 }
 
 function navigationKey(workspacePath: string): string {
-  return workspaceStorageKey('aquilum_nav_history', workspacePath);
+  return workspaceStorageKey('obsidium_nav_history', workspacePath);
 }
 
 interface StoredNavigationHistory {

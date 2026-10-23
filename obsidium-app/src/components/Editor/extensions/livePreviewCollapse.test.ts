@@ -93,7 +93,7 @@ describe('collectCollapseRanges', () => {
   });
 
   it('keeps reader ref collapsed while caret is in quote text', () => {
-    const doc = '> [!quote] Quote text [1](aquilum-reader:cfi=abc&book=files%2Flong%2Fpath)\n';
+    const doc = '> [!quote] Quote text [1](obsidium-reader:cfi=abc&book=files%2Flong%2Fpath)\n';
     const state = createState(doc, doc.indexOf('Quote') + 2);
     const collapsed = collectCollapseRanges(state, syntaxTree(state));
     const open = doc.indexOf('[1]');

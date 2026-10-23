@@ -2,7 +2,7 @@ use crate::args::Args;
 use crate::client::{call, optional};
 use crate::error::{CliResult, Failure};
 use crate::output::{emit, Options};
-use aquilum_core::Core;
+use obsidium_core::Core;
 use serde_json::json;
 
 pub fn run(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> CliResult<()> {
@@ -17,13 +17,7 @@ pub fn run(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> 
 }
 
 fn search(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> CliResult<()> {
-    let query = args.rest_from(2);
-    if query.trim().is_empty() {
-        return Err(Failure::usage(
-            "использование: obsidium context search \"запрос\" [--folder F] [--tags a,b] [--limit N] [--max-chars N] [--graph-depth N] [--deep]",
-        ));
-    }
-    let mut arguments = json!({ "query": query });
+    let mut arguments = json!({});
     optional(
         &mut arguments,
         "folder",
@@ -57,6 +51,14 @@ fn search(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> C
     if args.take_flag("--deep") {
         arguments["mode"] = json!("deep");
     }
+    args.reject_unknown_flags(2)?;
+    let query = args.rest_from(2);
+    if query.trim().is_empty() {
+        return Err(Failure::usage(
+            "использование: obsidium context search \"запрос\" [--folder F] [--tags a,b] [--limit N] [--max-chars N] [--graph-depth N] [--deep]",
+        ));
+    }
+    arguments["query"] = json!(query);
     let value = call(core, "search_context", arguments, Some(workspace))?;
     emit(&value, options)
 }
@@ -64,16 +66,6 @@ fn search(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> C
 fn connections(core: &Core, args: &mut Args, options: &Options, workspace: &str) -> CliResult<()> {
     let mut arguments = json!({});
     let notes = args.take_list("--notes")?;
-    let query = args.rest_from(2);
-    if let Some(notes) = notes {
-        arguments["notes"] = json!(notes);
-    } else if !query.trim().is_empty() {
-        arguments["query"] = json!(query);
-    } else {
-        return Err(Failure::usage(
-            "использование: obsidium context connections \"тема\" | --notes A,B [--depth N] [--limit N]",
-        ));
-    }
     optional(
         &mut arguments,
         "depth",
@@ -84,6 +76,17 @@ fn connections(core: &Core, args: &mut Args, options: &Options, workspace: &str)
         "limit",
         args.take_number("--limit")?.map(Into::into),
     );
+    args.reject_unknown_flags(2)?;
+    let query = args.rest_from(2);
+    if let Some(notes) = notes {
+        arguments["notes"] = json!(notes);
+    } else if !query.trim().is_empty() {
+        arguments["query"] = json!(query);
+    } else {
+        return Err(Failure::usage(
+            "использование: obsidium context connections \"тема\" | --notes A,B [--depth N] [--limit N]",
+        ));
+    }
     let value = call(core, "discover_connections", arguments, Some(workspace))?;
     emit(&value, options)
 }

@@ -9,7 +9,7 @@ import { markdownStyles } from '../theme';
 import { linkInteraction, markdownNoteTarget, readerRefLinkClickAllowed } from './interaction';
 import { wikiLinkMarkdownConfig } from './syntax';
 
-const USER_QUOTE = '> [!quote] Вот примерно таким было бы наше восприятие мира всегда, если бы не ретикулярная формация. В данном примере она уже пробудила вас, но ещё не включилась на полную мощь и не успела выполнить свою интегрирующую функцию. [3](aquilum-reader:book=Files%2Ftest.fb2&cfi=epubcfi%28%2F6%2F10%29)';
+const USER_QUOTE = '> [!quote] Вот примерно таким было бы наше восприятие мира всегда, если бы не ретикулярная формация. В данном примере она уже пробудила вас, но ещё не включилась на полную мощь и не успела выполнить свою интегрирующую функцию. [3](obsidium-reader:book=Files%2Ftest.fb2&cfi=epubcfi%28%2F6%2F10%29)';
 
 function createState(doc: string, head: number) {
   return EditorState.create({
@@ -25,11 +25,11 @@ function createState(doc: string, head: number) {
 }
 
 describe('readerRefLinkClickAllowed', () => {
-  const doc = '> [!quote] Quote text [1](aquilum-reader:cfi=abc&book=files%2Flong%2Fpath)\nafter\n';
+  const doc = '> [!quote] Quote text [1](obsidium-reader:cfi=abc&book=files%2Flong%2Fpath)\nafter\n';
   const refStart = doc.indexOf('[1]');
-  const urlMid = doc.indexOf('aquilum-reader') + 10;
+  const urlMid = doc.indexOf('obsidium-reader') + 10;
   const quoteMid = doc.indexOf('Quote') + 2;
-  const url = 'aquilum-reader:cfi=abc';
+  const url = 'obsidium-reader:cfi=abc';
 
   it('blocks click on ref while caret is in quote text', () => {
     const state = createState(doc, quoteMid);
@@ -56,7 +56,7 @@ describe('readerRefLinkClickAllowed', () => {
     const mid = USER_QUOTE.indexOf('ретикулярная') + 4;
     const ref = USER_QUOTE.indexOf('[3]') + 1;
     const state = createState(`${USER_QUOTE}\nafter`, mid);
-    expect(readerRefLinkClickAllowed(state, ref, 'aquilum-reader:book=Files%2Ftest.fb2&cfi=x')).toBe(false);
+    expect(readerRefLinkClickAllowed(state, ref, 'obsidium-reader:book=Files%2Ftest.fb2&cfi=x')).toBe(false);
   });
 });
 

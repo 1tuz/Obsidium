@@ -41,6 +41,7 @@ pub fn open_headless_core(
 ) -> Result<Arc<Core>, String> {
     let main_data = default_app_data_dir(app_identifier)
         .ok_or_else(|| "не удалось определить каталог данных Obsidium".to_owned())?;
+    crate::migration::migrate_legacy_data(&main_data);
     let runtime_data = main_data.join(runtime_name);
     std::fs::create_dir_all(&runtime_data).map_err(|error| error.to_string())?;
 
@@ -71,6 +72,7 @@ pub fn open_headless_core(
         }
         let root = crate::search::paths::canonical_path(&path);
         core.watcher.watch(&root)?;
+        crate::history::store::adopt_legacy_history_tree(&root);
         let path = root.to_string_lossy().into_owned();
         core.ui_state
             .resolve_workspace(&path, now_ms())
@@ -155,8 +157,6 @@ fn endpoint(app_identifier: &str) -> Option<Endpoint> {
     if let Some(endpoint) = endpoint_from_env(
         std::env::var("OBSIDIUM_MCP_PORT").ok(),
         std::env::var("OBSIDIUM_MCP_TOKEN").ok(),
-        std::env::var("AQUILUM_MCP_PORT").ok(),
-        std::env::var("AQUILUM_MCP_TOKEN").ok(),
     ) {
         return Some(endpoint);
     }
@@ -172,22 +172,10 @@ fn endpoint(app_identifier: &str) -> Option<Endpoint> {
     })
 }
 
-fn endpoint_from_env(
-    obsidium_port: Option<String>,
-    obsidium_token: Option<String>,
-    aquilum_port: Option<String>,
-    aquilum_token: Option<String>,
-) -> Option<Endpoint> {
-    [
-        (obsidium_port, obsidium_token),
-        (aquilum_port, aquilum_token),
-    ]
-    .into_iter()
-    .find_map(|(port, token)| {
-        Some(Endpoint {
-            port: port?.parse().ok()?,
-            token: token?,
-        })
+fn endpoint_from_env(port: Option<String>, token: Option<String>) -> Option<Endpoint> {
+    Some(Endpoint {
+        port: port?.parse().ok()?,
+        token: token?,
     })
 }
 
@@ -245,6 +233,11 @@ mod tests {
         let parsed = serde_json::from_str::<Value>(&response).unwrap();
         let message = parsed["error"]["message"].as_str().unwrap();
         assert!(message.starts_with("Obsidium MCP:"), "{message}");
-        assert!(!message.to_lowercase().contains("aquilum"), "{message}");
+        assert!(
+            !message
+                .to_lowercase()
+                .contains(crate::legacy_name::LEGACY_APP_NAME),
+            "{message}"
+        );
     }
 }

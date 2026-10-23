@@ -28,7 +28,8 @@ import {
   type BaseSort,
   type BaseViewDefinition,
 } from '../../modules/bases';
-import { planKanbanCard } from '../../modules/bases/cardCreation';
+import { planCalendarCard, planKanbanCard } from '../../modules/bases/cardCreation';
+import { BaseCalendar } from './BaseCalendar';
 import { resolveBaseViewIndex } from '../../modules/bases/viewSelection';
 import './BaseView.css';
 
@@ -255,6 +256,22 @@ export function BaseView({
     } : current);
   };
 
+  const createCalendarCard = async (date: string) => {
+    if (!loaded) return;
+    const viewIndex = Math.min(activeView, loaded.definition.views.length - 1);
+    const draft = planCalendarCard(loaded.definition, viewIndex, path, workspacePath, date, date);
+    await ensureDirectory(draft.directory);
+    const created = await createAtFreeName(
+      (attempt) => childPath(draft.directory, `${date}${attempt ? ` ${attempt}` : ''}.md`),
+      (candidate) => createFile(candidate, draft.content),
+    );
+    if (!created) throw new Error(t('bases.kanbanNameExhausted'));
+    setLoaded((current) => current && current.path === path ? {
+      ...current,
+      rows: [...current.rows.filter((row) => row.path !== created), { path: created, fields: draft.fields }],
+    } : current);
+  };
+
   const renameCard = async (row: BaseRow, name: string) => {
     const safe = sanitizeFileName(name);
     if (!safe || safe !== name.trim()) throw new Error(t('bases.kanbanInvalidTitle'));
@@ -283,7 +300,7 @@ export function BaseView({
   };
 
   const grouped = groupRows(materialized.rows, view, workspacePath);
-  const kind = ['table', 'list', 'cards', 'kanban'].includes(view.type) ? view.type : 'table';
+  const kind = ['table', 'list', 'cards', 'kanban', 'calendar'].includes(view.type) ? view.type : 'table';
 
   return (
     <section className="q-base-view" aria-label={view.name}>
@@ -315,8 +332,16 @@ export function BaseView({
       )}
 
       <div className="q-base-view__scroll">
-        {materialized.rows.length === 0 && kind !== 'kanban' ? (
+        {materialized.rows.length === 0 && kind !== 'kanban' && kind !== 'calendar' ? (
           <div className="q-base-state">{t('bases.empty')}</div>
+        ) : kind === 'calendar' ? (
+          <BaseCalendar
+            rows={materialized.rows}
+            view={view}
+            workspacePath={workspacePath}
+            onOpen={onOpenNote}
+            onCreateDay={createCalendarCard}
+          />
         ) : kind === 'kanban' ? (
           <BaseKanban
             rows={materialized.rows}

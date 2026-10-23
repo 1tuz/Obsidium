@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use walkdir::WalkDir;
 
-pub const OBSIDIUM_FOLDER: &str = ".aquilum";
-const QUANTUM_FOLDER: &str = ".quantum";
+pub const OBSIDIUM_FOLDER: &str = ".obsidium";
+const LEGACY_FOLDERS: [&str; 2] = [".aquilum", ".quantum"];
 const HISTORY_FOLDER: &str = "history";
 const VERSION_EXTENSION: &str = ".md";
 const NAME_EXTENSION: &str = ".name";
@@ -32,8 +32,14 @@ fn history_root(base: &Path) -> PathBuf {
     base.join(OBSIDIUM_FOLDER).join(HISTORY_FOLDER)
 }
 
-pub fn adopt_quantum_history(base: &Path) {
-    let legacy = base.join(QUANTUM_FOLDER);
+pub fn adopt_legacy_history_tree(base: &Path) {
+    for folder in LEGACY_FOLDERS {
+        adopt_legacy_history(base, folder);
+    }
+}
+
+fn adopt_legacy_history(base: &Path, folder: &str) {
+    let legacy = base.join(folder);
     let legacy_history = legacy.join(HISTORY_FOLDER);
     if !legacy_history.is_dir() {
         return;
@@ -278,7 +284,7 @@ fn free_name(dir: &Path, at_ms: u64, name: impl Fn(u64) -> String) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        adopt_quantum_history, history_dir, history_root, latest_text, names, read_version,
+        adopt_legacy_history_tree, history_dir, history_root, latest_text, names, read_version,
         remove_expired, versions, write_name, write_version, DAY,
     };
     use crate::history::milestone::{Snapshot, Source};
@@ -328,28 +334,31 @@ mod tests {
     }
 
     #[test]
-    fn history_kept_under_the_quantum_name_moves_to_aquilum_without_overwriting() {
+    fn history_kept_under_a_legacy_name_moves_to_obsidium_without_overwriting() {
         let vault = tempfile::tempdir().unwrap();
-        let legacy = vault.path().join(".quantum/history/Идея.md");
-        fs::create_dir_all(&legacy).unwrap();
-        fs::write(legacy.join("1_dev_me.md"), "старая").unwrap();
-        fs::write(legacy.join("2_dev_me.md"), "из quantum").unwrap();
+        let aquilum = vault.path().join(".aquilum/history/Идея.md");
+        let quantum = vault.path().join(".quantum/history/Идея.md");
+        fs::create_dir_all(&aquilum).unwrap();
+        fs::create_dir_all(&quantum).unwrap();
+        fs::write(aquilum.join("1_dev_me.md"), "из aquilum").unwrap();
+        fs::write(quantum.join("1_dev_me.md"), "из quantum").unwrap();
+        fs::write(quantum.join("2_dev_me.md"), "из quantum").unwrap();
         let current = history_dir(vault.path(), Path::new("Идея.md"));
         fs::create_dir_all(&current).unwrap();
-        fs::write(current.join("2_dev_me.md"), "уже в aquilum").unwrap();
+        fs::write(current.join("2_dev_me.md"), "уже в obsidium").unwrap();
 
-        adopt_quantum_history(vault.path());
+        adopt_legacy_history_tree(vault.path());
 
         assert_eq!(
             fs::read_to_string(current.join("1_dev_me.md")).unwrap(),
-            "старая"
+            "из aquilum"
         );
         assert_eq!(
             fs::read_to_string(current.join("2_dev_me.md")).unwrap(),
-            "уже в aquilum"
+            "уже в obsidium"
         );
-        assert!(legacy.join("2_dev_me.md").exists());
-        assert!(!legacy.join("1_dev_me.md").exists());
+        assert!(quantum.join("1_dev_me.md").exists());
+        assert!(quantum.join("2_dev_me.md").exists());
     }
 
     #[test]
@@ -358,7 +367,7 @@ mod tests {
         assert_eq!(
             history_dir(vault, Path::new("Проекты/Идея.md")),
             vault
-                .join(".aquilum")
+                .join(".obsidium")
                 .join("history")
                 .join("Проекты/Идея.md")
         );

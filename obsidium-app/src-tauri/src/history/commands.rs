@@ -71,8 +71,8 @@ pub async fn cleanup_history(
 ) -> Result<u64, FileCommandError> {
     run_blocking(move || {
         let vault = Path::new(&workspace_path);
-        store::adopt_quantum_history(vault);
-        store::adopt_quantum_history(&trash_path(vault));
+        store::adopt_legacy_history_tree(vault);
+        store::adopt_legacy_history_tree(&trash_path(vault));
         Ok(store::remove_expired(vault, retention_days))
     })
     .await

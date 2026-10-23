@@ -28,14 +28,14 @@ describe('selectionIntersectsEditablePreview', () => {
   });
 
   it('is true while caret is inside a reader quote', () => {
-    const doc = Text.of(['> [!quote] Quote text [1](aquilum-reader:cfi=abc)']);
+    const doc = Text.of(['> [!quote] Quote text [1](obsidium-reader:cfi=abc)']);
     const span = findReaderQuotes(doc)[0]!;
     const state = EditorState.create({ doc, selection: { anchor: span.from + 2 } });
     expect(selectionIntersectsEditablePreview(state, span)).toBe(true);
   });
 
   it('detects caret inside any preview block', () => {
-    const doc = Text.of(['> [!quote] Quote text [1](aquilum-reader:cfi=abc)', 'after']);
+    const doc = Text.of(['> [!quote] Quote text [1](obsidium-reader:cfi=abc)', 'after']);
     const span = findReaderQuotes(doc)[0]!;
     const inside = EditorState.create({ doc, selection: { anchor: span.to - 2 } });
     const outside = EditorState.create({ doc, selection: { anchor: doc.line(2).from } });
@@ -55,7 +55,7 @@ describe('shouldRevealEditablePreviewMarker', () => {
   });
 
   it('reveals reader quote markers while caret is inside', () => {
-    const doc = Text.of(['> [!quote] Quote text [1](aquilum-reader:cfi=abc)']);
+    const doc = Text.of(['> [!quote] Quote text [1](obsidium-reader:cfi=abc)']);
     const span = findReaderQuotes(doc)[0]!;
     expect(shouldRevealEditablePreviewMarker([span], span.from + 2, span.from)).toBe(true);
     expect(shouldRevealEditablePreviewMarker([span], span.from + 2, span.from, 'QuoteMark')).toBe(true);
@@ -67,7 +67,7 @@ describe('shouldRevealEditablePreviewMarker', () => {
 describe('editablePreviewBlockEntryPos', () => {
   const quoteDoc = Text.of([
     'before',
-    '> [!quote] Quote text[[→]](aquilum-reader:cfi=abc)',
+    '> [!quote] Quote text[[→]](obsidium-reader:cfi=abc)',
     'after',
   ]);
 

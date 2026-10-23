@@ -16,6 +16,8 @@ vi.mock('../useSettingsPersist', () => ({
   useSettingsPersist: () => ({ persist: vi.fn() }),
 }));
 
+const LEGACY_APP_NAME = 'aquilum';
+
 describe('McpSection', () => {
   let renderer: MountedDom | null = null;
 
@@ -39,15 +41,15 @@ describe('McpSection', () => {
     expect(renderer!.container.textContent).toContain('claude mcp add --transport http obsidium');
     expect(renderer!.container.textContent).toContain('[mcp_servers.obsidium]');
     expect(renderer!.container.textContent).toContain('"obsidium"');
-    expect(renderer!.container.textContent).not.toContain('aquilum');
+    expect(renderer!.container.textContent).not.toContain(LEGACY_APP_NAME);
   });
 
   it('describes history retention without exposing the legacy storage name', () => {
     for (const locale of ['en', 'ru']) {
       setLanguage(locale);
       const hint = t('settings.history.retentionHint');
-      expect(hint).not.toContain('aquilum');
-      expect(hint).not.toContain('.aquilum');
+      expect(hint).not.toContain(LEGACY_APP_NAME);
+      expect(hint).not.toContain('.obsidium');
     }
   });
 });

@@ -1,9 +1,9 @@
 # Инструкции и правила проекта для AI-агента
 
-Obsidium — локальный (local-first) Tauri v2 редактор базы знаний, форк Freaction/Aquilum. Rust-бэкенд (`obsidium-app/src-tauri` и
+Obsidium — локальный (local-first) Tauri v2 редактор базы знаний. Rust-бэкенд (`obsidium-app/src-tauri` и
 `obsidium-app/core`), Preact с React-совместимым API + TypeScript фронтенд (`obsidium-app/src`), редактор на CodeMirror 6,
 документ — CRDT-реплика в ядре (`yrs`), источник правды на диске — обычный `.md`. Данные приложения (настройки, `ui-state.sqlite3`, индекс
-поиска, состояние окна) лежат в `%APPDATA%\com.dmitriy.aquilum-app`.
+поиска, состояние окна) лежат в `%APPDATA%\com.obsidium.app`.
 
 ## Сборки (критично)
 
@@ -19,7 +19,7 @@ Silicon macOS и Ubuntu 24 собираются GitHub Actions на push; tag `v
 использовать: `npx tauri …`, голый `tauri`, `npm run tauri build` без wrapper. Служебные `build` /
 `tauri:build` пользователю не предлагать. Детали: `knowledge base/build-artifacts-separation.md`.
 Публикация релиза и автообновление: `knowledge base/release-and-updates.md`
-(fork `1tuz/Obsidium`; upstream для синхронизации — `Freaction/Aquilum`).
+(fork `1tuz/Obsidium`; синхронизация с исходным проектом — `knowledge base/upstream-sync.md`).
 
 Перед отправкой релизного тега сверить его с последним опубликованным релизом fork: новый тег
 обязан быть потомком его тега, а все коммиты и изменения, заявленные для релиза, должны входить

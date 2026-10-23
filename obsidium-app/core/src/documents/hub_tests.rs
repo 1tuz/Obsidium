@@ -3,7 +3,7 @@ use crate::documents::resolve::SyncPointLookup;
 
 fn note(name: &str) -> PathBuf {
     let directory =
-        std::env::temp_dir().join(format!("aquilum-legacy-{}-{name}", std::process::id()));
+        std::env::temp_dir().join(format!("obsidium-legacy-{}-{name}", std::process::id()));
     std::fs::create_dir_all(&directory).expect("directory");
     let path = directory.join(format!("{name}.md"));
     std::fs::write(&path, "текст\n").expect("note");

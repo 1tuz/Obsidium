@@ -64,7 +64,7 @@
 
 ### Почему `Cargo.lock` не запускает сборку workspace
 
-Релизный коммит меняет в `Cargo.lock` одну строку — версию самого `aquilum-app`. Раньше этого хватало,
+Релизный коммит меняет в `Cargo.lock` одну строку — версию самого `obsidium-app`. Раньше этого хватало,
 чтобы `rust_workspace` включал `cargo test --workspace`: холодный прогон без кеша, потому что ключ
 `Swatinem/rust-cache` содержит хэш lockfile, то есть примерно двадцать минут на компиляцию Tauri ради
 двух изменённых цифр.
@@ -105,7 +105,7 @@ packages» сначала смотрит diff против `main` по трём 
   (`cancel-in-progress: false` там, где прогон дорогой и не должен обрываться).
 - Кэш зависимостей — только в Actions (`Swatinem/rust-cache`, `setup-node` с `cache: npm`).
 - Локально не запускаются полные `cargo test --workspace`, `npm test` и ресурсоёмкие сборки: это
-  работа ночного прогона. Локально допустимы `cargo check -p aquilum-core`, `npx tsc --noEmit` и
+  работа ночного прогона. Локально допустимы `cargo check -p obsidium-core`, `npx tsc --noEmit` и
   тесты затронутого модуля.
 - Перед коммитом с изменениями workflow: `ruby scripts/check-workflow-yaml.rb` (отклоняет дубли
   ключей) и `actionlint`.

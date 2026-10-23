@@ -168,11 +168,11 @@ mod tests {
         let version = "1790000000000_aaaaaaaa_agent.md";
         assert!(is_hidden(
             root,
-            &Path::new("C:/vault/.aquilum/history/Идея.md").join(version)
+            &Path::new("C:/vault/.obsidium/history/Идея.md").join(version)
         ));
         assert!(is_hidden(
             root,
-            &Path::new("C:/vault/.trash/.aquilum/history/Идея.md").join(version)
+            &Path::new("C:/vault/.trash/.obsidium/history/Идея.md").join(version)
         ));
     }
 

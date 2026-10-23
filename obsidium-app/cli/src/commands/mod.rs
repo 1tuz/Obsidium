@@ -1,7 +1,7 @@
 use crate::args::Args;
 use crate::error::{CliResult, Failure};
 use crate::output::Options;
-use aquilum_core::Core;
+use obsidium_core::Core;
 
 mod context;
 mod graph;

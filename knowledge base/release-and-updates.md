@@ -106,7 +106,7 @@ Helper подключается через `pathToFileURL`: на Windows дин�
 `sync-version.mjs` переписывает версии в манифестах и после этого обновляет `Cargo.lock` через
 `cargo metadata`: без этого следующий шаг с `--locked` падает на устаревшем lock. Релизный preflight
 (`scripts/validate-release.mjs`) требует совпадения с тегом и для `core/Cargo.toml`, и для записи
-`aquilum-core` в `Cargo.lock`, чтобы такой рассинхрон падал в preflight, а не в сборке.
+`obsidium-core` в `Cargo.lock`, чтобы такой рассинхрон падал в preflight, а не в сборке.
 
 Чтобы updater предложил установку, увеличь версию приложения перед запуском: повторная публикация
 того же номера версии не считается обновлением. Приватный updater key хранится в GitHub Secret
@@ -187,7 +187,7 @@ Updater проверяет minisign до установки. Без ключа �
 
 Автообновление при старте запускает фронт (`installUpdateOnStartup` в `App`, один раз после первой
 загрузки настроек), а не `setup()` в Rust. Раньше backend сам стартовал установку в `setup()` и
-слал глобальные события `aquilum://update-status`; они уходили до того, как WebView загрузился и
+слал глобальные события `obsidium://update-status`; они уходили до того, как WebView загрузился и
 подписался, событие «downloading» терялось, и splash не появлялся вовсе: приложение молча
 закрывалось на установку. Канал привязан к конкретному вызову, поэтому потерять начало нельзя.
 Вернуть запуск в `setup()` — значит вернуть эту гонку.
@@ -274,5 +274,5 @@ Updater обязан получать NSIS (`*-setup.exe`). MSI в quiet зав�
 | `latest.json` → 404 | Release не опубликован | Publish в Obsidium |
 | Скачало 100%, зависло на «откроется автоматически» | В манифесте был MSI | Исправить пакет Windows и выпустить новую версию |
 | Updater молчит в dev | Норма | Нужна release-сборка |
-| «No private key» | Нет ключа/пароля | `aquilum.key` + `setx TAURI_SIGNING_PRIVATE_KEY_PASSWORD` |
+| «No private key» | Нет ключа/пароля | `obsidium.key` + `setx TAURI_SIGNING_PRIVATE_KEY_PASSWORD` |
 | `failed to decode base64 secret key` | Битый ключ в env | Перечитать файл ключа без лишних пробелов |

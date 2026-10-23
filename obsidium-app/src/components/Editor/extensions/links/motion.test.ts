@@ -62,7 +62,7 @@ describe('docLineStepPos', () => {
 });
 
 describe('selection in quote edit zone', () => {
-  const doc = '> [!quote] Quote text [1](aquilum-reader:cfi=x&book=files%2Fvery%2Flong%2Fpath%2Fto%2Fbook.epub)\nafter\n';
+  const doc = '> [!quote] Quote text [1](obsidium-reader:cfi=x&book=files%2Fvery%2Flong%2Fpath%2Fto%2Fbook.epub)\nafter\n';
 
   it('treats caret in ref link as inside the preview block', () => {
     const state = createState(doc, doc.lastIndexOf(')'));
@@ -71,7 +71,7 @@ describe('selection in quote edit zone', () => {
 });
 
 describe('editablePreviewBlockEntryPos (quote navigation)', () => {
-  const doc = 'before\n> [!quote] Quote [1](aquilum-reader:cfi=x)\nafter\n';
+  const doc = 'before\n> [!quote] Quote [1](obsidium-reader:cfi=x)\nafter\n';
 
   it('targets quote text end when arrow-up crosses from below', () => {
     const state = createState(doc, doc.indexOf('after'));

@@ -82,10 +82,10 @@ export default function App() {
   const templates = useOverlay();
   const settings = useOverlay();
   const workspaces = useOverlay();
-  const [leftSidebarOpen, setLeftSidebarOpen] = useLocalState('aquilum_sidebar_left_open', true);
-  const [rightSidebarOpen, setRightSidebarOpen] = useLocalState('aquilum_sidebar_right_open', true);
-  const [storedLeftWidth, setStoredLeftWidth] = useLocalState<number>('aquilum_sidebar_left_width', PANEL_LIMITS.left.fallback);
-  const [storedRightWidth, setStoredRightWidth] = useLocalState<number>('aquilum_sidebar_right_width', PANEL_LIMITS.right.fallback);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useLocalState('obsidium_sidebar_left_open', true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useLocalState('obsidium_sidebar_right_open', true);
+  const [storedLeftWidth, setStoredLeftWidth] = useLocalState<number>('obsidium_sidebar_left_width', PANEL_LIMITS.left.fallback);
+  const [storedRightWidth, setStoredRightWidth] = useLocalState<number>('obsidium_sidebar_right_width', PANEL_LIMITS.right.fallback);
   const leftWidth = clampPanelWidth('left', storedLeftWidth);
   const rightWidth = clampPanelWidth('right', storedRightWidth);
   const setLeftWidth = useCallback((width: number) => {
@@ -94,7 +94,7 @@ export default function App() {
   const setRightWidth = useCallback((width: number) => {
     setStoredRightWidth(clampPanelWidth('right', width));
   }, [setStoredRightWidth]);
-  const [focusMode, setFocusMode] = useLocalState('aquilum_focus_mode', false);
+  const [focusMode, setFocusMode] = useLocalState('obsidium_focus_mode', false);
   const toggleFocusMode = useCallback(() => {
     setFocusMode((current) => !current);
   }, []);

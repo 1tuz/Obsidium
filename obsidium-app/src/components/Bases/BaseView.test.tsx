@@ -29,6 +29,9 @@ vi.mock('../../modules/documents/fileGateway', () => ({
     '    groupOrder: [todo, doing, done]',
     '  - type: kanban',
     '    name: By owner',
+    '  - type: calendar',
+    '    name: Schedule',
+    '    dateField: due',
   ].join('\n'), hash: 'hash', textHash: 'hash' })),
   writeFileAtomic: vi.fn(async () => ({ hash: 'saved' })),
   trashFile: vi.fn(async () => '/vault/.trash/Task.md'),
@@ -72,7 +75,7 @@ describe('BaseView view selection', () => {
     await actAndSettle();
 
     const viewTabs = [...renderer!.container.querySelectorAll('[role="tab"]')];
-    expect(viewTabs.map((tab) => tab.getAttribute('aria-selected'))).toEqual(['false', 'false', 'true']);
+    expect(viewTabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true')).toBe(2);
     expect(vi.mocked(saveBaseView)).toHaveBeenCalledWith('/vault', props.path, 2);
 
     act(() => {
@@ -87,7 +90,7 @@ describe('BaseView view selection', () => {
     });
     await actAndSettle();
     expect([...renderer!.container.querySelectorAll('[role="tab"]')]
-      .map((tab) => tab.getAttribute('aria-selected'))).toEqual(['false', 'true', 'false']);
+      .findIndex((tab) => tab.getAttribute('aria-selected') === 'true')).toBe(1);
   });
 
   it('does not let a delayed saved view overwrite a view the user just selected', async () => {
@@ -110,7 +113,7 @@ describe('BaseView view selection', () => {
     await actAndSettle();
 
     expect([...renderer!.container.querySelectorAll('[role="tab"]')]
-      .map((tab) => tab.getAttribute('aria-selected'))).toEqual(['false', 'true', 'false']);
+      .findIndex((tab) => tab.getAttribute('aria-selected') === 'true')).toBe(1);
     state.loadDeferred = null;
   });
 
@@ -186,6 +189,28 @@ describe('BaseView view selection', () => {
       '/vault/Ship patch.md', '---\nstatus: "todo"\n---\n\n# Ship patch\n',
     );
     expect(renderer!.container.textContent).toContain('Ship patch');
+  });
+
+  it('shows dated notes in a month grid and creates a note on a day', async () => {
+    const due = new Date().toISOString().slice(0, 10);
+    state.rows = [{ path: '/vault/Release.md', fields: { due } }];
+    const props = {
+      path: '/vault/Project.base', workspacePath: '/vault', indexReady: true, indexRevision: 0,
+      onOpenNote: vi.fn(), viewRequest: { path: '/vault/Project.base', index: 3, id: 4 },
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    const cell = [...renderer!.container.querySelectorAll<HTMLElement>('.q-base-calendar__day')]
+      .find((candidate) => candidate.textContent?.includes('Release'))!;
+    expect(cell.getAttribute('aria-label')).toBe(due);
+
+    act(() => cell.querySelector<HTMLButtonElement>('.q-base-calendar__add')!.click());
+    await actAndSettle();
+
+    expect(createFile).toHaveBeenCalledWith(
+      `/vault/${due}.md`, `---\ndue: "${due}"\n---\n\n# ${due}\n`,
+    );
   });
 
   it('moves an unassigned card using the keyboard-accessible column selector', async () => {

@@ -3,7 +3,7 @@
   "productName": "Obsidium",
   "mainBinaryName": "Obsidium",
   "version": "0.5.15",
-  "identifier": "com.dmitriy.aquilum-app",
+  "identifier": "com.obsidium.app",
   "build": {
     "beforeDevCommand": "node ../scripts/prepare-cli-sidecar.mjs && npm run dev",
     "devUrl": "http://127.0.0.1:1420",

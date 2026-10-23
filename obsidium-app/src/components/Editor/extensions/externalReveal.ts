@@ -66,7 +66,7 @@ const revealTicker = ViewPlugin.fromClass(class {
   private readonly handleMotionChange = () => this.sync();
 
   constructor(private readonly view: EditorView) {
-    document.documentElement.addEventListener('aquilum-motion-change', this.handleMotionChange);
+    document.documentElement.addEventListener('obsidium-motion-change', this.handleMotionChange);
     this.sync();
   }
 
@@ -76,7 +76,7 @@ const revealTicker = ViewPlugin.fromClass(class {
 
   destroy() {
     this.stop();
-    document.documentElement.removeEventListener('aquilum-motion-change', this.handleMotionChange);
+    document.documentElement.removeEventListener('obsidium-motion-change', this.handleMotionChange);
   }
 
   private sync() {

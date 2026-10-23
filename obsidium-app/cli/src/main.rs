@@ -5,15 +5,15 @@ mod error;
 mod help;
 mod output;
 
-use aquilum_core::mcp::open_headless_core;
-use aquilum_core::Core;
 use args::Args;
 use error::{CliResult, Failure};
+use obsidium_core::mcp::open_headless_core;
+use obsidium_core::Core;
 use output::Options;
 use std::path::Path;
 use std::sync::Arc;
 
-const APP_IDENTIFIER: &str = "com.dmitriy.aquilum-app";
+const APP_IDENTIFIER: &str = "com.obsidium.app";
 
 fn main() {
     if let Err(failure) = execute() {
@@ -72,7 +72,7 @@ fn mcp(core: Arc<Core>, args: &mut Args) -> CliResult<()> {
     if let Some(extra) = args.at(2) {
         return Err(Failure::usage(format!("лишний аргумент: {extra}")));
     }
-    if aquilum_core::mcp::run_stdio_core(core) == 0 {
+    if obsidium_core::mcp::run_stdio_core(core) == 0 {
         Ok(())
     } else {
         Err(Failure::execution("MCP stdio завершился с ошибкой"))

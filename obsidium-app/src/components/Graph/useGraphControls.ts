@@ -20,10 +20,10 @@ export function useGraphControls(
 ) {
   const previousWorkspace = useRef(workspacePath);
   const [legacyPreferences] = useLocalState<GraphPreferences>(
-    'aquilum_graph_preferences',
+    'obsidium_graph_preferences',
     DEFAULT_PREFERENCES,
   );
-  const [legacyPresets] = useLocalState<GraphPresets>('aquilum_graph_presets', {});
+  const [legacyPresets] = useLocalState<GraphPresets>('obsidium_graph_presets', {});
   const { config, loadConfig, updateConfig } = useSettingsStore();
   const [graphSettingsLoaded, setGraphSettingsLoaded] = useState(false);
   const [storedPreferences, setPreferences] = useState(DEFAULT_PREFERENCES);

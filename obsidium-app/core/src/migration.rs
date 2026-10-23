@@ -1,6 +1,7 @@
 use std::path::Path;
 
 const REBUILT_CACHES: [&str; 1] = ["search-v2"];
+const LEGACY_DIRS: [&str; 2] = ["com.dmitriy.aquilum-app", "com.dmitriy.quantum-app"];
 
 pub fn migrate_legacy_data(target_dir: &Path) {
     if target_dir.join("ui-state.sqlite3").exists() || target_dir.join("settings.json").exists() {
@@ -9,15 +10,23 @@ pub fn migrate_legacy_data(target_dir: &Path) {
     let Some(parent) = target_dir.parent() else {
         return;
     };
-    let legacy_dir = parent.join("com.dmitriy.quantum-app");
-    if !legacy_dir.is_dir() {
-        return;
+    for name in LEGACY_DIRS {
+        let legacy_dir = parent.join(name);
+        if legacy_dir.is_dir() {
+            copy_legacy_dir(&legacy_dir, target_dir);
+        }
     }
+}
+
+fn copy_legacy_dir(legacy_dir: &Path, target_dir: &Path) {
     let entries =
-        match std::fs::create_dir_all(target_dir).and_then(|()| std::fs::read_dir(&legacy_dir)) {
+        match std::fs::create_dir_all(target_dir).and_then(|()| std::fs::read_dir(legacy_dir)) {
             Ok(entries) => entries,
             Err(error) => {
-                eprintln!("[obsidium:migration] данные quantum-app не перенесены: {error}");
+                eprintln!(
+                    "[obsidium:migration] данные {} не перенесены: {error}",
+                    legacy_dir.display()
+                );
                 return;
             }
         };
@@ -65,7 +74,7 @@ mod tests {
     fn migrates_legacy_data_when_target_is_empty() {
         let root = tempdir().unwrap();
         let legacy = root.path().join("com.dmitriy.quantum-app");
-        let target = root.path().join("com.dmitriy.aquilum-app");
+        let target = root.path().join("com.obsidium.app");
         std::fs::create_dir_all(&legacy).unwrap();
         std::fs::write(legacy.join("settings.json"), "{\"test\":true}").unwrap();
         std::fs::write(legacy.join("ui-state.sqlite3"), "mock-db").unwrap();
@@ -87,10 +96,29 @@ mod tests {
     }
 
     #[test]
+    fn the_nearest_legacy_directory_wins() {
+        let root = tempdir().unwrap();
+        let older = root.path().join("com.dmitriy.quantum-app");
+        let newer = root.path().join("com.dmitriy.aquilum-app");
+        let target = root.path().join("com.obsidium.app");
+        std::fs::create_dir_all(&older).unwrap();
+        std::fs::create_dir_all(&newer).unwrap();
+        std::fs::write(older.join("settings.json"), "quantum").unwrap();
+        std::fs::write(newer.join("settings.json"), "aquilum").unwrap();
+
+        migrate_legacy_data(&target);
+
+        assert_eq!(
+            std::fs::read_to_string(target.join("settings.json")).unwrap(),
+            "aquilum"
+        );
+    }
+
+    #[test]
     fn does_not_overwrite_existing_target_data() {
         let root = tempdir().unwrap();
         let legacy = root.path().join("com.dmitriy.quantum-app");
-        let target = root.path().join("com.dmitriy.aquilum-app");
+        let target = root.path().join("com.obsidium.app");
         std::fs::create_dir_all(&legacy).unwrap();
         std::fs::create_dir_all(&target).unwrap();
         std::fs::write(legacy.join("settings.json"), "legacy").unwrap();

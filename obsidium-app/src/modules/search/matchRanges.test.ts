@@ -3,15 +3,15 @@ import { findMatchRanges, flattenMatchRanges } from './matchRanges';
 
 describe('findMatchRanges', () => {
   it('находит совпадение в начале слова', () => {
-    expect(findMatchRanges('Дмитрий Чаплинский', ['чапл'])).toEqual([{ start: 8, end: 12 }]);
+    expect(findMatchRanges('Мария Соколова', ['соко'])).toEqual([{ start: 6, end: 10 }]);
   });
 
   it('по умолчанию пропускает совпадение внутри слова', () => {
-    expect(findMatchRanges('Кто такой аудмитрий', ['дми'])).toEqual([]);
+    expect(findMatchRanges('Кто такой аасоколов', ['сок'])).toEqual([]);
   });
 
   it('с wordStartOnly=false находит совпадение внутри слова', () => {
-    expect(findMatchRanges('Кто такой аудмитрий', ['дми'], { wordStartOnly: false }))
+    expect(findMatchRanges('Кто такой аасоколов', ['сок'], { wordStartOnly: false }))
       .toEqual([{ start: 12, end: 15 }]);
   });
 
@@ -20,12 +20,12 @@ describe('findMatchRanges', () => {
   });
 
   it('возвращает пусто без текста или без запроса', () => {
-    expect(findMatchRanges('', ['дми'])).toEqual([]);
-    expect(findMatchRanges('Дмитрий', [])).toEqual([]);
+    expect(findMatchRanges('', ['сок'])).toEqual([]);
+    expect(findMatchRanges('Соколов', [])).toEqual([]);
   });
 
   it('не выдаёт пересекающихся диапазонов', () => {
-    const ranges = findMatchRanges('Дмитрий Дмитриев', ['дми', 'дмитри']);
+    const ranges = findMatchRanges('Соколов Соколов', ['сок', 'соколов']);
     for (let index = 1; index < ranges.length; index += 1) {
       expect(ranges[index].start).toBeGreaterThanOrEqual(ranges[index - 1].end);
     }

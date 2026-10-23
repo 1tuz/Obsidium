@@ -25,8 +25,8 @@ case "$system:$architecture" in
       printf 'Obsidium Linux uninstaller supports Ubuntu 24.04 x64 only.\n' >&2
       exit 1
     fi
-    if dpkg-query -W -f='${Status}' com.dmitriy.aquilum-app 2>/dev/null | grep -q 'install ok installed'; then
-      sudo dpkg --remove com.dmitriy.aquilum-app
+    if dpkg-query -W -f='${Status}' com.obsidium.app 2>/dev/null | grep -q 'install ok installed'; then
+      sudo dpkg --remove com.obsidium.app
       removed=true
     fi ;;
   *) printf 'Obsidium uninstaller supports Apple Silicon macOS and Ubuntu 24.04 x64 only.\n' >&2; exit 1 ;;

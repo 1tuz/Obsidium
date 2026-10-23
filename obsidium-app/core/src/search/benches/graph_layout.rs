@@ -7,7 +7,7 @@ use std::time::Instant;
 const SIZES: [usize; 4] = [100, 1_000, 10_000, 100_000];
 
 #[test]
-#[ignore = "run with cargo test -p aquilum-core --lib benchmark_graph_layout -- --ignored --nocapture"]
+#[ignore = "run with cargo test -p obsidium-core --lib benchmark_graph_layout -- --ignored --nocapture"]
 fn benchmark_graph_layout() {
     let default_sizes = SIZES
         .iter()

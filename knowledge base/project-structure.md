@@ -18,12 +18,12 @@ Obsidium/
 └── obsidium-app/
     ├── index.html
     ├── package.json
-    ├── core/                ← Rust-ядро (aquilum-core): без UI
+    ├── core/                ← Rust-ядро (obsidium-core): без UI
     │   ├── Cargo.toml
     │   └── src/{documents,files,history,link_title,mcp,search,settings,ui_state,wikixiv}/
     ├── cli/                 ← headless CLI (obsidium-cli) поверх того же ядра
     ├── src/                 ← Preact + TypeScript, CodeMirror 6
-    ├── src-tauri/           ← Tauri-хост (aquilum-app): команды, окно, MCP-мост
+    ├── src-tauri/           ← Tauri-хост (obsidium-app): команды, окно, MCP-мост
     ├── tests/
     └── vendor/foliate-js/   ← submodule, читалка книг
 ```
@@ -36,8 +36,8 @@ Obsidium/
 
 ## Пространство крейтов
 
-`obsidium-app/src-tauri/Cargo.toml` — корень workspace, участники: `.` (`aquilum-app`), `../core`
-(`aquilum-core`), `../cli` (`obsidium-cli`). Ядро не зависит от Tauri, поэтому его тесты идут на
+`obsidium-app/src-tauri/Cargo.toml` — корень workspace, участники: `.` (`obsidium-app`), `../core`
+(`obsidium-core`), `../cli` (`obsidium-cli`). Ядро не зависит от Tauri, поэтому его тесты идут на
 любой платформе без WebView-зависимостей, а CLI переиспользует тот же код, что и приложение
 ([[headless-cli-and-mcp-transactions]]).
 
@@ -82,7 +82,7 @@ Obsidium/
 ## Что проверяется в CI, а не локально
 
 Сборки, полный набор тестов и бенчмарки живут в GitHub Actions ([[ci-pipelines]]). Локально
-допустимы адресные проверки: `cargo check -p aquilum-core`, `npx tsc --noEmit`, тесты одного
+допустимы адресные проверки: `cargo check -p obsidium-core`, `npx tsc --noEmit`, тесты одного
 модуля. Полные `cargo test --workspace` и `npm test` — ночной workflow.
 
 ## Техдолг

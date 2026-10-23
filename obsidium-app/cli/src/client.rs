@@ -1,6 +1,6 @@
 use crate::error::{CliResult, Failure};
-use aquilum_core::mcp::tools;
-use aquilum_core::Core;
+use obsidium_core::mcp::tools;
+use obsidium_core::Core;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};

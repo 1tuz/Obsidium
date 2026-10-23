@@ -45,7 +45,7 @@ Enter в инпуте названия, когда заметка начинае
 
 ```text
 React MetadataToggle (над CodeMirror)
-  <-> localStorage aquilum_metadata_expanded
+  <-> localStorage obsidium_metadata_expanded
   <-> CM StateEffect setFrontmatterExpanded
        -> frontmatterBlock: collapsed = Decoration.replace(YAML)
                           expanded = стили key/value (accent после :)

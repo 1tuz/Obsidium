@@ -267,15 +267,17 @@ function view(value: YamlValue, index: number): BaseViewDefinition | null {
   const limit = typeof value.limit === 'number' && Number.isFinite(value.limit)
     ? Math.max(1, Math.floor(value.limit))
     : undefined;
+  const dateField = text(value.dateField) || undefined;
   return {
     type,
     name: text(value.name, `${type || 'view'} ${index + 1}`),
     order,
+    limit,
+    dateField,
     filters: filter(value.filters),
     groupBy: groupBy(value.groupBy),
     groupOrder,
     sort: sort(value.sort),
-    limit,
   };
 }
 

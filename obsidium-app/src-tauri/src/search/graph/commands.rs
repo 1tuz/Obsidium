@@ -1,7 +1,7 @@
 use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::search::error::SearchError;
-use aquilum_core::search::graph::{
+use obsidium_core::search::graph::{
     layout::{Mode, Options},
     service::{GraphModifiedDateDelta, GraphNodeFilter, GraphTopologyDelta},
 };
@@ -81,7 +81,7 @@ pub async fn get_graph_topology_delta(
 pub async fn get_graph_timeline_range(
     core: State<'_, Arc<Core>>,
     workspace_path: String,
-) -> Result<aquilum_core::search::graph::timeline::TimelineRange, SearchError> {
+) -> Result<obsidium_core::search::graph::timeline::TimelineRange, SearchError> {
     let service = core.search.clone();
     run_blocking(move || service.graph_timeline_range(&workspace_path)).await
 }
@@ -92,7 +92,7 @@ pub async fn get_graph_timeline_events(
     workspace_path: String,
     after_event: i64,
     limit: usize,
-) -> Result<Vec<aquilum_core::search::graph::timeline::TimelineEvent>, SearchError> {
+) -> Result<Vec<obsidium_core::search::graph::timeline::TimelineEvent>, SearchError> {
     let service = core.search.clone();
     run_blocking(move || service.graph_timeline_events(&workspace_path, after_event, limit)).await
 }

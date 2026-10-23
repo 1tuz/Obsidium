@@ -54,51 +54,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
-name = "aquilum-app"
-version = "0.5.15"
-dependencies = [
- "aquilum-core",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "objc2-web-kit",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "uuid",
- "webview2-com",
- "windows",
-]
-
-[[package]]
-name = "aquilum-core"
-version = "0.5.15"
-dependencies = [
- "atomic-write-file",
- "blake3",
- "httparse",
- "notify",
- "pulldown-cmark",
- "rusqlite",
- "rust-stemmers",
- "serde",
- "serde_json",
- "tantivy",
- "tempfile",
- "unicode-normalization",
- "ureq",
- "uuid",
- "walkdir",
- "yrs",
-]
-
-[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2906,11 +2861,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "obsidium-app"
+version = "0.5.15"
+dependencies = [
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "objc2-web-kit",
+ "obsidium-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "uuid",
+ "webview2-com",
+ "windows",
+]
+
+[[package]]
 name = "obsidium-cli"
 version = "0.2.8"
 dependencies = [
- "aquilum-core",
+ "obsidium-core",
  "serde_json",
+]
+
+[[package]]
+name = "obsidium-core"
+version = "0.5.15"
+dependencies = [
+ "atomic-write-file",
+ "blake3",
+ "httparse",
+ "notify",
+ "pulldown-cmark",
+ "rusqlite",
+ "rust-stemmers",
+ "serde",
+ "serde_json",
+ "tantivy",
+ "tempfile",
+ "unicode-normalization",
+ "ureq",
+ "uuid",
+ "walkdir",
+ "yrs",
 ]
 
 [[package]]

@@ -129,7 +129,7 @@ export class GraphRenderer {
     canvas.addEventListener('webglcontextlost', this.handleContextLost);
     this.themeWatcher = observePaletteChanges(document.documentElement, () => this.refreshPalette());
     this.motionQuery.addEventListener('change', this.handleMotionChange);
-    document.documentElement.addEventListener('aquilum-motion-change', this.handleMotionChange);
+    document.documentElement.addEventListener('obsidium-motion-change', this.handleMotionChange);
   }
 
   setSnapshot(snapshot: GraphSnapshot, keepCamera = false): void {
@@ -557,7 +557,7 @@ export class GraphRenderer {
     this.saveCameraNow();
     this.clock.stop();
     this.motionQuery.removeEventListener('change', this.handleMotionChange);
-    document.documentElement.removeEventListener('aquilum-motion-change', this.handleMotionChange);
+    document.documentElement.removeEventListener('obsidium-motion-change', this.handleMotionChange);
     this.themeWatcher.disconnect();
     this.interaction.detach();
     this.canvas.removeEventListener('webglcontextlost', this.handleContextLost);

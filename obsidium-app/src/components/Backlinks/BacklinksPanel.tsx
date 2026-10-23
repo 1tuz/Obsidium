@@ -87,10 +87,10 @@ function BacklinksPanelComponent({
   const { config } = useSettingsStore();
   const sidebarMethods = enabledSidebarMethods(config?.analysis);
   const sourcesAvailable = sidebarMethods.length > 0;
-  const [storedMode, setMode] = useLocalState<string>('aquilum_backlinks_mode', 'backlinks');
+  const [storedMode, setMode] = useLocalState<string>('obsidium_backlinks_mode', 'backlinks');
   const mode = resolvePanelMode(storedMode, sourcesAvailable);
   const [sourceMethod, setSourceMethod] = useLocalState<SidebarSourceMethod>(
-    'aquilum_analysis_method',
+    'obsidium_analysis_method',
     'bm25f',
   );
   const activeSourceMethod = sidebarMethods.includes(sourceMethod)

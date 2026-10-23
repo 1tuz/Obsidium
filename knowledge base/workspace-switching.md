@@ -49,20 +49,20 @@
 чтобы приглашение открыть базу не мигало в редакторе). Каждое успешное открытие пишется туда же через
 `rememberOpenedWorkspace` → `resolve_ui_workspace`.
 
-Раньше указатель лежал в `localStorage['aquilum_workspace']`, и это был баг: localStorage
+Раньше указатель лежал в `localStorage['obsidium_workspace']`, и это был баг: localStorage
 привязан к origin WebView, а origin у сборок разный — dev отдаёт страницу с
 `http://127.0.0.1:1420`, релиз с `http://tauri.localhost`. В
-`%LOCALAPPDATA%\com.dmitriy.aquilum-app\EBWebView` лежат два независимых хранилища, поэтому
+`%LOCALAPPDATA%\com.dmitriy.obsidium-app\EBWebView` лежат два независимых хранилища, поэтому
 dev и релиз помнили разные базы знаний. Всё остальное состояние приложения
 (`settings.json`, `window-state.json`, `ui-state.sqlite3`, индекс `search-v2`) живёт в
-`%APPDATA%\com.dmitriy.aquilum-app` и общее для обеих сборок, потому что путь строится из
+`%APPDATA%\com.dmitriy.obsidium-app` и общее для обеих сборок, потому что путь строится из
 одного `identifier` в `tauri.conf.json`.
 
 Правило на будущее: **состояние, которое должно совпадать у dev и релиза, нельзя держать в
 localStorage** — только в `app_data_dir` (settings или `ui-state.sqlite3`). Миграция легаси-ключа
-`aquilum_workspace` удалена: ключ уже переехал у всех пользователей, и код чтения стал мёртвым.
+`obsidium_workspace` удалена: ключ уже переехал у всех пользователей, и код чтения стал мёртвым.
 
-Остальные ключи localStorage (`aquilum_locale`, масштаб интерфейса, флаги сайдбара,
+Остальные ключи localStorage (`obsidium_locale`, масштаб интерфейса, флаги сайдбара,
 раскрытые папки дерева, кэш вкладок) по этой же причине у сборок расходятся. Кэш вкладок
 расхождение переживает — авторитет у сессии из БД, кэш нужен только для мгновенной
 отрисовки; остальные ключи пока остаются per-origin осознанно.

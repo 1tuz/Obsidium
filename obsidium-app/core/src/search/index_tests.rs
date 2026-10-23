@@ -5,8 +5,8 @@ use tantivy::doc;
 #[test]
 fn normalizes_case_and_deduplicates_query_terms() {
     assert_eq!(
-        query_terms("Aquilum АКВИЛ aquilum"),
-        vec!["aquilum".to_string(), "аквил".to_string()]
+        query_terms("Obsidium ОБСИД obsidium"),
+        vec!["obsidium".to_string(), "обсид".to_string()]
     );
 }
 
