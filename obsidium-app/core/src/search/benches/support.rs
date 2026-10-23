@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn write_note(vault: &Path, index: usize, paragraphs: usize) {
     let mut content = format!(
-        "# Note {index}\n\nAquilum architecture indexing topic {}. This note contains realistic amounts of text to properly stress the BM25F algorithm and the filesystem tokenizer.\n\n",
+        "# Note {index}\n\nObsidium architecture indexing topic {}. This note contains realistic amounts of text to properly stress the BM25F algorithm and the filesystem tokenizer.\n\n",
         index % 97
     );
     for _ in 0..paragraphs {

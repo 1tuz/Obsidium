@@ -151,8 +151,8 @@ mod tests {
             "D:/Games/zombie voxel/Knowledge base",
             "D:/My programs/Obsidium/knowledge base",
             "D:/База знаний копия/NeuroNet",
-            "C:/Users/Dmitriy/OneDrive/Документы/NeuroNet",
-            "C:/Users/Dmitriy/Desktop/Solo",
+            "C:/Users/anna/OneDrive/Документы/NeuroNet",
+            "C:/Users/anna/Desktop/Solo",
         ]
         .into_iter()
         .map(PathBuf::from)
@@ -204,6 +204,6 @@ mod tests {
     fn unknown_workspace_error_uses_the_obsidium_name() {
         let error = super::unknown_workspace("Новая");
         assert!(error.contains("в Obsidium"), "{error}");
-        assert!(!error.to_lowercase().contains("aquilum"), "{error}");
+        assert!(!error.to_lowercase().contains(crate::legacy_name::LEGACY_APP_NAME), "{error}");
     }
 }

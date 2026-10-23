@@ -4,7 +4,6 @@ filters = Psych.safe_load(File.read('.github/filters.yml'))
 flags = File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH
 
 raise 'Obsidium application source directory is missing' unless Dir.exist?('obsidium-app')
-raise 'legacy application source directory still exists' if Dir.exist?('obsidium-app')
 
 cases = {
   'documentation' => ['knowledge base/theme-engine.md'],

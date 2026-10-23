@@ -15,7 +15,7 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
     let vault = directory.path().join("vault");
     fs::create_dir_all(&vault).unwrap();
     let source_path = vault.join("source.md");
-    fs::write(&source_path, "aquilum architecture indexing").unwrap();
+    fs::write(&source_path, "obsidium architecture indexing").unwrap();
 
     let index = SearchIndex::open(&directory.path().join("index")).unwrap();
     let mut writer = index.index.writer(15_000_000).unwrap();
@@ -23,22 +23,22 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
         (
             &source_path,
             "source",
-            "aquilum architecture indexing".to_owned(),
+            "obsidium architecture indexing".to_owned(),
         ),
         (
             &vault.join("title.md"),
-            "aquilum architecture",
+            "obsidium architecture",
             "notes".to_owned(),
         ),
         (
             &vault.join("short.md"),
             "short",
-            "aquilum architecture".to_owned(),
+            "obsidium architecture".to_owned(),
         ),
         (
             &vault.join("long.md"),
             "long",
-            format!("aquilum architecture {}", "filler ".repeat(200)),
+            format!("obsidium architecture {}", "filler ".repeat(200)),
         ),
     ];
     for (path, title, body) in documents {
@@ -77,7 +77,7 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
     assert!(results[0].raw_score > 1.0);
     let title_match = results
         .iter()
-        .find(|result| result.title == "aquilum architecture")
+        .find(|result| result.title == "obsidium architecture")
         .unwrap();
     let short = results
         .iter()

@@ -74,11 +74,11 @@ mod tests {
     fn name_start_beats_word_start_beats_middle() {
         let titles = rank(
             vec![
-                candidate("C:/vault/Кто такой аудмитрий.md"),
-                candidate("C:/vault/Заметки/Иван Дмитриев.md"),
-                candidate("C:/vault/Дмитрий Чаплинский.md"),
+                candidate("C:/vault/Кто такой аасоколов.md"),
+                candidate("C:/vault/Заметки/Иван Соколов.md"),
+                candidate("C:/vault/Соколова Мария.md"),
             ],
-            "дми",
+            "сок",
             3,
         );
         assert_eq!(
@@ -86,30 +86,30 @@ mod tests {
                 .iter()
                 .map(|item| item.title.as_str())
                 .collect::<Vec<_>>(),
-            ["Дмитрий Чаплинский", "Иван Дмитриев", "Кто такой аудмитрий"],
+            ["Соколова Мария", "Иван Соколов", "Кто такой аасоколов"],
         );
     }
 
     #[test]
     fn title_is_file_stem_and_path_is_kept() {
         let titles = rank(
-            vec![candidate("C:/vault/Заметки/Иван Дмитриев.md")],
-            "дми",
+            vec![candidate("C:/vault/Заметки/Иван Соколов.md")],
+            "сок",
             1,
         );
-        assert_eq!(titles[0].title, "Иван Дмитриев");
-        assert_eq!(titles[0].path, "C:/vault/Заметки/Иван Дмитриев.md");
+        assert_eq!(titles[0].title, "Иван Соколов");
+        assert_eq!(titles[0].path, "C:/vault/Заметки/Иван Соколов.md");
     }
 
     #[test]
     fn limit_cuts_the_tail() {
         let titles = rank(
             vec![
-                candidate("C:/vault/Дмитрий Чаплинский.md"),
-                candidate("C:/vault/Дмитрий Иванов.md"),
-                candidate("C:/vault/Дмитрий Петров.md"),
+                candidate("C:/vault/Соколова Мария.md"),
+                candidate("C:/vault/Соколов Пётр.md"),
+                candidate("C:/vault/Соколова Анна.md"),
             ],
-            "дми",
+            "сок",
             2,
         );
         assert_eq!(titles.len(), 2);

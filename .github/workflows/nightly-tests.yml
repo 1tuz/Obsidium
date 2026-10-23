@@ -117,9 +117,9 @@ jobs:
           # not to police a noisy shared runner.
           OBSIDIUM_BENCH_BUDGET_MS: 40000
         run: |
-          cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p aquilum-core \
+          cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-core \
             benchmark_search_pipeline -- --ignored --nocapture
-          cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p aquilum-core \
+          cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-core \
             benchmark_indexing -- --ignored --nocapture
 
   compile:

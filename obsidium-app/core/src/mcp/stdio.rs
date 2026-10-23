@@ -233,6 +233,6 @@ mod tests {
         let parsed = serde_json::from_str::<Value>(&response).unwrap();
         let message = parsed["error"]["message"].as_str().unwrap();
         assert!(message.starts_with("Obsidium MCP:"), "{message}");
-        assert!(!message.to_lowercase().contains("aquilum"), "{message}");
+        assert!(!message.to_lowercase().contains(crate::legacy_name::LEGACY_APP_NAME), "{message}");
     }
 }

@@ -185,8 +185,8 @@ jobs:
               cargo test --locked --manifest-path "$manifest" --workspace
             fi
           else
-            [[ "$CORE_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p aquilum-core
-            [[ "$APP_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p aquilum-app
+            [[ "$CORE_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-core
+            [[ "$APP_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-app
             [[ "$CLI_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-cli
           fi
 

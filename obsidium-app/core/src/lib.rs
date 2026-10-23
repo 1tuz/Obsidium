@@ -1,6 +1,9 @@
 //! The Obsidium core: notes on disk, documents, search, history, settings and UI state, with no
 //! knowledge of the UI that hosts it. The Tauri shell and a future native UI both call it directly.
 
+#[cfg(test)]
+pub(crate) mod legacy_name;
+
 pub mod app_core;
 pub mod documents;
 pub mod files;

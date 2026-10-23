@@ -41,7 +41,7 @@ impl SearchService {
         let previous = self.guest.write().map_err(SearchError::task)?.take();
         if let Some(previous) = previous {
             eprintln!(
-                "[aquilum:guest] закрыта {}: агенту нужна другая база",
+                "[obsidium:guest] закрыта {}: агенту нужна другая база",
                 previous.index.root.display()
             );
             previous.index.stop();
