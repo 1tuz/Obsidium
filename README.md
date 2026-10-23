@@ -25,7 +25,7 @@ The desktop interface is built with Tauri and Preact's React-compatible API; dis
 
 The desktop UI and CLI share the Rust core. Markdown files remain the source of truth; the core maintains local document sessions, indexes, and interface state.
 
-![Obsidium application architecture](assets/readme/obsidium-architecture.svg)
+![Obsidium application architecture](assets/readme/obsidium-architecture-dark.svg)
 
 Implementation: [UI](obsidium-app/src/main.tsx), [Tauri host](obsidium-app/src-tauri/src/lib.rs), [core services](obsidium-app/core/src/app_core.rs).
 
