@@ -57,6 +57,18 @@ describe('canvasSvg raster mode', () => {
     expect(svg).toContain('<ellipse');
   });
 
+  it('drops the frontmatter before drawing a note in raster mode', () => {
+    const note = '---\ntitle: Packet access\ntype: note\npermalink: appfarm/access\n---\n\n# Packet access\n\nBody text.';
+    const svg = canvasSvg(doc([
+      { id: 'f', type: 'file', x: 0, y: 0, width: 240, height: 160, file: 'Access.md' },
+    ]), context({ textMode: 'svg', markdown: () => note }));
+
+    expect(svg).not.toContain('permalink');
+    expect(svg).not.toContain('---');
+    expect(svg).toContain('Packet access');
+    expect(svg).toContain('Body text.');
+  });
+
   it('keeps rich HTML text for the SVG file export', () => {
     const svg = canvasSvg(doc([
       { id: 'a', type: 'text', x: 0, y: 0, width: 200, height: 120, text: 'A **bold** sentence.' },

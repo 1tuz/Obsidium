@@ -153,7 +153,7 @@ export const CanvasCard = memo(function CanvasCard({
           ? <textarea
             aria-label="Text card content"
             autoFocus
-            value={node.text ?? ''}
+            value={typeof node.text === 'string' ? node.text : ''}
             onInput={(event) => {
               const target = event.currentTarget;
               onChange?.(node.id, target.value);
@@ -168,14 +168,14 @@ export const CanvasCard = memo(function CanvasCard({
             }}
           />
           : compact
-            ? <div className="q-canvas-card__markdown">{firstLine(node.text ?? '')}</div>
-            : <MarkdownPreview node={node} markdown={node.text ?? ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
+            ? <div className="q-canvas-card__markdown">{firstLine(typeof node.text === 'string' ? node.text : '')}</div>
+            : <MarkdownPreview node={node} markdown={typeof node.text === 'string' ? node.text : ''} resolveImageUrl={resolveImageUrl} onOpenUrl={onOpenUrl} onOpenNoteLink={onOpenNoteLink} />}
       </div>
     );
   }
 
   if (node.type === 'file') {
-    const title = node.file?.split(/[\\/]/).pop() ?? 'Untitled';
+    const title = typeof node.file === 'string' ? node.file.split(/[\\/]/).pop() ?? 'Untitled' : 'Untitled';
     if (media) {
       return (
         <div className={className} style={styled} data-node-id={node.id} aria-label={`File card: ${title}`}>
@@ -192,7 +192,7 @@ export const CanvasCard = memo(function CanvasCard({
   }
 
   if (node.type === 'link') {
-    const url = node.url ?? '';
+    const url = typeof node.url === 'string' ? node.url : '';
     const safe = isSafeLink(url);
     const imageUrl = /^https?:/i.test(url) ? url : resolveImageUrl?.(node, url) ?? url;
     return (
