@@ -150,4 +150,3 @@ export function parseReaderQuoteHref(url: string): ReaderQuoteHref | null {
     return null;
   }
 }
-
