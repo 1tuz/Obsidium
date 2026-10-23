@@ -13,6 +13,11 @@ type QueryState = {
 };
 
 const notes = new Map<string, Map<string, QueryState>>();
+const MAX_CACHED_QUERIES_PER_NOTE = 64;
+
+export function dataviewCacheNoteKey(workspacePath: string, notePath: string): string {
+  return `${workspacePath}\0${notePath}`;
+}
 
 function noteStates(notePath: string): Map<string, QueryState> {
   const known = notes.get(notePath);
@@ -31,15 +36,26 @@ function noteStates(notePath: string): Map<string, QueryState> {
 }
 
 function stateOf(notePath: string, query: string): QueryState | undefined {
-  return notes.get(notePath)?.get(query);
+  const states = notes.get(notePath);
+  const known = states?.get(query);
+  if (known && states) {
+    states.delete(query);
+    states.set(query, known);
+  }
+  return known;
 }
 
 function writableState(notePath: string, query: string): QueryState {
   const states = noteStates(notePath);
-  const known = states.get(query);
+  const known = stateOf(notePath, query);
   if (known) return known;
   const created: QueryState = { result: null, signature: '', height: UNKNOWN_HEIGHT };
   states.set(query, created);
+  while (states.size > MAX_CACHED_QUERIES_PER_NOTE) {
+    const oldest = states.keys().next().value;
+    if (oldest === undefined) break;
+    states.delete(oldest);
+  }
   return created;
 }
 

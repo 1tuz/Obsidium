@@ -7,11 +7,12 @@ import { PrefetchScheduler } from '../prefetchScheduler';
 import { DATAVIEW_PREFETCH_DELAYS } from './constants';
 import { findDataviewBlocks } from './constructs';
 import { evaluateDataviewQuery } from './run';
-import { cachedDataviewResult, forgetDataviewQueriesOutside } from './store';
+import { cachedDataviewResult, dataviewCacheNoteKey, forgetDataviewQueriesOutside } from './store';
 
 export const dataviewDataReady = StateEffect.define<null>();
 
 type BlockTick = {
+  workspacePath: string;
   notePath: string;
   timer: ReturnType<typeof setTimeout> | null;
 };
@@ -19,14 +20,19 @@ type BlockTick = {
 class DataviewPrefetcher {
   private readonly scheduler: PrefetchScheduler;
   private readonly ticks = new Map<string, BlockTick>();
+  private workspacePath: string | null;
 
   constructor(private readonly view: EditorView) {
     this.scheduler = new PrefetchScheduler(view, DATAVIEW_PREFETCH_DELAYS, (refresh) => this.refreshBlocks(refresh));
+    this.workspacePath = view.state.facet(livePreviewConfigFacet)?.workspacePath ?? null;
   }
 
   update(update: ViewUpdate): void {
     const treeChanged = syntaxTree(update.state) !== syntaxTree(update.startState);
-    if (update.docChanged || treeChanged) this.scheduler.schedule(false);
+    const workspacePath = update.state.facet(livePreviewConfigFacet)?.workspacePath ?? null;
+    const workspaceChanged = workspacePath !== this.workspacePath;
+    this.workspacePath = workspacePath;
+    if (update.docChanged || treeChanged || workspaceChanged) this.scheduler.schedule(workspaceChanged);
   }
 
   destroy(): void {
@@ -43,6 +49,7 @@ class DataviewPrefetcher {
     if (this.scheduler.destroyed || !config || !workspacePath) return;
 
     const notePath = config.notePath();
+    const cacheNotePath = dataviewCacheNoteKey(workspacePath, notePath);
     const queries = [...new Set(
       findDataviewBlocks(this.view.state)
         .map((block) => block.query)
@@ -50,12 +57,12 @@ class DataviewPrefetcher {
     )];
 
     if (syntaxTreeAvailable(this.view.state, this.view.state.doc.length)) {
-      forgetDataviewQueriesOutside(notePath, new Set(queries));
-      this.dropTicksOutside(notePath, queries);
+      forgetDataviewQueriesOutside(cacheNotePath, new Set(queries));
+      this.dropTicksOutside(workspacePath, notePath, queries);
     }
     if (queries.length === 0) return;
 
-    const pendingQueries = queries.filter((query) => refresh || !cachedDataviewResult(notePath, query));
+    const pendingQueries = queries.filter((query) => refresh || !cachedDataviewResult(cacheNotePath, query));
     let changed = false;
     if (pendingQueries.length > 0) {
       const results = await Promise.all(
@@ -72,13 +79,13 @@ class DataviewPrefetcher {
   private armTick(query: string, notePath: string, workspacePath: string): void {
     if (this.scheduler.destroyed) return;
     const known = this.ticks.get(query);
-    if (known?.notePath === notePath && known.timer !== null) return;
+    if (known?.workspacePath === workspacePath && known.notePath === notePath && known.timer !== null) return;
 
-    const result = cachedDataviewResult(notePath, query);
+    const result = cachedDataviewResult(dataviewCacheNoteKey(workspacePath, notePath), query);
     const seconds = result?.status === 'ready' ? result.output.refreshSeconds : null;
     if (!seconds) return;
 
-    const tick: BlockTick = { notePath, timer: null };
+    const tick: BlockTick = { workspacePath, notePath, timer: null };
     tick.timer = setTimeout(() => {
       tick.timer = null;
       this.scheduler.enqueue(() => this.tick(query, notePath, workspacePath));
@@ -94,10 +101,10 @@ class DataviewPrefetcher {
     this.armTick(query, notePath, workspacePath);
   }
 
-  private dropTicksOutside(notePath: string, queries: readonly string[]): void {
+  private dropTicksOutside(workspacePath: string, notePath: string, queries: readonly string[]): void {
     const kept = new Set(queries);
     for (const [query, tick] of this.ticks) {
-      if (tick.notePath === notePath && kept.has(query)) continue;
+      if (tick.workspacePath === workspacePath && tick.notePath === notePath && kept.has(query)) continue;
       if (tick.timer !== null) clearTimeout(tick.timer);
       this.ticks.delete(query);
     }

@@ -17,6 +17,18 @@ export function getSearchIndexStatus(workspacePath: string): Promise<SearchIndex
   return invoke<SearchIndexStatus>('get_search_index_status', { workspacePath });
 }
 
+export function getSearchCacheSize(): Promise<number> {
+  return invoke<number>('get_search_cache_size');
+}
+
+export function clearUnusedSearchCache(): Promise<number> {
+  return invoke<number>('clear_unused_search_cache');
+}
+
+export function rebuildSearchIndex(workspacePath: string): Promise<SearchIndexStatus> {
+  return invoke<SearchIndexStatus>('rebuild_search_index', { workspacePath });
+}
+
 export function suggestNotes(
   workspacePath: string,
   query: string,

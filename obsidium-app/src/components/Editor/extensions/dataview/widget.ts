@@ -17,6 +17,7 @@ import { dataviewLinkTarget, dataviewTaskAt, renderDataviewDom } from './widgetD
 type Options = {
   query: string;
   notePath: string;
+  cacheNotePath: string;
 };
 
 const CHECK_SELECTOR = `.${TASK_CHECKBOX_CLASS}`;
@@ -26,30 +27,31 @@ export class DataviewWidget extends WidgetType {
 
   constructor(private readonly options: Options) {
     super();
-    this.signature = dataviewResultSignature(options.notePath, options.query);
+    this.signature = dataviewResultSignature(options.cacheNotePath, options.query);
   }
 
   eq(other: WidgetType): boolean {
     return other instanceof DataviewWidget
       && this.options.query === other.options.query
       && this.options.notePath === other.options.notePath
+      && this.options.cacheNotePath === other.options.cacheNotePath
       && this.signature === other.signature;
   }
 
   get estimatedHeight(): number {
-    return dataviewBlockHeight(this.options.notePath, this.options.query);
+    return dataviewBlockHeight(this.options.cacheNotePath, this.options.query);
   }
 
   toDOM(view: EditorView): HTMLElement {
-    const { notePath, query } = this.options;
+    const { query, cacheNotePath } = this.options;
     const root = renderDataviewDom(
-      cachedDataviewResult(notePath, query),
-      dataviewBlockHeight(notePath, query),
+      cachedDataviewResult(cacheNotePath, query),
+      dataviewBlockHeight(cacheNotePath, query),
     );
 
     view.requestMeasure({
       read: () => root.getBoundingClientRect().height,
-      write: (height) => rememberDataviewBlockHeight(notePath, query, Math.round(height)),
+      write: (height) => rememberDataviewBlockHeight(cacheNotePath, query, Math.round(height)),
     });
 
     root.addEventListener('mousedown', (event) => {

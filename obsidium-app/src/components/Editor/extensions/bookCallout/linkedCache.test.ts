@@ -147,4 +147,19 @@ describe('bookCallout linkedCache', () => {
     await prefetchLinkedCallouts([MODEL], workspace, again);
     expect(again).not.toHaveBeenCalled();
   });
+
+  it('evicts the least recently used hydration entries', async () => {
+    const models = Array.from({ length: 129 }, (_, index) => ({
+      ...MODEL,
+      wikiTarget: `Book ${index}`,
+    }));
+    await prefetchLinkedCallouts(
+      models,
+      workspace,
+      resolver(models.map((_, index) => `Books/${index}.md`)),
+    );
+
+    expect(resolveCalloutData(models[0], workspace)).toBeNull();
+    expect(resolveCalloutData(models[128], workspace)).not.toBeNull();
+  });
 });

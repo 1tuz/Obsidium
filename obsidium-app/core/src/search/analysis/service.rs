@@ -43,7 +43,7 @@ impl SearchService {
                 Ok((
                     open.root.clone(),
                     open.generation,
-                    status.revision,
+                    open.index.graph_revision(),
                     Arc::clone(&open.index),
                     Arc::clone(&open.metadata),
                     open.is_visible(),
@@ -112,7 +112,7 @@ impl SearchService {
                 Ok((
                     open.root.clone(),
                     open.generation,
-                    open.progress.snapshot().revision,
+                    open.index.graph_revision(),
                     Arc::clone(&open.metadata),
                     open.is_visible(),
                 ))
@@ -127,7 +127,7 @@ impl SearchService {
                 Ok((
                     open.root.clone(),
                     open.generation,
-                    open.progress.snapshot().revision,
+                    open.index.graph_revision(),
                     Arc::clone(&open.metadata),
                     open.is_visible(),
                 ))
