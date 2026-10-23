@@ -5,10 +5,10 @@ mod error;
 mod help;
 mod output;
 
-use obsidium_core::mcp::open_headless_core;
-use obsidium_core::Core;
 use args::Args;
 use error::{CliResult, Failure};
+use obsidium_core::mcp::open_headless_core;
+use obsidium_core::Core;
 use output::Options;
 use std::path::Path;
 use std::sync::Arc;

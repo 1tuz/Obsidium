@@ -353,7 +353,9 @@ mod tests {
     #[test]
     fn mcp_user_messages_use_the_obsidium_name() {
         assert!(INSTRUCTIONS.contains("Проекты/Obsidium.md"));
-        assert!(!INSTRUCTIONS.to_lowercase().contains(crate::legacy_name::LEGACY_APP_NAME));
+        assert!(!INSTRUCTIONS
+            .to_lowercase()
+            .contains(crate::legacy_name::LEGACY_APP_NAME));
 
         let directory = tempfile::tempdir().unwrap();
         let events: Arc<dyn EventSink> = Arc::new(|_| {});
@@ -366,6 +368,11 @@ mod tests {
         let error = require_write(&core).unwrap_err();
         core.shutdown();
         assert!(error.contains("Obsidium"), "{error}");
-        assert!(!error.to_lowercase().contains(crate::legacy_name::LEGACY_APP_NAME), "{error}");
+        assert!(
+            !error
+                .to_lowercase()
+                .contains(crate::legacy_name::LEGACY_APP_NAME),
+            "{error}"
+        );
     }
 }

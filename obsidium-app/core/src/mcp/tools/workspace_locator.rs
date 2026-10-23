@@ -204,6 +204,11 @@ mod tests {
     fn unknown_workspace_error_uses_the_obsidium_name() {
         let error = super::unknown_workspace("Новая");
         assert!(error.contains("в Obsidium"), "{error}");
-        assert!(!error.to_lowercase().contains(crate::legacy_name::LEGACY_APP_NAME), "{error}");
+        assert!(
+            !error
+                .to_lowercase()
+                .contains(crate::legacy_name::LEGACY_APP_NAME),
+            "{error}"
+        );
     }
 }
