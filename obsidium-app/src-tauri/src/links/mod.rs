@@ -25,7 +25,7 @@ pub async fn apply_suggested_link(
     tauri::async_runtime::spawn_blocking(move || {
         let vault = workspace_vault(&core, &workspace)?;
         let plan = plan_link(&core, &vault, &source, &target, LinkKind::Wiki)?;
-        let applied = apply_link(&core, &vault, &plan)?;
+        let applied = apply_link(&core, &vault, &plan, None)?;
         Ok(SuggestedLinkResult {
             changed: applied.changed,
             path: vault.relative(&plan.source),

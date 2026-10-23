@@ -98,7 +98,7 @@ fn line_ending(content: &str) -> &'static str {
     }
 }
 
-fn link_target(value: &str) -> &str {
+pub fn link_target(value: &str) -> &str {
     let value = value.trim();
     let value = value
         .strip_prefix("[[")
@@ -118,7 +118,8 @@ fn without_blank_line(mut text: String, at: usize) -> String {
     let end = text[start..]
         .find('\n')
         .map_or(text.len(), |index| start + index);
-    if !text[start..end].trim().is_empty() {
+    let line = text[start..end].trim_end_matches('\r');
+    if !line.trim().is_empty() && !is_list_marker(line) {
         return text;
     }
     if end < text.len() {
@@ -133,6 +134,18 @@ fn without_blank_line(mut text: String, at: usize) -> String {
         }
     }
     text
+}
+
+fn is_list_marker(line: &str) -> bool {
+    let line = line.trim();
+    if matches!(line, "-" | "*" | "+") {
+        return true;
+    }
+    let digits = line
+        .strip_suffix('.')
+        .or_else(|| line.strip_suffix(')'))
+        .unwrap_or_default();
+    !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 #[cfg(test)]
@@ -195,6 +208,36 @@ mod tests {
     fn a_line_left_empty_by_removal_disappears() {
         assert_eq!(remove_link("[[A]]\n", "A"), Some(String::new()));
         assert_eq!(remove_link("текст\n[[A]]", "A"), Some("текст".to_owned()));
+    }
+
+    #[test]
+    fn a_list_line_that_only_held_the_link_disappears_entirely() {
+        assert_eq!(
+            remove_link("- [[A]]\n- [[B]]\n", "A"),
+            Some("- [[B]]\n".to_owned())
+        );
+        assert_eq!(
+            remove_link("* [[A]]\n* пункт\n", "A"),
+            Some("* пункт\n".to_owned())
+        );
+        assert_eq!(remove_link("+ [[A]]\n", "A"), Some(String::new()));
+        assert_eq!(
+            remove_link("1. [[A]]\n2. пункт\n", "A"),
+            Some("2. пункт\n".to_owned())
+        );
+        assert_eq!(remove_link("1) [[A]]\n", "A"), Some(String::new()));
+        assert_eq!(
+            remove_link("- [[A]]\r\n- [[B]]\r\n", "A"),
+            Some("- [[B]]\r\n".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_list_line_with_remaining_text_keeps_its_marker() {
+        assert_eq!(
+            remove_link("- [[A]] остаток\n", "A"),
+            Some("-  остаток\n".to_owned())
+        );
     }
 
     #[test]

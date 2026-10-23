@@ -13,8 +13,6 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-const WRITE_DISABLED: &str = "Изменение заметок запрещено в настройках Obsidium";
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LinkKind {
     Wiki,
@@ -177,7 +175,7 @@ pub fn plan_link(
     target: &str,
     kind: LinkKind,
 ) -> Result<LinkPlan, String> {
-    require_write(core)?;
+    gate::require_write(core)?;
     let source_path = vault.note(core, source)?;
     let target_path = vault.note(core, target)?;
     ensure_distinct(vault, &source_path, &target_path)?;
@@ -220,7 +218,7 @@ pub fn plan_unlink(
     target: &str,
     kind: LinkKind,
 ) -> Result<LinkPlan, String> {
-    require_write(core)?;
+    gate::require_write(core)?;
     let source_path = vault.note(core, source)?;
     let target_path = vault.note(core, target)?;
     ensure_distinct(vault, &source_path, &target_path)?;
@@ -253,12 +251,25 @@ pub fn plan_unlink(
     Ok(plan)
 }
 
-pub fn apply_link(core: &Core, vault: &Vault, plan: &LinkPlan) -> Result<Applied, String> {
+pub fn apply_link(
+    core: &Core,
+    vault: &Vault,
+    plan: &LinkPlan,
+    expected_hash: Option<&str>,
+) -> Result<Applied, String> {
     if !plan.source.starts_with(&vault.root) {
         return Err(format!(
             "Заметка вне базы знаний: {}",
             plan.source.to_string_lossy()
         ));
+    }
+    if let Some(expected) = expected_hash {
+        if expected != plan.hash {
+            return Err(format!(
+                "Заметка изменилась на диске: ожидался хэш {expected}, сейчас {}",
+                plan.hash
+            ));
+        }
     }
     if !plan.changed {
         return Ok(Applied {
@@ -278,7 +289,7 @@ pub fn apply_link(core: &Core, vault: &Vault, plan: &LinkPlan) -> Result<Applied
             changed: true,
             hash: result.hash,
         }),
-        Err(FileCommandError::Conflict { .. }) => {
+        Err(FileCommandError::Conflict { .. }) if expected_hash.is_none() => {
             let snapshot =
                 read_file_snapshot_impl(&plan.source).map_err(|error| error.to_string())?;
             let after = recompose(&snapshot.content, plan)?;
@@ -312,9 +323,10 @@ pub fn unlink(
     source: &str,
     target: &str,
     kind: LinkKind,
+    expected_hash: Option<&str>,
 ) -> Result<Applied, String> {
     let plan = plan_unlink(core, vault, source, target, kind)?;
-    apply_link(core, vault, &plan)
+    apply_link(core, vault, &plan, expected_hash)
 }
 
 fn recompose(content: &str, plan: &LinkPlan) -> Result<String, String> {
@@ -341,14 +353,6 @@ fn compose_unlink(
     match kind.structural() {
         Some(field) => compose::remove_frontmatter_link(content, field, link_text),
         None => Ok(compose::remove_link(content, link_text)),
-    }
-}
-
-fn require_write(core: &Core) -> Result<(), String> {
-    if core.settings.get_config().mcp.allow_write {
-        Ok(())
-    } else {
-        Err(WRITE_DISABLED.to_owned())
     }
 }
 
@@ -448,7 +452,7 @@ impl Resolver {
     }
 
     fn resolve(&self, value: &str) -> Option<PathBuf> {
-        let (key, kind) = target_key(link_value(value));
+        let (key, kind) = target_key(compose::link_target(value));
         let candidates = if kind == "path" {
             self.by_relative.get(&key)
         } else {
@@ -462,13 +466,4 @@ impl Resolver {
         self.resolve(value)
             .is_some_and(|path| identity(&path) == identity(target))
     }
-}
-
-fn link_value(value: &str) -> &str {
-    let value = value.trim();
-    let value = value
-        .strip_prefix("[[")
-        .and_then(|rest| rest.strip_suffix("]]"))
-        .unwrap_or(value);
-    value.split('|').next().unwrap_or_default().trim()
 }

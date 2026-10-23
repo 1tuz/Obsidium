@@ -25,6 +25,8 @@ use crate::history::Source;
 use serde_json::{json, Value};
 use std::path::Path;
 
+pub use crate::files::gate::require_write;
+
 const WRITE_CONFLICT_RETRIES: usize = 1;
 
 pub const INSTRUCTIONS: &str = concat!(
@@ -295,13 +297,6 @@ pub fn shorten(value: &str, maximum: usize) -> String {
     }
     let head = value.chars().take(maximum).collect::<String>();
     format!("{head}…")
-}
-
-pub fn require_write(core: &Core) -> Result<(), String> {
-    if core.settings.get_config().mcp.allow_write {
-        return Ok(());
-    }
-    Err("Изменение заметок запрещено в настройках Obsidium".to_owned())
 }
 
 #[cfg(test)]

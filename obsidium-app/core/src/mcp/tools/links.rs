@@ -107,11 +107,12 @@ fn link_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     if let Some(name) = optional_text(arguments, "versionName") {
         plan.version_name = name;
     }
-    check_hash(arguments, &plan)?;
+    let expected_hash = optional_text(arguments, "expectedHash");
+    check_hash(expected_hash.as_deref(), &plan)?;
     if flag(arguments, "preview", false) {
         return Ok(planned(&vault, &plan));
     }
-    let applied = links::apply_link(core, &vault, &plan)?;
+    let applied = links::apply_link(core, &vault, &plan, expected_hash.as_deref())?;
     Ok(json!({
         "source": vault.relative(&plan.source),
         "target": vault.relative(&plan.target),
@@ -135,11 +136,12 @@ fn unlink_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
     if let Some(name) = optional_text(arguments, "versionName") {
         plan.version_name = name;
     }
-    check_hash(arguments, &plan)?;
+    let expected_hash = optional_text(arguments, "expectedHash");
+    check_hash(expected_hash.as_deref(), &plan)?;
     if flag(arguments, "preview", false) {
         return Ok(planned(&vault, &plan));
     }
-    let applied = links::apply_link(core, &vault, &plan)?;
+    let applied = links::apply_link(core, &vault, &plan, expected_hash.as_deref())?;
     Ok(json!({
         "source": vault.relative(&plan.source),
         "target": vault.relative(&plan.target),
@@ -196,8 +198,8 @@ fn depth(arguments: &Value) -> usize {
         .clamp(neighborhood::MIN_DEPTH, neighborhood::MAX_DEPTH)
 }
 
-fn check_hash(arguments: &Value, plan: &LinkPlan) -> Result<(), String> {
-    let Some(expected) = optional_text(arguments, "expectedHash") else {
+fn check_hash(expected: Option<&str>, plan: &LinkPlan) -> Result<(), String> {
+    let Some(expected) = expected else {
         return Ok(());
     };
     if expected != plan.hash {
@@ -443,6 +445,62 @@ mod tests {
         assert_eq!(
             paths(&back),
             vec!["C.md".to_owned(), "B.md".to_owned(), "A.md".to_owned()]
+        );
+    }
+
+    #[test]
+    fn a_stale_expected_hash_blocks_the_link_and_keeps_the_note() {
+        let (_guard, core, vault) = fixture(&[("A.md", "заметка A\n"), ("B.md", "заметка B\n")]);
+        let before = fs::read_to_string(vault.root.join("A.md")).unwrap();
+
+        let error = invoke(
+            &core,
+            "link_notes",
+            &request(
+                &vault,
+                json!({ "note": "A", "target": "B", "expectedHash": "0".repeat(64) }),
+            ),
+        )
+        .unwrap_err();
+        assert!(error.contains("изменилась"), "{error}");
+        assert_eq!(fs::read_to_string(vault.root.join("A.md")).unwrap(), before);
+    }
+
+    #[test]
+    fn a_conflict_after_a_caller_hash_is_not_retried() {
+        let (_guard, core, vault) = fixture(&[("A.md", "заметка A\n"), ("B.md", "заметка B\n")]);
+        let plan =
+            crate::links::plan_link(&core, &vault, "A", "B", crate::links::LinkKind::Wiki).unwrap();
+        let changed = "заметка A\nдописано\n";
+        fs::write(vault.root.join("A.md"), changed).unwrap();
+
+        let error =
+            crate::links::apply_link(&core, &vault, &plan, Some(plan.hash.as_str())).unwrap_err();
+        assert!(error.contains("изменился"), "{error}");
+        assert_eq!(
+            fs::read_to_string(vault.root.join("A.md")).unwrap(),
+            changed
+        );
+    }
+
+    #[test]
+    fn unlinking_a_list_item_removes_the_whole_line() {
+        let (_guard, core, vault) = fixture(&[
+            ("A.md", "- [[B]]\n- [[C]]\n"),
+            ("B.md", "заметка B\n"),
+            ("C.md", "заметка C\n"),
+        ]);
+
+        let applied = invoke(
+            &core,
+            "unlink_notes",
+            &request(&vault, json!({ "note": "A", "target": "B" })),
+        )
+        .unwrap();
+        assert_eq!(applied["changed"], true);
+        assert_eq!(
+            fs::read_to_string(vault.root.join("A.md")).unwrap(),
+            "- [[C]]\n"
         );
     }
 
