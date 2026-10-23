@@ -90,12 +90,13 @@ pub fn fragments(content: &str, terms: &[String], limit: usize) -> Vec<Fragment>
 fn sections(content: &str) -> Vec<Section> {
     let found = headings::headings(content);
     let mut sections = Vec::new();
+    let body_start = body_offset(content);
     let first = found.first().map_or(content.len(), |heading| heading.start);
-    if !content[..first].trim().is_empty() {
+    if first > body_start && !content[body_start..first].trim().is_empty() {
         sections.push(Section {
             title: None,
             level: 0,
-            range: 0..first,
+            range: body_start..first,
         });
     }
     for heading in found {
@@ -106,6 +107,25 @@ fn sections(content: &str) -> Vec<Section> {
         });
     }
     sections
+}
+
+fn body_offset(content: &str) -> usize {
+    let rest = content
+        .strip_prefix("---\r\n")
+        .or_else(|| content.strip_prefix("---\n"));
+    let Some(rest) = rest else {
+        return 0;
+    };
+    let offset = content.len() - rest.len();
+    let mut position = offset;
+    for line in rest.split_inclusive('\n') {
+        let trimmed = line.trim_end_matches(['\r', '\n']);
+        position += line.len();
+        if trimmed == "---" || trimmed == "..." {
+            return position;
+        }
+    }
+    0
 }
 
 struct Section {
@@ -174,6 +194,21 @@ mod tests {
 
     fn terms(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    #[test]
+    fn the_frontmatter_block_is_not_a_section() {
+        let content = "---\ntype: note\ntags: [kubernetes]\n---\n# TLS\n\nошибка рукопожатия\n";
+        let found = fragments(content, &terms(&["kubernetes", "ошибка"]), 2);
+        assert!(!found.is_empty());
+        for fragment in &found {
+            assert!(
+                !fragment.excerpt.contains("tags:"),
+                "frontmatter попал во фрагмент: {}",
+                fragment.excerpt
+            );
+            assert!(fragment.line_start >= 5, "фрагмент начинается в теле");
+        }
     }
 
     #[test]
