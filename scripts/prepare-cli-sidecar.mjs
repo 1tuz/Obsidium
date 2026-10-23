@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const appDir = path.join(repoRoot, 'obsidium-app');
@@ -35,7 +35,8 @@ const suffix = process.platform === 'win32' ? '.exe' : '';
 
 let targetRoot = path.join(appDir, 'src-tauri/target');
 if (appTarget) {
-  const junction = await import(path.join(appDir, 'scripts/lib/cargo-junction.mjs'));
+  const helper = path.join(appDir, 'scripts/lib/cargo-junction.mjs');
+  const junction = await import(pathToFileURL(helper).href);
   await junction.setCargoTarget(junction.CARGO_RELEASE);
   targetRoot = junction.CARGO_RELEASE;
 }
