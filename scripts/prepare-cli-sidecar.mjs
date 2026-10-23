@@ -7,7 +7,14 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const appDir = path.join(repoRoot, 'obsidium-app');
 const manifest = path.join(appDir, 'src-tauri/Cargo.toml');
 const binaries = path.join(appDir, 'src-tauri/binaries');
-const profile = process.argv.includes('--release') ? 'release' : 'debug';
+const release = process.argv.includes('--release');
+const profile = release ? 'release' : 'debug';
+const appTarget = process.argv.includes('--app-target');
+
+function argument(name) {
+  const index = process.argv.indexOf(name);
+  return index > 0 ? process.argv[index + 1] : undefined;
+}
 
 function hostTriple() {
   const result = spawnSync('rustc', ['-vV'], { encoding: 'utf8' });
@@ -17,21 +24,37 @@ function hostTriple() {
   return line.slice('host: '.length).trim();
 }
 
-function run(command, args, options) {
-  const result = spawnSync(command, args, { cwd: appDir, stdio: 'inherit', ...options });
+function run(command, args) {
+  const result = spawnSync(command, args, { cwd: appDir, stdio: 'inherit' });
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-const triple = hostTriple();
+const triple = argument('--target') ?? hostTriple();
 const suffix = process.platform === 'win32' ? '.exe' : '';
-const source = path.join(appDir, 'src-tauri/target', profile, `obsidium${suffix}`);
-const destination = path.join(binaries, `obsidium-${triple}${suffix}`);
 
-const args = ['build', '--locked', '-p', 'obsidium-cli', '--manifest-path', manifest];
-if (profile === 'release') args.push('--release');
+let targetRoot = path.join(appDir, 'src-tauri/target');
+if (appTarget) {
+  const junction = await import(path.join(appDir, 'scripts/lib/cargo-junction.mjs'));
+  await junction.setCargoTarget(junction.CARGO_RELEASE);
+  targetRoot = junction.CARGO_RELEASE;
+}
+
+const args = [
+  'build',
+  '--locked',
+  '-p',
+  'obsidium-cli',
+  '--manifest-path',
+  manifest,
+  '--target',
+  triple,
+];
+if (release) args.push('--release');
 run('cargo', args);
 
+const source = path.join(targetRoot, triple, profile, `obsidium${suffix}`);
+const destination = path.join(binaries, `obsidium-${triple}${suffix}`);
 if (!existsSync(source)) throw new Error(`the CLI binary is missing at ${source}`);
 mkdirSync(binaries, { recursive: true });
 copyFileSync(source, destination);
