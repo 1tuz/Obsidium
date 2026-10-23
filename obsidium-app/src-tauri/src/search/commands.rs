@@ -51,6 +51,26 @@ pub fn get_search_index_status(
 }
 
 #[tauri::command]
+pub fn get_search_cache_size(core: State<'_, Arc<Core>>) -> u64 {
+    core.search.search_cache_size()
+}
+
+#[tauri::command]
+pub async fn clear_unused_search_cache(core: State<'_, Arc<Core>>) -> Result<u64, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.clear_unused_search_cache()).await
+}
+
+#[tauri::command]
+pub async fn rebuild_search_index(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+) -> Result<SearchIndexStatus, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.rebuild_active_index(&workspace_path)).await
+}
+
+#[tauri::command]
 pub async fn get_backlinks(
     core: State<'_, Arc<Core>>,
     workspace_path: String,

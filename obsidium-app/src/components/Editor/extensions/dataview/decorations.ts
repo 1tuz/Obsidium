@@ -3,6 +3,7 @@ import { Decoration } from '@codemirror/view';
 import type { LivePreviewConfig } from '../livePreviewConfig';
 import { collectPreviewReplaceDecorations } from '../livePreviewEditableSpans';
 import { findDataviewBlocks } from './constructs';
+import { dataviewCacheNoteKey } from './store';
 import { DataviewWidget } from './widget';
 
 export function collectDataviewDecorations(
@@ -11,10 +12,11 @@ export function collectDataviewDecorations(
 ): Range<Decoration>[] {
   if (!config) return [];
   const notePath = config.notePath();
+  const cacheNotePath = dataviewCacheNoteKey(config.workspacePath ?? '', notePath);
 
   return collectPreviewReplaceDecorations(
     state,
     findDataviewBlocks(state).filter((block) => block.query.length > 0),
-    (block) => new DataviewWidget({ query: block.query, notePath }),
+    (block) => new DataviewWidget({ query: block.query, notePath, cacheNotePath }),
   );
 }

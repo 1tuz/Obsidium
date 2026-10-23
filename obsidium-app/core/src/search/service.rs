@@ -13,9 +13,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const DEFAULT_LIMIT: usize = 50;
 const MAX_LIMIT: usize = crate::search::query::MAX_WINDOW;
+const INDEX_CACHE_LIMIT_BYTES: u64 = 1024 * 1024 * 1024;
+const INDEX_CACHE_MAX_AGE: Duration = Duration::from_secs(60 * 24 * 60 * 60);
 
 #[derive(Clone)]
 pub struct SearchService {
@@ -146,6 +149,7 @@ impl SearchService {
             .map_err(SearchError::task)?
             .replace(opened);
         if let Some(previous) = previous {
+            self.mark_storage_used(&previous.root);
             previous.stop();
         }
         clear_if(&self.analysis_graph, |_| true);
@@ -164,6 +168,7 @@ impl SearchService {
         fs::create_dir_all(&self.base_directory)?;
         let key = blake3::hash(root.to_string_lossy().as_bytes()).to_hex();
         let storage = self.base_directory.join(key.as_str());
+        touch_storage(&storage);
         let generation = self.next_generation.fetch_add(1, Ordering::Relaxed) + 1;
         let index_dir = storage.join(format!("index-v{}", crate::search::ANALYZER_VERSION));
         let index = Arc::new(SearchIndex::open(&index_dir)?);
@@ -180,6 +185,9 @@ impl SearchService {
             generation,
             self.refresh_notifier(root.clone(), generation, Arc::clone(&visible)),
         )?;
+        if let Err(error) = self.prune_index_cache(Some(key.as_str()), false) {
+            eprintln!("[obsidium:index] очистка поискового кэша не выполнена: {error}");
+        }
         Ok(OpenIndex {
             root,
             index,
@@ -198,13 +206,9 @@ impl SearchService {
         generation: u64,
         visible: Arc<AtomicBool>,
     ) -> IndexNotifier {
-        let analysis_graph = Arc::clone(&self.analysis_graph);
         let render_graph = Arc::clone(&self.render_graph);
         let index_notifier = Arc::clone(&self.index_notifier);
         Arc::new(move |event: IndexRevision| {
-            clear_if(&analysis_graph, |cached| {
-                cached.root == root && cached.generation == generation
-            });
             mark_render_graph_stale(&render_graph, &root, generation);
             if visible.load(Ordering::Relaxed) {
                 (index_notifier)(event);
@@ -331,6 +335,126 @@ impl SearchService {
         .unwrap_or_else(SearchIndexStatus::idle)
     }
 
+    pub fn search_cache_size(&self) -> u64 {
+        directory_size(&self.base_directory)
+    }
+
+    pub fn clear_unused_search_cache(&self) -> Result<u64, SearchError> {
+        self.prune_index_cache(None, true)
+    }
+
+    pub fn rebuild_active_index(&self, workspace: &str) -> Result<SearchIndexStatus, SearchError> {
+        let _guard = self.prepare_lock.lock().map_err(SearchError::task)?;
+        let root = workspace_root(workspace)?;
+        let active_root = self.active_root().ok_or_else(|| SearchError::Unavailable {
+            message: "Search index is not ready".to_owned(),
+        })?;
+        if !same_path(&active_root, &root) {
+            return Err(SearchError::invalid_workspace(
+                "Only the active workspace index can be rebuilt",
+            ));
+        }
+        let previous = self
+            .active
+            .write()
+            .map_err(SearchError::task)?
+            .take()
+            .ok_or_else(|| SearchError::Unavailable {
+                message: "Search index is not ready".to_owned(),
+            })?;
+        touch_storage(&self.storage_for_root(&root));
+        previous.stop();
+        remove_index_directories(&self.storage_for_root(&root))?;
+        let opened = self.open_index(root.clone(), true)?;
+        let status = opened.progress.snapshot();
+        let generation = opened.generation;
+        *self.active.write().map_err(SearchError::task)? = Some(opened);
+        clear_if(&self.analysis_graph, |_| true);
+        clear_if(&self.render_graph, |_| true);
+        clear_if(&self.historical_render_graph, |_| true);
+        (self.index_notifier)(IndexRevision {
+            workspace_path: workspace.to_owned(),
+            generation,
+            revision: status.revision,
+        });
+        Ok(status)
+    }
+
+    fn storage_for_root(&self, root: &Path) -> PathBuf {
+        self.base_directory.join(
+            blake3::hash(root.to_string_lossy().as_bytes())
+                .to_hex()
+                .as_str(),
+        )
+    }
+
+    pub(crate) fn mark_storage_used(&self, root: &Path) {
+        touch_storage(&self.storage_for_root(root));
+    }
+
+    fn prune_index_cache(
+        &self,
+        current: Option<&str>,
+        clear_unused: bool,
+    ) -> Result<u64, SearchError> {
+        fs::create_dir_all(&self.base_directory)?;
+        let mut protected = Vec::new();
+        if let Some(active) = self.active_root() {
+            protected.push(storage_key(&active));
+        }
+        if let Ok(guest) = self.guest.read() {
+            if let Some(guest) = guest.as_ref() {
+                protected.push(storage_key(&guest.index.root));
+            }
+        }
+        if let Some(current) = current {
+            protected.push(current.to_owned());
+        }
+        let storages = fs::read_dir(&self.base_directory)?
+            .flatten()
+            .filter(|entry| entry.path().is_dir())
+            .map(|entry| CacheStorage {
+                key: entry.file_name().to_string_lossy().into_owned(),
+                path: entry.path(),
+            })
+            .filter(|entry| {
+                entry.key.len() == 64 && entry.key.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+            .collect::<Vec<_>>();
+        let mut total = storages
+            .iter()
+            .map(|entry| directory_size(&entry.path))
+            .sum::<u64>();
+        let mut candidates = storages
+            .into_iter()
+            .filter(|entry| !protected.contains(&entry.key))
+            .collect::<Vec<_>>();
+        candidates.sort_by_key(|entry| last_used(&entry.path));
+        let mut removed = 0;
+        for entry in candidates {
+            let expired = last_used(&entry.path)
+                .elapsed()
+                .is_ok_and(|age| age >= INDEX_CACHE_MAX_AGE);
+            if !clear_unused && !expired && total <= INDEX_CACHE_LIMIT_BYTES {
+                continue;
+            }
+            let size = directory_size(&entry.path);
+            remove_index_directories(&entry.path)?;
+            let metadata = entry.path.join("documents.sqlite3");
+            if metadata.is_file() {
+                fs::remove_file(metadata)?;
+            }
+            if let Err(error) = fs::remove_file(entry.path.join(".last-used")) {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    return Err(error.into());
+                }
+            }
+            total = total.saturating_sub(size);
+            removed += size;
+        }
+        Ok(removed)
+    }
+
     pub fn notify_paths(&self, paths: Vec<PathBuf>) {
         self.queue_paths(paths, true);
     }
@@ -413,6 +537,61 @@ fn mark_render_graph_stale(
     }
 }
 
+struct CacheStorage {
+    key: String,
+    path: PathBuf,
+}
+
+fn storage_key(root: &Path) -> String {
+    blake3::hash(root.to_string_lossy().as_bytes())
+        .to_hex()
+        .to_string()
+}
+
+fn touch_storage(storage: &Path) {
+    let _ = fs::create_dir_all(storage);
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs());
+    let _ = fs::write(storage.join(".last-used"), timestamp.to_string());
+}
+
+fn last_used(storage: &Path) -> SystemTime {
+    fs::read_to_string(storage.join(".last-used"))
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map(|seconds| UNIX_EPOCH + Duration::from_secs(seconds))
+        .or_else(|| {
+            fs::metadata(storage)
+                .and_then(|metadata| metadata.modified())
+                .ok()
+        })
+        .unwrap_or(UNIX_EPOCH)
+}
+
+fn directory_size(path: &Path) -> u64 {
+    walkdir::WalkDir::new(path)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.metadata().ok())
+        .filter(|metadata| metadata.is_file())
+        .map(|metadata| metadata.len())
+        .sum()
+}
+
+fn remove_index_directories(storage: &Path) -> Result<(), SearchError> {
+    let Ok(entries) = fs::read_dir(storage) else {
+        return Ok(());
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() && entry.file_name().to_string_lossy().starts_with("index-v") {
+            fs::remove_dir_all(path)?;
+        }
+    }
+    Ok(())
+}
+
 fn remove_stale_indexes(storage: &Path, current: &Path) {
     let Ok(entries) = fs::read_dir(storage) else {
         return;
@@ -470,5 +649,98 @@ mod tests {
             .collect::<Vec<_>>();
         left.sort();
         assert_eq!(left, ["documents.sqlite3", "index-v9"]);
+    }
+}
+
+#[cfg(test)]
+mod cache_tests {
+    use super::SearchService;
+    use crate::search::models::IndexRevision;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn automatic_cleanup_removes_only_expired_search_cache_entries() {
+        let directory = tempfile::tempdir().unwrap();
+        let base = directory.path().join("search-v2");
+        let old = base.join("a".repeat(64));
+        let recent = base.join("b".repeat(64));
+        fs::create_dir_all(old.join("index-v13")).unwrap();
+        fs::create_dir_all(recent.join("index-v13")).unwrap();
+        fs::write(old.join("documents.sqlite3"), "derived").unwrap();
+        fs::write(recent.join("documents.sqlite3"), "derived").unwrap();
+        fs::write(
+            old.join(".last-used"),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .saturating_sub(Duration::from_secs(61 * 24 * 60 * 60).as_secs())
+                .to_string(),
+        )
+        .unwrap();
+        fs::write(
+            recent.join(".last-used"),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .to_string(),
+        )
+        .unwrap();
+        let service = SearchService::new(
+            base,
+            Arc::new(|_: Vec<PathBuf>| {}),
+            Arc::new(|_: IndexRevision| {}),
+        );
+
+        service
+            .prune_index_cache(Some(&"c".repeat(64)), false)
+            .unwrap();
+
+        assert!(!old.join("index-v13").exists());
+        assert!(!old.join("documents.sqlite3").exists());
+        assert!(recent.join("index-v13").exists());
+        assert!(recent.join("documents.sqlite3").exists());
+    }
+
+    #[test]
+    fn manual_cleanup_preserves_active_index_and_only_removes_inactive_cache_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let base = directory.path().join("search-v2");
+        let vault = directory.path().join("vault");
+        fs::create_dir_all(&vault).unwrap();
+        fs::write(vault.join("note.md"), "note").unwrap();
+        let service = SearchService::new(
+            base.clone(),
+            Arc::new(|_: Vec<PathBuf>| {}),
+            Arc::new(|_: IndexRevision| {}),
+        );
+        let opened = service.open_index(vault.clone(), true).unwrap();
+        let active_index = base
+            .join(
+                blake3::hash(vault.to_string_lossy().as_bytes())
+                    .to_hex()
+                    .as_str(),
+            )
+            .join(format!("index-v{}", crate::search::ANALYZER_VERSION));
+        *service.active.write().unwrap() = Some(opened);
+        let inactive = base.join("d".repeat(64));
+        fs::create_dir_all(inactive.join("index-v13")).unwrap();
+        fs::write(inactive.join("index-v13/data"), "derived index").unwrap();
+        fs::write(inactive.join("documents.sqlite3"), "derived metadata").unwrap();
+        let unrelated = directory.path().join("settings.json");
+        fs::write(&unrelated, "user settings").unwrap();
+
+        let removed = service.clear_unused_search_cache().unwrap();
+
+        assert!(removed > 0);
+        assert!(active_index.exists());
+        assert!(!inactive.join("index-v13").exists());
+        assert!(!inactive.join("documents.sqlite3").exists());
+        assert_eq!(fs::read_to_string(unrelated).unwrap(), "user settings");
+        service.active.write().unwrap().take().unwrap().stop();
     }
 }

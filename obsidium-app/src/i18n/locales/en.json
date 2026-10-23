@@ -379,7 +379,13 @@
     "search": {
       "section": "Index and ranking",
       "candidatePool": "Candidate pool size",
-      "maxQueryTerms": "Maximum query terms"
+      "maxQueryTerms": "Maximum query terms",
+      "cacheSize": "Search cache size",
+      "cacheSizeUnknown": "Cache size unavailable",
+      "clearUnusedCache": "Clear unused indexes",
+      "rebuildIndex": "Rebuild this workspace index",
+      "cacheCleared": "Freed: {{size}}",
+      "cacheOperationFailed": "Could not update the search cache"
     },
     "analysis": {
       "methods": "Analysis methods",

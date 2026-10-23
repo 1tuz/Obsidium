@@ -7,7 +7,7 @@ use super::paths::{is_hidden, is_markdown, is_visible_entry};
 use super::progress::IndexProgress;
 use super::tasks;
 use super::wiki;
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -59,6 +59,7 @@ impl IndexSynchronizer {
         let mut pending = 0;
         let mut timeline_paths = Vec::new();
         let mut processed = 0;
+        let mut graph_changed = false;
         let mut prepare_batch = Vec::<PendingPrepare>::with_capacity(PREPARE_BATCH_SIZE);
 
         for entry in WalkDir::new(&self.root)
@@ -90,6 +91,7 @@ impl IndexSynchronizer {
                         &mut prepare_batch,
                         &mut pending,
                         &mut timeline_paths,
+                        &mut graph_changed,
                     )?;
                 }
             }
@@ -102,6 +104,7 @@ impl IndexSynchronizer {
                     &mut prepare_batch,
                     &mut pending,
                     &mut timeline_paths,
+                    &mut graph_changed,
                 )?;
                 if pending > 0 {
                     super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
@@ -122,6 +125,7 @@ impl IndexSynchronizer {
             &mut prepare_batch,
             &mut pending,
             &mut timeline_paths,
+            &mut graph_changed,
         )?;
         remove_stale(
             &self.index,
@@ -130,6 +134,7 @@ impl IndexSynchronizer {
             &known,
             &self.progress,
             &mut timeline_paths,
+            &mut graph_changed,
         )?;
         if !timeline_paths.is_empty() {
             super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
@@ -139,6 +144,9 @@ impl IndexSynchronizer {
         }
         transaction.commit()?;
         metadata::maintain(&self.connection)?;
+        if graph_changed {
+            self.index.bump_graph_revision();
+        }
         self.progress.completed(self.index.document_count());
         Ok(())
     }
@@ -157,6 +165,7 @@ impl IndexSynchronizer {
     pub fn apply_paths(&mut self, paths: HashSet<PathBuf>) -> Result<bool, SearchError> {
         let transaction = self.connection.transaction()?;
         let mut changed = false;
+        let mut graph_changed = false;
         let mut timeline_paths = Vec::new();
         for path in paths {
             if !path.starts_with(&self.root) || !is_markdown(&path) || is_hidden(&self.root, &path)
@@ -164,9 +173,11 @@ impl IndexSynchronizer {
                 continue;
             }
             let writer = ensure_writer(&mut self.writer, &self.index)?;
+            let before = graph_state(&transaction, &path.to_string_lossy())?;
             let path_changed = apply_path(&self.root, &self.index, writer, &transaction, &path)?;
             changed |= path_changed;
             if path_changed {
+                graph_changed |= before != graph_state(&transaction, &path.to_string_lossy())?;
                 timeline_paths.push(path.to_string_lossy().into_owned());
             }
         }
@@ -177,6 +188,9 @@ impl IndexSynchronizer {
         transaction.commit()?;
         if changed {
             metadata::maintain(&self.connection)?;
+        }
+        if graph_changed {
+            self.index.bump_graph_revision();
         }
         Ok(changed)
     }
@@ -201,6 +215,7 @@ fn flush_prepare_batch(
     batch: &mut Vec<PendingPrepare>,
     pending: &mut usize,
     timeline_paths: &mut Vec<String>,
+    graph_changed: &mut bool,
 ) -> Result<(), SearchError> {
     if batch.is_empty() {
         return Ok(());
@@ -210,7 +225,9 @@ fn flush_prepare_batch(
         let Some(file) = file else {
             continue;
         };
+        let before = graph_state(transaction, &key)?;
         if apply_prepared(root, index, writer, transaction, &key, probe, file)? {
+            *graph_changed |= before != graph_state(transaction, &key)?;
             *pending += 1;
             timeline_paths.push(key);
         }
@@ -263,6 +280,7 @@ fn remove_stale(
     known: &HashMap<PathKey, FileState>,
     progress: &IndexProgress,
     timeline_paths: &mut Vec<String>,
+    graph_changed: &mut bool,
 ) -> Result<(), SearchError> {
     let mut cursor = String::new();
     loop {
@@ -274,12 +292,14 @@ fn remove_stale(
             if !known.contains_key(&metadata::key(&path)) {
                 continue;
             }
+            let before = graph_state(transaction, &path)?;
             ensure_writer(writer, index)?
                 .delete_term(Term::from_field_text(index.fields.id, &path));
             wiki::remove_document(transaction, Path::new(&path))?;
             fields::remove_document(transaction, Path::new(&path))?;
             tasks::remove_document(transaction, Path::new(&path))?;
             transaction.execute("DELETE FROM documents WHERE path=?1", params![path])?;
+            *graph_changed |= before != graph_state(transaction, &path)?;
             timeline_paths.push(path);
             removed += 1;
         }
@@ -303,15 +323,104 @@ fn commit(
     Ok(())
 }
 
+fn graph_state(connection: &Connection, path: &str) -> Result<[u8; 32], SearchError> {
+    let mut hash = blake3::Hasher::new();
+    if let Some(document) = connection
+        .query_row(
+            "SELECT path, relative_key, title_key FROM wiki_documents WHERE path=?1",
+            [path],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        )
+        .optional()?
+    {
+        for value in [document.0, document.1, document.2] {
+            hash_graph_value(&mut hash, &value);
+        }
+    }
+    for query in [
+        "SELECT DISTINCT target_key, target_kind, link_type FROM wiki_links WHERE source_path=?1 ORDER BY target_key, target_kind, link_type",
+        "SELECT key_lower, text, COALESCE(items, '') FROM note_fields WHERE path=?1 AND key_lower IN ('parent', 'related', 'depends_on', 'blocks') ORDER BY ordinal",
+    ] {
+        let mut statement = connection.prepare(query)?;
+        let rows = statement.query_map([path], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        for row in rows {
+            let (first, second, third) = row?;
+            hash_graph_value(&mut hash, &first);
+            hash_graph_value(&mut hash, &second);
+            hash_graph_value(&mut hash, &third);
+        }
+    }
+    Ok(*hash.finalize().as_bytes())
+}
+
+fn hash_graph_value(hash: &mut blake3::Hasher, value: &str) {
+    hash.update(&(value.len() as u64).to_le_bytes());
+    hash.update(value.as_bytes());
+}
+
 #[cfg(test)]
 mod tests {
-    use super::IndexSynchronizer;
+    use super::{graph_state, IndexSynchronizer};
     use crate::search::index::SearchIndex;
     use crate::search::progress::IndexProgress;
     use std::collections::HashSet;
     use std::fs;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+
+    #[test]
+    fn graph_state_ignores_body_edits_but_tracks_links_and_note_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let connection =
+            crate::search::metadata::open(&directory.path().join("metadata.sqlite3")).unwrap();
+        let root = std::path::Path::new("C:/vault");
+        let path = root.join("Source.md");
+        let mut connection = connection;
+        let transaction = connection.transaction().unwrap();
+        crate::search::wiki::index_document(&transaction, root, &path, "body [[Target]]").unwrap();
+        crate::search::fields::index_document(&transaction, &path, "body [[Target]]").unwrap();
+        transaction.commit().unwrap();
+        let original = graph_state(&connection, &path.to_string_lossy()).unwrap();
+
+        let transaction = connection.transaction().unwrap();
+        crate::search::wiki::index_document(&transaction, root, &path, "edited [[Target]]")
+            .unwrap();
+        crate::search::fields::index_document(&transaction, &path, "edited [[Target]]").unwrap();
+        transaction.commit().unwrap();
+        assert_eq!(
+            graph_state(&connection, &path.to_string_lossy()).unwrap(),
+            original
+        );
+
+        let transaction = connection.transaction().unwrap();
+        crate::search::wiki::index_document(&transaction, root, &path, "edited [[Other]]").unwrap();
+        transaction.commit().unwrap();
+        let relinked = graph_state(&connection, &path.to_string_lossy()).unwrap();
+        assert_ne!(relinked, original);
+
+        let renamed = root.join("Renamed.md");
+        let transaction = connection.transaction().unwrap();
+        crate::search::wiki::remove_document(&transaction, &path).unwrap();
+        crate::search::wiki::index_document(&transaction, root, &renamed, "edited [[Other]]")
+            .unwrap();
+        transaction.commit().unwrap();
+        assert_ne!(
+            graph_state(&connection, &renamed.to_string_lossy()).unwrap(),
+            relinked
+        );
+    }
 
     #[test]
     fn the_writer_lives_only_while_there_is_something_to_write() {
@@ -372,8 +481,16 @@ mod tests {
             "повторная индексация не создаёт новую дельту"
         );
 
+        let graph_revision = index.graph_revision();
+        fs::write(&note, "второе слово").unwrap();
+        synchronizer
+            .apply_paths(HashSet::from([note.clone()]))
+            .unwrap();
+        assert_eq!(index.graph_revision(), graph_revision);
+
         fs::write(&note, "второе слово [[Target]]").unwrap();
         synchronizer.apply_paths(HashSet::from([note])).unwrap();
+        assert!(index.graph_revision() > graph_revision);
         assert!(synchronizer.holds_writer());
         assert!(
             !index.search_defaults("второе", 5).unwrap().1.is_empty(),

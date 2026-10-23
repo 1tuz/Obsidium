@@ -381,7 +381,13 @@
     "search": {
       "section": "Индекс и ранжирование",
       "candidatePool": "Размер пула кандидатов",
-      "maxQueryTerms": "Максимум терминов запроса"
+      "maxQueryTerms": "Максимум терминов запроса",
+      "cacheSize": "Размер поискового кэша",
+      "cacheSizeUnknown": "Размер кэша недоступен",
+      "clearUnusedCache": "Очистить неиспользуемые индексы",
+      "rebuildIndex": "Пересоздать индекс этой базы",
+      "cacheCleared": "Освобождено: {{size}}",
+      "cacheOperationFailed": "Не удалось изменить поисковый кэш"
     },
     "analysis": {
       "methods": "Методы анализа",

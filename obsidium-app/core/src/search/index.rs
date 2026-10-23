@@ -2,6 +2,7 @@ use super::error::SearchError;
 use super::models::SearchResult;
 use super::{query, schema};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 use tantivy::schema::Field;
 use tantivy::{Index, IndexReader};
@@ -20,6 +21,7 @@ pub struct SearchIndex {
     pub reader: IndexReader,
     pub fields: SearchFields,
     field_stats: RwLock<Option<FieldStats>>,
+    graph_revision: AtomicU64,
 }
 
 #[derive(Clone, Copy)]
@@ -44,6 +46,7 @@ impl SearchIndex {
             reader,
             fields,
             field_stats: RwLock::new(None),
+            graph_revision: AtomicU64::new(0),
         })
     }
 
@@ -117,5 +120,13 @@ impl SearchIndex {
         limit: usize,
     ) -> Result<(Vec<String>, Vec<SearchResult>), SearchError> {
         self.search(input, limit, &Default::default())
+    }
+
+    pub(crate) fn graph_revision(&self) -> u64 {
+        self.graph_revision.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn bump_graph_revision(&self) {
+        self.graph_revision.fetch_add(1, Ordering::Relaxed);
     }
 }

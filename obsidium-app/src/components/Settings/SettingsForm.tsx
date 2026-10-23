@@ -62,7 +62,7 @@ export function SettingsForm({
       content = <ReaderSection config={config} onChange={onChange} />;
       break;
     case 'search':
-      content = <SearchSection config={config} onChange={onChange} />;
+      content = <SearchSection config={config} workspacePath={workspacePath} onChange={onChange} />;
       break;
     case 'templates':
       content = <TemplatesSection config={config} workspacePath={workspacePath} onChange={onChange} />;

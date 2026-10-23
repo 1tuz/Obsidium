@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DataviewOutput } from '../../../../modules/docs/dataview';
 import {
   cachedDataviewResult,
+  dataviewCacheNoteKey,
   rememberDataviewResult,
   toggleCachedDataviewTask,
 } from './store';
@@ -25,6 +26,29 @@ function taskOutput(tasks: Array<{ done: boolean; target: string; line: number; 
 }
 
 describe('dataview store', () => {
+  it('isolates the same note path across different vaults', () => {
+    const query = 'TASK';
+    const firstVault = dataviewCacheNoteKey('/vault-one', '/vault-one/note.md');
+    const secondVault = dataviewCacheNoteKey('/vault-two', '/vault-one/note.md');
+    rememberDataviewResult(firstVault, query, { status: 'ready', output: taskOutput([]) });
+
+    expect(cachedDataviewResult(firstVault, query)).toBeDefined();
+    expect(cachedDataviewResult(secondVault, query)).toBeUndefined();
+  });
+
+  it('evicts the least recently used query for a note', () => {
+    const notePath = 'vault\0note.md';
+    for (let index = 0; index < 64; index += 1) {
+      rememberDataviewResult(notePath, `QUERY ${index}`, { status: 'ready', output: taskOutput([]) });
+    }
+    cachedDataviewResult(notePath, 'QUERY 0');
+    rememberDataviewResult(notePath, 'QUERY 64', { status: 'ready', output: taskOutput([]) });
+
+    expect(cachedDataviewResult(notePath, 'QUERY 0')).toBeDefined();
+    expect(cachedDataviewResult(notePath, 'QUERY 1')).toBeUndefined();
+    expect(cachedDataviewResult(notePath, 'QUERY 64')).toBeDefined();
+  });
+
   it('excludes completed task when query filters for uncompleted tasks', () => {
     const notePath = 'Base/Home.md';
     const query = 'TASK TITLE "Задачи"\nWHERE !completed\nSORT file.mtime DESC';
