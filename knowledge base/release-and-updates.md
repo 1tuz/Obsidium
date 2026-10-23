@@ -87,6 +87,27 @@ git ls-remote fork refs/heads/<ветка> refs/tags/<новый-тег>
 macOS workflow выпускает DMG для ручной установки и `.app.tar.gz` с подписью для Tauri updater.
 Linux- и Windows-пакеты в отдельный macOS-релиз не попадают.
 
+### Сборка sidecar
+
+`scripts/prepare-cli-sidecar.mjs` — единственная реализация сборки CLI sidecar для бандла: собирает
+`obsidium-cli` и кладёт бинарь в `src-tauri/binaries/obsidium-<triple>`. Флаг `--app-target` переключает
+`src-tauri/target` на junction `.artifacts/cargo-release` до сборки, `--target` задаёт трипл, повторный
+вызов ничего не меняет.
+
+Почему нельзя вернуть прямой `cargo build` в workflow: `npm run tauri build` отказывается работать,
+если `src-tauri/target` не тот junction, которым он управляет. Голый `cargo build` с манифестом
+`src-tauri` создаёт настоящий каталог, и следующий шаг падает до компиляции приложения. Поэтому шаг
+sidecar идёт через скрипт; `beforeBuildCommand` вызывает его же и после переключения junction просто
+переиспользует результат.
+
+Helper подключается через `pathToFileURL`: на Windows динамический `import()` с сырым путём `D:\…`
+принимает букву диска за URL-схему и падает с `ERR_UNSUPPORTED_ESM_URL_SCHEME`.
+
+`sync-version.mjs` переписывает версии в манифестах и после этого обновляет `Cargo.lock` через
+`cargo metadata`: без этого следующий шаг с `--locked` падает на устаревшем lock. Релизный preflight
+(`scripts/validate-release.mjs`) требует совпадения с тегом и для `core/Cargo.toml`, и для записи
+`aquilum-core` в `Cargo.lock`, чтобы такой рассинхрон падал в preflight, а не в сборке.
+
 Чтобы updater предложил установку, увеличь версию приложения перед запуском: повторная публикация
 того же номера версии не считается обновлением. Приватный updater key хранится в GitHub Secret
 `TAURI_SIGNING_PRIVATE_KEY`; публичный ключ хранится в `tauri.conf.json`.
