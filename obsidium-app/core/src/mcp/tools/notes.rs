@@ -174,7 +174,13 @@ fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     Ok(json!({ "notes": notes }))
 }
 
-fn read_one(core: &Core, vault: &Vault, name: &str, arguments: &Value, size: usize) -> Result<Value, String> {
+fn read_one(
+    core: &Core,
+    vault: &Vault,
+    name: &str,
+    arguments: &Value,
+    size: usize,
+) -> Result<Value, String> {
     let note = vault.note(core, name)?;
     let snapshot = read_file_snapshot_impl(&note).map_err(|error| error.to_string())?;
     let content = snapshot.content;

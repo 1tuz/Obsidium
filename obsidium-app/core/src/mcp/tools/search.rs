@@ -171,7 +171,12 @@ fn search_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
         let engine_full = found >= window;
         if hits.len() >= needed || !engine_full || window >= MAX_WINDOW {
             hits.truncate(needed);
-            break (response.query_terms, response.status.updating, hits, engine_full);
+            break (
+                response.query_terms,
+                response.status.updating,
+                hits,
+                engine_full,
+            );
         }
         window = window.saturating_mul(2).min(MAX_WINDOW);
     };

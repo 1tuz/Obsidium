@@ -148,7 +148,12 @@ fn every_note_tool_accepts_note_or_path_and_rejects_neither() {
         allowed.extend(
             schema["required"]
                 .as_array()
-                .map(|fields| fields.iter().filter_map(|field| field.as_str()).collect::<Vec<_>>())
+                .map(|fields| {
+                    fields
+                        .iter()
+                        .filter_map(|field| field.as_str())
+                        .collect::<Vec<_>>()
+                })
                 .unwrap_or_default(),
         );
         assert!(
@@ -157,7 +162,10 @@ fn every_note_tool_accepts_note_or_path_and_rejects_neither() {
         );
         checked += 1;
     }
-    assert!(checked >= 25, "проверено слишком мало инструментов: {checked}");
+    assert!(
+        checked >= 25,
+        "проверено слишком мало инструментов: {checked}"
+    );
     fixture.core.shutdown();
 }
 

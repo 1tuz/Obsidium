@@ -276,7 +276,10 @@ mod tests {
             vault.note(&core, "Проекты/Obsidium.md").is_ok(),
             "точный путь остаётся однозначным"
         );
-        assert!(vault.note(&core, "Obsidium").is_err(), "по названию два кандидата");
+        assert!(
+            vault.note(&core, "Obsidium").is_err(),
+            "по названию два кандидата"
+        );
     }
 
     #[test]
