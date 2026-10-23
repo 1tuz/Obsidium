@@ -1,7 +1,7 @@
 use crate::error::{CliResult, Failure};
 use serde_json::Value;
 
-const VERBOSE: [&str; 3] = ["frontmatter", "content", "snippets"];
+const VERBOSE: [&str; 3] = ["frontmatter", "content", "snippet"];
 const LIST_KEYS: [&str; 9] = [
     "results",
     "versions",
