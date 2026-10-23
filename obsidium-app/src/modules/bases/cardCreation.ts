@@ -1,5 +1,6 @@
 import { absolutePath, parentDirectory } from '../paths';
 import { boardMembership } from './boardMembership';
+import { calendarProperty } from './calendar';
 import { kanbanProperty, kanbanWritableProperty } from './kanban';
 import type { BaseDefinition, BaseFieldValue, BaseFilter } from './types';
 
@@ -34,20 +35,16 @@ function filterFolder(filter: string, workspacePath: string): string | null {
   return absolutePath(workspacePath, parts.join('/'));
 }
 
-export function planKanbanCard(
+function planCard(
   definition: BaseDefinition,
   viewIndex: number,
   basePath: string,
   workspacePath: string,
   title: string,
-  groupValue: string,
+  ownField: { property: string; value: string } | null,
 ): KanbanCardDraft {
   const view = definition.views[viewIndex];
-  if (!view || view.type !== 'kanban') throw new Error('The selected view is not a Kanban board.');
-  const group = kanbanProperty(view).replace(/^note\./, '');
-  if (!kanbanWritableProperty(group) || !/^[\w.-]+$/u.test(group) || group === 'tags') {
-    throw new Error('The column property is not a writable scalar note property.');
-  }
+  if (!view) throw new Error('The selected view does not exist.');
   const normalizedTitle = title.trim();
   if (!normalizedTitle) throw new Error('Card title cannot be empty.');
 
@@ -70,14 +67,14 @@ export function planKanbanCard(
       if (membership.kind === 'tag') {
         fields.tags = [membership.tag];
       } else {
-        if (membership.property === group && groupValue !== membership.value) {
+        if (ownField && membership.property === ownField.property && ownField.value !== membership.value) {
           throw new Error('This column is excluded by the board membership filter.');
         }
         fields[membership.property] = membership.value;
       }
     }
   }
-  if (groupValue) fields[group] = groupValue;
+  if (ownField && ownField.value) fields[ownField.property] = ownField.value;
 
   const frontmatter = Object.keys(fields).length > 0
     ? `---\n${Object.entries(fields).map(([key, value]) => (
@@ -85,4 +82,39 @@ export function planKanbanCard(
     )).join('\n')}\n---\n\n`
     : '';
   return { directory, fields, content: `${frontmatter}# ${normalizedTitle}\n` };
+}
+
+export function planKanbanCard(
+  definition: BaseDefinition,
+  viewIndex: number,
+  basePath: string,
+  workspacePath: string,
+  title: string,
+  groupValue: string,
+): KanbanCardDraft {
+  const view = definition.views[viewIndex];
+  if (!view || view.type !== 'kanban') throw new Error('The selected view is not a Kanban board.');
+  const group = kanbanProperty(view).replace(/^note\./, '');
+  if (!kanbanWritableProperty(group) || !/^[\w.-]+$/u.test(group) || group === 'tags') {
+    throw new Error('The column property is not a writable scalar note property.');
+  }
+  return planCard(definition, viewIndex, basePath, workspacePath, title, { property: group, value: groupValue });
+}
+
+export function planCalendarCard(
+  definition: BaseDefinition,
+  viewIndex: number,
+  basePath: string,
+  workspacePath: string,
+  title: string,
+  date: string,
+): KanbanCardDraft {
+  const view = definition.views[viewIndex];
+  if (!view || view.type !== 'calendar') throw new Error('The selected view is not a calendar.');
+  const property = calendarProperty(view).replace(/^note\./, '');
+  if (!kanbanWritableProperty(property) || !/^[\w.-]+$/u.test(property) || property === 'tags') {
+    throw new Error('The date property is not a writable scalar note property.');
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) throw new Error('The date must use the YYYY-MM-DD form.');
+  return planCard(definition, viewIndex, basePath, workspacePath, title, { property, value: date });
 }

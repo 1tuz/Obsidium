@@ -606,6 +606,11 @@
     "kanbanDeleteTitle": "Delete card?",
     "kanbanDeleteDescription": "Move {{title}} to Trash? The Markdown page will be recoverable.",
     "kanbanDeleteError": "Could not delete card: {{reason}}",
+    "calendarPrevious": "Previous month",
+    "calendarNext": "Next month",
+    "calendarToday": "Today",
+    "calendarAdd": "Create a note on {{date}}",
+    "calendarUndated": "No date: {{count}}",
     "kanbanNotWritable": "This card's column value cannot be edited.",
     "kanbanExcluded": "This destination is excluded by the board filter."
   },

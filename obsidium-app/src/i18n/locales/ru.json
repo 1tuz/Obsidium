@@ -610,6 +610,11 @@
     "kanbanDeleteTitle": "Удалить карточку?",
     "kanbanDeleteDescription": "Переместить {{title}} в корзину? Страницу Markdown можно восстановить.",
     "kanbanDeleteError": "Не удалось удалить карточку: {{reason}}",
+    "calendarPrevious": "Предыдущий месяц",
+    "calendarNext": "Следующий месяц",
+    "calendarToday": "Сегодня",
+    "calendarAdd": "Создать заметку на {{date}}",
+    "calendarUndated": "Без даты: {{count}}",
     "kanbanNotWritable": "Нельзя изменить значение колонки этой карточки.",
     "kanbanExcluded": "Эта колонка исключена фильтром доски."
   },

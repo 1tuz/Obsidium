@@ -20,6 +20,7 @@ export interface BaseViewDefinition {
   type: string;
   name: string;
   limit?: number;
+  dateField?: string;
   order: string[];
   filters?: BaseFilter;
   groupBy?: BaseGroupBy;
