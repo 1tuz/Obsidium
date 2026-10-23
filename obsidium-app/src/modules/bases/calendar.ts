@@ -103,7 +103,7 @@ export function todayIso(now: Date = new Date()): string {
 }
 
 export function monthLabel(year: number, month: number, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' })
+  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' })
     .format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
