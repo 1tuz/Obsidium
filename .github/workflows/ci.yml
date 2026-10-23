@@ -69,7 +69,8 @@ jobs:
       - name: Test cross-platform installers
         if: steps.changes.outputs.installer_scripts == 'true' || steps.manual.outputs.installer_scripts == 'true'
         run: |
-          bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
+          bash -n scripts/install.sh scripts/uninstall.sh scripts/install-cli.sh scripts/uninstall-cli.sh scripts/test-install-scripts.sh
+          node --check scripts/prepare-cli-sidecar.mjs
           bash scripts/test-install-scripts.sh
           pwsh -NoProfile -File scripts/test-install-windows.ps1
 
@@ -160,6 +161,10 @@ jobs:
           sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
             librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+
+      - name: Build the CLI sidecar for the app bundle
+        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
+        run: node scripts/prepare-cli-sidecar.mjs
 
       - name: Test changed Rust packages
         if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'

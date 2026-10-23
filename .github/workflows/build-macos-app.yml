@@ -37,6 +37,15 @@ jobs:
         working-directory: obsidium-app
         run: npm ci
 
+      - name: Build CLI sidecar for the app bundle
+        working-directory: obsidium-app
+        run: |
+          cargo build --locked --release -p obsidium-cli \
+            --manifest-path src-tauri/Cargo.toml --target aarch64-apple-darwin
+          mkdir -p src-tauri/binaries
+          cp src-tauri/target/aarch64-apple-darwin/release/obsidium \
+            src-tauri/binaries/obsidium-aarch64-apple-darwin
+
       - name: Build app bundle
         working-directory: obsidium-app
         env:

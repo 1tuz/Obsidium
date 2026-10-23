@@ -60,6 +60,9 @@ release_contract:
 installer_scripts:
   - 'scripts/install.sh'
   - 'scripts/uninstall.sh'
+  - 'scripts/install-cli.sh'
+  - 'scripts/uninstall-cli.sh'
+  - 'scripts/prepare-cli-sidecar.mjs'
   - 'scripts/test-install-scripts.sh'
   - 'scripts/install.ps1'
   - 'scripts/uninstall.ps1'
