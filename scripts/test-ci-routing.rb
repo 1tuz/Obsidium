@@ -24,6 +24,35 @@ matches = lambda do |filter, path|
   filters.fetch(filter, []).any? { |pattern| File.fnmatch?(pattern, path, flags) }
 end
 
+raise 'agent_surface filter is missing' unless filters['agent_surface'].is_a?(Array)
+
+agent_surface = filters.fetch('agent_surface')
+required_agent_patterns = [
+  'obsidium-app/cli/**',
+  'obsidium-app/core/src/mcp/**',
+  'obsidium-app/core/src/links/**',
+  'obsidium-app/core/src/wiki/**',
+  'obsidium-app/core/src/search/tasks/**',
+  'scripts/agent-smoke.mjs',
+]
+required_agent_patterns.each do |pattern|
+  raise "agent_surface must include #{pattern}" unless agent_surface.include?(pattern)
+end
+
+{
+  'CLI source' => 'obsidium-app/cli/src/main.rs',
+  'MCP source' => 'obsidium-app/core/src/mcp/tools/mod.rs',
+  'links source' => 'obsidium-app/core/src/links/mod.rs',
+  'wiki source' => 'obsidium-app/core/src/wiki/mod.rs',
+  'tasks source' => 'obsidium-app/core/src/search/tasks/repository.rs',
+  'agent smoke script' => 'scripts/agent-smoke.mjs',
+}.each do |name, path|
+  matched = agent_surface.any? do |pattern|
+    File.fnmatch?(pattern, path, flags) || File.fnmatch?("#{pattern}/*", path, flags)
+  end
+  raise "agent_surface must match the #{name}" unless matched
+end
+
 expected = {
   'documentation' => { 'docs' => true },
   'CSS' => { 'frontend_full' => true },

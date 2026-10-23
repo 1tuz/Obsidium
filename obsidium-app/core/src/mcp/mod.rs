@@ -4,7 +4,7 @@ mod http;
 mod protocol;
 mod server;
 mod stdio;
-mod tools;
+pub mod tools;
 pub mod vault;
 
 pub use stdio::{open_headless_core, run_stdio_bridge, run_stdio_core, run_stdio_headless};

@@ -2,11 +2,11 @@ use super::super::vault::Vault;
 use super::workspace::{indexed_vault, requested_vault, workspace_vault};
 use super::{
     content, flag, limit, offset, open_after_write, optional_content, optional_names,
-    optional_text, require_write, shorten, text, tool, version_name_property, workspace_property,
-    write_retrying,
+    optional_text, require_write, shorten, text, tool, tool_with, version_name_property,
+    workspace_property, write_retrying_with_hash,
 };
 use crate::app_core::Core;
-use crate::files::document::{ensure_directory_impl, read_text};
+use crate::files::document::{ensure_directory_impl, read_file_snapshot_impl, read_text};
 use crate::files::gate;
 use crate::history::Source;
 use crate::search::headings::{self, Heading};
@@ -20,28 +20,31 @@ const BATCH_LIMIT: usize = 100;
 
 pub fn definitions() -> Vec<Value> {
     vec![
-        tool(
+        tool_with(
             "read_note",
-            "Прочитать заметку целиком или один её раздел (аргумент heading). Несколько заметок за раз читаются через notes — ответ придёт списком, и по умолчанию каждая обрезается до 2000 символов. Поля frontmatter возвращаются отдельным объектом frontmatter, значения-списки в нём приходят массивом, менять их надо через set_frontmatter. Длинный текст отдаётся частями: смотрите поля truncated и nextOffset.",
+            "Прочитать заметку целиком или один её раздел (аргумент heading). Несколько заметок за раз читаются через notes — ответ придёт списком, и по умолчанию каждая обрезается до 2000 символов. Поля frontmatter возвращаются отдельным объектом frontmatter, значения-списки в нём приходят массивом, менять их надо через set_frontmatter. hash — отпечаток сырых байт файла (blake3): передайте его как expectedHash в update_note, set_frontmatter или в edits транзакции, чтобы правка не перезаписала чужое изменение. Длинный текст отдаётся частями: смотрите поля truncated и nextOffset.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки из результатов поиска" },
                 "notes": { "type": "array", "items": { "type": "string" }, "description": "Несколько заметок за один вызов, не больше 100; вместо note" },
                 "heading": { "type": "string", "description": "Читать только этот раздел: заголовок и текст до следующего заголовка того же или более высокого уровня" },
                 "offset": { "type": "integer", "description": "С какого символа читать" },
                 "limit": { "type": "integer", "description": "Сколько символов вернуть, по умолчанию 8000" },
                 "workspace": workspace_property(),
             }),
-            &["note"],
+            &[],
+            json!({ "anyOf": [{ "required": ["note"] }, { "required": ["path"] }, { "required": ["notes"] }] }),
         ),
         tool(
             "create_note",
             "Создать заметку. Папки создаются автоматически. Если файл по этому пути уже есть, вызов вернёт ошибку и ничего не изменит, поэтому проверять существование заранее не нужно. Для импорта передайте notes — список заметок создаётся за один вызов, ошибка на одной не отменяет остальные, а вкладки при этом не открываются.",
             json!({
                 "path": { "type": "string", "description": "Путь от корня базы, например «Проекты/Идея.md»" },
+                "note": { "type": "string", "description": "Синоним path: путь или название создаваемой заметки" },
                 "content": { "type": "string", "description": "Начальное содержимое" },
                 "notes": { "type": "array", "items": { "type": "object" }, "description": "Пачка заметок: список объектов {path, content}, не больше 100; вместо path и content" },
                 "workspace": workspace_property(),
-                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении: по умолчанию да для одной заметки и нет для пачки" },
+                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении; по умолчанию нет. Передавайте true, только если пользователь прямо попросил показать заметку, и не вызывайте для этого open_note или switch_workspace" },
                 "versionName": version_name_property(),
             }),
             &[],
@@ -51,6 +54,7 @@ pub fn definitions() -> Vec<Value> {
             "Изменить текст заметки. Правьте разделом (underHeading, replaceSection) или точной заменой (findReplace); mode=replace перезаписывает всю заметку целиком вместе с frontmatter, поэтому метаданные меняйте через set_frontmatter, а не режимом replace.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "mode": {
                     "type": "string",
                     "enum": ["append", "prepend", "replace", "findReplace", "underHeading", "replaceSection"],
@@ -60,7 +64,8 @@ pub fn definitions() -> Vec<Value> {
                 "find": { "type": "string", "description": "Что заменить в режиме findReplace" },
                 "heading": { "type": "string", "description": "Заголовок раздела для режимов underHeading и replaceSection" },
                 "all": { "type": "boolean", "description": "В режиме findReplace заменить все вхождения; по умолчанию нет, и на нескольких вхождениях вернётся ошибка с их числом" },
-                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении, по умолчанию да; в другой базе вкладка не открывается" },
+                "expectedHash": { "type": "string", "description": "hash из read_note: если файл изменился после чтения, правка не выполнится" },
+                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении; по умолчанию нет. Передавайте true, только если пользователь прямо попросил показать заметку, и не вызывайте для этого open_note или switch_workspace" },
                 "versionName": version_name_property(),
                 "workspace": workspace_property(),
             }),
@@ -71,6 +76,7 @@ pub fn definitions() -> Vec<Value> {
             "Переименовать заметку с обновлением всех входящих ссылок [[...]].",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "title": { "type": "string", "description": "Новое название без расширения" },
                 "workspace": workspace_property(),
             }),
@@ -81,6 +87,7 @@ pub fn definitions() -> Vec<Value> {
             "Переместить заметку в другую папку или в другую базу знаний.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "folder": { "type": "string", "description": "Папка назначения, пусто — корень базы" },
                 "workspace": workspace_property(),
                 "toWorkspace": { "type": "string", "description": "База назначения для переноса между базами: путь или имя из list_workspaces" },
@@ -92,6 +99,7 @@ pub fn definitions() -> Vec<Value> {
             "Удалить заметку: файл переносится в корзину базы на то же место внутри .trash и хранится там по сроку из настроек. Вернуть можно через restore_note, посмотреть — через list_trash.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "workspace": workspace_property(),
             }),
             &["note"],
@@ -114,6 +122,7 @@ pub fn definitions() -> Vec<Value> {
             "Заголовки заметки с уровнем и размером раздела. Нужный раздел дальше читается через read_note с аргументом heading.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
                 "workspace": workspace_property(),
             }),
             &["note"],
@@ -167,7 +176,8 @@ fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
 
 fn read_one(vault: &Vault, name: &str, arguments: &Value, size: usize) -> Result<Value, String> {
     let note = vault.note(name)?;
-    let content = read_text(&note).map_err(|error| error.to_string())?;
+    let snapshot = read_file_snapshot_impl(&note).map_err(|error| error.to_string())?;
+    let content = snapshot.content;
     let meta = super::frontmatter::map(&content);
     let (content, section) = match optional_text(arguments, "heading").as_deref() {
         Some(wanted) => {
@@ -188,6 +198,7 @@ fn read_one(vault: &Vault, name: &str, arguments: &Value, size: usize) -> Result
 
     Ok(json!({
         "path": vault.relative(&note),
+        "hash": snapshot.hash,
         "frontmatter": meta,
         "heading": section,
         "content": body,
@@ -269,7 +280,7 @@ fn create_note(core: &Core, arguments: &Value) -> Result<Value, String> {
         }
     }
 
-    if vault.visible && flag(arguments, "open", !batch) {
+    if vault.visible && flag(arguments, "open", false) {
         if let Some(last) = paths.last() {
             super::super::bridge::open_note_after_write(core, last);
         }
@@ -364,11 +375,13 @@ fn update_note(core: &Core, arguments: &Value) -> Result<Value, String> {
         all: flag(arguments, "all", false),
     };
     let version_name = optional_text(arguments, "versionName");
-    let (changed, next) = write_retrying(
+    let expected_hash = optional_text(arguments, "expectedHash");
+    let (changed, next) = write_retrying_with_hash(
         core,
         &note,
         Source::Agent,
         version_name.as_deref(),
+        expected_hash.as_deref(),
         |current| compose(current, &edit),
     )?;
     if !changed {

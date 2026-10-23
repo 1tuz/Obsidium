@@ -80,3 +80,70 @@ run_with_mocks Darwin arm64 "$temporary_root/mac-uninstall.log" "$temporary_root
 [[ ! -e "$temporary_root/home/Applications/Aquilum.app" ]]
 [[ ! -e "$temporary_root/home/Applications/Obsidium.app" ]]
 [[ "$(cat "$temporary_root/home/Documents/notes.md")" == 'settings stay' ]]
+
+cli_root="$temporary_root/cli"
+cli_home="$cli_root/home"
+cli_app="$cli_root/app/Obsidium.app"
+cli_binary="$cli_app/Contents/MacOS/obsidium"
+cli_prefix="$cli_home/.local/bin"
+cli_link="$cli_prefix/obsidium"
+cli_path="/usr/bin:/bin:/usr/sbin:/sbin"
+mkdir -p "$cli_home" "$cli_app/Contents/MacOS"
+printf '#!/bin/sh\nprintf obsidium-cli\n' > "$cli_binary"
+chmod +x "$cli_binary"
+printf 'plist stays\n' > "$cli_app/Contents/Info.plist"
+
+run_cli() {
+  PATH="$cli_path" HOME="$cli_home" /bin/sh "$@"
+}
+
+output="$(run_cli "$script_dir/install-cli.sh" --app "$cli_app")"
+[[ -L "$cli_link" ]]
+[[ "$(readlink "$cli_link")" == "$cli_binary" ]]
+[[ "$output" == *"export PATH=\"$cli_prefix:\$PATH\""* ]]
+[[ "$(cat "$cli_app/Contents/Info.plist")" == 'plist stays' ]]
+[[ "$("$cli_link")" == 'obsidium-cli' ]]
+
+run_cli "$script_dir/install-cli.sh" --app "$cli_app" >/dev/null
+[[ -L "$cli_link" ]]
+[[ "$(readlink "$cli_link")" == "$cli_binary" ]]
+
+rm -f "$cli_link"
+printf 'user file\n' > "$cli_link"
+if run_cli "$script_dir/install-cli.sh" --app "$cli_app" >/dev/null 2>&1; then
+  exit 1
+fi
+[[ ! -L "$cli_link" ]]
+[[ "$(cat "$cli_link")" == 'user file' ]]
+
+run_cli "$script_dir/uninstall-cli.sh" >/dev/null
+[[ -f "$cli_link" ]]
+[[ "$(cat "$cli_link")" == 'user file' ]]
+rm -f "$cli_link"
+
+run_cli "$script_dir/install-cli.sh" --app "$cli_app" >/dev/null
+run_cli "$script_dir/uninstall-cli.sh" >/dev/null
+[[ ! -e "$cli_link" ]]
+[[ ! -L "$cli_link" ]]
+
+ln -s /usr/bin/true "$cli_link"
+if run_cli "$script_dir/uninstall-cli.sh" >/dev/null 2>&1; then
+  exit 1
+fi
+[[ -L "$cli_link" ]]
+rm -f "$cli_link"
+
+custom_prefix="$cli_root/custom/bin"
+run_cli "$script_dir/install-cli.sh" --app "$cli_app" --prefix "$custom_prefix" >/dev/null
+[[ -L "$custom_prefix/obsidium" ]]
+[[ ! -e "$cli_link" ]]
+
+mkdir -p "$cli_root/broken/Obsidium.app/Contents/MacOS"
+if run_cli "$script_dir/install-cli.sh" --app "$cli_root/broken/Obsidium.app" >/dev/null 2>&1; then
+  exit 1
+fi
+[[ ! -e "$cli_link" ]]
+
+output="$(PATH="$cli_prefix:/usr/bin:/bin" HOME="$cli_home" /bin/sh "$script_dir/install-cli.sh" --app "$cli_app")"
+[[ "$output" != *"export PATH="* ]]
+[[ -L "$cli_link" ]]

@@ -121,6 +121,20 @@ impl SearchService {
         Ok(graph.incoming_counts(documents))
     }
 
+    pub fn graph_snapshot(&self, workspace: &str) -> Result<Arc<GraphSnapshot>, SearchError> {
+        let (root, generation, revision, metadata, cacheable) =
+            self.with_index(workspace, |open| {
+                Ok((
+                    open.root.clone(),
+                    open.generation,
+                    open.progress.snapshot().revision,
+                    Arc::clone(&open.metadata),
+                    open.is_visible(),
+                ))
+            })?;
+        self.link_graph(&root, generation, revision, &metadata, cacheable)
+    }
+
     fn link_graph(
         &self,
         root: &Path,

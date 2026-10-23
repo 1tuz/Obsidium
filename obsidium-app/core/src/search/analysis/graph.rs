@@ -2,15 +2,17 @@ use super::models::AnalysisResult;
 use crate::search::error::SearchError;
 use crate::search::paths::identity;
 use crate::search::wiki;
+use crate::search::wiki::target::{pick_candidate, target_key};
 use rusqlite::Connection;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct GraphSnapshot {
     neighbours: HashMap<String, HashSet<String>>,
     outgoing: HashMap<String, HashSet<String>>,
     paths: HashMap<String, String>,
+    links: HashMap<(String, String), BTreeSet<&'static str>>,
 }
 
 struct CandidateScore {
@@ -24,7 +26,8 @@ impl GraphSnapshot {
         let mut neighbours = HashMap::<String, HashSet<String>>::new();
         let mut outgoing = HashMap::<String, HashSet<String>>::new();
         let mut paths = HashMap::<String, String>::new();
-        wiki::for_each_link(
+        let mut links = HashMap::<(String, String), BTreeSet<&'static str>>::new();
+        wiki::for_each_typed_link(
             connection,
             root,
             documents.iter().map(|document| {
@@ -34,7 +37,7 @@ impl GraphSnapshot {
                     document.title_key.as_str(),
                 )
             }),
-            |source, target| {
+            |source, target, link_type| {
                 let source_path = source;
                 let target_path = target;
                 let source = identity(Path::new(source_path));
@@ -56,13 +59,24 @@ impl GraphSnapshot {
                     .entry(target.clone())
                     .or_default()
                     .insert(source.clone());
+                let label = if link_type == "markdown" {
+                    "markdown"
+                } else {
+                    "wiki"
+                };
+                links
+                    .entry((source.clone(), target.clone()))
+                    .or_default()
+                    .insert(label);
                 outgoing.entry(source).or_default().insert(target);
             },
         )?;
+        append_structural(connection, root, &documents, &mut links, &mut paths)?;
         Ok(Self {
             neighbours,
             outgoing,
             paths,
+            links,
         })
     }
 
@@ -89,6 +103,31 @@ impl GraphSnapshot {
         self.outgoing
             .get(&identity(source))
             .is_some_and(|targets| targets.contains(&target))
+    }
+
+    pub fn path_of(&self, identity: &str) -> Option<&str> {
+        self.paths.get(identity).map(String::as_str)
+    }
+
+    pub fn labels_between(&self, left: &Path, right: &Path) -> Vec<&'static str> {
+        let left = identity(left);
+        let right = identity(right);
+        let mut labels = Vec::new();
+        if let Some(found) = self.links.get(&(left.clone(), right.clone())) {
+            labels.extend(found.iter().copied());
+        }
+        if let Some(found) = self.links.get(&(right, left)) {
+            labels.extend(found.iter().copied());
+        }
+        labels.sort_unstable();
+        labels.dedup();
+        labels
+    }
+
+    pub(crate) fn edges(&self) -> impl Iterator<Item = (&str, &str, &BTreeSet<&'static str>)> + '_ {
+        self.links
+            .iter()
+            .map(|((source, target), labels)| (source.as_str(), target.as_str(), labels))
     }
 
     pub fn adamic_adar(&self, document: &Path, limit: usize) -> Vec<AnalysisResult> {
@@ -165,6 +204,117 @@ impl GraphSnapshot {
     }
 }
 
+fn append_structural(
+    connection: &Connection,
+    root: &Path,
+    documents: &[wiki::edges::WikiDocument],
+    links: &mut HashMap<(String, String), BTreeSet<&'static str>>,
+    paths: &mut HashMap<String, String>,
+) -> Result<(), SearchError> {
+    let mut by_title = HashMap::<&str, Vec<&str>>::new();
+    let mut by_relative = HashMap::<&str, Vec<&str>>::new();
+    for document in documents {
+        by_title
+            .entry(&document.title_key)
+            .or_default()
+            .push(&document.path);
+        by_relative
+            .entry(&document.relative_key)
+            .or_default()
+            .push(&document.path);
+    }
+    let mut statement = connection.prepare(
+        "SELECT path, key_lower, text, items FROM note_fields
+         WHERE key_lower IN ('parent', 'related', 'depends_on', 'blocks')
+         ORDER BY path, ordinal",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, Option<String>>(3)?,
+        ))
+    })?;
+    for row in rows {
+        let (source, field, text, items) = row?;
+        let Some(label) = structural_label(&field) else {
+            continue;
+        };
+        let values = items
+            .and_then(|raw| serde_json::from_str::<Vec<String>>(&raw).ok())
+            .filter(|items| !items.is_empty())
+            .unwrap_or_else(|| vec![text]);
+        for value in values {
+            let clean = structural_target(&value);
+            if clean.is_empty() || clean.eq_ignore_ascii_case("null") {
+                continue;
+            }
+            let (key, kind) = target_key(&clean);
+            let candidates = if kind == "path" {
+                by_relative.get(key.as_str())
+            } else {
+                by_title.get(key.as_str())
+            };
+            let Some(target) =
+                candidates.and_then(|paths| pick_candidate(root, Path::new(&source), paths))
+            else {
+                continue;
+            };
+            let source_identity = identity(Path::new(&source));
+            let target_identity = identity(Path::new(target));
+            if source_identity == target_identity {
+                continue;
+            }
+            paths
+                .entry(source_identity.clone())
+                .or_insert_with(|| source.clone());
+            paths
+                .entry(target_identity.clone())
+                .or_insert_with(|| target.to_owned());
+            links
+                .entry((source_identity.clone(), target_identity.clone()))
+                .or_default()
+                .insert(label);
+            if label == "related" {
+                links
+                    .entry((target_identity, source_identity))
+                    .or_default()
+                    .insert(label);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn structural_label(field: &str) -> Option<&'static str> {
+    match field {
+        "parent" => Some("parent"),
+        "related" => Some("related"),
+        "depends_on" => Some("depends_on"),
+        "blocks" => Some("blocks"),
+        _ => None,
+    }
+}
+
+fn structural_target(value: &str) -> String {
+    let value = value.trim();
+    let value = if value.starts_with("[[") && value.ends_with("]]") {
+        &value[2..value.len() - 2]
+    } else {
+        value
+            .strip_prefix('[')
+            .and_then(|target| target.strip_suffix(']'))
+            .unwrap_or(value)
+    };
+    value
+        .split('|')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_owned()
+}
+
 fn title(path: &str) -> String {
     Path::new(path)
         .file_stem()
@@ -215,6 +365,7 @@ mod tests {
             neighbours,
             outgoing,
             paths,
+            links: HashMap::new(),
         };
 
         let results = graph.adamic_adar(Path::new("C:/vault/A.md"), 10);
@@ -247,6 +398,7 @@ mod tests {
             neighbours,
             outgoing,
             paths,
+            links: HashMap::new(),
         };
 
         let results = graph.adamic_adar(Path::new("C:/vault/A.md"), 10);
@@ -273,6 +425,7 @@ mod tests {
             neighbours,
             outgoing,
             paths,
+            links: HashMap::new(),
         };
 
         let result = graph
@@ -308,6 +461,7 @@ mod tests {
             neighbours,
             outgoing,
             paths,
+            links: HashMap::new(),
         };
 
         let result = graph
@@ -329,6 +483,7 @@ mod tests {
             neighbours: HashMap::new(),
             outgoing,
             paths: HashMap::new(),
+            links: HashMap::new(),
         };
         let documents =
             ["A", "B", "X"].map(|name| std::path::PathBuf::from(format!("C:/vault/{name}.md")));
@@ -342,6 +497,7 @@ mod tests {
             neighbours: HashMap::new(),
             outgoing,
             paths: HashMap::new(),
+            links: HashMap::new(),
         };
 
         assert!(graph.links_to(Path::new("C:/vault/X.md"), Path::new("C:/vault/A.md")));

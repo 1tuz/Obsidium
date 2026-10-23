@@ -20,6 +20,7 @@ node_modules/
 /obsidium-app/.build/
 /obsidium-app/releases/
 /obsidium-app/src-tauri/target/
+/obsidium-app/src-tauri/binaries/
 /obsidium-app/core/target/
 /obsidium-app/core/Cargo.lock
 

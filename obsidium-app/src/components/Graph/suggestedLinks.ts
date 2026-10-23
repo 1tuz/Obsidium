@@ -1,6 +1,5 @@
 import type { GraphEpoch, GraphSnapshot } from '../../modules/graph';
-import { readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
-import { relativePath } from '../../modules/paths';
+import { applySuggestedLink } from '../../modules/links';
 
 interface IndexedSuggestion {
   path: string;
@@ -45,31 +44,13 @@ export async function suggestionNodeIndices(
   }));
 }
 
-export function appendWikiLink(content: string, path: string): string | null {
-  const target = path.replace(/\\/g, '/').replace(/\.md$/i, '');
-  const normalized = normalizeWikiTarget(target);
-  for (const match of content.matchAll(/\[\[([^\]\r\n]+)\]\]/g)) {
-    if (normalizeWikiTarget(match[1]!.split('|', 1)[0]!) === normalized) return null;
-  }
-  const newline = content.includes('\r\n') ? '\r\n' : '\n';
-  return `${content}${content && !content.endsWith('\n') ? newline : ''}[[${target}]]${newline}`;
-}
-
 export async function writeSuggestedLink(
   workspacePath: string,
   sourcePath: string,
   targetPath: string,
 ): Promise<boolean> {
-  const source = await readFileSnapshot(sourcePath);
-  const target = relativePath(workspacePath, targetPath);
-  const content = appendWikiLink(source.content, target);
-  if (content === null) return false;
-  await writeFileAtomic(sourcePath, content, source.hash);
-  return true;
-}
-
-function normalizeWikiTarget(target: string): string {
-  return target.trim().replace(/\\/g, '/').replace(/\.md$/i, '').toLocaleLowerCase();
+  const result = await applySuggestedLink(workspacePath, sourcePath, targetPath);
+  return result.changed;
 }
 
 function stableNodeId(path: string): bigint {

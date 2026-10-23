@@ -1,12 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { invoke } from '@tauri-apps/api/core';
 import type { GraphSnapshot } from '../../modules/graph';
-import { readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
-import { appendWikiLink, suggestionNodeIndices, writeSuggestedLink } from './suggestedLinks';
+import { suggestionNodeIndices, writeSuggestedLink } from './suggestedLinks';
 
-vi.mock('../../modules/documents/fileGateway', () => ({
-  readFileSnapshot: vi.fn(),
-  writeFileAtomic: vi.fn(),
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
 }));
+
+const invokeMock = vi.mocked(invoke);
 
 function snapshot(paths: string[]): GraphSnapshot {
   const nodeIds = new Uint32Array(paths.length * 2);
@@ -39,6 +40,10 @@ function stableId(path: string): bigint {
 }
 
 describe('suggested graph links', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
   it('maps candidates by stable path identity and verifies the indexed path', async () => {
     const graph = snapshot(['notes/a.md', 'notes/b.md', 'notes/c.md']);
     const fetchPaths = vi.fn(async (_epoch, indices: number[]) =>
@@ -50,38 +55,32 @@ describe('suggested graph links', () => {
     expect(fetchPaths).toHaveBeenCalledWith(graph.epoch, [2]);
   });
 
-  it('appends a wiki link with the existing line ending and skips duplicates', () => {
-    expect(appendWikiLink('## Related\r\n', 'folder/note.md')).toBe(
-      '## Related\r\n[[folder/note]]\r\n',
-    );
-    expect(appendWikiLink('[[folder/note]]\n', 'folder/note.md')).toBeNull();
-    expect(appendWikiLink('[[folder/note|alias]]\n', 'folder/note.md')).toBeNull();
+  it('applies the wiki link through the IPC boundary with absolute paths', async () => {
+    invokeMock.mockResolvedValue({ changed: true, path: 'notes/source.md' });
+
+    await expect(
+      writeSuggestedLink('/vault', '/vault/notes/source.md', '/vault/folder/note.md'),
+    ).resolves.toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith('apply_suggested_link', {
+      workspace: '/vault',
+      source: '/vault/notes/source.md',
+      target: '/vault/folder/note.md',
+    });
   });
 
-  it('uses an atomic hash-checked write and skips links already present', async () => {
-    vi.mocked(readFileSnapshot).mockResolvedValue({
-      content: '## Related\r\n',
-      hash: 'source-hash',
-      textHash: 'text-hash',
-    });
-    vi.mocked(writeFileAtomic).mockResolvedValue({ hash: 'next-hash' });
+  it('reports an already present link as unchanged', async () => {
+    invokeMock.mockResolvedValue({ changed: false, path: 'notes/source.md' });
 
-    await expect(writeSuggestedLink('/vault', '/vault/source.md', '/vault/folder/note.md'))
-      .resolves.toBe(true);
-    expect(writeFileAtomic).toHaveBeenCalledWith(
-      '/vault/source.md',
-      '## Related\r\n[[folder/note]]\r\n',
-      'source-hash',
-    );
+    await expect(
+      writeSuggestedLink('/vault', '/vault/notes/source.md', '/vault/folder/note.md'),
+    ).resolves.toBe(false);
+  });
 
-    vi.mocked(readFileSnapshot).mockResolvedValue({
-      content: '[[folder/note]]\n',
-      hash: 'source-hash',
-      textHash: 'text-hash',
-    });
-    vi.mocked(writeFileAtomic).mockClear();
-    await expect(writeSuggestedLink('/vault', '/vault/source.md', '/vault/folder/note.md'))
-      .resolves.toBe(false);
-    expect(writeFileAtomic).not.toHaveBeenCalled();
+  it('propagates IPC errors', async () => {
+    invokeMock.mockRejectedValue(new Error('Изменение заметок запрещено в настройках Obsidium'));
+
+    await expect(
+      writeSuggestedLink('/vault', '/vault/notes/source.md', '/vault/folder/note.md'),
+    ).rejects.toThrow('Изменение заметок запрещено в настройках Obsidium');
   });
 });

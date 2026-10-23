@@ -5,9 +5,9 @@
   "version": "0.5.14",
   "identifier": "com.dmitriy.aquilum-app",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "node ../scripts/prepare-cli-sidecar.mjs && npm run dev",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "npm run icons:sync && npm run build",
+    "beforeBuildCommand": "node ../scripts/prepare-cli-sidecar.mjs --release && npm run icons:sync && npm run build",
     "frontendDist": "../../.artifacts/dist"
   },
   "app": {
@@ -48,6 +48,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/obsidium"
     ],
     "createUpdaterArtifacts": true,
     "windows": {

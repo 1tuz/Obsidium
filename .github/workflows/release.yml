@@ -125,6 +125,19 @@ jobs:
         working-directory: obsidium-app
         run: npm ci
 
+      - name: Build CLI sidecar for the app bundle
+        working-directory: obsidium-app
+        shell: bash
+        env:
+          TARGET_TRIPLE: ${{ matrix.target }}
+          EXE_SUFFIX: ${{ matrix.platform == 'Windows' && '.exe' || '' }}
+        run: |
+          cargo build --locked --release -p obsidium-cli \
+            --manifest-path src-tauri/Cargo.toml --target "$TARGET_TRIPLE"
+          mkdir -p src-tauri/binaries
+          cp "src-tauri/target/$TARGET_TRIPLE/release/obsidium$EXE_SUFFIX" \
+            "src-tauri/binaries/obsidium-$TARGET_TRIPLE$EXE_SUFFIX"
+
       - name: Build installer and updater bundle
         working-directory: obsidium-app
         env:

@@ -1,10 +1,11 @@
 use super::workspace::{indexed_vault, requested_vault};
 use super::{
     limit, offset, open_after_write, optional_names, optional_text, require_write, text, tool,
-    version_name_property, workspace_property, write_retrying,
+    version_name_property, workspace_property, write_retrying_with_hash,
 };
 use crate::app_core::Core;
 use crate::history::Source;
+use crate::search::analyzer::frontmatter::FieldValue;
 use crate::search::analyzer::frontmatter_set;
 use crate::search::fields::{as_object, head_fields, note_fields, Field};
 use serde_json::{json, Map, Value};
@@ -16,11 +17,13 @@ pub fn definitions() -> Vec<Value> {
     vec![
         tool(
             "set_frontmatter",
-            "Изменить поля frontmatter заметки: перечисленные ключи создаются или переписываются, остальные поля, их порядок и текст заметки остаются нетронутыми. Пустая строка очищает значение, но оставляет ключ. Если у заметки нет frontmatter, блок создаётся в начале. В ответе поля-списки приходят массивом.",
+            "Изменить поля frontmatter заметки: перечисленные ключи создаются или переписываются, остальные поля, их порядок, комментарии и текст заметки остаются нетронутыми. Строка, число и логическое значение пишутся скаляром, массив строк (например tags или related) — блочным списком, null удаляет ключ, пустая строка очищает значение, но оставляет ключ. Если у заметки нет frontmatter, блок создаётся в начале. В ответе поля-списки приходят массивом.",
             json!({
                 "note": { "type": "string", "description": "Путь или название заметки" },
-                "fields": { "type": "object", "description": "Пары «ключ: значение», например {\"status\": \"read\", \"rating\": 5}" },
-                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении, по умолчанию да; в другой базе вкладка не открывается" },
+                "path": { "type": "string", "description": "Синоним note: путь заметки" },
+                "fields": { "type": "object", "description": "Пары «ключ: значение», например {\"status\": \"read\", \"tags\": [\"роман\", \"классика\"], \"rating\": 5}; null удаляет ключ" },
+                "expectedHash": { "type": "string", "description": "hash из read_note: если файл изменился после чтения, правка не выполнится" },
+                "open": { "type": "boolean", "description": "Открыть заметку вкладкой в приложении; по умолчанию нет. Передавайте true, только если пользователь прямо попросил показать заметку, и не вызывайте для этого open_note или switch_workspace" },
                 "versionName": version_name_property(),
                 "workspace": workspace_property(),
             }),
@@ -63,11 +66,13 @@ fn set_frontmatter(core: &Core, arguments: &Value) -> Result<Value, String> {
     let note = vault.note(&text(arguments, "note")?)?;
     let updates = field_updates(arguments)?;
     let version_name = optional_text(arguments, "versionName");
-    let (changed, next) = write_retrying(
+    let expected_hash = optional_text(arguments, "expectedHash");
+    let (changed, next) = write_retrying_with_hash(
         core,
         &note,
         Source::Agent,
         version_name.as_deref(),
+        expected_hash.as_deref(),
         |current| frontmatter_set(current, &updates),
     )?;
     if changed {
@@ -80,7 +85,7 @@ fn set_frontmatter(core: &Core, arguments: &Value) -> Result<Value, String> {
     }))
 }
 
-fn field_updates(arguments: &Value) -> Result<Vec<(String, String)>, String> {
+fn field_updates(arguments: &Value) -> Result<Vec<(String, FieldValue)>, String> {
     let fields = arguments
         .get("fields")
         .and_then(Value::as_object)
@@ -105,22 +110,35 @@ fn field_updates(arguments: &Value) -> Result<Vec<(String, String)>, String> {
                             "Поле «{key}»: значение не может быть многострочным"
                         ));
                     }
-                    serde_json::to_string(value).map_err(|error| error.to_string())?
+                    FieldValue::Scalar(
+                        serde_json::to_string(value).map_err(|error| error.to_string())?,
+                    )
                 }
-                Value::Number(value) => value.to_string(),
-                Value::Bool(value) => value.to_string(),
-                Value::Null => String::new(),
+                Value::Number(value) => FieldValue::Scalar(value.to_string()),
+                Value::Bool(value) => FieldValue::Scalar(value.to_string()),
+                Value::Null => FieldValue::Remove,
+                Value::Array(items) => FieldValue::List(
+                    items
+                        .iter()
+                        .map(|item| {
+                            let item = item.as_str().ok_or_else(|| {
+                                format!("Поле «{key}»: список может состоять только из строк")
+                            })?;
+                            if item.contains(['\n', '\r']) {
+                                return Err(format!(
+                                    "Поле «{key}»: значение не может быть многострочным"
+                                ));
+                            }
+                            Ok(item.to_owned())
+                        })
+                        .collect::<Result<Vec<_>, String>>()?,
+                ),
                 _ => {
                     return Err(format!(
-                        "Поле «{key}»: значением может быть строка, число или логическое значение"
+                        "Поле «{key}»: значением может быть строка, число, логическое значение, массив строк или null"
                     ))
                 }
             };
-            if value.contains('\n') {
-                return Err(format!(
-                    "Поле «{key}»: значение не может быть многострочным"
-                ));
-            }
             Ok((key.trim().to_owned(), value))
         })
         .collect()
@@ -278,6 +296,7 @@ fn equals_from(arguments: &Value) -> Result<Vec<(String, String)>, String> {
 #[cfg(test)]
 mod tests {
     use super::{field_updates, matches, selected, value_of, Filter};
+    use crate::search::analyzer::frontmatter::FieldValue;
     use serde_json::json;
 
     #[test]
@@ -295,12 +314,44 @@ mod tests {
         assert_eq!(
             updates,
             [
-                ("count".to_owned(), "5".to_owned()),
-                ("enabled".to_owned(), "false".to_owned()),
-                ("tag".to_owned(), "\"#work/project\"".to_owned()),
-                ("text".to_owned(), "\"true\"".to_owned()),
+                ("count".to_owned(), FieldValue::Scalar("5".to_owned())),
+                ("enabled".to_owned(), FieldValue::Scalar("false".to_owned())),
+                (
+                    "tag".to_owned(),
+                    FieldValue::Scalar("\"#work/project\"".to_owned())
+                ),
+                ("text".to_owned(), FieldValue::Scalar("\"true\"".to_owned())),
             ]
         );
+    }
+
+    #[test]
+    fn string_arrays_become_lists_and_null_removes_the_key() {
+        let updates = field_updates(&json!({
+            "fields": {
+                "tags": ["роман", "классика"],
+                "related": ["[[Дюна]]"],
+                "old": null
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(
+            updates,
+            [
+                ("old".to_owned(), FieldValue::Remove),
+                (
+                    "related".to_owned(),
+                    FieldValue::List(vec!["[[Дюна]]".to_owned()])
+                ),
+                (
+                    "tags".to_owned(),
+                    FieldValue::List(vec!["роман".to_owned(), "классика".to_owned()])
+                ),
+            ]
+        );
+        assert!(field_updates(&json!({ "fields": { "tags": [1] } })).is_err());
+        assert!(field_updates(&json!({ "fields": { "tags": ["a\nb"] } })).is_err());
     }
 
     #[test]

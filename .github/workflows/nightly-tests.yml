@@ -56,14 +56,38 @@ jobs:
         working-directory: obsidium-app
         run: npm run build
 
+      - name: Build the CLI sidecar for the app bundle
+        run: node scripts/prepare-cli-sidecar.mjs
+
       - name: Run complete Rust workspace tests
         run: cargo test --locked --manifest-path obsidium-app/src-tauri/Cargo.toml --workspace
 
       - name: Test installer scripts
         run: |
-          bash -n scripts/install.sh scripts/uninstall.sh scripts/test-install-scripts.sh
+          bash -n scripts/install.sh scripts/uninstall.sh scripts/install-cli.sh scripts/uninstall-cli.sh scripts/test-install-scripts.sh
           bash scripts/test-install-scripts.sh
           pwsh -NoProfile -File scripts/test-install-windows.ps1
+
+  agent-integration:
+    name: Agent surface integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: obsidium-app/src-tauri -> target
+
+      - name: Build the CLI
+        run: cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli
+
+      - name: Run the full agent surface smoke test
+        run: node scripts/agent-smoke.mjs --full
 
   performance:
     name: Search and indexing budgets
@@ -107,9 +131,11 @@ jobs:
           - platform: macOS arm64
             runner: macos-15
             target: aarch64-apple-darwin
+            exe: ''
           - platform: Windows x64
             runner: windows-2022
             target: x86_64-pc-windows-msvc
+            exe: .exe
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -124,6 +150,14 @@ jobs:
         with:
           workspaces: obsidium-app/src-tauri -> target
           key: ${{ matrix.target }}
+
+      - name: Build the CLI sidecar for the app bundle
+        shell: bash
+        run: |
+          cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli --target ${{ matrix.target }}
+          mkdir -p obsidium-app/src-tauri/binaries
+          cp "obsidium-app/src-tauri/target/${{ matrix.target }}/debug/obsidium${{ matrix.exe }}" \
+            "obsidium-app/src-tauri/binaries/obsidium-${{ matrix.target }}${{ matrix.exe }}"
 
       - name: Check the whole workspace for platform-specific code
         run: cargo check --locked --manifest-path obsidium-app/src-tauri/Cargo.toml --workspace --all-targets --target ${{ matrix.target }}

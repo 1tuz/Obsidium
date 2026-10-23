@@ -23,6 +23,13 @@ rust_app:
   - 'obsidium-app/src-tauri/capabilities/**'
 rust_cli:
   - 'obsidium-app/cli/**/*.rs'
+agent_surface:
+  - 'obsidium-app/cli/**'
+  - 'obsidium-app/core/src/mcp/**'
+  - 'obsidium-app/core/src/links/**'
+  - 'obsidium-app/core/src/wiki/**'
+  - 'obsidium-app/core/src/search/tasks/**'
+  - 'scripts/agent-smoke.mjs'
 rust_workspace:
   - 'obsidium-app/core/Cargo.toml'
   - 'obsidium-app/src-tauri/Cargo.toml'
@@ -53,6 +60,9 @@ release_contract:
 installer_scripts:
   - 'scripts/install.sh'
   - 'scripts/uninstall.sh'
+  - 'scripts/install-cli.sh'
+  - 'scripts/uninstall-cli.sh'
+  - 'scripts/prepare-cli-sidecar.mjs'
   - 'scripts/test-install-scripts.sh'
   - 'scripts/install.ps1'
   - 'scripts/uninstall.ps1'
