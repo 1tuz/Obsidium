@@ -535,3 +535,55 @@
 .q-base-calendar__entry:focus-visible {
   outline: var(--q-border-2) solid var(--q-border-focus);
 }
+
+.q-base-view__add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--q-space-4);
+  border: 0;
+  border-radius: var(--q-radius-lg);
+  background: transparent;
+  color: var(--q-text-tertiary);
+  cursor: pointer;
+}
+
+.q-base-view__add:hover {
+  background: var(--q-bg-surface-hover);
+  color: var(--q-text-primary);
+}
+
+.q-base-view__add:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+}
+
+.q-base-view__add svg {
+  width: var(--q-size-16);
+  height: var(--q-size-16);
+}
+
+.q-base-view__add-menu {
+  display: flex;
+  min-width: 10rem;
+  flex-direction: column;
+  padding: var(--q-space-4);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-lg);
+  background: var(--q-bg-surface-raised);
+  box-shadow: var(--q-elevation-float);
+}
+
+.q-base-view__add-menu button {
+  padding: var(--q-space-6) var(--q-space-8);
+  border: 0;
+  border-radius: var(--q-radius-md);
+  background: transparent;
+  color: var(--q-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.q-base-view__add-menu button:hover {
+  background: var(--q-bg-surface-hover);
+}
