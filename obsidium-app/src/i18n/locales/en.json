@@ -541,7 +541,7 @@
     "showSidebar": "Show the left sidebar",
     "home": "Open the home page",
     "graph": "Open the link graph",
-    "boards": "Open boards",
+    "boards": "Open boards and calendars",
     "fileManager": "Open file manager",
     "canvas": "New Canvas"
   },
@@ -573,7 +573,7 @@
     "leftSidebar": "Toggle left sidebar",
     "rightSidebar": "Toggle right sidebar",
     "theme": "Toggle light/dark theme",
-    "boards": "Open boards",
+    "boards": "Open boards and calendars",
     "newBoard": "New board",
     "addCurrentNoteToBoard": "Add current note to a board"
   },
@@ -626,7 +626,7 @@
   "boards": {
     "title": "Boards",
     "newBoard": "+ New board",
-    "empty": "No Kanban views found",
+    "empty": "No views found",
     "loading": "Finding boards…",
     "loadError": "Could not load boards",
     "actions": "Actions for {{name}}",

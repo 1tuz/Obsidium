@@ -32,7 +32,10 @@ function unsupported(reason: string): BoardMembership {
 
 export function boardMembership(definition: BaseDefinition, viewIndex: number): BoardMembership {
   const view = definition.views[viewIndex];
-  if (!view || view.type !== 'kanban') return unsupported('Selected view is not a Kanban view.');
+  if (!view || (view.type !== 'kanban' && view.type !== 'calendar')) {
+    return unsupported('Selected view has no board membership.');
+  }
+  const isKanban = view.type === 'kanban';
   const global = filtersOf(definition.filters);
   const local = filtersOf(view.filters);
   if (!global || !local) {
@@ -44,13 +47,13 @@ export function boardMembership(definition: BaseDefinition, viewIndex: number): 
   if (global.length + local.length !== 1) return unsupported('Membership uses a compound or ambiguous filter.');
   const filter = [...global, ...local][0];
   if (typeof filter !== 'string') return unsupported('Membership uses a compound or ambiguous filter.');
-  const initialGroup = String(view.groupOrder?.[0] ?? 'todo');
+  const initialGroup = isKanban ? String(view.groupOrder?.[0] ?? 'todo') : '';
 
   const tag = filter.match(/^file\.hasTag\((.+)\)$/i);
   if (tag) {
     const value = quotedLiteral(tag[1].trim())?.replace(/^#/, '');
     if (!value) return unsupported('Membership tag cannot be safely identified.');
-    const groupBy = kanbanProperty(view).replace(/^note\./, '');
+    const groupBy = isKanban ? kanbanProperty(view).replace(/^note\./, '') : '';
     if (groupBy === 'tags') return unsupported('Tags cannot be both board membership and the column property.');
     return { kind: 'tag', tag: value, groupBy, initialGroup };
   }
@@ -65,7 +68,7 @@ export function boardMembership(definition: BaseDefinition, viewIndex: number): 
     if (!value || key === 'tags' || property[1].startsWith('file.') || property[1].startsWith('formula.')) {
       return unsupported('Membership is not a writable note property.');
     }
-    const groupBy = kanbanProperty(view).replace(/^note\./, '');
+    const groupBy = isKanban ? kanbanProperty(view).replace(/^note\./, '') : '';
     if (groupBy === 'tags') return unsupported('Tags cannot be both board membership and the column property.');
     if (key === groupBy && value !== initialGroup) {
       return unsupported('Membership value conflicts with the board’s first group.');
@@ -122,9 +125,13 @@ export function addToBoard(source: string, membership: BoardMembership, initialG
   const fields: Record<string, string> = {};
   if (membership.kind === 'property') {
     if (Array.isArray(frontmatterValue(source, membership.property))
-      || Array.isArray(frontmatterValue(source, membership.groupBy))) return source;
+      || (membership.groupBy && Array.isArray(frontmatterValue(source, membership.groupBy)))) return source;
     const existing = currentValue(source, membership.property);
     if (existing !== undefined && existing !== '' && existing !== membership.value) return source;
+    if (!membership.groupBy) {
+      if (existing === undefined || existing === '') fields[membership.property] = membership.value;
+      return Object.keys(fields).length > 0 ? setFields(source, fields) : source;
+    }
     if (membership.groupBy === membership.property) {
       if (membership.value !== initialGroup) return source;
     } else {
@@ -138,22 +145,22 @@ export function addToBoard(source: string, membership: BoardMembership, initialG
 
   const tags = tagValues(source);
   if (!tags) return source;
-  if (Array.isArray(frontmatterValue(source, membership.groupBy))) return source;
+  if (membership.groupBy && Array.isArray(frontmatterValue(source, membership.groupBy))) return source;
   const hasMembershipTag = tags.some((tag) => tag === membership.tag || tag.startsWith(`${membership.tag}/`));
   if (!hasMembershipTag) tags.push(membership.tag);
-  const group = currentValue(source, membership.groupBy);
-  if (group !== undefined && group !== '' && group !== initialGroup) return source;
+  const group = membership.groupBy ? currentValue(source, membership.groupBy) : undefined;
+  if (membership.groupBy && group !== undefined && group !== '' && group !== initialGroup) return source;
   if (!hasMembershipTag) fields.tags = `[${tags.map((tag) => JSON.stringify(tag)).join(', ')}]`;
-  if (group === undefined || group === '') fields[membership.groupBy] = initialGroup;
+  if (membership.groupBy && (group === undefined || group === '')) fields[membership.groupBy] = initialGroup;
   if (!parseFrontmatter(source)) {
     const separator = source.includes('\r\n') ? '\r\n' : '\n';
-    const lines = [`tags: ${fields.tags}`, ...(fields[membership.groupBy]
+    const lines = [`tags: ${fields.tags}`, ...(membership.groupBy && fields[membership.groupBy]
       ? [`${membership.groupBy}: ${JSON.stringify(fields[membership.groupBy])}`]
       : [])];
     return `---${separator}${lines.join(separator)}${separator}---${separator}${source}`;
   }
   let next = fields.tags ? setFrontmatterField(source, 'tags', fields.tags) ?? source : source;
-  if (fields[membership.groupBy]) {
+  if (membership.groupBy && fields[membership.groupBy]) {
     next = setFrontmatterField(next, membership.groupBy, JSON.stringify(fields[membership.groupBy])) ?? next;
   }
   return next;

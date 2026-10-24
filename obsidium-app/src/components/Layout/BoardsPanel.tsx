@@ -5,7 +5,7 @@ import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Menu, type MenuItem, type MenuPosition } from '../Common/Menu';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
-import { Columns3, Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
+import { CalendarDays, Columns3, Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
 import { listen } from '@tauri-apps/api/event';
 import { t } from '../../i18n';
 import {
@@ -94,7 +94,7 @@ function FolderTree({
                 title={board.path}
                 onClick={() => onOpenView(board.path, view.index)}
               >
-                <Icon icon={Columns3} />
+                <Icon icon={view.type === 'calendar' ? CalendarDays : Columns3} />
                 <span>{view.name}</span>
               </button>
               {index === 0 ? (

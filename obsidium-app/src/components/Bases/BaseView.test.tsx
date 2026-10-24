@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   savedView: 0,
   loadDeferred: null as Promise<number> | null,
   rows: [] as { path: string; fields: Record<string, string> }[],
+  baseContent: null as string | null,
 }));
 
 vi.mock('../../modules/documents/fileGateway', () => ({
@@ -18,7 +19,7 @@ vi.mock('../../modules/documents/fileGateway', () => ({
   }),
   createFile: vi.fn(async () => ({ hash: 'new' })),
   ensureDirectory: vi.fn(async () => undefined),
-  readFileSnapshot: vi.fn(async () => ({ content: [
+  readFileSnapshot: vi.fn(async () => ({ content: state.baseContent ?? [
     'views:',
     '  - type: table',
     '    name: Overview',
@@ -59,6 +60,7 @@ describe('BaseView view selection', () => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
     state.rows = [];
+    state.baseContent = null;
   });
 
   it('opens the requested view and remembers it for an ordinary reopen', async () => {
@@ -115,6 +117,33 @@ describe('BaseView view selection', () => {
     expect([...renderer!.container.querySelectorAll('[role="tab"]')]
       .findIndex((tab) => tab.getAttribute('aria-selected') === 'true')).toBe(1);
     state.loadDeferred = null;
+  });
+
+  it('creates a dated note from a calendar that filters by tag', async () => {
+    state.baseContent = [
+      'filters: "file.hasTag(\\"board/доска\\")"',
+      'views:',
+      '  - type: calendar',
+      '    name: Календарь',
+      '    dateField: date',
+    ].join('\n');
+    const props = {
+      path: '/vault/Доска.base', workspacePath: '/vault', indexReady: true, indexRevision: 0,
+      onOpenNote: vi.fn(),
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    const cell = renderer!.container.querySelector<HTMLElement>('.q-base-calendar__day--today')!;
+    const date = cell.getAttribute('aria-label')!;
+    act(() => cell.querySelector<HTMLButtonElement>('.q-base-calendar__add')!.click());
+    await actAndSettle();
+
+    expect(createFile).toHaveBeenCalledWith(
+      `/vault/${date}.md`,
+      `---\ntags: ["board/доска"]\ndate: "${date}"\n---\n\n# ${date}\n`,
+    );
+    expect(renderer!.container.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('adds a calendar view to the file and switches to it', async () => {
