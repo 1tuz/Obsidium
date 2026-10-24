@@ -42,7 +42,7 @@
 .q-icon-button svg {
   width: var(--q-size-16);
   height: var(--q-size-16);
-  stroke-width: 1.6;
+  stroke-width: 1.5;
 }
 
 .q-icon-button--white {
