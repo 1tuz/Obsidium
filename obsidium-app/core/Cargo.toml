@@ -1,6 +1,6 @@
 [package]
 name = "obsidium-core"
-version = "0.5.18"
+version = "0.5.19"
 description = "Obsidium core: documents, files, search, history and settings without any UI"
 authors = ["Obsidium contributors"]
 license = "AGPL-3.0-only"
