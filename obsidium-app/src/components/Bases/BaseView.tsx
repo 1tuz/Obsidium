@@ -141,6 +141,7 @@ export function BaseView({
   const [sort, setSort] = useState<BaseSort[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [addViewMenu, setAddViewMenu] = useState(false);
+  const [actionError, setActionError] = useState('');
   const selectedPath = useRef('');
   const selectionRevision = useRef(0);
   const saveQueue = useRef(Promise.resolve());
@@ -269,6 +270,10 @@ export function BaseView({
     } : current);
   };
 
+  const reportCalendarError = useCallback((error: unknown) => {
+    setActionError(error instanceof Error ? error.message : String(error));
+  }, []);
+
   const createCalendarCard = async (date: string) => {
     if (!loaded) return;
     const viewIndex = Math.min(activeView, loaded.definition.views.length - 1);
@@ -389,6 +394,10 @@ export function BaseView({
         <p className="q-base-view__notice">{t('bases.unsupported')}</p>
       )}
 
+      {actionError && (
+        <p className="q-base-view__notice q-base-view__error" role="alert">{actionError}</p>
+      )}
+
       <div className="q-base-view__scroll">
         {materialized.rows.length === 0 && kind !== 'kanban' && kind !== 'calendar' ? (
           <div className="q-base-state">{t('bases.empty')}</div>
@@ -399,6 +408,7 @@ export function BaseView({
             workspacePath={workspacePath}
             onOpen={onOpenNote}
             onCreateDay={createCalendarCard}
+            onCreateError={reportCalendarError}
           />
         ) : kind === 'kanban' ? (
           <BaseKanban

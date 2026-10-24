@@ -20,9 +20,10 @@ interface BaseCalendarProps {
   workspacePath: string;
   onOpen: (path: string) => void;
   onCreateDay: (date: string) => Promise<void>;
+  onCreateError?: (error: unknown) => void;
 }
 
-export function BaseCalendar({ rows, view, workspacePath, onOpen, onCreateDay }: BaseCalendarProps) {
+export function BaseCalendar({ rows, view, workspacePath, onOpen, onCreateDay, onCreateError }: BaseCalendarProps) {
   const [anchor, setAnchor] = useState(() => monthOf(todayIso()) ?? { year: 2026, month: 1 });
   const [creating, setCreating] = useState<string | null>(null);
   const locale = document.documentElement.lang || 'en';
@@ -39,6 +40,8 @@ export function BaseCalendar({ rows, view, workspacePath, onOpen, onCreateDay }:
     setCreating(date);
     try {
       await onCreateDay(date);
+    } catch (error) {
+      onCreateError?.(error);
     } finally {
       setCreating(null);
     }

@@ -5,7 +5,7 @@ import { parseBase } from './baseFormat';
 import type { WorkspaceItem } from '../documents/fileGateway';
 
 describe('scanKanbanBoards', () => {
-  it('finds Kanban views in nested Base files and skips other view types', async () => {
+  it('finds board and calendar views in nested Base files and skips other view types', async () => {
     const directories: Record<string, WorkspaceItem[]> = {
       '/vault': [
         { id: '/vault/Work', name: 'Work', type: 'folder' },
@@ -30,7 +30,27 @@ describe('scanKanbanBoards', () => {
     expect(boards).toEqual([{
       path: '/vault/Work/Bugs.base',
       name: 'Bugs',
-      views: [{ index: 0, name: 'Bugs', membership: { kind: 'unsupported', reason: 'This board includes the whole vault and has no membership property or tag.' } }],
+      views: [{ index: 0, name: 'Bugs', type: 'kanban', membership: { kind: 'unsupported', reason: 'This board includes the whole vault and has no membership property or tag.' } }],
+    }]);
+  });
+
+  it('lists a calendar view so the sidebar can open it', async () => {
+    const readDirectory = vi.fn(async () => [
+      { id: '/vault/Plan.base', name: 'Plan.base', type: 'file' as const },
+    ]);
+    const readFileSnapshot = async () => ({
+      content: 'filters: "file.hasTag(\"plan\")"\nviews:\n  - type: calendar\n    name: Календарь\n    dateField: due\n',
+      hash: '1',
+      textHash: '1',
+    });
+
+    const boards = await scanKanbanBoards('/vault', readDirectory, readFileSnapshot);
+
+    expect(boards[0].views).toEqual([{
+      index: 0,
+      name: 'Календарь',
+      type: 'calendar',
+      membership: { kind: 'tag', tag: 'plan', groupBy: '', initialGroup: '' },
     }]);
   });
 
@@ -47,8 +67,8 @@ describe('scanKanbanBoards', () => {
     const boards = await scanKanbanBoards('/vault', readDirectory, readFileSnapshot);
 
     expect(boards[0].views).toEqual([
-      { index: 0, name: 'By status', membership: { kind: 'unsupported', reason: 'This board includes the whole vault and has no membership property or tag.' } },
-      { index: 2, name: 'By owner', membership: { kind: 'unsupported', reason: 'This board includes the whole vault and has no membership property or tag.' } },
+      { index: 0, name: 'By status', type: 'kanban', membership: { kind: 'unsupported', reason: 'This board includes the whole vault and has no membership property or tag.' } },
+      { index: 2, name: 'By owner', type: 'kanban', membership: { kind: 'unsupported', reason: 'This board includes the whole vault and has no membership property or tag.' } },
     ]);
   });
 

@@ -587,3 +587,7 @@
 .q-base-view__add-menu button:hover {
   background: var(--q-bg-surface-hover);
 }
+
+.q-base-view__error {
+  color: var(--q-text-danger, var(--q-red-600));
+}
