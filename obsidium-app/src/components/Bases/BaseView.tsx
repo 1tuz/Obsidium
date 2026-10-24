@@ -28,6 +28,8 @@ import {
   type BaseSort,
   type BaseViewDefinition,
 } from '../../modules/bases';
+import { appendBaseView } from '../../modules/bases/baseFormat';
+import { calendarDate } from '../../modules/bases/calendar';
 import { planCalendarCard, planKanbanCard } from '../../modules/bases/cardCreation';
 import { BaseCalendar } from './BaseCalendar';
 import { resolveBaseViewIndex } from '../../modules/bases/viewSelection';
@@ -103,6 +105,16 @@ function rowTitle(row: BaseRow, workspacePath: string): string {
   return displayValue(baseProperty(row, 'file.name', workspacePath)) || fileName(row.path);
 }
 
+function detectDateProperty(rows: readonly BaseRow[], workspacePath: string): string {
+  const properties = new Set<string>();
+  for (const row of rows.slice(0, 50)) {
+    for (const key of Object.keys(row.fields)) {
+      if (calendarDate(baseProperty(row, key, workspacePath)) !== null) properties.add(key);
+    }
+  }
+  return [...properties][0] ?? 'date';
+}
+
 function viewColumns(view: BaseViewDefinition, rows: readonly BaseRow[]): string[] {
   if (view.order.length > 0) return view.order;
   const properties = new Set<string>();
@@ -128,6 +140,7 @@ export function BaseView({
   const [activeView, setActiveView] = useState(0);
   const [sort, setSort] = useState<BaseSort[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
+  const [addViewMenu, setAddViewMenu] = useState(false);
   const selectedPath = useRef('');
   const selectionRevision = useRef(0);
   const saveQueue = useRef(Promise.resolve());
@@ -299,6 +312,26 @@ export function BaseView({
       : [{ property, direction: 'ASC' }]);
   };
 
+  const addView = async (type: string) => {
+    const snapshot = await readFileSnapshot(path);
+    const dateField = type === 'calendar' ? detectDateProperty(loaded.rows, workspacePath) : undefined;
+    const next = appendBaseView(snapshot.content, {
+      type,
+      name: t(`bases.viewName.${type}`),
+      dateField,
+    });
+    if (next === snapshot.content) return;
+    await writeFileAtomic(path, next, snapshot.hash);
+    const definition = parseBase(next);
+    setLoaded((current) => current ? { ...current, definition } : current);
+    const index = definition.views.length - 1;
+    selectionRevision.current += 1;
+    selectedPath.current = path;
+    setActiveView(index);
+    setSort([]);
+    persistView(index);
+  };
+
   const grouped = groupRows(materialized.rows, view, workspacePath);
   const kind = ['table', 'list', 'cards', 'kanban', 'calendar'].includes(view.type) ? view.type : 'table';
 
@@ -323,6 +356,31 @@ export function BaseView({
               {candidate.name || t('bases.untitledView')}
             </button>
           ))}
+          <button
+            type="button"
+            className="q-base-view__add"
+            aria-label={t('bases.addView')}
+            onClick={() => setAddViewMenu((open) => !open)}
+          >
+            <Icon icon={Plus} />
+          </button>
+          {addViewMenu && (
+            <div className="q-base-view__add-menu" role="menu" aria-label={t('bases.addView')}>
+              {(['table', 'list', 'cards', 'kanban', 'calendar'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setAddViewMenu(false);
+                    void addView(type).catch((error) => console.error('Failed to add a Base view', error));
+                  }}
+                >
+                  {t(`bases.viewType.${type}`)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <span className="q-base-view__count">{materialized.rows.length}</span>
       </header>

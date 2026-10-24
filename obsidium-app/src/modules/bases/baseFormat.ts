@@ -308,6 +308,49 @@ export function serializeBase(definition: BaseDefinition): string {
   return definition.raw;
 }
 
+export function appendBaseView(
+  raw: string,
+  view: { type: string; name: string; dateField?: string },
+): string {
+  const separator = raw.includes('\r\n') ? '\r\n' : '\n';
+  const lines = raw.split(/\r\n|\n/u);
+  const viewsIndex = lines.findIndex((line) => /^views\s*:/u.test(line));
+  const fields = [
+    `type: ${JSON.stringify(view.type)}`,
+    `name: ${JSON.stringify(view.name)}`,
+    ...(view.dateField ? [`dateField: ${JSON.stringify(view.dateField)}`] : []),
+  ];
+  if (viewsIndex < 0) {
+    const block = ['views:', `  - ${fields[0]}`, ...fields.slice(1).map((field) => `    ${field}`)];
+    const trimmed = raw.replace(/\s+$/u, '');
+    return `${trimmed ? `${trimmed}${separator}` : ''}${block.join(separator)}${separator}`;
+  }
+
+  let end = lines.length;
+  for (let index = viewsIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim()) continue;
+    if (indentation(line) === 0) {
+      end = index;
+      break;
+    }
+  }
+  const sequenceIndent = lines
+    .slice(viewsIndex + 1, end)
+    .map((line) => (/^(\s*)-/u.exec(line)?.[1].length ?? null))
+    .find((indent) => indent !== null) ?? 2;
+  const itemIndent = ' '.repeat(sequenceIndent);
+  const fieldIndent = ' '.repeat(sequenceIndent + 2);
+  const inserted = [
+    `${itemIndent}- ${fields[0]}`,
+    ...fields.slice(1).map((field) => `${fieldIndent}${field}`),
+  ];
+  let insertAt = end;
+  while (insertAt > viewsIndex + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
+  lines.splice(insertAt, 0, ...inserted);
+  return lines.join(separator);
+}
+
 export function renameFirstKanbanView(raw: string, name: string): string {
   const lines = raw.split(/\r\n|\n/u);
   const separator = raw.includes('\r\n') ? '\r\n' : '\n';

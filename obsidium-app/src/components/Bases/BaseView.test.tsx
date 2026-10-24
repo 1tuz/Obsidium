@@ -117,6 +117,32 @@ describe('BaseView view selection', () => {
     state.loadDeferred = null;
   });
 
+  it('adds a calendar view to the file and switches to it', async () => {
+    state.rows = [{ path: '/vault/Release.md', fields: { due: '2026-10-05' } }];
+    const props = {
+      path: '/vault/Project.base', workspacePath: '/vault', indexReady: true, indexRevision: 0,
+      onOpenNote: vi.fn(),
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    const add = renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__add')!;
+    act(() => add.click());
+    await actAndSettle();
+    const calendar = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-base-view__add-menu button')]
+      .find((button) => button.textContent === t('bases.viewType.calendar'))!;
+    act(() => calendar.click());
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Project.base',
+      expect.stringContaining('type: "calendar"'),
+      'hash',
+    );
+    expect(vi.mocked(writeFileAtomic).mock.calls[0][1]).toContain('dateField: "due"');
+    expect(renderer!.container.querySelector('.q-base-calendar')).not.toBeNull();
+  });
+
   it('moves a kanban note to another value and saves that value', async () => {
     state.rows = [
       { path: '/vault/Task.md', fields: { status: 'todo' } },
