@@ -81,7 +81,7 @@ export const TitlebarTab = memo(function TitlebarTab({
     >
       {path === GRAPH_TAB_PATH && (
         <span className="q-titlebar-tab-icon" aria-hidden="true">
-          <Icon icon={Network} strokeWidth={1.5} />
+          <Icon icon={Network} />
         </span>
       )}
       <div className="q-titlebar-tab-content">
@@ -115,7 +115,7 @@ export const TitlebarTab = memo(function TitlebarTab({
             onClose?.(path);
           }}
         >
-          <Icon icon={X} strokeWidth={1.5} />
+          <Icon icon={X} />
         </IconButton>
       )}
       {canFileActions && actions && menu.open && (

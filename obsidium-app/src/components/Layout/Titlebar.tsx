@@ -81,7 +81,7 @@ export function Titlebar({
         className="q-titlebar-new-tab"
         onClick={onNewTab}
       >
-        <Icon icon={Plus} strokeWidth={1.5} />
+        <Icon icon={Plus} />
       </IconButton>
 
       {onSplitHorizontal && <IconButton label={t('titlebar.splitSide')} size="medium" onClick={onSplitHorizontal}>↔</IconButton>}
@@ -97,7 +97,7 @@ export function Titlebar({
             aria-expanded={rightSidebarOpen}
             onClick={onToggleRightSidebar}
           >
-            <Icon icon={PanelRight} strokeWidth={1.5} />
+            <Icon icon={PanelRight} />
           </IconButton>
         )}
       </div>

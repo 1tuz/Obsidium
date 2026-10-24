@@ -104,6 +104,38 @@ describe('BoardsPanel', () => {
     expect(renderer!.container.textContent).toContain('Releases');
   });
 
+  it('lists a calendar view next to the board views so it can be opened', async () => {
+    state.sources['/vault/Work/Bugs.base'] = [
+      'filters: "file.hasTag(\\"board/доска\\")"',
+      'views:',
+      '  - type: kanban',
+      '    name: Доска',
+      '  - type: calendar',
+      '    name: Календарь',
+      '    dateField: date',
+    ].join('\n');
+    const onOpenView = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <BoardsPanel
+          active
+          workspacePath="/vault"
+          onOpenView={onOpenView}
+          actionRequest={null}
+          onActionRequestComplete={vi.fn()}
+          createRequest={0}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    const calendar = [...renderer!.container.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Календарь'));
+    expect(calendar).toBeDefined();
+    act(() => calendar!.click());
+    expect(onOpenView).toHaveBeenCalledWith('/vault/Work/Bugs.base', 1);
+  });
+
   it('offers board file rename and delete actions', async () => {
     const props = {
       active: true,

@@ -20,8 +20,8 @@ export function MetadataToggle({ expanded, onToggle }: MetadataToggleProps) {
     >
       <span className="q-metadata-toggle__chevron" aria-hidden="true">
         {expanded
-          ? <Icon icon={ChevronDown} size={20} strokeWidth={1.5} />
-          : <Icon icon={ChevronRight} size={20} strokeWidth={1.5} />}
+          ? <Icon icon={ChevronDown} size={20} />
+          : <Icon icon={ChevronRight} size={20} />}
       </span>
       <span className="q-metadata-toggle__label">{t('editor.metadata')}</span>
     </button>

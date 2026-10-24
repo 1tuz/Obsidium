@@ -130,7 +130,7 @@ export function Menu({
         >
           {item.icon && (
             <span className="q-menu__item-icon" aria-hidden="true">
-              <Icon icon={item.icon} strokeWidth={1.2} />
+              <Icon icon={item.icon} />
             </span>
           )}
           <span className="q-menu__item-label">{item.label}</span>

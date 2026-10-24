@@ -10,7 +10,7 @@ interface IconProps {
   className?: string;
 }
 
-export function Icon({ icon, size = 24, strokeWidth = 2, className }: IconProps) {
+export function Icon({ icon, size = 24, strokeWidth = 1.5, className }: IconProps) {
   const [iconSet, updateIconSet] = useState(getIconSet);
   const [, updateCatalog] = useState(0);
   const mappedId = getMappedIconId(icon);

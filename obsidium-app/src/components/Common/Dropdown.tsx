@@ -80,7 +80,7 @@ export function Dropdown({
         }}
       >
         <span className="q-dropdown__label">{selected?.label ?? value}</span>
-        <Icon icon={ChevronDown} className="q-dropdown__chevron" strokeWidth={1.2} />
+        <Icon icon={ChevronDown} className="q-dropdown__chevron" />
       </button>
       <Menu
         id={listboxId}
