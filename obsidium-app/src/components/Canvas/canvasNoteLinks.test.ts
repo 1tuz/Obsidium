@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNoteMarkdownPath, resolveNoteFragmentOffset, splitNoteLink } from './canvasNoteLinks';
+import { isNoteMarkdownPath, splitNoteLink } from './canvasNoteLinks';
 import { resolveNotePath } from '../../modules/paths';
 
 describe('canvas note links', () => {
@@ -25,27 +25,6 @@ describe('canvas note links', () => {
     expect(isNoteMarkdownPath('Notes/My%20Plan.md')).toBe(true);
     expect(isNoteMarkdownPath('image.png')).toBe(false);
     expect(isNoteMarkdownPath('Notes/Plan')).toBe(false);
-  });
-
-  it('finds heading and block offsets in source text', () => {
-    const source = '# Top\n\nbody\n\n## Part two\n\nline ^block-1\n';
-    expect(resolveNoteFragmentOffset(source, 'Part two')).toBe(13);
-    expect(resolveNoteFragmentOffset(source, '^block-1')).toBe(31);
-    expect(resolveNoteFragmentOffset(source, '')).toBe(0);
-    expect(resolveNoteFragmentOffset(source, 'Missing')).toBeNull();
-  });
-
-  it('keeps original offsets with CRLF, fenced code and exact block ids', () => {
-    const crlf = '# Top\r\n\r\n## Target\r\n';
-    expect(resolveNoteFragmentOffset(crlf, 'Target')).toBe(7);
-    const fenced = '```md\n## Target\n```\n\n## Target\n';
-    expect(resolveNoteFragmentOffset(fenced, 'Target')).toBe(fenced.lastIndexOf('## Target'));
-    const blocks = 'first ^block-more\n\nsecond ^block\n';
-    expect(blocks.lastIndexOf('^block')).toBe(26);
-    expect([...blocks.matchAll(/\^block/g)].map((m) => m.index)).toEqual([6, 26]);
-    expect(resolveNoteFragmentOffset(blocks, '^block-more')).toBe(6);
-    expect(resolveNoteFragmentOffset(blocks, '^block')).toBe(26);
-    expect(resolveNoteFragmentOffset(fenced, '^block')).toBeNull();
   });
 
   it('resolves markdown paths relative to the source note inside the workspace', () => {

@@ -27,6 +27,11 @@ fn parse_at(value: &str, offset: i64) -> Option<i64> {
     Some((day * SECONDS_PER_DAY + seconds - offset) * NANOS_PER_SECOND)
 }
 
+pub fn civil_date(value: &str) -> Option<(i64, i64, i64)> {
+    let date = value.split(['T', ' ', 't']).find(|part| !part.is_empty())?;
+    Some(civil_from_days(civil_day(date)?))
+}
+
 fn civil_day(text: &str) -> Option<i64> {
     let separator = text
         .chars()
@@ -173,7 +178,7 @@ fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{format, parse};
+    use super::{civil_date, format, parse};
 
     const DAY: i64 = 86_400 * 1_000_000_000;
 
@@ -253,5 +258,27 @@ mod tests {
     #[test]
     fn a_broken_time_does_not_lose_the_date() {
         assert_eq!(parse("2024-10-07 99:99"), parse("2024-10-07"));
+    }
+
+    #[test]
+    fn the_shared_fixture_matches() {
+        let cases: serde_json::Value =
+            serde_json::from_str(include_str!("../../../tests/fixtures/note-dates.json"))
+                .expect("фикстура");
+        for case in cases.as_array().expect("массив") {
+            let input = case["input"].as_str().expect("input");
+            let parsed = civil_date(input);
+            match case["date"].as_str() {
+                Some(expected) => {
+                    let (year, month, day) = parsed.expect(input);
+                    assert_eq!(
+                        format!("{year:04}-{month:02}-{day:02}"),
+                        expected,
+                        "{input}"
+                    );
+                }
+                None => assert_eq!(parsed, None, "{input}"),
+            }
+        }
     }
 }

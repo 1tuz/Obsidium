@@ -40,7 +40,8 @@ import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
 import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath, readFileSnapshot } from "./modules/documents/fileGateway";
-import { resolveNoteFragmentOffset, type CanvasNoteTarget } from "./components/Canvas/canvasNoteLinks";
+import type { CanvasNoteTarget } from "./components/Canvas/canvasNoteLinks";
+import { resolveFragmentOffset, splitLinkTarget } from "./modules/links/fragment";
 import { createCanvasFile } from "./modules/canvas/createCanvasFile";
 import { flushCanvasDocuments } from "./modules/canvas/persistence";
 import { fileStem } from "./modules/paths";
@@ -370,51 +371,64 @@ export default function App() {
     return resolveWikiLinks(workspacePath, sourcePath, targets);
   }, [activeFile, ensureLinksReady, workspacePath]);
 
+  const openNoteAtFragment = useCallback(async (
+    path: string,
+    fragment: string,
+    options: { disposition?: LinkDisposition; paneId?: string },
+  ) => {
+    if (!fragment) {
+      openNote(path, options);
+      return;
+    }
+    const offset = resolveFragmentOffset((await readFileSnapshot(path)).content, fragment);
+    openNote(path, { offset: offset ?? undefined, ...options });
+  }, [openNote]);
+
   const openCanvasNote = useCallback(async (
     link: CanvasNoteTarget,
     paneId: string,
     canvasPath: string,
     sourcePath: string | null,
   ) => {
-    const openResolved = async (path: string) => {
-      if (!link.fragment) {
-        openNote(path, { paneId });
-        return;
-      }
-      const snapshot = await readFileSnapshot(path);
-      const offset = resolveNoteFragmentOffset(snapshot.content, link.fragment);
-      openNote(path, { offset: offset ?? 0, paneId });
-    };
     try {
       if (link.path) {
-        await openResolved(link.path.absolute);
+        await openNoteAtFragment(link.path.absolute, link.fragment, { paneId });
         return;
       }
       const base = sourcePath ?? canvasPath;
       const { paths: [path] } = await resolveVisibleWikiLinks([link.target], base);
-      if (path) await openResolved(path);
+      if (path) await openNoteAtFragment(path, link.fragment, { paneId });
     } catch (error) {
       console.error('Failed to open a Canvas note link', error);
       throw error;
     }
-  }, [openNote, resolveVisibleWikiLinks]);
+  }, [openNoteAtFragment, resolveVisibleWikiLinks]);
 
   const handleOpenWikiLink = useCallback((
-    target: string,
+    rawTarget: string,
     disposition: LinkDisposition,
     paneId?: string,
   ) => {
+    const parts = splitLinkTarget(rawTarget);
+    if (!parts) return;
+    const { target, fragment } = parts;
     const sourcePane = paneId ? paneLeaves(layout).find((pane) => pane.paneId === paneId) : null;
     const sourcePath = tabs.find((tab) => tab.tabId === sourcePane?.activeTabId)?.path ?? activeFile;
+    if (!target) {
+      if (!sourcePath || !isMarkdownPath(sourcePath)) return;
+      void openNoteAtFragment(sourcePath, fragment, { disposition, paneId })
+        .catch((error) => console.error('Failed to open wiki link', error));
+      return;
+    }
     void resolveVisibleWikiLinks([target], sourcePath).then(async ({ paths: [path], complete }) => {
-      if (!path && complete) {
+      if (path) {
+        await openNoteAtFragment(path, fragment, { disposition, paneId });
+      } else if (complete) {
         const created = await createLinkedFile(target);
-        if (created) openNote(created, { disposition, paneId });
-      } else if (path) {
-        openNote(path, { disposition, paneId });
+        if (created) await openNoteAtFragment(created, fragment, { disposition, paneId });
       }
     }).catch((error) => console.error('Failed to open wiki link', error));
-  }, [activeFile, createLinkedFile, layout, openNote, resolveVisibleWikiLinks, tabs]);
+  }, [activeFile, createLinkedFile, layout, openNoteAtFragment, resolveVisibleWikiLinks, tabs]);
 
   const homePage = workspaceHomePage.trim();
   useEffect(() => {
@@ -448,9 +462,14 @@ export default function App() {
     link: OutgoingLink,
     disposition: LinkDisposition,
   ) => {
-    if (!link.path) handleOpenWikiLink(link.target, disposition);
-    else openNote(link.path, { disposition });
-  }, [handleOpenWikiLink, openNote]);
+    if (!link.path) {
+      handleOpenWikiLink(link.target, disposition);
+      return;
+    }
+    const fragment = splitLinkTarget(link.target)?.fragment ?? '';
+    void openNoteAtFragment(link.path, fragment, { disposition })
+      .catch((error) => console.error('Failed to open outgoing link', error));
+  }, [handleOpenWikiLink, openNoteAtFragment]);
 
   const handleOpenAnalysisResult = useCallback((
     result: AnalysisResult,

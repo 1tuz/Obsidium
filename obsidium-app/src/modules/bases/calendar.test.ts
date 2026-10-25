@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   buildCalendarMonth,
@@ -21,14 +22,37 @@ describe('calendarDate', () => {
   it('reads the date part of an ISO timestamp and rejects anything else', () => {
     expect(calendarDate('2026-10-23')).toBe('2026-10-23');
     expect(calendarDate('2026-10-23T18:30:00Z')).toBe('2026-10-23');
-    expect(calendarDate('23.10.2026')).toBeNull();
+    expect(calendarDate('10/07/2024')).toBeNull();
     expect(calendarDate('2026-13-01')).toBeNull();
     expect(calendarDate('')).toBeNull();
     expect(calendarDate(undefined)).toBeNull();
   });
 
+  it('normalises the shared note date grammar to ISO', () => {
+    expect(calendarDate('2026.10.25')).toBe('2026-10-25');
+    expect(calendarDate('24.10.2026')).toBe('2026-10-24');
+    expect(calendarDate('24-10-2026')).toBe('2026-10-24');
+    expect(calendarDate('2026-10-25 12:30')).toBe('2026-10-25');
+    expect(calendarDate(' 2026-10-25 ')).toBe('2026-10-25');
+  });
+
+  it('rejects days that the month does not have', () => {
+    expect(calendarDate('2026-02-31')).toBeNull();
+    expect(calendarDate('2026-02-29')).toBeNull();
+    expect(calendarDate('2024-02-29')).toBe('2024-02-29');
+  });
+
   it('takes the first dated entry of a list', () => {
     expect(calendarDate(['', '2026-02-01'])).toBe('2026-02-01');
+    expect(calendarDate(['24.10.2026', '2026-11-01'])).toBe('2026-10-24');
+    expect(calendarDate(['', 'nonsense'])).toBeNull();
+  });
+
+  it.each<{ input: string; date: string | null }>(JSON.parse(readFileSync(new URL(
+    '../../../tests/fixtures/note-dates.json',
+    import.meta.url,
+  ), 'utf8')))('agrees with the shared fixture on $input', ({ input, date }) => {
+    expect(calendarDate(input)).toBe(date);
   });
 });
 
@@ -83,8 +107,9 @@ describe('shiftMonth', () => {
 });
 
 describe('monthOf', () => {
-  it('extracts the month of an ISO date', () => {
+  it('extracts the month of a date in either order', () => {
     expect(monthOf('2026-10-23')).toEqual({ year: 2026, month: 10 });
+    expect(monthOf('23.10.2026')).toEqual({ year: 2026, month: 10 });
     expect(monthOf('nonsense')).toBeNull();
   });
 });
