@@ -54,6 +54,26 @@ describe('scanKanbanBoards', () => {
     }]);
   });
 
+  it('lists a timeline view so the sidebar can open it', async () => {
+    const readDirectory = vi.fn(async () => [
+      { id: '/vault/Roadmap.base', name: 'Roadmap.base', type: 'file' as const },
+    ]);
+    const readFileSnapshot = async () => ({
+      content: 'filters: "file.hasTag(\'plan\')"\nviews:\n  - type: timeline\n    name: План\n    startField: begin\n    endField: finish\n',
+      hash: '1',
+      textHash: '1',
+    });
+
+    const boards = await scanKanbanBoards('/vault', readDirectory, readFileSnapshot);
+
+    expect(boards[0].views).toEqual([{
+      index: 0,
+      name: 'План',
+      type: 'timeline',
+      membership: { kind: 'tag', tag: 'plan', groupBy: '', initialGroup: '' },
+    }]);
+  });
+
   it('keeps multiple Kanban views in one Base as separately addressable views', async () => {
     const readDirectory = vi.fn(async () => [
       { id: '/vault/Projects.base', name: 'Projects.base', type: 'file' as const },

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Dialog, DialogFooter } from '../Common/Dialog';
@@ -12,6 +12,7 @@ import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile
 import { sanitizeFileName } from '../../modules/documents/documentFactory';
 import { setFrontmatterField } from '../../modules/docs/frontmatter';
 import { loadBaseView, saveBaseView } from '../../modules/ui-state/gateway';
+import { resolveWikiLinks } from '../../modules/links/gateway';
 import {
   baseProperty,
   boardMembership,
@@ -21,6 +22,7 @@ import {
   parseBase,
   queryBase,
   serializeBase,
+  setRelationProperties,
   type BaseDefinition,
   type BaseEvaluation,
   type BaseFieldValue,
@@ -57,6 +59,55 @@ interface LoadedBase {
 }
 
 const NO_SORT: BaseSort[] = [];
+const NO_PROPERTIES: string[] = [];
+const NO_RELATIONS = new Map<string, string | null>();
+
+function relationTargets(value: BaseFieldValue | undefined): string[] {
+  const values = Array.isArray(value)
+    ? value
+    : value === null || value === undefined ? [] : [value];
+  return values
+    .map((entry) => {
+      const trimmed = String(entry).trim();
+      const inner = trimmed.startsWith('[[') && trimmed.endsWith(']]')
+        ? trimmed.slice(2, -2)
+        : trimmed.startsWith('[') && trimmed.endsWith(']')
+          ? trimmed.slice(1, -1)
+          : trimmed;
+      return inner.split('|')[0].trim();
+    })
+    .filter(Boolean);
+}
+
+function RelationValue({
+  value,
+  resolved,
+  onOpen,
+}: {
+  value: BaseFieldValue | undefined;
+  resolved: Map<string, string | null>;
+  onOpen: (path: string) => void;
+}) {
+  const targets = relationTargets(value);
+  if (targets.length === 0) return <span>—</span>;
+  return (
+    <>
+      {targets.map((target, index) => {
+        const targetPath = resolved.get(target);
+        return (
+          <span key={`${target}\u0000${index}`}>
+            {index > 0 && ', '}
+            {targetPath ? (
+              <button className="q-base-link" type="button" onClick={() => onOpen(targetPath)}>
+                {target} <Icon icon={ExternalLink} />
+              </button>
+            ) : <span>{target}</span>}
+          </span>
+        );
+      })}
+    </>
+  );
+}
 
 function displayValue(value: BaseFieldValue | undefined): string {
   if (Array.isArray(value)) return value.join(', ');
@@ -127,10 +178,6 @@ function detectDateProperties(
   return [...properties];
 }
 
-function detectDateProperty(rows: readonly BaseRow[], workspacePath: string): string {
-  return detectDateProperties(rows, workspacePath, 1)[0] ?? 'date';
-}
-
 export function BaseView({
   path,
   workspacePath,
@@ -152,6 +199,7 @@ export function BaseView({
   const [addViewMenu, setAddViewMenu] = useState(false);
   const [actionError, setActionError] = useState('');
   const [journalDays, setJournalDays] = useState<ReadonlySet<string>>(() => new Set());
+  const [resolvedRelations, setResolvedRelations] = useState(NO_RELATIONS);
   const selectedPath = useRef('');
   const selectionRevision = useRef(0);
   const evaluationPath = useRef('');
@@ -219,24 +267,54 @@ export function BaseView({
   useEffect(() => {
     if (!loaded) return;
     let cancelled = false;
-    void queryBase(workspacePath, { definition: loaded.definition, viewIndex: activeView, sort })
-      .then((result) => {
+    void (async () => {
+      try {
+        const result = await queryBase(workspacePath, {
+          definition: loaded.definition,
+          viewIndex: activeView,
+          sort,
+        });
         if (cancelled) return;
         evaluationPath.current = loaded.path;
+        const targets = new Set<string>();
+        for (const column of result.columns) {
+          const key = column.startsWith('note.') ? column.slice('note.'.length) : column;
+          if (!loaded.definition.relationProperties.includes(key)) continue;
+          for (const row of result.rows) {
+            for (const target of relationTargets(baseProperty(row, column, workspacePath))) {
+              targets.add(target);
+            }
+          }
+        }
+        const wanted = [...targets];
+        const resolution = wanted.length === 0
+          ? null
+          : await resolveWikiLinks(workspacePath, path, wanted);
+        if (cancelled) return;
+        setResolvedRelations(resolution
+          ? new Map(wanted.map((target, index) => [target, resolution.paths[index] ?? null]))
+          : NO_RELATIONS);
         setEvaluation(result);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error('Failed to evaluate base', error);
         if (!cancelled) setFailed(true);
-      });
+      }
+    })();
     return () => { cancelled = true; };
-  }, [activeView, indexRevision, loaded, sort, workspacePath]);
+  }, [activeView, indexRevision, loaded, path, sort, workspacePath]);
 
   const rows = evaluation?.rows ?? [];
   const groups = evaluation?.groups ?? [];
   const columns = evaluation?.columns ?? [];
   const unsupported = evaluation?.unsupported ?? false;
 
+  const relationProperties = loaded?.definition.relationProperties ?? NO_PROPERTIES;
+  const relationColumns = useMemo(
+    () => new Set(columns.filter((column) => relationProperties.includes(
+      column.startsWith('note.') ? column.slice('note.'.length) : column,
+    ))),
+    [columns, relationProperties],
+  );
   const calendarOpen = view?.type === 'calendar';
   useEffect(() => {
     if (!calendarOpen || !workspacePath) return;
@@ -345,14 +423,14 @@ export function BaseView({
 
   const writeView = (
     index: number,
-    mutate: (target: BaseViewDefinition) => void,
+    mutate: (target: BaseViewDefinition, definition: BaseDefinition) => void,
   ): Promise<boolean> => {
     const task = viewWriteQueue.current.then(async () => {
       const snapshot = await readFileSnapshot(path);
       const definition = parseBase(snapshot.content);
       const target = definition.views[index];
       if (!target) return false;
-      mutate(target);
+      mutate(target, definition);
       const next = serializeBase(definition);
       await writeFileAtomic(path, next, snapshot.hash);
       const parsed = parseBase(next);
@@ -370,7 +448,7 @@ export function BaseView({
   const saveViewEdit = async (edit: BaseViewEdit): Promise<boolean> => {
     const index = Math.min(activeView, loaded.definition.views.length - 1);
     try {
-      return await writeView(index, (target) => {
+      return await writeView(index, (target, definition) => {
         target.name = edit.name;
         if (edit.limit === null) delete target.limit;
         else target.limit = edit.limit;
@@ -381,6 +459,7 @@ export function BaseView({
           property: entry.property,
           direction: entry.direction === 'DESC' ? 'DESC' : 'ASC',
         }));
+        setRelationProperties(definition, edit.relations);
       });
     } catch (error) {
       reportActionError(error);
@@ -399,13 +478,18 @@ export function BaseView({
 
   const addView = async (type: string) => {
     const snapshot = await readFileSnapshot(path);
-    const dateField = type === 'calendar' ? detectDateProperty(rows, workspacePath) : undefined;
+    const dateFields = type === 'calendar' || type === 'timeline'
+      ? detectDateProperties(rows, workspacePath, type === 'timeline' ? 2 : 1)
+      : [];
     const definition = parseBase(snapshot.content);
     definition.views.push({
       type,
       name: t(`bases.viewName.${type}`),
       order: [],
-      ...(dateField ? { dateField } : {}),
+      ...(type === 'calendar' ? { dateField: dateFields[0] ?? 'date' } : {}),
+      ...(type === 'timeline'
+        ? { startField: dateFields[0] ?? 'start', endField: dateFields[1] ?? 'end' }
+        : {}),
     });
     const next = serializeBase(definition);
     await writeFileAtomic(path, next, snapshot.hash);
@@ -418,7 +502,9 @@ export function BaseView({
     persistView(index);
   };
 
-  const kind = ['table', 'list', 'cards', 'kanban', 'calendar'].includes(view.type) ? view.type : 'table';
+  const kind = ['table', 'list', 'cards', 'kanban', 'calendar', 'timeline'].includes(view.type)
+    ? view.type
+    : 'table';
 
   return (
     <section className="q-base-view" aria-label={view.name}>
@@ -450,7 +536,7 @@ export function BaseView({
           </button>
           {addViewMenu && (
             <div className="q-base-view__add-menu" role="menu" aria-label={t('bases.addView')}>
-              {(['table', 'list', 'cards', 'kanban', 'calendar'] as const).map((type) => (
+              {(['table', 'list', 'cards', 'kanban', 'calendar', 'timeline'] as const).map((type) => (
                 <button
                   key={type}
                   type="button"
@@ -495,8 +581,15 @@ export function BaseView({
       )}
 
       <div className="q-base-view__scroll">
-        {rows.length === 0 && kind !== 'kanban' && kind !== 'calendar' ? (
+        {rows.length === 0 && kind !== 'kanban' && kind !== 'calendar' && kind !== 'timeline' ? (
           <div className="q-base-state">{t('bases.empty')}</div>
+        ) : kind === 'timeline' ? (
+          <BaseTimeline
+            rows={rows}
+            view={view}
+            workspacePath={workspacePath}
+            onOpen={onOpenNote}
+          />
         ) : kind === 'calendar' ? (
           <BaseCalendar
             rows={rows}
@@ -535,6 +628,8 @@ export function BaseView({
                 workspacePath={workspacePath}
                 editing={editing}
                 sort={sort}
+                relations={relationColumns}
+                resolvedRelations={resolvedRelations}
                 onSort={toggleSort}
                 onEditing={setEditing}
                 onCommit={commitProperty}
@@ -550,6 +645,8 @@ export function BaseView({
                 columns={columns.filter((property) => property !== 'file.name')}
                 definition={loaded.definition}
                 workspacePath={workspacePath}
+                relations={relationColumns}
+                resolvedRelations={resolvedRelations}
                 onOpen={onOpenNote}
               />
             )}
@@ -561,6 +658,7 @@ export function BaseView({
         <BaseEditorPanel
           view={view}
           columns={columns}
+          relations={relationProperties}
           onClose={() => setEditorOpen(false)}
           onSave={saveViewEdit}
         />
@@ -576,6 +674,8 @@ interface BaseTableProps {
   workspacePath: string;
   editing: string | null;
   sort: BaseSort[];
+  relations: ReadonlySet<string>;
+  resolvedRelations: Map<string, string | null>;
   onSort: (property: string) => void;
   onEditing: (key: string | null) => void;
   onCommit: (row: BaseRow, property: string, value: string) => Promise<void>;
@@ -589,6 +689,8 @@ function BaseTable({
   workspacePath,
   editing,
   sort,
+  relations,
+  resolvedRelations,
   onSort,
   onEditing,
   onCommit,
@@ -618,12 +720,20 @@ function BaseTable({
               const key = `${row.path}\0${property}`;
               const value = baseProperty(row, property, workspacePath);
               const editable = editableKey(property);
+              const relation = relations.has(property);
               if (property === 'file.name') {
                 return (
                   <td key={property}>
                     <button className="q-base-link" type="button" onClick={() => onOpen(row.path)}>
                       {rowTitle(row, workspacePath)} <Icon icon={ExternalLink} />
                     </button>
+                  </td>
+                );
+              }
+              if (relation && editing !== key) {
+                return (
+                  <td key={property} onDblClick={() => { if (editable) onEditing(key); }}>
+                    <RelationValue value={value} resolved={resolvedRelations} onOpen={onOpen} />
                   </td>
                 );
               }
@@ -675,12 +785,16 @@ function BaseCards({
   columns,
   definition,
   workspacePath,
+  relations,
+  resolvedRelations,
   onOpen,
 }: {
   rows: BaseRow[];
   columns: string[];
   definition: BaseDefinition;
   workspacePath: string;
+  relations: ReadonlySet<string>;
+  resolvedRelations: Map<string, string | null>;
   onOpen: (path: string) => void;
 }) {
   return (
@@ -693,7 +807,17 @@ function BaseCards({
           {columns.slice(0, 6).map((property) => (
             <div className="q-base-card__property" key={property}>
               <span>{propertyLabel(definition, property)}</span>
-              <strong>{displayValue(baseProperty(row, property, workspacePath)) || '—'}</strong>
+              {relations.has(property) ? (
+                <strong>
+                  <RelationValue
+                    value={baseProperty(row, property, workspacePath)}
+                    resolved={resolvedRelations}
+                    onOpen={onOpen}
+                  />
+                </strong>
+              ) : (
+                <strong>{displayValue(baseProperty(row, property, workspacePath)) || '—'}</strong>
+              )}
             </div>
           ))}
         </article>

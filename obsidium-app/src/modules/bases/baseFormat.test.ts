@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBase, serializeBase } from './baseFormat';
+import { parseBase, serializeBase, setRelationProperties } from './baseFormat';
 import type { BaseDefinition } from './types';
 
 function model(definition: BaseDefinition) {
@@ -7,6 +7,7 @@ function model(definition: BaseDefinition) {
     filters: definition.filters,
     views: definition.views,
     propertyLabels: definition.propertyLabels,
+    relationProperties: definition.relationProperties,
     unsupportedKeys: definition.unsupportedKeys,
     extra: definition.extra,
   };
@@ -72,6 +73,21 @@ describe('parseBase', () => {
     expect(parsed.views[0].groupBy).toEqual({ property: 'status', direction: 'DESC' });
     expect(parsed.views[1].dateField).toBe('date');
     expect(parsed.views[1].groupOrder).toEqual([null, true, 3, 'нет']);
+  });
+
+  it('keeps the timeline start and end properties as view fields', () => {
+    const parsed = expectRoundTrip([
+      'views:',
+      '  - type: timeline',
+      '    name: План',
+      '    startField: begin',
+      '    endField: finish',
+      '',
+    ].join('\n'));
+
+    expect(parsed.views[0].startField).toBe('begin');
+    expect(parsed.views[0].endField).toBe('finish');
+    expect(parsed.views[0].extra).toBeUndefined();
   });
 
   it('reads nested and/or/not filters at the document and view level', () => {
@@ -323,5 +339,69 @@ describe('parseBase', () => {
   it('defaults summaries to an empty list when the key is absent or not a sequence', () => {
     expect(parseBase('views:\n  - type: table\n').summaries).toEqual([]);
     expect(parseBase('summaries: nope\n').summaries).toEqual([]);
+  });
+
+  it('reads relation properties and keeps their displayName and unknown keys', () => {
+    const source = [
+      'properties:',
+      '  mentor:',
+      '    type: relation',
+      '    displayName: Наставник',
+      '    options: [Ada, Grace]',
+      '  status:',
+      '    type: text',
+      '  reviewer:',
+      '    type: "RELATION"',
+      'views:',
+      '  - type: table',
+      '    name: Table',
+      '',
+    ].join('\n');
+
+    const parsed = expectRoundTrip(source);
+
+    expect(parsed.relationProperties).toEqual(['mentor', 'reviewer']);
+    expect(parsed.propertyLabels).toEqual({ mentor: 'Наставник' });
+    expect(parsed.extra.properties).toEqual({
+      mentor: { type: 'relation', displayName: 'Наставник', options: ['Ada', 'Grace'] },
+      status: { type: 'text' },
+      reviewer: { type: 'RELATION' },
+    });
+
+    const serialized = serializeBase(parsed);
+    expect(serialized).toContain('type: relation');
+    expect(serialized).toContain('displayName: Наставник');
+    expect(serialized).toContain('options: [Ada, Grace]');
+    expect(serializeBase(parseBase(serialized))).toBe(serialized);
+  });
+
+  it('marks and unmarks a relation property without losing the rest of the entry', () => {
+    const parsed = parseBase([
+      'properties:',
+      '  mentor:',
+      '    displayName: Наставник',
+      '    options: [Ada]',
+      '  status:',
+      '    type: text',
+      'views:',
+      '  - type: table',
+      '    name: Table',
+      '',
+    ].join('\n'));
+
+    setRelationProperties(parsed, ['mentor', 'status']);
+    expect(parsed.relationProperties).toEqual(['mentor', 'status']);
+    expect(parsed.extra.properties).toEqual({
+      mentor: { displayName: 'Наставник', options: ['Ada'], type: 'relation' },
+      status: { type: 'relation' },
+    });
+
+    setRelationProperties(parsed, []);
+    expect(parsed.relationProperties).toEqual([]);
+    expect(parsed.extra.properties).toEqual({
+      mentor: { displayName: 'Наставник', options: ['Ada'] },
+    });
+    expect(serializeBase(parsed)).toContain('displayName: Наставник');
+    expect(serializeBase(parsed)).not.toContain('status');
   });
 });

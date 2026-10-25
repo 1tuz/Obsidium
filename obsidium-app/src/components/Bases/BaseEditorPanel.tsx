@@ -12,16 +12,18 @@ export interface BaseViewEdit {
   limit: number | null;
   groupBy: BaseGroupBy | null;
   sort: BaseSort[];
+  relations: string[];
 }
 
 interface BaseEditorPanelProps {
   view: BaseViewDefinition;
   columns: string[];
+  relations: string[];
   onClose: () => void;
   onSave: (edit: BaseViewEdit) => Promise<boolean>;
 }
 
-export function BaseEditorPanel({ view, columns, onClose, onSave }: BaseEditorPanelProps) {
+export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: BaseEditorPanelProps) {
   const [name, setName] = useState(view.name);
   const [limit, setLimit] = useState(view.limit === undefined ? '' : String(view.limit));
   const [groupProperty, setGroupProperty] = useState(view.groupBy?.property ?? '');
@@ -29,6 +31,7 @@ export function BaseEditorPanel({ view, columns, onClose, onSave }: BaseEditorPa
     view.groupBy?.direction === 'DESC' ? 'DESC' : 'ASC',
   );
   const [sort, setSort] = useState<BaseSort[]>(view.sort ?? []);
+  const [relationKeys, setRelationKeys] = useState<string[]>(relations);
   const [sortProperty, setSortProperty] = useState(
     columns.find((property) => !(view.sort ?? []).some((entry) => entry.property === property)) ?? '',
   );
@@ -40,6 +43,8 @@ export function BaseEditorPanel({ view, columns, onClose, onSave }: BaseEditorPa
   const groupOptions = groupProperty && !columns.includes(groupProperty)
     ? [groupProperty, ...columns]
     : columns;
+  const relationOptions = [...new Set([...columns, ...relationKeys])]
+    .filter((property) => !/^(?:file|formula|summary)\./u.test(property));
 
   const submit = async () => {
     if (busy) return;
@@ -66,6 +71,7 @@ export function BaseEditorPanel({ view, columns, onClose, onSave }: BaseEditorPa
         limit: nextLimit,
         groupBy: groupProperty ? { property: groupProperty, direction: groupDirection } : null,
         sort,
+        relations: relationKeys,
       });
       if (saved) onClose();
       else setBusy(false);
@@ -194,6 +200,33 @@ export function BaseEditorPanel({ view, columns, onClose, onSave }: BaseEditorPa
               <Icon icon={Plus} /> {t('bases.editorSortAdd')}
             </Button>
           </div>
+        </div>
+        <div className="q-base-editor__field">
+          <span>{t('bases.editorRelations')}</span>
+          {relationOptions.length === 0 ? (
+            <p className="q-base-editor__empty">{t('bases.editorRelationsEmpty')}</p>
+          ) : (
+            <div className="q-base-editor__sort">
+              {relationOptions.map((property) => (
+                <div className="q-base-editor__row" key={property}>
+                  <span title={property}>{property}</span>
+                  <select
+                    aria-label={t('bases.editorPropertyType', { property })}
+                    value={relationKeys.includes(property) ? 'relation' : ''}
+                    onChange={(event) => {
+                      const relation = event.currentTarget.value === 'relation';
+                      setRelationKeys((current) => (relation
+                        ? [...current.filter((entry) => entry !== property), property]
+                        : current.filter((entry) => entry !== property)));
+                    }}
+                  >
+                    <option value="">{t('bases.editorPropertyTypeText')}</option>
+                    <option value="relation">{t('bases.editorPropertyTypeRelation')}</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         {error && <p className="q-base-editor__error" role="alert">{error}</p>}
       </div>
