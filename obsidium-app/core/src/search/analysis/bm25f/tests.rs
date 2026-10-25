@@ -26,7 +26,7 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
             "obsidium architecture indexing".to_owned(),
         ),
         (
-            &vault.join("title.md"),
+            &vault.join("obsidium architecture.md"),
             "obsidium architecture",
             "notes".to_owned(),
         ),
@@ -42,24 +42,27 @@ fn ranks_title_matches_and_does_not_normalize_the_winner_to_one() {
         ),
     ];
     for (path, title, body) in documents {
+        fs::write(path, &body).unwrap();
         writer
             .add_document(doc!(
                 index.fields.id => path.to_string_lossy().as_ref(),
                 index.fields.path => path.to_string_lossy().as_ref(),
                 index.fields.title => title,
-                index.fields.body => body,
+                index.fields.body => body.as_str(),
             ))
             .unwrap();
     }
     for index_offset in 0..80 {
         let path = vault.join(format!("noise-{index_offset}.md"));
         let title = format!("noise {index_offset}");
+        let body = "unrelated background material";
+        fs::write(&path, body).unwrap();
         writer
             .add_document(doc!(
                 index.fields.id => path.to_string_lossy().as_ref(),
                 index.fields.path => path.to_string_lossy().as_ref(),
                 index.fields.title => title.as_str(),
-                index.fields.body => "unrelated background material",
+                index.fields.body => body,
             ))
             .unwrap();
     }
@@ -100,6 +103,7 @@ fn reasons_show_surface_words_not_stems() {
     let source_path = vault.join("source.md");
     fs::write(&source_path, "новая книга про архитектуру").unwrap();
     let match_path = vault.join("match.md");
+    fs::write(&match_path, "новая книга и архитектура").unwrap();
 
     let index = SearchIndex::open(&directory.path().join("index")).unwrap();
     let mut writer = index.index.writer(15_000_000).unwrap();

@@ -9,10 +9,10 @@ use tantivy::{Index, IndexReader, ReloadPolicy};
 pub fn build() -> Schema {
     let mut builder = Schema::builder();
     builder.add_text_field("id", STRING | STORED);
-    builder.add_text_field("path", text_options(false));
-    builder.add_text_field("title", text_options(true));
-    builder.add_text_field("tags", text_options(true));
-    builder.add_text_field("body", text_options(true));
+    builder.add_text_field("path", text_options(Store::Never));
+    builder.add_text_field("title", text_options(Store::Never));
+    builder.add_text_field("tags", text_options(Store::Always));
+    builder.add_text_field("body", text_options(Store::Never));
     builder.build()
 }
 
@@ -60,15 +60,20 @@ pub fn reader(index: &Index) -> Result<IndexReader, SearchError> {
         .try_into()?)
 }
 
-fn text_options(stored: bool) -> TextOptions {
+#[derive(Clone, Copy)]
+enum Store {
+    Always,
+    Never,
+}
+
+fn text_options(store: Store) -> TextOptions {
     let indexing = TextFieldIndexing::default()
         .set_tokenizer(TOKENIZER_NAME)
         .set_index_option(IndexRecordOption::WithFreqs);
     let options = TextOptions::default().set_indexing_options(indexing);
-    if stored {
-        options.set_stored()
-    } else {
-        options
+    match store {
+        Store::Always => options.set_stored(),
+        Store::Never => options,
     }
 }
 

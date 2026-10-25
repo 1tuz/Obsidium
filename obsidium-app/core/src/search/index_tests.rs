@@ -47,12 +47,19 @@ fn indexed(documents: &[(&str, &str, &str)]) -> (tempfile::TempDir, SearchIndex)
 
 fn indexed_tagged(documents: &[(&str, &str, &str, &str)]) -> (tempfile::TempDir, SearchIndex) {
     let directory = tempfile::tempdir().unwrap();
-    let index = SearchIndex::open(directory.path()).unwrap();
+    for (path, _title, body, _tags) in documents {
+        let target = directory.path().join(path);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(target, body).unwrap();
+    }
+    let index = SearchIndex::open(&directory.path().join("index")).unwrap();
     let mut writer = index.index.writer(15_000_000).unwrap();
     for (path, title, body, tags) in documents {
         writer
             .add_document(doc!(
-                index.fields.id => *path,
+                index.fields.id => absolute(directory.path(), path),
                 index.fields.path => *path,
                 index.fields.title => *title,
                 index.fields.tags => *tags,
@@ -65,11 +72,15 @@ fn indexed_tagged(documents: &[(&str, &str, &str, &str)]) -> (tempfile::TempDir,
     (directory, index)
 }
 
+fn absolute(root: &std::path::Path, path: &str) -> String {
+    root.join(path).to_string_lossy().into_owned()
+}
+
 #[test]
 fn a_tag_match_lifts_a_note_above_a_body_only_match() {
     let (_directory, index) = indexed_tagged(&[
-        ("notes/alpha.md", "Alpha", "проект и план", "проект"),
-        ("notes/beta.md", "Beta", "проект и план", ""),
+        ("notes/Alpha.md", "Alpha", "проект и план", "проект"),
+        ("notes/Beta.md", "Beta", "проект и план", ""),
     ]);
 
     let results = index.search_defaults("проект", 10).unwrap().1;
@@ -83,8 +94,8 @@ fn a_tag_match_lifts_a_note_above_a_body_only_match() {
 #[test]
 fn a_tag_filter_keeps_only_notes_carrying_the_tag() {
     let (_directory, index) = indexed_tagged(&[
-        ("notes/alpha.md", "Alpha", "план", "проект"),
-        ("notes/beta.md", "Beta", "план", "книги"),
+        ("notes/Alpha.md", "Alpha", "план", "проект"),
+        ("notes/Beta.md", "Beta", "план", "книги"),
     ]);
 
     let results = index.search_defaults("tag:проект план", 10).unwrap().1;
@@ -98,7 +109,7 @@ fn a_folder_filter_narrows_the_path_and_an_extension_filter_uses_its_tokens() {
     let (_directory, index) = indexed(&[
         ("Проекты/план.md", "План", "сроки"),
         ("Архив/план.md", "План", "сроки"),
-        ("Проекты/доска.canvas", "Доска", "сроки"),
+        ("Проекты/Доска.canvas", "Доска", "сроки"),
     ]);
 
     let in_folder = index.search_defaults("folder:проекты сроки", 10).unwrap().1;
@@ -157,8 +168,8 @@ fn a_multi_word_query_ranks_partial_matches_instead_of_returning_nothing() {
         2,
         "ни одна заметка не содержит все слова, но частичные совпадения возвращаются"
     );
-    assert_eq!(
-        results[0].path, "C:/vault/Камера.md",
+    assert!(
+        results[0].path.ends_with("C:/vault/Камера.md"),
         "заметка с большим числом совпавших слов идёт первой"
     );
     assert_eq!(results[0].matched_terms.len(), 3);

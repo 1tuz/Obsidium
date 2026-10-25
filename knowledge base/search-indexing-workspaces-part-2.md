@@ -150,7 +150,7 @@ Tokenizer: lowercase, ASCII folding, удаление токенов длинн�
 
 | Свойство | Adamic-Adar | Настоящий BM25F |
 |---|---|---|
-| Источник | `wiki_links` в SQLite | body/title в Tantivy и чтение body |
+| Источник | `wiki_links` в SQLite | инвертированный индекс Tantivy (термы, частоты, длины полей), тело и заголовок — из `ContentCache` над файлами |
 | Что ищет | структурно близкие узлы графа | лексически похожие заметки |
 | Причина | общие соседи | общие informative terms |
 | Score | raw AA, может быть меньше/больше 1 | raw BM25F (абсолютный score) |

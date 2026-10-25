@@ -87,9 +87,7 @@ pub fn analyze(
                 continue;
             }
 
-            let candidate_title = stored_text(&candidate, index.fields.title)
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| title(&path));
+            let candidate_title = title(&path);
             let lengths = Candidate {
                 id: doc_id,
                 title_length: title_norms.fieldnorm(doc_id),

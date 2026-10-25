@@ -13,7 +13,7 @@ fn tokens(text: &str) -> Vec<String> {
 
 #[test]
 fn index_version_tracks_text_and_link_parsing() {
-    assert_eq!(ANALYZER_VERSION, 14);
+    assert_eq!(ANALYZER_VERSION, 15);
 }
 
 #[test]
@@ -87,16 +87,17 @@ fn stemmed_query_matches_inflected_document() {
     use tantivy::doc;
 
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("note.md");
+    let path = directory.path().join("сети.md");
     fs::write(&path, "про нейронные сети").unwrap();
     let index = SearchIndex::open(&directory.path().join("index")).unwrap();
     let mut writer = index.index.writer(15_000_000).unwrap();
     writer
         .add_document(doc!(
             index.fields.id => path.to_string_lossy().as_ref(),
-            index.fields.path => path.to_string_lossy().as_ref(),
+            index.fields.path => "сети.md",
             index.fields.title => "сети",
             index.fields.body => "про нейронные сети",
+            index.fields.tags => "",
         ))
         .unwrap();
     writer.commit().unwrap();
@@ -105,7 +106,7 @@ fn stemmed_query_matches_inflected_document() {
     assert_eq!(tokens("нейронные"), tokens("нейронных"));
     let (_terms, results) = index.search_defaults("нейронных", 10).unwrap();
     assert!(
-        results.iter().any(|result| result.path.contains("note.md")),
+        results.iter().any(|result| result.path.contains("сети.md")),
         "omnisearch should hit via analyzer, got {results:?}"
     );
 }

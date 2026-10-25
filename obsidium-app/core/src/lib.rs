@@ -12,6 +12,7 @@ pub mod link_title;
 pub mod links;
 pub mod mcp;
 pub mod migration;
+pub mod schema;
 pub mod search;
 pub mod settings;
 pub mod ui_state;

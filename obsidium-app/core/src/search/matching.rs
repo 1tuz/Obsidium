@@ -1,4 +1,5 @@
 use super::analyzer::indexing_tokenizer;
+use super::content::ContentCache;
 use super::headings;
 use super::index::SearchFields;
 use super::models::SearchResult;
@@ -40,14 +41,16 @@ pub fn analyzed_query_terms(input: &str) -> Vec<String> {
 pub fn result_from_document(
     document: &TantivyDocument,
     fields: SearchFields,
+    content: &ContentCache,
     terms: &[String],
     score: f32,
 ) -> Option<SearchResult> {
     let path = stored_text(document, fields.id)?;
-    let title = stored_text(document, fields.title).unwrap_or_default();
-    let body = stored_text(document, fields.body).unwrap_or_default();
     let tags = stored_text(document, fields.tags).unwrap_or_default();
-    let file_name = Path::new(&path)
+    let note_path = Path::new(&path);
+    let title = file_stem(note_path);
+    let body = content.read(note_path).unwrap_or_default();
+    let file_name = note_path
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or(&title);
@@ -167,6 +170,13 @@ fn normalize(value: &str) -> String {
         .nfd()
         .filter(|character| !is_combining_mark(*character))
         .collect()
+}
+
+pub fn file_stem(path: &Path) -> String {
+    path.file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_owned()
 }
 
 fn stored_text(document: &TantivyDocument, field: tantivy::schema::Field) -> Option<String> {
