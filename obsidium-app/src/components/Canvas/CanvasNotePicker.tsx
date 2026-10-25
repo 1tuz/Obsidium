@@ -9,6 +9,7 @@ import { CodeMirrorField, type CodeMirrorFieldRef } from '../Common/CodeMirrorFi
 import { Dialog } from '../Common/Dialog';
 import { ScrollArea } from '../Common/ScrollArea';
 import { SearchResultCard } from '../Search/SearchResultCard';
+import { appendQueryTermToField } from '../Search/queryField';
 import './CanvasNotePicker.css';
 
 interface CanvasNotePickerProps {
@@ -96,6 +97,10 @@ export function CanvasNotePicker({
     onClose();
   };
 
+  const addQueryTerm = (term: string) => {
+    setQuery(appendQueryTermToField(inputRef.current, query, term));
+  };
+
   const content = !workspacePath ? (
     <EmptyState
       icon={FolderSearch}
@@ -125,6 +130,7 @@ export function CanvasNotePicker({
               selected={index === selectedIndex}
               onHover={() => setSelectedIndex(index)}
               onSelect={() => activate(index)}
+              onAddQueryTerm={addQueryTerm}
             />
           );
         }

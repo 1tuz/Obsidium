@@ -16,6 +16,7 @@ interface SearchContentProps {
   workspacePath: string | null;
   onSelectIndex: (index: number) => void;
   onOpenResult: (result: SearchResult, disposition: LinkDisposition) => void;
+  onAddQueryTerm: (term: string) => void;
 }
 
 export function SearchContent(props: SearchContentProps) {
@@ -71,6 +72,7 @@ export function SearchContent(props: SearchContentProps) {
       queryTerms={props.queryTerms}
       selected={index === props.selectedIndex}
       onHover={() => props.onSelectIndex(index)}
+      onAddQueryTerm={props.onAddQueryTerm}
       onSelect={(newTab) => {
         props.onSelectIndex(index);
         props.onOpenResult(result, newTab ? 'new-tab' : 'current');

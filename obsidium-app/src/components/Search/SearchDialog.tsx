@@ -8,6 +8,7 @@ import { IconButton } from '../Common/IconButton';
 import { ScrollArea } from '../Common/ScrollArea';
 import { matchesShortcut, SHORTCUTS } from '../../config/shortcuts';
 import { useKnowledgeSearch, type SearchResult } from '../../modules/search';
+import { appendQueryTermToField } from './queryField';
 import { SearchContent } from './SearchContent';
 import { SearchFooter } from './SearchFooter';
 import type { LinkDisposition } from '../../modules/links';
@@ -56,6 +57,9 @@ export function SearchDialog({
     if (!title) return;
     void onCreate(title);
     onClose();
+  };
+  const addQueryTerm = (term: string) => {
+    setQuery(appendQueryTermToField(inputRef.current, query, term));
   };
   const handleInputKeyDown = (event: KeyboardEvent) => {
     if (matchesShortcut(event, SHORTCUTS.SEARCH_NEXT)
@@ -133,6 +137,7 @@ export function SearchDialog({
           workspacePath={workspacePath}
           onSelectIndex={setSelectedIndex}
           onOpenResult={openResult}
+          onAddQueryTerm={addQueryTerm}
         />
       </ScrollArea>
       <SearchFooter />

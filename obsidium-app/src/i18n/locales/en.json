@@ -131,7 +131,10 @@
     "open": "open",
     "newPane": "new pane",
     "create": "create",
-    "matchedTag": "Matched tag",
+    "addTermHint": "Add this word to the query",
+    "addTagHint": "Add this tag to the query",
+    "addTermToQuery": "Add to the query: {{term}}",
+    "addTagToQuery": "Filter by tag: {{tag}}",
     "matches": {
       "one": "{{count}} match",
       "other": "{{count}} matches"

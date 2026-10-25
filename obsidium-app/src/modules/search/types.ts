@@ -18,8 +18,8 @@ export interface SearchResult {
   matchCount: number;
   matchOffset: number;
   heading?: string;
-  matchedTerms: string[];
-  matchedTags: string[];
+  matchedTerms?: string[];
+  matchedTags?: string[];
 }
 
 export interface SearchResponse {
