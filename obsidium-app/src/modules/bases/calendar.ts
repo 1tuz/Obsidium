@@ -1,3 +1,4 @@
+import { noteDateToIso, parseNoteDate } from '../notedate';
 import { baseProperty } from './filter';
 import type { BaseFieldValue, BaseRow, BaseViewDefinition } from './types';
 
@@ -15,7 +16,6 @@ export interface CalendarMonth {
   undated: BaseRow[];
 }
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
 const DAYS_IN_GRID = 42;
 
 export function calendarProperty(view: BaseViewDefinition): string {
@@ -31,13 +31,8 @@ export function calendarDate(value: BaseFieldValue | undefined): string | null {
     return null;
   }
   if (typeof value !== 'string') return null;
-  const match = ISO_DATE.exec(value.trim());
-  if (!match) return null;
-  const [, year, month, day] = match;
-  const monthNumber = Number(month);
-  const dayNumber = Number(day);
-  if (monthNumber < 1 || monthNumber > 12 || dayNumber < 1 || dayNumber > 31) return null;
-  return `${year}-${month}-${day}`;
+  const date = parseNoteDate(value.trim());
+  return date === null ? null : noteDateToIso(date);
 }
 
 function isoOf(year: number, month: number, day: number): string {
@@ -56,9 +51,8 @@ export function shiftMonth(year: number, month: number, delta: number): { year: 
 }
 
 export function monthOf(date: string): { year: number; month: number } | null {
-  const match = ISO_DATE.exec(date);
-  if (!match) return null;
-  return { year: Number(match[1]), month: Number(match[2]) };
+  const parsed = parseNoteDate(date);
+  return parsed === null ? null : { year: parsed.year, month: parsed.month };
 }
 
 export function buildCalendarMonth(
