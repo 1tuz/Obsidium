@@ -1130,5 +1130,26 @@
     "next": "Next image",
     "closeViewer": "Close the image",
     "position": "{{current}} of {{total}}"
+  },
+  "spaces": {
+    "switcher": "Knowledge space",
+    "manage": "Manage spaces",
+    "dialogTitle": "Spaces",
+    "createTitle": "New space",
+    "editTitle": "Space settings",
+    "name": "Name",
+    "namePlaceholder": "For example, Work",
+    "root": "Folder",
+    "rootWholeVault": "Whole knowledge base",
+    "includeTags": "Tags",
+    "includeTagsPlaceholder": "project, reading",
+    "excludeFolders": "Excluded folders",
+    "excludeFoldersPlaceholder": "archive, drafts",
+    "save": "Save",
+    "edit": "Edit space",
+    "delete": "Delete space",
+    "deleteTitle": "Delete the space?",
+    "deleteDescription": "“{{name}}” disappears from the list of spaces. The notes stay in the knowledge base.",
+    "newSpace": "Create a space"
   }
 }

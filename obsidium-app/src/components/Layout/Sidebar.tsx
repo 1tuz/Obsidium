@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FileText } from 'lucide';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import { Button } from '../Common/Button';
@@ -19,6 +19,17 @@ import { useFileTreeActions } from './useFileTreeActions';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import './Sidebar.css';
 import { BoardsPanel, type BoardActionRequest } from './BoardsPanel';
+import { SpaceSwitcher } from './SpaceSwitcher';
+import { SpacesDialog } from '../Spaces/SpacesDialog';
+import type { Space } from '../../modules/spaces';
+
+export interface SpacesControls {
+  spaces: Space[];
+  activeSpaceId: string;
+  onSelect: (id: string) => void;
+  onSave: (space: Space) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}
 
 interface SidebarProps {
   activeFile: string | null;
@@ -43,6 +54,7 @@ interface SidebarProps {
   createBoardRequest: number;
   onAddToBoard?: (path: string) => void;
   onRemoveFromBoard?: (path: string) => void;
+  spaces?: SpacesControls;
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -68,7 +80,9 @@ export const Sidebar = memo(function Sidebar({
   createBoardRequest,
   onAddToBoard,
   onRemoveFromBoard,
+  spaces,
 }: SidebarProps) {
+  const [spacesDialogOpen, setSpacesDialogOpen] = useState(false);
   const { expandedFolders, setExpandedFolders, followFolder } = useExpandedFolders(workspacePath);
   const { config, updateConfig } = useSettingsStore();
   const configRef = useRef(config);
@@ -200,6 +214,14 @@ export const Sidebar = memo(function Sidebar({
     <aside className={`q-collapsible-panel q-sidebar ${isOpen ? '' : 'is-collapsed'}`} aria-hidden={!isOpen}>
       <div className="q-panel-header" data-tauri-drag-region aria-hidden="true">
       </div>
+      {spaces && panel === 'files' ? (
+        <SpaceSwitcher
+          spaces={spaces.spaces}
+          activeSpaceId={spaces.activeSpaceId}
+          onSelect={spaces.onSelect}
+          onManage={() => setSpacesDialogOpen(true)}
+        />
+      ) : null}
       <div ref={contentRef} className="q-sidebar-content">
         <div hidden={panel !== 'files'}>
         {!treeReady ? null : rows.length === 0 ? (
@@ -232,6 +254,17 @@ export const Sidebar = memo(function Sidebar({
           />
         </div>
       </div>
+
+      {spaces ? (
+        <SpacesDialog
+          open={spacesDialogOpen}
+          workspacePath={workspacePath}
+          spaces={spaces.spaces}
+          onClose={() => setSpacesDialogOpen(false)}
+          onSave={spaces.onSave}
+          onDelete={spaces.onDelete}
+        />
+      ) : null}
 
       <DeleteNotesDialog
         targets={deleteTargets}

@@ -4,7 +4,7 @@ import { TextFilePane } from "./components/Editor/TextFilePane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { PaneLayoutView } from "./components/Layout/PaneLayoutView";
 import { WindowControls } from "./components/Layout/WindowControls";
-import { Sidebar } from "./components/Layout/Sidebar";
+import { Sidebar, type SpacesControls } from "./components/Layout/Sidebar";
 import { SidebarRail } from "./components/Layout/SidebarRail";
 import { PanelResizer } from "./components/Layout/PanelResizer";
 import { UpdateSplash } from "./components/Common/UpdateSplash";
@@ -19,6 +19,7 @@ import { WorkspaceDialog } from "./components/Workspace/WorkspaceDialog";
 import { GalleryDialog } from "./components/Gallery/GalleryDialog";
 import { BacklinksPanel } from "./components/Backlinks/BacklinksPanel";
 import { useWorkspace } from "./hooks/useWorkspace";
+import { useSpaces } from "./hooks/useSpaces";
 import { useTabs } from "./hooks/useTabs";
 import { useNavigationHistory } from "./hooks/useNavigationHistory";
 import { useLiveTabs } from "./hooks/useLiveTabs";
@@ -81,6 +82,9 @@ const CanvasView = lazy(() => import("./components/Canvas/CanvasView")
 const PdfViewer = lazy(() => import("./components/Pdf/PdfViewer")
   .then((module) => ({ default: module.PdfViewer })));
 
+const EMPTY_PATHS: ReadonlySet<string> = new Set();
+const noDirectoryLoad = (): Promise<boolean> => Promise.resolve(true);
+
 export default function App() {
   const search = useOverlay();
   const commandPalette = useOverlay();
@@ -135,6 +139,31 @@ export default function App() {
     loadDirectory,
     patchFileInTree,
   } = useWorkspace();
+  const {
+    spaces: availableSpaces,
+    activeSpaceId,
+    directories: spaceDirectories,
+    files: spaceFiles,
+    selectSpace,
+    saveSpace,
+    deleteSpace,
+  } = useSpaces(workspacePath);
+  const filteredSpace = spaceDirectories !== null;
+  const sidebarFiles = filteredSpace ? spaceFiles ?? [] : files;
+  const sidebarDirectories = filteredSpace ? spaceDirectories : directories;
+  const sidebarLoadingDirectories = filteredSpace ? EMPTY_PATHS : loadingDirectories;
+  const sidebarLoadDirectory = filteredSpace ? noDirectoryLoad : loadDirectory;
+  const spaces = useMemo<SpacesControls>(() => ({
+    spaces: availableSpaces,
+    activeSpaceId,
+    onSelect: selectSpace,
+    onSave: async (space) => {
+      await saveSpace(space);
+    },
+    onDelete: async (id) => {
+      await deleteSpace(id);
+    },
+  }), [activeSpaceId, availableSpaces, deleteSpace, saveSpace, selectSpace]);
   const {
     ensureReady: ensureLinksReady,
     ready: linkIndexReady,
@@ -892,14 +921,14 @@ export default function App() {
         />
         <Sidebar
           activeFile={activeFile}
-          files={files}
-          directories={directories}
-          loadingDirectories={loadingDirectories}
+          files={sidebarFiles}
+          directories={sidebarDirectories}
+          loadingDirectories={sidebarLoadingDirectories}
           workspacePath={workspacePath}
           workspaceName={workspaceName}
           onFileSelect={openNote}
           onCreateNote={() => commandRegistry.execute('note.new').then(() => undefined)}
-          onLoadDirectory={loadDirectory}
+          onLoadDirectory={sidebarLoadDirectory}
           isOpen={leftSidebarVisible}
           onOpenSettings={() => { void commandRegistry.execute('view.settings'); }}
           onOpenWorkspaces={() => { void commandRegistry.execute('workspace.switch'); }}
@@ -913,6 +942,7 @@ export default function App() {
           createBoardRequest={createBoardRequest}
           onAddToBoard={kanbanEnabled ? (path) => requestBoardAction(path, 'add') : undefined}
           onRemoveFromBoard={kanbanEnabled ? removeNoteFromBoard : undefined}
+          spaces={spaces}
         />
         {leftSidebarVisible && (
           <PanelResizer
