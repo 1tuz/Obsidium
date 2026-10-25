@@ -1,19 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X } from 'lucide';
 import { Icon } from '../Common/Icon';
+import { SegmentedControl } from '../Common/SegmentedControl';
 import { t } from '../../i18n';
+import { noteDateToIso } from '../../modules/notedate';
 import { getCalendarEvents, type CalendarEvent } from '../../modules/calendar/gateway';
 import { fileName } from '../../modules/paths';
 import {
   buildCalendarMonth,
+  buildCalendarWeek,
   monthLabel,
   monthOf,
-  shiftMonth,
+  shiftDay,
+  shiftMonthDate,
   todayIso,
+  weekLabel,
   weekdayLabels,
   type BaseRow,
   type BaseViewDefinition,
 } from '../../modules/bases';
+
+type CalendarMode = 'month' | 'week';
 
 interface BaseCalendarProps {
   rows: readonly BaseRow[];
@@ -40,31 +47,51 @@ export function BaseCalendar({
   onCreateDay,
   onCreateError,
 }: BaseCalendarProps) {
-  const [anchor, setAnchor] = useState(() => monthOf(todayIso()) ?? { year: 2026, month: 1 });
+  const [mode, setMode] = useState<CalendarMode>('month');
+  const [anchorDate, setAnchorDate] = useState(() => todayIso());
   const [creating, setCreating] = useState<string | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [openDate, setOpenDate] = useState<string | null>(null);
   const locale = document.documentElement.lang || 'en';
-  const month = useMemo(
-    () => buildCalendarMonth(rows, view, workspacePath, anchor, journalDays),
-    [rows, view, workspacePath, anchor, journalDays],
+  const anchorMonth = useMemo(() => monthOf(anchorDate) ?? { year: 2026, month: 1 }, [anchorDate]);
+  const monthView = useMemo(
+    () => (mode === 'month' ? buildCalendarMonth(rows, view, workspacePath, anchorMonth, journalDays) : null),
+    [mode, rows, view, workspacePath, anchorMonth, journalDays],
   );
+  const weekView = useMemo(
+    () => (mode === 'week' ? buildCalendarWeek(rows, view, workspacePath, anchorDate, journalDays) : null),
+    [mode, rows, view, workspacePath, anchorDate, journalDays],
+  );
+  const days = monthView?.days ?? weekView?.days ?? [];
+  const undatedCount = monthView?.undated.length ?? weekView?.undated.length ?? 0;
+  const heading = monthView
+    ? monthLabel(monthView.year, monthView.month, locale)
+    : weekView
+      ? weekLabel(weekView.start, weekView.end, locale)
+      : monthLabel(anchorMonth.year, anchorMonth.month, locale);
+  const months = useMemo(() => {
+    if (monthView) return [{ year: monthView.year, month: monthView.month }];
+    if (!weekView) return [];
+    const start = monthOf(weekView.start);
+    const end = monthOf(weekView.end);
+    if (!start || !end) return [];
+    return start.year === end.year && start.month === end.month ? [start] : [start, end];
+  }, [monthView, weekView]);
   const weekdays = useMemo(() => weekdayLabels(locale), [locale]);
   const today = todayIso();
 
   useEffect(() => {
     let active = true;
-    getCalendarEvents(workspacePath, anchor.year, anchor.month)
+    Promise.all(months.map(({ year, month }) => (
+      getCalendarEvents(workspacePath, year, month).catch((): CalendarEvent[] => [])
+    )))
       .then((result) => {
-        if (active) setEvents(result);
-      })
-      .catch(() => {
-        if (active) setEvents([]);
+        if (active) setEvents(result.flat());
       });
     return () => {
       active = false;
     };
-  }, [workspacePath, anchor.year, anchor.month, indexRevision]);
+  }, [workspacePath, months, indexRevision]);
 
   const eventsByDate = useMemo(() => {
     const grouped = new Map<string, CalendarEvent[]>();
@@ -79,7 +106,21 @@ export function BaseCalendar({
   const openEvents = openDate ? eventsByDate.get(openDate) ?? [] : [];
   const panelDate = openEvents.length > 0 ? openDate : null;
 
-  const step = (delta: number) => setAnchor((current) => shiftMonth(current.year, current.month, delta));
+  const changeMode = (next: CalendarMode) => {
+    if (next === mode) return;
+    if (next === 'week') {
+      const current = monthOf(today);
+      const inside = current !== null && current.year === anchorMonth.year && current.month === anchorMonth.month;
+      setAnchorDate(inside ? today : noteDateToIso({ year: anchorMonth.year, month: anchorMonth.month, day: 1 }));
+    }
+    setMode(next);
+  };
+
+  const step = (delta: number) => {
+    setAnchorDate((current) => (
+      mode === 'week' ? shiftDay(current, delta * 7) : shiftMonthDate(current, delta)
+    ) ?? current);
+  };
 
   const createOn = async (date: string) => {
     setCreating(date);
@@ -93,28 +134,41 @@ export function BaseCalendar({
   };
 
   return (
-    <section className="q-base-calendar" aria-label={monthLabel(month.year, month.month, locale)}>
+    <section className="q-base-calendar" aria-label={heading}>
       <header className="q-base-calendar__toolbar">
-        <button type="button" onClick={() => step(-1)} aria-label={t('bases.calendarPrevious')}>
+        <button
+          type="button"
+          onClick={() => step(-1)}
+          aria-label={t(mode === 'week' ? 'bases.calendarPreviousWeek' : 'bases.calendarPrevious')}
+        >
           <Icon icon={ChevronLeft} />
         </button>
-        <strong className="q-base-calendar__month">{monthLabel(month.year, month.month, locale)}</strong>
-        <button type="button" onClick={() => step(1)} aria-label={t('bases.calendarNext')}>
+        <strong className="q-base-calendar__month">{heading}</strong>
+        <button
+          type="button"
+          onClick={() => step(1)}
+          aria-label={t(mode === 'week' ? 'bases.calendarNextWeek' : 'bases.calendarNext')}
+        >
           <Icon icon={ChevronRight} />
         </button>
         <button
           type="button"
           className="q-base-calendar__today"
-          onClick={() => {
-            const current = monthOf(today);
-            if (current) setAnchor(current);
-          }}
+          onClick={() => setAnchorDate(today)}
         >
           {t('bases.calendarToday')}
         </button>
-        {month.undated.length > 0 && (
+        <SegmentedControl
+          options={[
+            { value: 'month', label: t('bases.calendarModeMonth') },
+            { value: 'week', label: t('bases.calendarModeWeek') },
+          ]}
+          value={mode}
+          onChange={(value) => changeMode(value === 'week' ? 'week' : 'month')}
+        />
+        {undatedCount > 0 && (
           <span className="q-base-calendar__undated">
-            {t('bases.calendarUndated', { count: String(month.undated.length) })}
+            {t('bases.calendarUndated', { count: String(undatedCount) })}
           </span>
         )}
       </header>
@@ -124,7 +178,7 @@ export function BaseCalendar({
       </div>
 
       <div className="q-base-calendar__grid">
-        {month.days.map((day) => {
+        {days.map((day) => {
           const dayEvents = day.date ? eventsByDate.get(day.date) ?? [] : [];
           return (
             <div

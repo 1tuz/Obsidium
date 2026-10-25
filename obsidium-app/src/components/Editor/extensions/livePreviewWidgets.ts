@@ -1,6 +1,8 @@
 import { type EditorState, type Extension, type Range, StateField } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, type DecorationSet, EditorView } from '@codemirror/view';
+import { collectBaseFenceDecorations } from './baseFence/decorations';
+import { baseFenceDataReady, baseFencePrefetchExtension } from './baseFence/prefetch';
 import { collectBookCalloutDecorations } from './bookCallout/decorations';
 import { bookCalloutDataReady, bookCalloutPrefetchExtension } from './bookCallout/prefetch';
 import { collectDataviewDecorations } from './dataview/decorations';
@@ -21,6 +23,7 @@ function collectLivePreviewWidgetDecorations(
   const config = state.facet(livePreviewConfigFacet);
   if (!config) return [];
   return [
+    ...collectBaseFenceDecorations(state, config),
     ...collectBookCalloutDecorations(state, config),
     ...collectDataviewDecorations(state, config),
     ...collectReaderQuoteDecorations(state, config),
@@ -43,6 +46,7 @@ const livePreviewWidgetField = StateField.define<DecorationSet>({
       || tr.effects.some((effect) => effect.is(setFrontmatterExpanded)
         || effect.is(setImageSource)
         || effect.is(bookCalloutDataReady)
+        || effect.is(baseFenceDataReady)
         || effect.is(dataviewDataReady)
         || effect.is(setEditorFocus))
     ) {
@@ -60,6 +64,7 @@ export function livePreviewWidgetExtension(config: LivePreviewConfig): Extension
     EditorView.atomicRanges.of((view) => view.state.field(livePreviewWidgetField)),
     bookCalloutPrefetchExtension(),
     dataviewPrefetchExtension(),
+    baseFencePrefetchExtension(),
     noteTransclusionExtension(config),
   ];
 }

@@ -1,0 +1,1 @@
+export { baseFenceTheme } from './theme';

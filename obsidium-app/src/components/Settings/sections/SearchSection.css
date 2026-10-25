@@ -1,0 +1,24 @@
+.q-synonym-groups {
+  width: min(28rem, 46vw);
+  min-height: var(--q-size-80);
+  padding: var(--q-input-padding-y) var(--q-input-padding-x);
+  border: none;
+  border-radius: var(--q-radius-xl);
+  background: var(--q-bg-surface);
+  box-shadow: var(--q-shadow-ring);
+  color: var(--q-text-primary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-base);
+  line-height: var(--q-font-line-height-normal);
+  resize: vertical;
+}
+
+.q-synonym-groups:focus {
+  box-shadow: var(--q-shadow-focus-ring);
+}
+
+@media (max-width: 42rem) {
+  .q-synonym-groups {
+    width: min(21rem, 58vw);
+  }
+}
