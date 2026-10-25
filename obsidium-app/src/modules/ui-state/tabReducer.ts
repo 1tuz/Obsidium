@@ -12,7 +12,7 @@ export type TabsAction =
   | { type: 'restore'; tabs: SessionTab[]; activeTabId: string; layout?: PaneLayout; fallbackTabs?: SessionTab[] }
   | { type: 'select'; path?: string; tabId?: string; paneId?: string }
   | { type: 'focus-pane'; paneId: string }
-  | { type: 'open-file' | 'open-file-new-tab'; path: string; tabId: string }
+  | { type: 'open-file' | 'open-file-new-tab'; path: string; tabId: string; textMode?: boolean }
   | { type: 'close'; path?: string; tabId?: string; fallback: SessionTab }
   | { type: 'new-tab' | 'open-graph'; tab: SessionTab }
   | { type: 'reorder'; from: number; to: number; paneId?: string }
@@ -47,7 +47,8 @@ function complete(tabs: SessionTab[], activeTabId: string, layout: PaneLayout, r
 
 function duplicate(tabs: SessionTab[], tab: SessionTab, paneId: string): SessionTab | undefined {
   return tabs.find((existing) => existing.tabId !== tab.tabId
-    && ((existing.paneId === paneId && existing.path === tab.path)
+    && ((existing.paneId === paneId && existing.path === tab.path
+      && (existing.textMode === true) === (tab.textMode === true))
       || (existing.kind === 'graph' && tab.kind === 'graph')));
 }
 
@@ -131,12 +132,16 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     case 'open-file':
     case 'open-file-new-tab': {
       const paneId = activePaneId(state);
-      const existing = state.tabs.find((tab) => tab.paneId === paneId && tab.path === action.path);
+      const textMode = action.textMode === true;
+      const existing = state.tabs.find((tab) => tab.paneId === paneId
+        && tab.path === action.path
+        && (tab.textMode === true) === textMode);
       if (existing) return complete(state.tabs, existing.tabId, state.layout);
       const index = action.type === 'open-file' ? state.tabs.findIndex((tab) => tab.tabId === state.activeTabId) : -1;
       const tab: SessionTab = {
         tabId: index >= 0 ? state.tabs[index].tabId : action.tabId,
         documentId: null, kind: 'document', path: action.path, paneId,
+        textMode: textMode || undefined,
         ...(action.type === 'open-file' ? { mountKey: action.tabId } : {}),
       };
       if (index < 0 && state.tabs.some((existingTab) => existingTab.tabId === tab.tabId)) return state;

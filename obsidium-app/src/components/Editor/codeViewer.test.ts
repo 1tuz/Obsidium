@@ -26,6 +26,11 @@ describe('languageForPath', () => {
     expect(languageForPath('Dockerfile')?.name).toBe('Dockerfile');
   });
 
+  it('highlights base files as YAML', () => {
+    expect(languageForPath('board.base')?.name).toBe('YAML');
+    expect(languageForPath('BOARD.BASE')?.name).toBe('YAML');
+  });
+
   it('returns null for unknown extensions instead of guessing', () => {
     expect(languageForPath('notes.unknownext')).toBeNull();
   });

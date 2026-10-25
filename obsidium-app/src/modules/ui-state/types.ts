@@ -103,6 +103,7 @@ export interface SessionTab {
   paneId: string;
   identityPath?: string;
   mountKey?: string;
+  textMode?: boolean;
 }
 
 export function viewKey(documentId: string, paneId: string): string {

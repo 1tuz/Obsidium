@@ -16,8 +16,10 @@ import {
   keymap,
   lineNumbers,
 } from '@codemirror/view';
+import { isBasePath } from '../../modules/documents/fileGateway';
 
 export function languageForPath(path: string): LanguageDescription | null {
+  if (isBasePath(path)) return languages.find((language) => language.name === 'YAML') ?? null;
   return LanguageDescription.matchFilename(languages, path);
 }
 
