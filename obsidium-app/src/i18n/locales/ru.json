@@ -40,6 +40,8 @@
     "embeddedBlockUnavailable": "Блок «{{blockId}}» не найден",
     "embeddedNoteEmpty": "Заметка пуста",
     "embeddedNoteCycle": "Заметка не может включать саму себя",
+    "embeddedEditHint": "Нажмите, чтобы править раздел",
+    "embeddedRangeChanged": "Текст вокруг раздела изменился снаружи — правка из вложения отключена",
     "focusMode": "Режим фокуса",
     "noteActions": "Действия с заметкой",
     "formatting": {

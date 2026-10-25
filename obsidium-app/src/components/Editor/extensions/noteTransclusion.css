@@ -34,3 +34,24 @@
 .q-note-transclusion__body .cm-content {
   padding: var(--q-space-4) 0;
 }
+
+.q-note-transclusion--editing {
+  border-color: var(--q-border-accent);
+}
+
+.q-note-transclusion__heading {
+  margin-inline-start: var(--q-space-4);
+  font-size: var(--q-font-size-ui-xs);
+  white-space: nowrap;
+}
+
+.q-note-transclusion__status {
+  margin: 0;
+  padding: 0 var(--q-space-12) var(--q-space-8);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-note-transclusion__status:empty {
+  display: none;
+}

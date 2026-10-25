@@ -40,6 +40,8 @@
     "embeddedBlockUnavailable": "Block “{{blockId}}” was not found",
     "embeddedNoteEmpty": "The note is empty",
     "embeddedNoteCycle": "A note cannot embed itself",
+    "embeddedEditHint": "Click to edit the section",
+    "embeddedRangeChanged": "Text around the section changed outside — editing from the embed is disabled",
     "focusMode": "Focus mode",
     "noteActions": "Note actions",
     "formatting": {
