@@ -33,6 +33,16 @@ describe('note embeds', () => {
     expect(noteEmbedSection('# Intro\ntext', 'Missing')).toBe('');
   });
 
+  it('ignores headings inside fenced code when selecting a section', () => {
+    expect(noteEmbedSection('# Intro\n```md\n## Plan\n```\n## Plan\nbody\n## Next\nend', 'Plan'))
+      .toBe('## Plan\nbody');
+  });
+
+  it('does not stop a section at a heading inside fenced code', () => {
+    expect(noteEmbedSection('## Plan\nbody\n```\n## Other\n```\nmore', 'Plan'))
+      .toBe('## Plan\nbody\n```\n## Other\n```\nmore');
+  });
+
   it('selects a paragraph or list item by block identifier', () => {
     expect(noteEmbedSection('Before\n\nParagraph text ^paragraph-id\n\nAfter', null, 'paragraph-id'))
       .toBe('Paragraph text');
