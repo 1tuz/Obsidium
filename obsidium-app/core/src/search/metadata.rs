@@ -1,10 +1,10 @@
 use super::created::{CreatedAt, CreatedSource};
 use super::error::SearchError;
-use rusqlite::{Connection, Row, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FileState {
@@ -17,7 +17,18 @@ pub struct FileState {
 pub type Fingerprint = (i64, i64);
 pub type PathKey = [u8; 16];
 
-const SCHEMA_VERSION: i64 = 13;
+const SCHEMA_VERSION: i64 = 14;
+
+const INDEX_STATE_DDL: &str = "CREATE TABLE IF NOT EXISTS index_state (
+           id INTEGER PRIMARY KEY CHECK (id = 0),
+           scan_started_ns INTEGER NOT NULL DEFAULT 0,
+           scan_completed_ns INTEGER NOT NULL DEFAULT 0,
+           max_mtime_ns INTEGER NOT NULL DEFAULT 0,
+           clean_shutdown INTEGER NOT NULL DEFAULT 0,
+           analyzer_version INTEGER NOT NULL DEFAULT 0
+          )";
+
+const INDEX_STATE_ROW: &str = "INSERT OR IGNORE INTO index_state (id) VALUES (0)";
 
 const DOCUMENTS_DDL: &str = "CREATE TABLE IF NOT EXISTS documents (
            path TEXT PRIMARY KEY,
@@ -52,7 +63,9 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
          PRAGMA busy_timeout=3000;
          PRAGMA wal_autocheckpoint=1000;
          PRAGMA journal_size_limit=33554432;
-         {DOCUMENTS_DDL};"
+         {DOCUMENTS_DDL};
+         {INDEX_STATE_DDL};
+         {INDEX_STATE_ROW};"
     ))?;
     if version < 9 {
         connection.execute_batch(&format!(
@@ -60,7 +73,10 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
              DROP TABLE IF EXISTS wiki_documents;
              DROP TABLE IF EXISTS note_fields;
              DROP TABLE IF EXISTS documents;
+             DROP TABLE IF EXISTS index_state;
              {DOCUMENTS_DDL};
+             {INDEX_STATE_DDL};
+             {INDEX_STATE_ROW};
              PRAGMA user_version={SCHEMA_VERSION};"
         ))?;
         connection.execute_batch("VACUUM;")?;
@@ -91,6 +107,93 @@ pub fn maintain(connection: &Connection) -> Result<(), SearchError> {
     }
     connection.execute_batch("PRAGMA wal_checkpoint(PASSIVE);")?;
     Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct IndexState {
+    pub scan_started_ns: i64,
+    pub scan_completed_ns: i64,
+    pub max_mtime_ns: i64,
+    pub clean_shutdown: bool,
+    pub analyzer_version: u32,
+}
+
+pub fn read_state(connection: &Connection) -> Result<IndexState, SearchError> {
+    let state = connection
+        .query_row(
+            "SELECT scan_started_ns, scan_completed_ns, max_mtime_ns, clean_shutdown, analyzer_version
+             FROM index_state WHERE id=0",
+            [],
+            |row| {
+                Ok(IndexState {
+                    scan_started_ns: row.get(0)?,
+                    scan_completed_ns: row.get(1)?,
+                    max_mtime_ns: row.get(2)?,
+                    clean_shutdown: row.get(3)?,
+                    analyzer_version: row.get::<_, i64>(4)? as u32,
+                })
+            },
+        )
+        .optional()?;
+    Ok(state.unwrap_or_default())
+}
+
+pub fn begin_scan(connection: &Connection) -> Result<(), SearchError> {
+    connection.execute(
+        "UPDATE index_state
+         SET scan_started_ns=?1, scan_completed_ns=0, clean_shutdown=0
+         WHERE id=0",
+        [now_ns()],
+    )?;
+    Ok(())
+}
+
+pub fn finish_scan(connection: &Connection, max_mtime_ns: i64) -> Result<(), SearchError> {
+    connection.execute(
+        "UPDATE index_state
+         SET scan_completed_ns=?1,
+             max_mtime_ns=MAX(max_mtime_ns, ?2),
+             analyzer_version=?3,
+             clean_shutdown=1
+         WHERE id=0",
+        params![now_ns(), max_mtime_ns, i64::from(super::ANALYZER_VERSION)],
+    )?;
+    Ok(())
+}
+
+pub fn mark_unclean(connection: &Connection) -> Result<(), SearchError> {
+    connection.execute("UPDATE index_state SET clean_shutdown=0 WHERE id=0", [])?;
+    Ok(())
+}
+
+pub fn count(connection: &Connection) -> Result<u64, SearchError> {
+    let count: i64 =
+        connection.query_row("SELECT COUNT(*) FROM documents", [], |row| row.get(0))?;
+    Ok(count as u64)
+}
+
+pub fn stored_fingerprints(
+    connection: &Connection,
+) -> Result<HashMap<PathKey, (String, Fingerprint)>, SearchError> {
+    let mut statement = connection.prepare("SELECT path, modified_ns, size FROM documents")?;
+    let rows = statement.query_map([], |row| {
+        let path = row.get::<_, String>(0)?;
+        let fingerprint = (row.get::<_, i64>(1)?, row.get::<_, i64>(2)?);
+        Ok((key(&path), (path, fingerprint)))
+    })?;
+    let mut fingerprints: HashMap<PathKey, (String, Fingerprint)> = HashMap::new();
+    for row in rows {
+        let (path_key, value) = row?;
+        fingerprints.insert(path_key, value);
+    }
+    Ok(fingerprints)
+}
+
+fn now_ns() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos().min(i64::MAX as u128) as i64)
+        .unwrap_or_default()
 }
 
 const FILE_STATE_COLUMNS: &str =
@@ -166,9 +269,20 @@ pub fn key(path: &str) -> PathKey {
 
 #[cfg(test)]
 mod tests {
-    use super::{key, load, open, SCHEMA_VERSION};
+    use super::{key, load, open, read_state, IndexState, SCHEMA_VERSION};
     use crate::search::created::CreatedSource;
     use rusqlite::Connection;
+
+    const SCHEMA_V13: &str = "CREATE TABLE documents (
+           path TEXT PRIMARY KEY,
+           modified_ns INTEGER NOT NULL,
+           size INTEGER NOT NULL,
+           content_hash BLOB NOT NULL,
+           analyzer_version INTEGER NOT NULL DEFAULT 0,
+           created_ns INTEGER NOT NULL DEFAULT 0,
+           created_source INTEGER NOT NULL DEFAULT 0
+          ) WITHOUT ROWID;
+         PRAGMA user_version=13;";
 
     const SCHEMA_V10: &str = "CREATE TABLE documents (
            path TEXT PRIMARY KEY,
@@ -227,5 +341,27 @@ mod tests {
         let timeline = crate::search::graph::timeline::range(&connection)
             .expect("timeline schema and baseline survive migration");
         assert_eq!(timeline.baseline_event, 0);
+    }
+
+    #[test]
+    fn upgrade_adds_an_unconfirmed_index_state() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("documents.sqlite3");
+        let legacy = Connection::open(&path).expect("legacy database");
+        legacy.execute_batch(SCHEMA_V13).expect("legacy schema");
+        drop(legacy);
+
+        let connection = open(&path).expect("upgraded database");
+        let rows: i64 = connection
+            .query_row("SELECT COUNT(*) FROM index_state", [], |row| row.get(0))
+            .expect("index_state table");
+        let state = read_state(&connection).expect("index state");
+
+        assert_eq!(rows, 1, "таблица состояния создана миграцией");
+        assert_eq!(
+            state,
+            IndexState::default(),
+            "неподтверждённое состояние заставляет первый старт идти полным сканом"
+        );
     }
 }

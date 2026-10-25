@@ -267,8 +267,13 @@ BM25F анализ ограничивает query 64 terms и candidate pool 256
 1. Проверить active workspace path и отсутствие `InvalidWorkspace`.
 2. Дождаться `state=ready` и `updating=false`.
 3. Проверить `indexedDocuments` против числа Markdown-файлов.
-4. Проверить существование cache directory для BLAKE3 root.
-5. Проверить SQLite counts:
+4. Если каждый старт заново идёт полным сканом, посмотреть строку `index_state` в
+   `documents.sqlite3`: `clean_shutdown = 0` (прошлый запуск не довёл запись до конца),
+   `analyzer_version` не равен текущему или число строк в `documents` не совпадает с числом
+   документов Tantivy. Планы Full/Verify/Ready и смысл `clean_shutdown` разобраны в
+   [[search-indexing-workspaces-part-1]], раздел 10.
+5. Проверить существование cache directory для BLAKE3 root.
+6. Проверить SQLite counts:
 
 ```sql
 SELECT COUNT(*) FROM documents;
@@ -276,10 +281,10 @@ SELECT COUNT(*) FROM wiki_documents;
 SELECT COUNT(*) FROM wiki_links;
 ```
 
-6. Проверить, что target действительно разрешается: title/path key, регистр, duplicate names и папка.
-7. Для AA проверить, что у текущей заметки есть resolved links и есть кандидат через общего соседа.
-8. Для BM25F проверить, что заметка содержит terms длиной минимум два символа и terms не отфильтрованы как слишком распространенные.
-9. При смене хранилища проверить, что новый запрос передает новый `workspacePath`, а старый async result не применился.
+7. Проверить, что target действительно разрешается: title/path key, регистр, duplicate names и папка.
+8. Для AA проверить, что у текущей заметки есть resolved links и есть кандидат через общего соседа.
+9. Для BM25F проверить, что заметка содержит terms длиной минимум два символа и terms не отфильтрованы как слишком распространенные.
+10. При смене хранилища проверить, что новый запрос передает новый `workspacePath`, а старый async result не применился.
 
 ## 13. Итоговая оценка
 

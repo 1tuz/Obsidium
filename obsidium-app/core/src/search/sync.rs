@@ -28,6 +28,19 @@ pub struct IndexSynchronizer {
     progress: Arc<IndexProgress>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ScanPlan {
+    Full,
+    Verify,
+    Ready,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ScanSummary {
+    pub max_mtime_ns: i64,
+    pub changed: bool,
+}
+
 struct PendingPrepare {
     key: String,
     probe: Probe,
@@ -50,7 +63,34 @@ impl IndexSynchronizer {
         })
     }
 
-    pub fn full_scan(&mut self, cancelled: &AtomicBool) -> Result<(), SearchError> {
+    pub fn plan(&self) -> Result<ScanPlan, SearchError> {
+        let state = metadata::read_state(&self.connection)?;
+        if !state.clean_shutdown
+            || state.analyzer_version != crate::search::ANALYZER_VERSION
+            || metadata::count(&self.connection)? != self.index.document_count()
+        {
+            return Ok(ScanPlan::Full);
+        }
+        Ok(if state.scan_completed_ns > 0 {
+            ScanPlan::Ready
+        } else {
+            ScanPlan::Verify
+        })
+    }
+
+    pub fn mark_unclean(&self) -> Result<(), SearchError> {
+        metadata::mark_unclean(&self.connection)
+    }
+
+    pub fn begin_scan(&self) -> Result<(), SearchError> {
+        metadata::begin_scan(&self.connection)
+    }
+
+    pub fn finish_scan(&self, max_mtime_ns: i64) -> Result<(), SearchError> {
+        metadata::finish_scan(&self.connection, max_mtime_ns)
+    }
+
+    pub fn full_scan(&mut self, cancelled: &AtomicBool) -> Result<ScanSummary, SearchError> {
         self.progress.begin_scan();
         let mut known = metadata::load(&self.connection)?;
         let force_reindex = known.len() as u64 != self.index.document_count();
@@ -60,6 +100,8 @@ impl IndexSynchronizer {
         let mut timeline_paths = Vec::new();
         let mut processed = 0;
         let mut graph_changed = false;
+        let mut changed = false;
+        let mut max_mtime_ns = 0;
         let mut prepare_batch = Vec::<PendingPrepare>::with_capacity(PREPARE_BATCH_SIZE);
 
         for entry in WalkDir::new(&self.root)
@@ -69,30 +111,36 @@ impl IndexSynchronizer {
             .filter_map(Result::ok)
         {
             if cancelled.load(Ordering::Relaxed) {
-                return Ok(());
+                return Ok(ScanSummary {
+                    max_mtime_ns,
+                    changed,
+                });
             }
             if !entry.file_type().is_file() || !is_markdown(entry.path()) {
                 continue;
             }
             self.progress.scanned_one();
             processed += 1;
-            if let Some((key, file_probe)) = probe(entry.path(), &mut known, force_reindex) {
-                prepare_batch.push(PendingPrepare {
-                    key,
-                    probe: file_probe,
-                    path: entry.path().to_path_buf(),
-                });
-                if prepare_batch.len() >= PREPARE_BATCH_SIZE {
-                    flush_prepare_batch(
-                        &self.root,
-                        &self.index,
-                        &mut self.writer,
-                        &transaction,
-                        &mut prepare_batch,
-                        &mut pending,
-                        &mut timeline_paths,
-                        &mut graph_changed,
-                    )?;
+            if let Some(probed) = probe(entry.path(), &mut known, force_reindex) {
+                max_mtime_ns = max_mtime_ns.max(probed.fingerprint.0);
+                if let Some(file_probe) = probed.probe {
+                    prepare_batch.push(PendingPrepare {
+                        key: probed.key,
+                        probe: file_probe,
+                        path: entry.path().to_path_buf(),
+                    });
+                    if prepare_batch.len() >= PREPARE_BATCH_SIZE {
+                        flush_prepare_batch(
+                            &self.root,
+                            &self.index,
+                            &mut self.writer,
+                            &transaction,
+                            &mut prepare_batch,
+                            &mut pending,
+                            &mut timeline_paths,
+                            &mut graph_changed,
+                        )?;
+                    }
                 }
             }
             if processed >= COMMIT_BATCH_SIZE {
@@ -107,6 +155,7 @@ impl IndexSynchronizer {
                     &mut graph_changed,
                 )?;
                 if pending > 0 {
+                    changed = true;
                     super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
                     commit(&mut self.writer, &self.index, &self.progress)?;
                 }
@@ -127,7 +176,7 @@ impl IndexSynchronizer {
             &mut timeline_paths,
             &mut graph_changed,
         )?;
-        remove_stale(
+        changed |= remove_stale(
             &self.index,
             &mut self.writer,
             &transaction,
@@ -140,6 +189,7 @@ impl IndexSynchronizer {
             super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
         }
         if pending > 0 {
+            changed = true;
             commit(&mut self.writer, &self.index, &self.progress)?;
         }
         transaction.commit()?;
@@ -148,7 +198,58 @@ impl IndexSynchronizer {
             self.index.bump_graph_revision();
         }
         self.progress.completed(self.index.document_count());
-        Ok(())
+        Ok(ScanSummary {
+            max_mtime_ns,
+            changed,
+        })
+    }
+
+    pub fn verify(&mut self, cancelled: &AtomicBool) -> Result<ScanSummary, SearchError> {
+        let mut known = metadata::stored_fingerprints(&self.connection)?;
+        let mut changed_paths = HashSet::new();
+        let mut max_mtime_ns = 0;
+        for entry in WalkDir::new(&self.root)
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(is_visible_entry)
+            .filter_map(Result::ok)
+        {
+            if cancelled.load(Ordering::Relaxed) {
+                return Ok(ScanSummary {
+                    max_mtime_ns,
+                    changed: false,
+                });
+            }
+            if !entry.file_type().is_file() || !is_markdown(entry.path()) {
+                continue;
+            }
+            let Ok(file_metadata) = entry.metadata() else {
+                continue;
+            };
+            let fingerprint = metadata::fingerprint(&file_metadata);
+            max_mtime_ns = max_mtime_ns.max(fingerprint.0);
+            let key = entry.path().to_string_lossy().into_owned();
+            match known.remove(&metadata::key(&key)) {
+                Some((_, stored)) if stored == fingerprint => {}
+                _ => {
+                    changed_paths.insert(entry.path().to_path_buf());
+                }
+            }
+        }
+        for (_, (path, _)) in known {
+            changed_paths.insert(PathBuf::from(path));
+        }
+        if changed_paths.is_empty() || cancelled.load(Ordering::Relaxed) {
+            return Ok(ScanSummary {
+                max_mtime_ns,
+                changed: false,
+            });
+        }
+        let changed = self.apply_paths(changed_paths)?;
+        Ok(ScanSummary {
+            max_mtime_ns,
+            changed,
+        })
     }
 
     pub fn holds_writer(&self) -> bool {
@@ -281,8 +382,9 @@ fn remove_stale(
     progress: &IndexProgress,
     timeline_paths: &mut Vec<String>,
     graph_changed: &mut bool,
-) -> Result<(), SearchError> {
+) -> Result<bool, SearchError> {
     let mut cursor = String::new();
+    let mut changed = false;
     loop {
         let paths = metadata::paths_after(transaction, &cursor, COMMIT_BATCH_SIZE)?;
         let Some(last) = paths.last() else { break };
@@ -304,10 +406,11 @@ fn remove_stale(
             removed += 1;
         }
         if removed > 0 {
+            changed = true;
             commit(writer, index, progress)?;
         }
     }
-    Ok(())
+    Ok(changed)
 }
 
 fn commit(
@@ -372,7 +475,7 @@ fn hash_graph_value(hash: &mut blake3::Hasher, value: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{graph_state, IndexSynchronizer};
+    use super::{graph_state, IndexSynchronizer, ScanPlan};
     use crate::search::index::SearchIndex;
     use crate::search::progress::IndexProgress;
     use std::collections::HashSet;
@@ -502,6 +605,132 @@ mod tests {
                 .latest_event
                 > initial_latest,
             "изменение ссылок записано в историю графа"
+        );
+    }
+
+    fn open_synchronizer(
+        directory: &std::path::Path,
+        index: &Arc<SearchIndex>,
+    ) -> (std::path::PathBuf, IndexSynchronizer) {
+        let vault = crate::search::paths::canonical_path(directory).join("vault");
+        fs::create_dir_all(&vault).unwrap();
+        let synchronizer = IndexSynchronizer::new(
+            vault.clone(),
+            Arc::clone(index),
+            &directory.join("documents.sqlite3"),
+            Arc::new(IndexProgress::new(0, 1)),
+        )
+        .unwrap();
+        (vault, synchronizer)
+    }
+
+    #[test]
+    fn clean_state_plans_ready_and_verifies_without_changes() {
+        let directory = tempfile::tempdir().unwrap();
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let (vault, mut synchronizer) = open_synchronizer(directory.path(), &index);
+        fs::write(vault.join("Заметка.md"), "первое слово").unwrap();
+        fs::write(vault.join("Вторая.md"), "второе слово").unwrap();
+        let cancelled = AtomicBool::new(false);
+
+        assert_eq!(
+            synchronizer.plan().unwrap(),
+            ScanPlan::Full,
+            "первый запуск не имеет подтверждённого состояния"
+        );
+        let summary = synchronizer.full_scan(&cancelled).unwrap();
+        assert!(summary.changed);
+        synchronizer.finish_scan(summary.max_mtime_ns).unwrap();
+
+        assert_eq!(synchronizer.plan().unwrap(), ScanPlan::Ready);
+        let summary = synchronizer.verify(&cancelled).unwrap();
+        assert!(!summary.changed, "неизменённый vault не даёт работы");
+        assert_eq!(synchronizer.plan().unwrap(), ScanPlan::Ready);
+    }
+
+    #[test]
+    fn verify_after_ready_applies_the_changed_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let (vault, mut synchronizer) = open_synchronizer(directory.path(), &index);
+        let note = vault.join("Заметка.md");
+        fs::write(&note, "первое слово").unwrap();
+        let cancelled = AtomicBool::new(false);
+        let summary = synchronizer.full_scan(&cancelled).unwrap();
+        synchronizer.finish_scan(summary.max_mtime_ns).unwrap();
+        assert_eq!(synchronizer.plan().unwrap(), ScanPlan::Ready);
+
+        fs::write(&note, "изменённое содержимое").unwrap();
+        let summary = synchronizer.verify(&cancelled).unwrap();
+
+        assert!(summary.changed, "сверка нашла изменённый файл");
+        assert!(
+            !index.search_defaults("изменённое", 5).unwrap().1.is_empty(),
+            "найденное изменение применено к индексу"
+        );
+    }
+
+    #[test]
+    fn broken_state_plans_a_full_scan() {
+        let directory = tempfile::tempdir().unwrap();
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let (vault, mut synchronizer) = open_synchronizer(directory.path(), &index);
+        fs::write(vault.join("Заметка.md"), "первое слово").unwrap();
+        let cancelled = AtomicBool::new(false);
+        let summary = synchronizer.full_scan(&cancelled).unwrap();
+        synchronizer.finish_scan(summary.max_mtime_ns).unwrap();
+        assert_eq!(synchronizer.plan().unwrap(), ScanPlan::Ready);
+
+        let connection =
+            crate::search::metadata::open(&directory.path().join("documents.sqlite3")).unwrap();
+        crate::search::metadata::mark_unclean(&connection).unwrap();
+        assert_eq!(
+            synchronizer.plan().unwrap(),
+            ScanPlan::Full,
+            "аварийное завершение требует полного скана"
+        );
+
+        connection
+            .execute(
+                "UPDATE index_state SET clean_shutdown=1, scan_completed_ns=0",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            synchronizer.plan().unwrap(),
+            ScanPlan::Verify,
+            "без записи о завершённом скане сначала идёт сверка"
+        );
+
+        connection
+            .execute(
+                "UPDATE index_state SET clean_shutdown=1, analyzer_version=0",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            synchronizer.plan().unwrap(),
+            ScanPlan::Full,
+            "другая версия анализатора требует полного скана"
+        );
+
+        connection
+            .execute(
+                "UPDATE index_state SET analyzer_version=?1, scan_completed_ns=1",
+                [crate::search::ANALYZER_VERSION],
+            )
+            .unwrap();
+        assert_eq!(synchronizer.plan().unwrap(), ScanPlan::Ready);
+        connection
+            .execute(
+                "INSERT INTO documents(path, modified_ns, size, content_hash) VALUES('C:/чужой.md', 1, 1, x'00')",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            synchronizer.plan().unwrap(),
+            ScanPlan::Full,
+            "расхождение числа документов требует полного скана"
         );
     }
 }
