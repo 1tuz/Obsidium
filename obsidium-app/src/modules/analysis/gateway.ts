@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { AnalysisMethod, AnalysisResult } from './types';
+import type { KnowledgeReport } from './report';
 
 export function analyzeDocument(
   workspacePath: string,
@@ -13,4 +14,11 @@ export function analyzeDocument(
     method,
     limit,
   });
+}
+
+export function knowledgeReport(
+  workspacePath: string,
+  staleAfterDays: number,
+): Promise<KnowledgeReport> {
+  return invoke<KnowledgeReport>('get_knowledge_report', { workspacePath, staleAfterDays });
 }

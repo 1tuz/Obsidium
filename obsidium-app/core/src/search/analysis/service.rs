@@ -3,6 +3,7 @@ use super::duplicates;
 use super::graph::GraphSnapshot;
 use super::mentions;
 use super::models::{AnalysisMethod, AnalysisResult};
+use super::report::{self, KnowledgeReport};
 use crate::search::error::SearchError;
 use crate::search::models::SearchIndexState;
 use crate::search::paths::canonical_path;
@@ -133,6 +134,19 @@ impl SearchService {
                 ))
             })?;
         self.link_graph(&root, generation, revision, &metadata, cacheable)
+    }
+
+    pub fn knowledge_report(
+        &self,
+        workspace: &str,
+        stale_after_days: Option<u64>,
+    ) -> Result<KnowledgeReport, SearchError> {
+        let days = report::stale_after_days(stale_after_days);
+        let now = report::now_ns();
+        self.with_metadata(workspace, |open, connection| {
+            let indexing = open.progress.snapshot().updating;
+            report::build(connection, &open.root, days, now, indexing)
+        })
     }
 
     fn link_graph(

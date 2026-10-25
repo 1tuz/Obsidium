@@ -27,6 +27,7 @@
 
 .q-base-editor__name,
 .q-base-editor__limit,
+.q-base-editor__value,
 .q-base-editor__row select {
   min-height: var(--q-size-32);
   min-width: 0;
@@ -41,6 +42,7 @@
 
 .q-base-editor__name:focus-visible,
 .q-base-editor__limit:focus-visible,
+.q-base-editor__value:focus-visible,
 .q-base-editor__row select:focus-visible {
   outline: var(--q-border-2) solid var(--q-border-focus);
 }
@@ -61,7 +63,8 @@
   gap: var(--q-space-4);
 }
 
-.q-base-editor__sort-row {
+.q-base-editor__sort-row,
+.q-base-editor__column-row {
   display: flex;
   align-items: center;
   gap: var(--q-space-4);
@@ -70,7 +73,8 @@
   background: var(--q-bg-surface-hover);
 }
 
-.q-base-editor__sort-row > span {
+.q-base-editor__sort-row > span,
+.q-base-editor__column-row > span {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -79,7 +83,8 @@
   white-space: nowrap;
 }
 
-.q-base-editor__sort-row button {
+.q-base-editor__sort-row button,
+.q-base-editor__column-row button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -92,16 +97,19 @@
   cursor: pointer;
 }
 
-.q-base-editor__sort-row button:hover {
+.q-base-editor__sort-row button:hover,
+.q-base-editor__column-row button:hover {
   background: var(--q-bg-surface-hover);
   color: var(--q-text-primary);
 }
 
-.q-base-editor__sort-row button:focus-visible {
+.q-base-editor__sort-row button:focus-visible,
+.q-base-editor__column-row button:focus-visible {
   outline: var(--q-border-2) solid var(--q-border-focus);
 }
 
-.q-base-editor__sort-row button svg {
+.q-base-editor__sort-row button svg,
+.q-base-editor__column-row button svg {
   width: var(--q-size-16);
   height: var(--q-size-16);
 }

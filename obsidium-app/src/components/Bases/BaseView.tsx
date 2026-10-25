@@ -459,6 +459,11 @@ export function BaseView({
           property: entry.property,
           direction: entry.direction === 'DESC' ? 'DESC' : 'ASC',
         }));
+        target.order = [...edit.order];
+        if (edit.filters !== undefined) {
+          if (edit.filters === null) delete target.filters;
+          else target.filters = edit.filters;
+        }
         setRelationProperties(definition, edit.relations);
       });
     } catch (error) {

@@ -1,0 +1,120 @@
+.q-activity-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-8);
+  min-width: 0;
+  color: var(--q-text-primary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-base);
+}
+
+.q-activity-heatmap__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-8);
+}
+
+.q-activity-heatmap__title {
+  margin: 0;
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-base);
+  font-weight: var(--q-font-weight-ui-medium);
+}
+
+.q-activity-heatmap__status {
+  margin: 0;
+  color: var(--q-text-tertiary);
+}
+
+.q-activity-heatmap__plot {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: auto repeat(7, var(--q-size-12));
+  gap: var(--q-space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: var(--q-space-2);
+  scrollbar-width: thin;
+}
+
+.q-activity-heatmap__month,
+.q-activity-heatmap__weekday {
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+  line-height: var(--q-size-12);
+  white-space: nowrap;
+}
+
+.q-activity-heatmap__weekday {
+  align-self: center;
+}
+
+.q-activity-heatmap__day {
+  display: block;
+  width: var(--q-size-12);
+  height: var(--q-size-12);
+  padding: 0;
+  border: var(--q-border-1) solid transparent;
+  border-radius: var(--q-radius-sm);
+  background-color: var(--q-bg-surface-subtle);
+  cursor: pointer;
+}
+
+.q-activity-heatmap__day[data-level="1"] {
+  background-color: var(--q-blue-alpha-15);
+}
+
+.q-activity-heatmap__day[data-level="2"] {
+  background-color: var(--q-blue-alpha-32);
+}
+
+.q-activity-heatmap__day[data-level="3"] {
+  background-color: var(--q-blue-alpha-60);
+}
+
+.q-activity-heatmap__day[data-level="4"] {
+  background-color: var(--q-blue-alpha-90);
+}
+
+.q-activity-heatmap__day[aria-hidden="true"] {
+  background-color: transparent;
+  cursor: default;
+}
+
+.q-activity-heatmap__day[aria-pressed="true"] {
+  border-color: var(--q-border-focus);
+}
+
+.q-activity-heatmap__day:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-1);
+}
+
+.q-activity-heatmap__readout,
+.q-activity-heatmap__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--q-space-6);
+  margin: 0;
+  color: var(--q-text-secondary);
+}
+
+.q-activity-heatmap__readout {
+  min-height: var(--q-size-16);
+}
+
+.q-activity-heatmap__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--q-space-2);
+  margin-inline-start: auto;
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-activity-heatmap__legend .q-activity-heatmap__day {
+  cursor: default;
+}

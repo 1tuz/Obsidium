@@ -5,6 +5,7 @@ import { Button } from '../Common/Button';
 import { DeleteNotesDialog } from '../Common/DeleteNotesDialog';
 import { EmptyState } from '../Common/EmptyState';
 import { FileTree } from './FileTree';
+import { InsightsPanel } from '../Analysis/InsightsPanel';
 import { t } from '../../i18n';
 import { SidebarFooter } from './SidebarFooter';
 import { buildVisibleFileRows, unloadedExpandedFolders, type FileTreeActions } from './fileTreeModel';
@@ -18,6 +19,7 @@ import { useFileSelection } from './useFileSelection';
 import { useFileTreeActions } from './useFileTreeActions';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import './Sidebar.css';
+import { ActivityHeatmap } from '../Stats/ActivityHeatmap';
 import { BoardsPanel, type BoardActionRequest } from './BoardsPanel';
 import { SpaceSwitcher } from './SpaceSwitcher';
 import { SpacesDialog } from '../Spaces/SpacesDialog';
@@ -46,7 +48,7 @@ interface SidebarProps {
   onOpenWorkspaces: () => void;
   onToggleTheme: (origin: HTMLElement) => void;
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
-  panel?: 'files' | 'boards';
+  panel?: 'files' | 'boards' | 'insights';
   onOpenBaseView: (path: string, viewIndex: number) => void;
   onOpenAsText?: (path: string) => void;
   onBoardRenamed?: (oldPath: string, newPath: string) => void;
@@ -254,6 +256,14 @@ export const Sidebar = memo(function Sidebar({
             actionRequest={boardActionRequest ?? null}
             onActionRequestComplete={onBoardActionRequestComplete}
             createRequest={createBoardRequest}
+          />
+        </div>
+        <div hidden={panel !== 'insights'} className="q-sidebar-insights">
+          <InsightsPanel
+            active={isOpen && panel === 'insights'}
+            workspacePath={workspacePath}
+            onOpenNote={onFileSelect}
+            activity={<ActivityHeatmap workspacePath={workspacePath} />}
           />
         </div>
       </div>

@@ -12,9 +12,11 @@ interface SidebarRailProps {
   onOpenSettings?: () => void;
   onOpenBoards?: () => void;
   onOpenFiles?: () => void;
+  onOpenInsights?: () => void;
   onOpenCanvas?: () => void;
   boardsActive?: boolean;
   filesActive?: boolean;
+  insightsActive?: boolean;
   canvasActive?: boolean;
 }
 
@@ -26,9 +28,11 @@ export function SidebarRail({
   onOpenSettings,
   onOpenBoards,
   onOpenFiles,
+  onOpenInsights,
   onOpenCanvas,
   boardsActive = false,
   filesActive = false,
+  insightsActive = false,
   canvasActive = false,
 }: SidebarRailProps) {
   return (
@@ -82,6 +86,16 @@ export function SidebarRail({
             onClick={onOpenFiles}
           >
             <Icon icon={FolderTree} />
+          </IconButton>
+        )}
+        {onOpenInsights && (
+          <IconButton
+            label={t('rail.insights')}
+            size="medium"
+            aria-pressed={insightsActive}
+            onClick={onOpenInsights}
+          >
+            <Icon icon="timeline" />
           </IconButton>
         )}
         {onOpenCanvas && (

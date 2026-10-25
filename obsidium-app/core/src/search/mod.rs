@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod analysis;
 pub mod analyzer;
 pub mod bases;

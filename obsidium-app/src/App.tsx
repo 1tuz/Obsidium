@@ -118,7 +118,7 @@ export default function App() {
     nonce: string;
   } | null>(null);
   const [homePagePath, setHomePagePath] = useState<string | null>(null);
-  const [sidebarPanel, setSidebarPanel] = useState<'files' | 'boards'>('files');
+  const [sidebarPanel, setSidebarPanel] = useState<'files' | 'boards' | 'insights'>('files');
   const [boardActionRequest, setBoardActionRequest] = useState<BoardActionRequest | null>(null);
   const [createBoardRequest, setCreateBoardRequest] = useState(0);
   const [baseViewRequest, setBaseViewRequest] = useState<{ path: string; index: number; id: number; paneId: string } | null>(null);
@@ -545,6 +545,13 @@ export default function App() {
     setLeftSidebarOpen(true);
   }, [setLeftSidebarOpen]);
 
+  const toggleInsights = useCallback(() => {
+    setSidebarPanel((current) => (
+      leftSidebarVisible && current === 'insights' ? 'files' : 'insights'
+    ));
+    setLeftSidebarOpen(true);
+  }, [leftSidebarVisible, setLeftSidebarOpen]);
+
   const toggleBoards = useCallback(() => {
     if (!kanbanEnabled) return;
     setSidebarPanel((current) => leftSidebarVisible && current === 'boards' ? 'files' : 'boards');
@@ -933,10 +940,12 @@ export default function App() {
             : undefined}
           onOpenBoards={focusMode || !kanbanEnabled ? undefined : toggleBoards}
           onOpenFiles={focusMode ? undefined : openFileManager}
+          onOpenInsights={focusMode ? undefined : toggleInsights}
           onOpenCanvas={focusMode ? undefined : openCanvas}
           canvasActive={Boolean(activeFile && isCanvasPath(activeFile))}
           boardsActive={sidebarPanel === 'boards' && leftSidebarVisible}
           filesActive={sidebarPanel === 'files' && leftSidebarVisible}
+          insightsActive={sidebarPanel === 'insights' && leftSidebarVisible}
         />
         <Sidebar
           activeFile={activeFile}

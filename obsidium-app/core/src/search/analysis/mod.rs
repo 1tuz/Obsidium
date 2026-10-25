@@ -3,6 +3,7 @@ pub mod duplicates;
 pub mod graph;
 pub mod mentions;
 pub mod models;
+pub mod report;
 pub mod service;
 
 #[cfg(test)]
