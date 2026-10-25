@@ -45,4 +45,22 @@ describe('parseBase', () => {
 
     expect(base.filters).toEqual({ unsupported: true });
   });
+
+  it('reads formula expressions and drops empty ones', () => {
+    const source = [
+      'formulas:',
+      '  risk: \'if(priority == "high", 1, 0)\'',
+      '  empty: ""',
+      'views:',
+      '  - type: table',
+      '    order:',
+      '      - formula.risk',
+      '',
+    ].join('\n');
+
+    const base = parseBase(source);
+
+    expect(base.formulas).toEqual({ risk: 'if(priority == "high", 1, 0)' });
+    expect(base.unsupportedKeys).not.toContain('formulas');
+  });
 });

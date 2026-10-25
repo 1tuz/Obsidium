@@ -16,14 +16,16 @@
 
 | Слой | Файл | Роль |
 | --- | --- | --- |
-| Парсер `.base` | `src/modules/bases/baseFormat.ts` | YAML → `BaseDefinition` (`views`, `filters`, `propertyLabels`, `unsupportedKeys`) |
-| Движок | `core/src/search/bases/mod.rs` | фильтры, сортировка, `groupBy`, `limit`, колонки, `unsupported` |
+| Парсер `.base` | `src/modules/bases/baseFormat.ts` | YAML → `BaseDefinition` (`views`, `filters`, `formulas`, `propertyLabels`, `unsupportedKeys`) |
+| Движок | `core/src/search/bases/mod.rs` | фильтры, сортировка, `groupBy`, `limit`, колонки, `unsupported`, `errors` |
+| Формулы | `core/src/search/bases/formulas.rs` | `formulas:` считается вычислителем `dataview` и подставляется в строку как `formula.<имя>` |
 | Сервис | `core/src/search/bases/service.rs` | `SearchService::query_base` — берёт строки из `base_rows` и передаёт их движку |
 | IPC | `src-tauri/src/search/commands.rs::query_base` | `query_base(workspacePath, query)` |
 | Шлюз | `src/modules/bases/gateway.ts::queryBase` | типизированный вызов из UI |
-| UI | `src/components/Bases/BaseView.tsx` | рисует `rows`, `groups`, `columns`, `unsupported` |
+| UI | `src/components/Bases/BaseView.tsx` | рисует `rows`, `groups`, `columns`, `unsupported`, `errors` |
 
-Запрос: `BaseQuery { definition, viewIndex, sort }`. Ответ: `BaseEvaluation { rows, groups, columns, unsupported }`.
+Запрос: `BaseQuery { definition, viewIndex, sort }`.
+Ответ: `BaseEvaluation { rows, groups, columns, unsupported, errors }`.
 Парсер `.base` остаётся в TypeScript — движок не разбирает YAML повторно.
 
 ## Почему не в webview
@@ -33,9 +35,10 @@
 типичная таблица на 50–200 заметок вместо всего vault. `get_base_rows` остался только для
 потребителей, которым нужен полный список путей (`src/modules/canvas/recentNotes.ts`).
 
-Сортировка, фильтрация и группировка больше не дублируются: в TypeScript остались только
+Сортировка, фильтрация, группировка и формулы больше не дублируются: в TypeScript остались только
 `parseBase` (разбор файла) и `src/modules/bases/properties.ts::baseProperty` (показ значения в
-ячейке). Логику выборки меняем в одном месте — `core/src/search/bases/mod.rs`.
+ячейке). Логику выборки меняем в одном месте — `core/src/search/bases/mod.rs`, а выражения формул
+считает общий с `dataview` вычислитель (`core/src/search/bases/formulas.rs`).
 
 Исключение — раскладка доски: `modules/bases/kanban.ts::buildKanbanColumns` строит колонки из уже
 отобранных строк, потому что доске нужны и пустые колонки из `groupOrder`. Это раскладка, а не
@@ -55,17 +58,98 @@
   (направление из `groupBy.direction`); `rows` возвращаются уже разложенными по группам, а
   `groups` содержат диапазоны `start`/`end`.
 - Колонки: `view.order`, иначе `file.name` плюс первые 7 свойств из первых 50 строк результата.
+- Формулы: `formulas.<имя>` считается на каждую строку и подставляется в неё как `formula.<имя>` —
+  дальше это обычное свойство, см. «Формулы».
 - `limit` применяется после сортировки.
 
-`unsupported: true` означает, что выборка неполная: встретились формулы (`formula.*`), неизвестный
-ключ `.base` или неразобранное выражение фильтра. Строки в этом случае остаются видимыми — как и
-раньше, — но UI показывает предупреждение, чтобы неполный результат не выглядел точным.
+`unsupported: true` означает, что выборка неполная: встретился неизвестный ключ `.base` или
+неразобранное выражение фильтра. Строки в этом случае остаются видимыми — как и раньше, — но UI
+показывает предупреждение, чтобы неполный результат не выглядел точным. Сломанная формула сюда не
+относится: она даёт `null` в своей колонке и запись в `errors` (см. «Формулы»).
+
+## Формулы
+
+`formulas:` — отображение `имя: выражение` на верхнем уровне `.base`. Разбор остаётся в
+TypeScript (`parseBase` → `BaseDefinition.formulas`), а значения считает Rust в
+`core/src/search/bases/formulas.rs`:
+
+```yaml
+formulas:
+  risk: 'if(priority == "high", 1, 0)'
+```
+
+Выражение разбирает `parser::parse_expression` и вычисляет `eval::evaluate` — тот же вычислитель,
+что у `dataview`. Второго языка выражений нет: операторы, функции, приведение типов и правила
+истинности у `.base` и запросов одни и те же, поэтому новая функция добавляется один раз и сразу
+доступна в обоих местах. Два вычислителя разошлись бы в мелочах — в приоритете операторов, в том,
+что считать пустой строкой и числом, — и одна и та же формула отвечала бы по-разному в таблице и в
+блоке запроса.
+
+Результат подставляется в поля строки под ключом `formula.<имя>`: формула `risk` становится полем
+`formula.risk`. Дальше работает обычный `property()` — без особых случаев для формул. Поэтому
+`filters`, `views[].sort`, `groupBy`, `columns` и `view.order` пишут `formula.risk` как любое
+другое свойство: фильтр и сортировка по `formula.*` поддержаны.
+
+```yaml
+filters:
+  and:
+    - 'status != "готово"'
+    - 'formula.risk > 0'
+views:
+  - type: table
+    name: Риски
+    order: [file.name, formula.risk]
+    sort:
+      - property: formula.risk
+        direction: DESC
+```
+
+**Синтаксис.** Арифметика `+ - * / %`, сравнения `== != > >= < <=`, логика `and` / `or` / `not`,
+`if(условие, да, нет)`. Ветка `if` вычисляется лениво: считается только выбранная, поэтому ошибка в
+невыбранной (например, неизвестная функция) формулу не ломает. Строки: `lower`, `upper`, `length`,
+`contains`, `startswith`, `endswith`, `substring`, `replace`, `split`, `join`, `truncate`,
+`padleft`, `padright`. Числа: `round`, `floor`, `ceil`, `trunc`, `abs`, `sum`, `product`,
+`average`, `min`, `max`, `number`, `string`. Списки: `list`, `filter`, `map`, `any`, `all`, `sort`,
+`unique`, `flat`, `slice`, `firstvalue`, `lastvalue`, `nonnull`. Значения и даты: `default`,
+`choice`, `typeof`, `date`, `dateformat`, `dur`, `today`, `now`. Полные подписи и поведение каждой
+функции — в [[dataview-queries]], здесь они не дублируются.
+
+**Поля.** Голое имя (`priority`) читает свойство frontmatter или инлайн-поле заметки; `file.name`,
+`file.path`, `file.folder` и `file.tags` считаются полями файла. Отсутствующее свойство даёт `null`,
+а не ошибку, поэтому `default(priority, "нет")` — обычный способ подставить значение. Индекс строк
+Bases не хранит `file.ctime`, `file.mtime` и `file.size`, поэтому в формуле они читаются как ноль
+или пустая строка, а не как дата и размер заметки.
+
+**Ограничения.**
+
+- Формула не видит другие формулы. Все выражения считаются по исходным полям заметки, а
+  результаты подставляются в строку уже после. Поэтому `formula.x` внутри формулы — `null`, а
+  голое `x` означает поле frontmatter `x`, а не одноимённую формулу. Порядок объявления в
+  `formulas:` ни на что не влияет.
+- Сломанное выражение не прячет строку: значение колонки — `null`, строка остаётся в выборке,
+  `unsupported` не поднимается.
+- Даты, длительности и ссылки возвращаются текстом для показа в ячейке: `date("2024-10-07")` в
+  колонке — подпись даты, а не значение, по которому можно считать дальше.
+
+**Ошибки.** Ответ несёт `errors: Vec<BaseFormulaError>` — по записи на сломанную формулу:
+
+| Поле | Что содержит |
+| --- | --- |
+| `formula` | имя из `formulas:` |
+| `path` | путь заметки, на которой случилась ошибка; у ошибки разбора пустой |
+| `message` | текст ошибки парсера или вычислителя |
+
+Выражение разбирается один раз, поэтому ошибка синтаксиса записывается один раз с пустым `path`;
+ошибка времени вычисления запоминает первую строку, где она случилась. Записи схлопываются по паре
+`formula` + `message`: одна и та же ошибка на сотне заметок — одна запись, а не сотня.
 
 ## Паритет
 
 Кейсы прежнего `src/modules/bases/filter.test.ts` (файл стал `properties.test.ts`) перенесены в
 `core/src/search/bases/tests.rs`: рекурсивные фильтры с `file.*`, неизвестные выражения,
 числовая сортировка, массивы, `and`/`or`/`not`, группы, колонки, `limit`, вычисляемые свойства.
+Формулы проверяются там же: арифметика, `if`, строковые функции, отсутствующее свойство,
+сломанное выражение, сортировка и фильтр по `formula.*`.
 TS-тесты остались на форматирование и разбор: `properties.test.ts` проверяет `baseProperty`
 (подписи `file.*` и префикс `note.`), `baseFormat.test.ts` — `parseBase`/`serializeBase`,
 `cardCreation.test.ts` — содержимое создаваемой заметки.

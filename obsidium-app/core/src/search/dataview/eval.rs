@@ -235,6 +235,22 @@ fn at_index(base: &Value, index: &Value) -> Value {
 }
 
 fn call(name: &str, arguments: &[Expr], scope: &Scope<'_>) -> Result<Value, String> {
+    if name.eq_ignore_ascii_case("if") {
+        let condition = match arguments.first() {
+            Some(condition) => evaluate(condition, scope)?,
+            None => Value::Null,
+        };
+        let branch = if condition.truthy() {
+            arguments.get(1)
+        } else {
+            arguments.get(2)
+        };
+        return match branch {
+            Some(branch) => evaluate(branch, scope),
+            None => Ok(Value::Null),
+        };
+    }
+
     if let Some(Expr::Lambda { parameters, body }) = arguments
         .iter()
         .find(|argument| matches!(argument, Expr::Lambda { .. }))

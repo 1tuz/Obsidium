@@ -295,11 +295,19 @@ export function parseBase(raw: string): BaseDefinition {
   const views = Array.isArray(root.views)
     ? root.views.map(view).filter((item): item is BaseViewDefinition => item !== null)
     : [];
+  const formulas: Record<string, string> = {};
+  if (isObject(root.formulas)) {
+    for (const [key, expression] of Object.entries(root.formulas)) {
+      const source = text(expression).trim();
+      if (source) formulas[key] = source;
+    }
+  }
   return {
     raw,
     filters: filter(root.filters),
     views: views.length > 0 ? views : [{ type: 'table', name: 'Table', order: ['file.name'] }],
     propertyLabels,
+    formulas,
     unsupportedKeys: Object.keys(root).filter((key) => !SUPPORTED_TOP_LEVEL.has(key)),
   };
 }

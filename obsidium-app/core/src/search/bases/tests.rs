@@ -43,6 +43,14 @@ fn evaluation(
     evaluate(Path::new(ROOT), rows, &query)
 }
 
+fn formulas_query(formulas: Value, view: Value, sort: Value) -> BaseQuery {
+    query(json!({
+        "definition": { "formulas": formulas, "views": [view] },
+        "viewIndex": 0,
+        "sort": sort,
+    }))
+}
+
 fn paths(evaluation: &BaseEvaluation) -> Vec<&str> {
     evaluation
         .rows
@@ -68,7 +76,7 @@ fn recursive_filters_and_file_helpers_match_the_typescript_cases() {
 
 #[test]
 fn unknown_expressions_keep_rows_visible_and_report_them() {
-    let result = evaluation(json!("formula.score > 5"), json!([]), rows());
+    let result = evaluation(json!("file.hasLink(\"Note\")"), json!([]), rows());
     assert_eq!(result.rows.len(), 2);
     assert!(result.unsupported);
 }
@@ -165,14 +173,18 @@ fn unknown_operators_keep_rows_and_report_unsupported() {
 #[test]
 fn unsupported_nested_operand_still_keeps_the_row_visible() {
     let result = evaluation(
-        json!({ "or": ["status == \"doing\"", "formula.score > 1"] }),
+        json!({ "or": ["status == \"doing\"", "file.hasLink(\"Note\")"] }),
         json!([]),
         rows(),
     );
     assert_eq!(result.rows.len(), 2);
     assert!(result.unsupported);
 
-    let negated = evaluation(json!({ "not": "formula.score > 1" }), json!([]), rows());
+    let negated = evaluation(
+        json!({ "not": "file.hasLink(\"Note\")" }),
+        json!([]),
+        rows(),
+    );
     assert_eq!(negated.rows.len(), 2);
     assert!(negated.unsupported);
 }
@@ -238,7 +250,9 @@ fn unsupported_definition_keys_and_formula_columns_flag_the_result() {
         },
         "viewIndex": 0,
     }));
-    assert!(evaluate(Path::new(ROOT), rows(), &formula).unsupported);
+    let result = evaluate(Path::new(ROOT), rows(), &formula);
+    assert!(!result.unsupported);
+    assert!(result.columns.contains(&"formula.total".to_owned()));
 }
 
 #[test]
@@ -432,4 +446,200 @@ fn numeric_literals_accept_decimals_but_not_exponents() {
     let exponent = evaluation(json!("score == 1e5"), json!([]), data);
     assert!(exponent.rows.is_empty());
     assert!(!exponent.unsupported);
+}
+
+#[test]
+fn formulas_compute_arithmetic_for_every_row() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "total": "priority * 2" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.total"],
+            }),
+            json!([]),
+        ),
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty());
+    let totals = result
+        .rows
+        .iter()
+        .map(|row| row.fields.get("formula.total").and_then(Value::as_f64))
+        .collect::<Vec<_>>();
+    assert_eq!(totals, vec![Some(4.0), Some(20.0)]);
+}
+
+#[test]
+fn formulas_pick_the_if_branch_and_evaluate_it_lazily() {
+    let data = vec![
+        row("/vault/A.md", json!({ "priority": "2" })),
+        row("/vault/B.md", json!({ "priority": "high" })),
+    ];
+    let result = evaluate(
+        Path::new(ROOT),
+        data,
+        &formulas_query(
+            json!({ "risk": "if(priority == \"high\", 1, 0)" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.risk"],
+            }),
+            json!([]),
+        ),
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let risks = result
+        .rows
+        .iter()
+        .map(|row| row.fields.get("formula.risk").and_then(Value::as_f64))
+        .collect::<Vec<_>>();
+    assert_eq!(risks, vec![Some(0.0), Some(1.0)]);
+
+    let lazy = evaluate(
+        Path::new(ROOT),
+        vec![row("/vault/A.md", json!({ "priority": "2" }))],
+        &formulas_query(
+            json!({ "value": "if(true, 1, nosuchfunction(1))" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.value"],
+            }),
+            json!([]),
+        ),
+    );
+    assert!(!lazy.unsupported);
+    assert!(lazy.errors.is_empty());
+    assert_eq!(
+        lazy.rows[0]
+            .fields
+            .get("formula.value")
+            .and_then(Value::as_f64),
+        Some(1.0)
+    );
+}
+
+#[test]
+fn formulas_call_string_functions() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "label": "upper(status)" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.label"],
+            }),
+            json!([]),
+        ),
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty());
+    let labels = result
+        .rows
+        .iter()
+        .map(|row| row.fields.get("formula.label").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    assert_eq!(labels, vec![Some("DOING"), Some("DONE")]);
+}
+
+#[test]
+fn formulas_treat_missing_properties_as_null() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "double": "missing_prop * 2" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.double"],
+            }),
+            json!([]),
+        ),
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty());
+    for row in &result.rows {
+        assert_eq!(row.fields.get("formula.double"), Some(&Value::Null));
+    }
+}
+
+#[test]
+fn broken_formulas_become_null_and_report_one_error_each() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "bad": "nosuchfunction(1)", "broken": "1 +" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.bad", "formula.broken"],
+            }),
+            json!([]),
+        ),
+    );
+    assert!(!result.unsupported);
+    assert_eq!(result.rows.len(), 2);
+    for row in &result.rows {
+        assert_eq!(row.fields.get("formula.bad"), Some(&Value::Null));
+        assert_eq!(row.fields.get("formula.broken"), Some(&Value::Null));
+    }
+    assert_eq!(result.errors.len(), 2);
+    assert!(result.errors.iter().any(|error| error.formula == "bad"));
+    assert!(result
+        .errors
+        .iter()
+        .any(|error| error.formula == "broken" && error.path.is_empty()));
+}
+
+#[test]
+fn sorting_by_a_formula_property_orders_computed_values() {
+    let data = vec![
+        row("/vault/A.md", json!({ "priority": "2" })),
+        row("/vault/B.md", json!({ "priority": "high" })),
+    ];
+    let result = evaluate(
+        Path::new(ROOT),
+        data,
+        &formulas_query(
+            json!({ "risk": "if(priority == \"high\", 1, 0)" }),
+            json!({ "type": "table", "name": "Overview", "order": ["file.name"] }),
+            json!([{ "property": "formula.risk", "direction": "DESC" }]),
+        ),
+    );
+    assert!(!result.unsupported);
+    assert_eq!(paths(&result), vec!["/vault/B.md", "/vault/A.md"]);
+}
+
+#[test]
+fn filtering_by_a_formula_property_uses_the_computed_value() {
+    let data = vec![
+        row("/vault/A.md", json!({ "priority": "2" })),
+        row("/vault/B.md", json!({ "priority": "high" })),
+    ];
+    let result = evaluate(
+        Path::new(ROOT),
+        data,
+        &formulas_query(
+            json!({ "risk": "if(priority == \"high\", 1, 0)" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name"],
+                "filters": "formula.risk == 1",
+            }),
+            json!([]),
+        ),
+    );
+    assert!(!result.unsupported);
+    assert_eq!(paths(&result), vec!["/vault/B.md"]);
 }
