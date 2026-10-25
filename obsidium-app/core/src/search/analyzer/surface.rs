@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use tantivy::tokenizer::TokenStream;
 
 pub fn stem_surface_labels(title: &str, body: &str) -> HashMap<String, String> {
+    let mut tokenizer = indexing_tokenizer();
     let mut by_stem: HashMap<String, HashMap<String, u32>> = HashMap::new();
     for text in [title, body] {
         for surface in alphanumeric_words(text) {
             if surface.chars().count() < 2 {
                 continue;
             }
-            let Some(stem) = stem_token(surface) else {
+            let Some(stem) = stem_token(&mut tokenizer, surface) else {
                 continue;
             };
             if stem.chars().count() < 2 {
@@ -38,15 +39,13 @@ pub fn stem_surface_labels(title: &str, body: &str) -> HashMap<String, String> {
         .collect()
 }
 
-fn stem_token(surface: &str) -> Option<String> {
+fn stem_token(tokenizer: &mut tantivy::tokenizer::TextAnalyzer, surface: &str) -> Option<String> {
     let mut stem = None;
-    indexing_tokenizer()
-        .token_stream(surface)
-        .process(&mut |token| {
-            if stem.is_none() && !token.text.is_empty() {
-                stem = Some(token.text.clone());
-            }
-        });
+    tokenizer.token_stream(surface).process(&mut |token| {
+        if stem.is_none() && !token.text.is_empty() {
+            stem = Some(token.text.clone());
+        }
+    });
     stem
 }
 
