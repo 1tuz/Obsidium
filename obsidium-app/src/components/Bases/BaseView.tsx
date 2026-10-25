@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide';
+import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Dialog, DialogFooter } from '../Common/Dialog';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
@@ -33,6 +33,7 @@ import { journalDates, journalNotePath } from '../../modules/journal';
 import type { JournalSettings } from '../../modules/settings';
 import { planCalendarCard, planKanbanCard } from '../../modules/bases/cardCreation';
 import { BaseCalendar } from './BaseCalendar';
+import { BaseTimeline } from './BaseTimeline';
 import { BaseEditorPanel, type BaseViewEdit } from './BaseEditorPanel';
 import { resolveBaseViewIndex } from '../../modules/bases/viewSelection';
 import './BaseView.css';
@@ -111,14 +112,23 @@ function rowTitle(row: BaseRow, workspacePath: string): string {
   return displayValue(baseProperty(row, 'file.name', workspacePath)) || fileName(row.path);
 }
 
-function detectDateProperty(rows: readonly BaseRow[], workspacePath: string): string {
+function detectDateProperties(
+  rows: readonly BaseRow[],
+  workspacePath: string,
+  limit: number,
+): string[] {
   const properties = new Set<string>();
   for (const row of rows.slice(0, 50)) {
     for (const key of Object.keys(row.fields)) {
       if (calendarDate(baseProperty(row, key, workspacePath)) !== null) properties.add(key);
+      if (properties.size >= limit) return [...properties];
     }
   }
-  return [...properties][0] ?? 'date';
+  return [...properties];
+}
+
+function detectDateProperty(rows: readonly BaseRow[], workspacePath: string): string {
+  return detectDateProperties(rows, workspacePath, 1)[0] ?? 'date';
 }
 
 export function BaseView({
@@ -463,7 +473,7 @@ export function BaseView({
           title={t('bases.editorOpen')}
           onClick={() => setEditorOpen(true)}
         >
-          <Icon icon={SlidersHorizontal} />
+          <Icon icon="settings2" />
         </button>
         <span className="q-base-view__count">{rows.length}</span>
       </header>
