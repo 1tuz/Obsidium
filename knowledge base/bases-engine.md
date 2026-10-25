@@ -24,6 +24,7 @@
 | IPC | `src-tauri/src/search/commands.rs::query_base` | `query_base(workspacePath, query)` |
 | Шлюз | `src/modules/bases/gateway.ts::queryBase` | типизированный вызов из UI |
 | UI | `src/components/Bases/BaseView.tsx` | рисует `rows`, `groups`, `columns`, `unsupported`, `errors` |
+| Блок в заметке | `src/components/Editor/extensions/baseFence/` | тот же `queryBase` для огороженного блока `base` в live preview |
 
 Запрос: `BaseQuery { definition, viewIndex, sort }`.
 Ответ: `BaseEvaluation { rows, groups, columns, unsupported, errors }`.
@@ -209,6 +210,42 @@ field-index, что уже получил `evaluate`: отдельного пр�
 - списки связей для агрегатов не обрезаются, но `file.backlinks` идёт через тот же запрос бэклинков,
   который ограничен 200 только для списка в UI.
 
+## Блок `base` в заметке
+
+Тот же движок работает внутри обычной заметки — огороженный блок с языком `base` рисует результат
+выборки прямо в live preview:
+
+````markdown
+```base
+Projects/Roadmap.base План
+```
+````
+
+Первая строка блока — путь к `.base` файлу и, необязательно, имя представления:
+
+- путь считается от корня vault (`Projects/Roadmap.base`), корневой слэш и абсолютный путь внутри
+  vault (`/vault/Projects/Roadmap.base`) дают тот же файл; `..` за пределы vault и путь не с `.base`
+  блок не рисуют — остаётся исходный текст;
+- второе слово — имя представления (`views[].name`, без учёта регистра); без него берётся первое
+  представление; неизвестное имя даёт строку с сообщением, а не исключение;
+- остальные строки блока игнорируются: это не запрос, а ссылка на файл.
+
+Движок тот же: блок читает файл (`readFileSnapshot`), разбирает его `parseBase` и вызывает
+`queryBase` — второго пути вычисления нет. Рисуется компактная таблица по `BaseEvaluation`
+(`rows`, `groups`, `columns`, `unsupported`, `errors`) теми же классами `q-base-*`, что и страница
+базы; `unsupported` и ошибки формул показываются строками над таблицей.
+
+Кэш: `src/components/Editor/extensions/baseFence/store.ts` держит результат по ключу
+(заметка, путь `.base`, имя представления) и номеру ревизии индекса. Событие `links-changed`
+(его слушает `PrefetchScheduler`) поднимает ревизию — все блоки в открытых заметках пересчитываются,
+устаревшие записи по ключу больше не отдаются. Блоки, которых в заметке уже нет, выкидываются из
+кэша.
+
+Чего блок не делает: не пишет в заметки и `.base` файл (ячейки только для чтения), не переключает
+представления и не сохраняет выбранное представление в ui-state, не показывает kanban, cards и
+calendar — только таблицу, не создаёт карточки. Для записи и переключения представлений открывайте
+`.base` как отдельную страницу.
+
 ## Паритет
 
 Кейсы прежнего `src/modules/bases/filter.test.ts` (файл стал `properties.test.ts`) перенесены в
@@ -225,6 +262,7 @@ TS-тесты остались на форматирование и разбор
 ```bash
 cd obsidium-app/core && cargo test bases
 cd obsidium-app && npx vitest run src/modules/bases
+cd obsidium-app && npx vitest run src/components/Editor/extensions/baseFence
 ```
 
 Любое изменение семантики делается в Rust-движке и в `tests.rs`; если меняется разбор `.base`,
