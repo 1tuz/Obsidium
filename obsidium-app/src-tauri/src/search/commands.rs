@@ -7,6 +7,8 @@ use super::models::{
 };
 use crate::app_core::Core;
 use crate::blocking::run_blocking;
+use crate::files::error::FileCommandError;
+use std::path::Path;
 use std::sync::Arc;
 use tauri::State;
 
@@ -155,4 +157,14 @@ pub async fn suggest_notes(
 ) -> Result<Vec<NoteSuggestion>, SearchError> {
     let service = core.search.clone();
     run_blocking(move || service.suggest_notes(&workspace_path, &query, limit.unwrap_or(12))).await
+}
+
+#[tauri::command]
+pub async fn update_task_status(
+    path: String,
+    task_id: String,
+    new_status: String,
+) -> Result<bool, FileCommandError> {
+    run_blocking(move || super::tasks::update_task_status(Path::new(&path), &task_id, &new_status))
+        .await
 }

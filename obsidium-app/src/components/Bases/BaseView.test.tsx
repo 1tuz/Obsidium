@@ -68,6 +68,35 @@ const { getBaseRows, queryBase } = await import('../../modules/bases/gateway');
 const { saveBaseView } = await import('../../modules/ui-state/gateway');
 const { createFile, writeFileAtomic } = await import('../../modules/documents/fileGateway');
 
+interface KanbanDataTransfer {
+  effectAllowed: string;
+  dropEffect: string;
+  setData: (format: string, value: string) => void;
+  getData: (format: string) => string;
+}
+
+function kanbanDataTransfer(): KanbanDataTransfer {
+  const store = new Map<string, string>();
+  return {
+    effectAllowed: 'none',
+    dropEffect: 'none',
+    setData: (format, value) => { store.set(format, value); },
+    getData: (format) => store.get(format) ?? '',
+  };
+}
+
+function dragEvent(type: string, dataTransfer: KanbanDataTransfer): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'dataTransfer', { value: dataTransfer });
+  return event;
+}
+
+function kanbanCards(container: HTMLElement, column: string): HTMLElement[] {
+  const section = [...container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
+    .find((item) => item.dataset.kanbanColumn === column);
+  return section ? [...section.querySelectorAll<HTMLElement>('.q-base-kanban__card')] : [];
+}
+
 describe('BaseView view selection', () => {
   let renderer: MountedDom | null = null;
 
@@ -352,33 +381,62 @@ describe('BaseView view selection', () => {
     }));
   });
 
-  it('uses pointer movement to transfer a card to another Kanban column', async () => {
+  it('transfers a card to another Kanban column with native drag and drop', async () => {
     state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
     act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
       indexReady indexRevision={0} onOpenNote={vi.fn()}
       viewRequest={{ path: '/vault/Project.base', index: 1, id: 5 }} />); });
     await actAndSettle();
-    const card = renderer!.container.querySelector<HTMLElement>('.q-base-kanban__card')!;
-    card.setPointerCapture = vi.fn();
+
+    const container = renderer!.container;
+    expect(kanbanCards(container, 'todo').map((card) => card.textContent).join()).toContain('Task');
+
+    let resolveWrite!: (value: { hash: string }) => void;
+    vi.mocked(writeFileAtomic).mockImplementationOnce(
+      () => new Promise<{ hash: string }>((resolve) => { resolveWrite = resolve; }),
+    );
+
+    const transfer = kanbanDataTransfer();
+    const card = kanbanCards(container, 'todo')[0];
+    const target = [...container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
+      .find((item) => item.dataset.kanbanColumn === 'done')!;
+    act(() => { card.dispatchEvent(dragEvent('dragstart', transfer)); });
+    act(() => { target.dispatchEvent(dragEvent('dragover', transfer)); });
+    act(() => { target.dispatchEvent(dragEvent('drop', transfer)); });
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
+    );
+    expect(kanbanCards(container, 'done').map((item) => item.textContent).join()).toContain('Task');
+    expect(kanbanCards(container, 'todo')).toHaveLength(0);
+
+    await act(async () => { resolveWrite({ hash: 'saved' }); });
+    await actAndSettle();
+    expect(kanbanCards(container, 'done').map((item) => item.textContent).join()).toContain('Task');
+  });
+
+  it('rolls a dropped card back to its column when the write fails', async () => {
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
+      indexReady indexRevision={0} onOpenNote={vi.fn()}
+      viewRequest={{ path: '/vault/Project.base', index: 1, id: 7 }} />); });
+    await actAndSettle();
+
+    vi.mocked(writeFileAtomic).mockRejectedValueOnce(new Error('disk full'));
+    const transfer = kanbanDataTransfer();
+    const card = kanbanCards(renderer!.container, 'todo')[0];
     const target = [...renderer!.container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
       .find((item) => item.dataset.kanbanColumn === 'done')!;
-    const original = document.elementFromPoint;
-    document.elementFromPoint = vi.fn(() => target);
-    const pointerEvent = (type: string, x: number) => {
-      const event = new Event(type, { bubbles: true, cancelable: true });
-      Object.defineProperties(event, {
-        pointerId: { value: 1 }, button: { value: 0 }, clientX: { value: x }, clientY: { value: 10 },
-      });
-      return event;
-    };
-    try {
-      act(() => { card.dispatchEvent(pointerEvent('pointerdown', 10)); });
-      act(() => { card.dispatchEvent(pointerEvent('pointermove', 70)); });
-      act(() => { card.dispatchEvent(pointerEvent('pointerup', 70)); });
-      await actAndSettle();
-      expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
-        '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
-      );
-    } finally { document.elementFromPoint = original; }
+    act(() => { card.dispatchEvent(dragEvent('dragstart', transfer)); });
+    act(() => { target.dispatchEvent(dragEvent('dragover', transfer)); });
+    act(() => { target.dispatchEvent(dragEvent('drop', transfer)); });
+    await actAndSettle();
+
+    expect(kanbanCards(renderer!.container, 'todo').map((item) => item.textContent).join())
+      .toContain('Task');
+    expect(kanbanCards(renderer!.container, 'done')).toHaveLength(0);
+    expect(renderer!.container.querySelector('[role="alert"]')?.textContent)
+      .toBe(t('bases.kanbanMoveError', { reason: 'Error: disk full' }));
   });
 });

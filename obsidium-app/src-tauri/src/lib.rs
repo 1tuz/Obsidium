@@ -205,6 +205,7 @@ pub fn run() {
             search::commands::get_base_rows,
             search::commands::query_base,
             search::commands::run_dataview_query,
+            search::commands::update_task_status,
             search::analysis::commands::analyze_document,
             search::graph::commands::get_graph_snapshot,
             search::graph::commands::get_graph_modified_date_delta,

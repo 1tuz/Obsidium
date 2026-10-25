@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Dialog, DialogFooter } from '../Common/Dialog';
@@ -638,9 +638,9 @@ function BaseKanban({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState<string | null>(null);
-  const [dragging, setDragging] = useState<{ title: string; x: number; y: number } | null>(null);
-  const pointer = useRef<{ id: number; row: BaseRow; x: number; y: number; active: boolean } | null>(null);
-  const suppressClick = useRef(false);
+  const [draggingPath, setDraggingPath] = useState<string | null>(null);
+  const [moves, setMoves] = useState<Record<string, string>>({});
+  const dragged = useRef<BaseRow | null>(null);
   const [menu, setMenu] = useState<{ row: BaseRow; position: MenuPosition } | null>(null);
   const [renameTarget, setRenameTarget] = useState<BaseRow | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -648,10 +648,21 @@ function BaseKanban({
   const [actionBusy, setActionBusy] = useState(false);
   const groupProperty = kanbanProperty(view);
   const writable = kanbanWritableProperty(groupProperty);
-  const board = buildKanbanColumns(rows, view, workspacePath);
+  const groupKey = editableKey(groupProperty);
+  const board = buildKanbanColumns(groupKey ? rows.map((row) => moves[row.path] === undefined ? row : {
+    ...row,
+    fields: { ...row.fields, [groupKey]: moves[row.path] },
+  }) : rows, view, workspacePath);
   const cardFields = columns
     .filter((property) => property !== 'file.name' && property !== groupProperty)
     .slice(0, 4);
+
+  const clearMove = (path: string) => setMoves((current) => {
+    if (!(path in current)) return current;
+    const next = { ...current };
+    delete next[path];
+    return next;
+  });
 
   const move = async (row: BaseRow, value: string) => {
     if (!writable || Array.isArray(baseProperty(row, groupProperty, workspacePath))) {
@@ -667,45 +678,47 @@ function BaseKanban({
     }
     const current = displayValue(baseProperty(row, groupProperty, workspacePath));
     if (current === value) return;
+    setMoves((state) => ({ ...state, [row.path]: value }));
     try {
       await onCommit(row, groupProperty, value);
+      clearMove(row.path);
       setError('');
     } catch (cause) {
+      clearMove(row.path);
       setError(t('bases.kanbanMoveError', { reason: String(cause) }));
     }
   };
 
-  const startDrag = (event: ReactPointerEvent<HTMLElement>, row: BaseRow) => {
-    if (!writable || event.button !== 0 || pointer.current) return;
-    const target = event.target as HTMLElement;
-    if (target.closest('select, input, textarea, .q-base-kanban__menu-trigger')) return;
-    pointer.current = { id: event.pointerId, row, x: event.clientX, y: event.clientY, active: false };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+  const startDrag = (event: ReactDragEvent<HTMLElement>, row: BaseRow) => {
+    dragged.current = row;
+    setDraggingPath(row.path);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', row.path);
+    }
   };
-  const moveDrag = (event: ReactPointerEvent<HTMLElement>) => {
-    const session = pointer.current;
-    if (!session || session.id !== event.pointerId) return;
-    if (!session.active && Math.hypot(event.clientX - session.x, event.clientY - session.y) < 6) return;
-    session.active = true;
-    event.preventDefault();
-    setDragging({ title: rowTitle(session.row, workspacePath), x: event.clientX, y: event.clientY });
-    const target = document.elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>('[data-kanban-column]');
-    setDragOver(target?.dataset.kanbanColumnKey ?? null);
-  };
-  const endDrag = (event: ReactPointerEvent<HTMLElement>) => {
-    const session = pointer.current;
-    if (!session || session.id !== event.pointerId) return;
-    pointer.current = null;
-    setDragging(null);
+  const endDrag = () => {
+    dragged.current = null;
+    setDraggingPath(null);
     setDragOver(null);
-    if (!session.active || event.type === 'pointercancel') return;
-    suppressClick.current = true;
-    window.setTimeout(() => { suppressClick.current = false; }, 0);
+  };
+  const dragOverColumn = (event: ReactDragEvent<HTMLElement>, key: string) => {
+    if (!writable || !dragged.current) return;
     event.preventDefault();
-    const target = document.elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLElement>('[data-kanban-column]');
-    if (target) void move(session.row, target.dataset.kanbanColumn ?? '');
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    setDragOver(key);
+  };
+  const leaveColumn = (event: ReactDragEvent<HTMLElement>) => {
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+    setDragOver(null);
+  };
+  const dropOnColumn = (event: ReactDragEvent<HTMLElement>, value: string) => {
+    event.preventDefault();
+    const row = dragged.current
+      ?? rows.find((candidate) => candidate.path === event.dataTransfer?.getData('text/plain'));
+    endDrag();
+    if (row) void move(row, value);
   };
   const showMenu = (row: BaseRow, x: number, y: number) => {
     setMenu({ row, position: { left: x, top: y } });
@@ -758,6 +771,9 @@ function BaseKanban({
             data-kanban-column={column.value}
             data-kanban-column-key={column.key}
             className={`q-base-kanban__column${dragOver === column.key ? ' q-base-kanban__column--drop' : ''}`}
+            onDragOver={(event) => dragOverColumn(event, column.key)}
+            onDragLeave={leaveColumn}
+            onDrop={(event) => dropOnColumn(event, column.value)}
           >
             <header className="q-base-kanban__header">
               <span title={!column.value ? t('bases.kanbanUnassignedHint') : undefined}>
@@ -769,16 +785,14 @@ function BaseKanban({
               {column.rows.map((row) => (
                 <article
                   key={row.path}
-                  className="q-base-kanban__card"
+                  className={`q-base-kanban__card${draggingPath === row.path ? ' q-base-kanban__card--dragging' : ''}`}
                   tabIndex={0}
+                  draggable={writable}
                   aria-label={rowTitle(row, workspacePath)}
-                  onPointerDown={(event) => startDrag(event, row)}
-                  onPointerMove={moveDrag}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
+                  onDragStart={(event) => startDrag(event, row)}
+                  onDragEnd={endDrag}
                   onContextMenu={(event) => { event.preventDefault(); showMenu(row, event.clientX, event.clientY); }}
                   onClick={(event) => {
-                    if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); return; }
                     if (!(event.target as HTMLElement).closest('button, select, input')) onOpen(row.path);
                   }}
                   onKeyDown={(event) => {
@@ -789,7 +803,7 @@ function BaseKanban({
                   }}
                 >
                   <div className="q-base-kanban__card-heading">
-                    <button type="button" className="q-base-card__title" onClick={() => { if (!suppressClick.current) onOpen(row.path); }}>
+                    <button type="button" className="q-base-card__title" onClick={() => onOpen(row.path)}>
                       {rowTitle(row, workspacePath)}
                     </button>
                     <button type="button" className="q-base-kanban__menu-trigger"
@@ -862,12 +876,6 @@ function BaseKanban({
           </section>
         ))}
       </div>
-      {dragging && (
-        <div className="q-base-kanban__drag-ghost" aria-hidden="true"
-          style={{ left: dragging.x + 12, top: dragging.y + 12 }}>
-          {dragging.title}
-        </div>
-      )}
       <Menu open={Boolean(menu)} position={menu?.position ?? null}
         onClose={() => setMenu(null)} items={menu ? [
           { id: 'open', label: t('bases.kanbanOpen'), icon: ExternalLink,

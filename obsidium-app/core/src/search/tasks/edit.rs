@@ -10,6 +10,34 @@ pub struct Selector {
     pub line: Option<usize>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Status {
+    Todo,
+    Doing,
+    Done,
+}
+
+impl Status {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "todo" => Ok(Self::Todo),
+            "doing" => Ok(Self::Doing),
+            "done" => Ok(Self::Done),
+            _ => Err(format!(
+                "Неизвестный статус задачи: {value}; допустимо todo, doing или done"
+            )),
+        }
+    }
+
+    pub fn mark(self) -> char {
+        match self {
+            Self::Todo => ' ',
+            Self::Doing => '/',
+            Self::Done => 'x',
+        }
+    }
+}
+
 struct Located {
     task: Task,
 }
@@ -80,27 +108,31 @@ pub fn update(body: &str, selector: &Selector, new_text: &str) -> Result<String,
     Ok(lines.join("\n"))
 }
 
-pub fn toggle(body: &str, selector: &Selector, done: Option<bool>) -> Result<String, String> {
+pub fn set_status(body: &str, selector: &Selector, status: Status) -> Result<String, String> {
     let body = normalized(body);
     let located = locate(&body, selector)?;
     let mut lines = body.split('\n').collect::<Vec<_>>();
     let index = located.task.line - 1;
     let line = lines[index];
     let (open, _) = checkbox_bounds(line)?;
-    let state_start = open + 1;
-    let state = line[state_start..]
-        .chars()
-        .next()
-        .ok_or_else(|| "У задачи нет отметки в квадратных скобках".to_owned())?;
-    let state_end = state_start + state.len_utf8();
-    let wanted = match done {
-        Some(value) => value,
-        None => state.is_whitespace(),
-    };
-    let mark = if wanted { 'x' } else { ' ' };
-    let rebuilt = format!("{}{}{}", &line[..state_start], mark, &line[state_end..]);
+    let (mark_start, mark_end, _) = marker_bounds(line, open)?;
+    let rebuilt = format!(
+        "{}{}{}",
+        &line[..mark_start],
+        status.mark(),
+        &line[mark_end..]
+    );
     lines[index] = &rebuilt;
     Ok(lines.join("\n"))
+}
+
+pub fn toggle(body: &str, selector: &Selector, done: Option<bool>) -> Result<String, String> {
+    let status = match done {
+        Some(true) => Status::Done,
+        Some(false) => Status::Todo,
+        None => flipped(body, selector)?,
+    };
+    set_status(body, selector, status)
 }
 
 pub fn delete(body: &str, selector: &Selector) -> Result<String, String> {
@@ -161,6 +193,32 @@ fn checkbox_bounds(line: &str) -> Result<(usize, usize), String> {
         .map(|index| open + index)
         .ok_or_else(|| "У задачи нет отметки в квадратных скобках".to_owned())?;
     Ok((open, close))
+}
+
+fn marker_bounds(line: &str, open: usize) -> Result<(usize, usize, char), String> {
+    let start = open + 1;
+    let current = line[start..].chars().next().ok_or_else(no_marker)?;
+    Ok((start, start + current.len_utf8(), current))
+}
+
+fn flipped(body: &str, selector: &Selector) -> Result<Status, String> {
+    let body = normalized(body);
+    let located = locate(&body, selector)?;
+    let line = body
+        .split('\n')
+        .nth(located.task.line - 1)
+        .unwrap_or_default();
+    let (open, _) = checkbox_bounds(line)?;
+    let (_, _, current) = marker_bounds(line, open)?;
+    Ok(if current.is_whitespace() {
+        Status::Done
+    } else {
+        Status::Todo
+    })
+}
+
+fn no_marker() -> String {
+    "У задачи нет отметки в квадратных скобках".to_owned()
 }
 
 fn locate(body: &str, selector: &Selector) -> Result<Located, String> {
@@ -257,7 +315,7 @@ fn ambiguous(selector: &str, count: usize, matches: &[&(Task, String)]) -> Strin
 
 #[cfg(test)]
 mod tests {
-    use super::{create, delete, tasks_with_ids, toggle, update, Selector};
+    use super::{create, delete, set_status, tasks_with_ids, toggle, update, Selector, Status};
 
     fn ids(body: &str) -> Vec<String> {
         tasks_with_ids(body).into_iter().map(|(_, id)| id).collect()
@@ -510,5 +568,94 @@ mod tests {
         )
         .unwrap();
         assert_eq!(updated, "- [ ] первая\n- [x] изменённая\n");
+    }
+
+    #[test]
+    fn set_status_replaces_only_the_marker() {
+        let body = "# Список\n\n  1) [ ] вложенная\n- [x] готово\n";
+        let found = ids(body);
+        let doing = set_status(
+            body,
+            &Selector {
+                task_id: Some(found[0].clone()),
+                line: None,
+            },
+            Status::Doing,
+        )
+        .unwrap();
+        assert_eq!(doing, "# Список\n\n  1) [/] вложенная\n- [x] готово\n");
+
+        let todo = set_status(
+            &doing,
+            &Selector {
+                task_id: Some(found[1].clone()),
+                line: None,
+            },
+            Status::Todo,
+        )
+        .unwrap();
+        assert_eq!(todo, "# Список\n\n  1) [/] вложенная\n- [ ] готово\n");
+
+        let done = set_status(
+            &todo,
+            &Selector {
+                task_id: Some(found[0].clone()),
+                line: None,
+            },
+            Status::Done,
+        )
+        .unwrap();
+        assert_eq!(done, "# Список\n\n  1) [x] вложенная\n- [ ] готово\n");
+    }
+
+    #[test]
+    fn set_status_reports_a_missing_task() {
+        let error = set_status(
+            "- [ ] первая\n",
+            &Selector {
+                task_id: Some("нет такой".to_owned()),
+                line: None,
+            },
+            Status::Done,
+        )
+        .unwrap_err();
+        assert!(error.contains("Задача не найдена"), "{error}");
+    }
+
+    #[test]
+    fn status_parse_accepts_three_names_in_any_case() {
+        assert_eq!(Status::parse(" ToDo ").unwrap(), Status::Todo);
+        assert_eq!(Status::parse("DOING").unwrap(), Status::Doing);
+        assert_eq!(Status::parse("done").unwrap(), Status::Done);
+        let error = Status::parse("готово").unwrap_err();
+        assert!(error.contains("допустимо todo, doing или done"), "{error}");
+    }
+
+    #[test]
+    fn status_marks_match_the_editor() {
+        assert_eq!(
+            [
+                Status::Todo.mark(),
+                Status::Doing.mark(),
+                Status::Done.mark()
+            ],
+            [' ', '/', 'x']
+        );
+    }
+
+    #[test]
+    fn toggle_without_a_hint_flips_the_current_marker() {
+        let body = "- [/] в работе\n";
+        let target = ids(body)[0].clone();
+        let flipped = toggle(
+            body,
+            &Selector {
+                task_id: Some(target),
+                line: None,
+            },
+            None,
+        )
+        .unwrap();
+        assert_eq!(flipped, "- [ ] в работе\n");
     }
 }
