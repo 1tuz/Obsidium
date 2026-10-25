@@ -13,7 +13,16 @@ fn tokens(text: &str) -> Vec<String> {
 
 #[test]
 fn index_version_tracks_text_and_link_parsing() {
-    assert_eq!(ANALYZER_VERSION, 15);
+    assert_eq!(ANALYZER_VERSION, 16);
+}
+
+#[test]
+fn yo_folds_to_ye_before_stemming() {
+    assert_eq!(tokens("ёлка"), tokens("елка"));
+    assert_eq!(tokens("Ёлка"), tokens("Елка"));
+    assert_eq!(tokens("мёд"), tokens("мед"));
+    assert_eq!(tokens("ёж"), tokens("еж"));
+    assert!(!tokens("ёж").iter().any(|token| token.contains('ё')));
 }
 
 #[test]

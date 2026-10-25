@@ -15,6 +15,7 @@ pub struct SearchFields {
     pub title: Field,
     pub tags: Field,
     pub body: Field,
+    pub headings: Field,
 }
 
 pub struct SearchIndex {
