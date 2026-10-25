@@ -14,6 +14,7 @@ import { NewTab } from "./components/Editor/NewTab";
 import { WorkspaceEmptyState } from "./components/Workspace/WorkspaceEmptyState";
 import { SearchDialog } from "./components/Search/SearchDialog";
 import { TemplateDialog } from "./components/Templates/TemplateDialog";
+import { TypePickerDialog } from "./components/Schema/TypePickerDialog";
 import { WorkspaceDialog } from "./components/Workspace/WorkspaceDialog";
 import { BacklinksPanel } from "./components/Backlinks/BacklinksPanel";
 import { useWorkspace } from "./hooks/useWorkspace";
@@ -39,7 +40,7 @@ import { DEFAULT_BUILTINS, DEFAULT_LIVE_TABS, useSettingsStore } from "./modules
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath, readFileSnapshot } from "./modules/documents/fileGateway";
+import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath, readFileSnapshot, writeFileAtomic } from "./modules/documents/fileGateway";
 import type { CanvasNoteTarget } from "./components/Canvas/canvasNoteLinks";
 import { resolveFragmentOffset, splitLinkTarget } from "./modules/links/fragment";
 import { createCanvasFile } from "./modules/canvas/createCanvasFile";
@@ -52,6 +53,7 @@ import { keepVersionsOf } from "./modules/history";
 import { useRetentionCleanup } from "./hooks/useRetentionCleanup";
 import { applyVaultSnippets } from "./modules/docs/vaultSnippets";
 import { flushDocuments } from "./modules/documents/documentGateway";
+import { readNoteType, setNoteType } from "./modules/schema/setNoteType";
 import { useWindowDocumentSync } from "./modules/documents/useWindowDocumentSync";
 import { applyTemplateToDocument } from "./components/Editor/docMutations";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -82,6 +84,7 @@ export default function App() {
   const search = useOverlay();
   const commandPalette = useOverlay();
   const templates = useOverlay();
+  const typePicker = useOverlay();
   const settings = useOverlay();
   const workspaces = useOverlay();
   const [leftSidebarOpen, setLeftSidebarOpen] = useLocalState('obsidium_sidebar_left_open', true);
@@ -113,6 +116,7 @@ export default function App() {
   const [boardActionRequest, setBoardActionRequest] = useState<BoardActionRequest | null>(null);
   const [createBoardRequest, setCreateBoardRequest] = useState(0);
   const [baseViewRequest, setBaseViewRequest] = useState<{ path: string; index: number; id: number; paneId: string } | null>(null);
+  const [typeTarget, setTypeTarget] = useState<{ path: string; currentType: string | null } | null>(null);
   const boardRequestId = useRef(0);
   const {
     files,
@@ -543,6 +547,28 @@ export default function App() {
     requestBoardAction(path, 'remove');
   }, [requestBoardAction]);
 
+  const openTypePicker = useCallback(async () => {
+    if (!activeFile || !isMarkdownPath(activeFile)) return;
+    try {
+      const snapshot = await readFileSnapshot(activeFile);
+      setTypeTarget({ path: activeFile, currentType: readNoteType(snapshot.content) });
+    } catch (error) {
+      console.error('Failed to read the note type', error);
+      setTypeTarget({ path: activeFile, currentType: null });
+    }
+    typePicker.show();
+  }, [activeFile, typePicker.show]);
+
+  const applyNoteType = useCallback(async (typeName: string | null) => {
+    const path = typeTarget?.path;
+    if (!path) return;
+    const snapshot = await readFileSnapshot(path);
+    const next = setNoteType(snapshot.content, typeName);
+    if (next === null) return;
+    await writeFileAtomic(path, next, snapshot.hash);
+    setTypeTarget((current) => (current ? { ...current, currentType: typeName } : current));
+  }, [typeTarget?.path]);
+
   const toggleRightSidebar = useCallback(() => {
     setRightSidebarOpen((current) => !current);
   }, []);
@@ -600,6 +626,13 @@ export default function App() {
     { id: 'boards.open', title: t('commands.boards'), enabled: () => Boolean(workspacePath && kanbanEnabled), run: openBoards },
     { id: 'boards.new', title: t('commands.newBoard'), enabled: () => Boolean(workspacePath && kanbanEnabled), run: openNewBoard },
     { id: 'boards.addCurrentNote', title: t('commands.addCurrentNoteToBoard'), enabled: () => Boolean(kanbanEnabled && activeFile && isMarkdownPath(activeFile)), run: addCurrentNoteToBoard },
+    {
+      id: 'schema.setType',
+      title: t('commands.setType'),
+      keywords: ['schema', 'type', 'тип', 'схема'],
+      enabled: () => Boolean(workspacePath && activeFile && isMarkdownPath(activeFile)),
+      run: openTypePicker,
+    },
     { id: 'view.settings', title: t('commands.settings'), run: settings.show },
     { id: 'workspace.switch', title: t('commands.workspaces'), run: workspaces.show },
     { id: 'view.sidebar.left', title: t('commands.leftSidebar'), run: toggleLeftSidebar },
@@ -609,7 +642,7 @@ export default function App() {
     commandPalette.toggle, config, createCanvas, createNewFile, openGraph, search.show, settings.show,
     templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
     workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile, kanbanEnabled,
-    openJournalToday,
+    openJournalToday, openTypePicker,
   ]);
 
   useEffect(() => {
@@ -937,6 +970,15 @@ export default function App() {
       <TemplateDialog open={templates.open} workspacePath={workspacePath}
         folder={config?.templates.folder ?? ''} onClose={templates.hide}
         onSelect={handleTemplateSelect} />
+
+      <TypePickerDialog
+        open={typePicker.open}
+        workspacePath={workspacePath}
+        path={typeTarget?.path ?? null}
+        currentType={typeTarget?.currentType ?? null}
+        onClose={typePicker.hide}
+        onSelect={applyNoteType}
+      />
 
       {settings.open && (
         <Suspense fallback={null}>

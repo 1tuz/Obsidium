@@ -588,7 +588,8 @@
     "theme": "Toggle light/dark theme",
     "boards": "Open boards and calendars",
     "newBoard": "New board",
-    "addCurrentNoteToBoard": "Add current note to a board"
+    "addCurrentNoteToBoard": "Add current note to a board",
+    "setType": "Set the note type"
   },
   "localGraph": {
     "tab": "Local graph",
@@ -1076,6 +1077,19 @@
     "emptyHint": "Creates the “{{folder}}” folder with a plain note and a book template",
     "createFolder": "Create the templates folder",
     "close": "close"
+  },
+  "schema": {
+    "picker": {
+      "title": "Note type",
+      "plain": "Plain note",
+      "empty": "The schema has no types yet",
+      "violations": "Schema violations",
+      "noViolations": "No violations",
+      "loadError": "Could not read the schema: {{reason}}",
+      "validateError": "Could not validate the note: {{reason}}",
+      "writeError": "Could not write the type: {{reason}}",
+      "close": "close"
+    }
   },
   "workspaces": {
     "title": "Knowledge bases",

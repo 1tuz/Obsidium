@@ -161,6 +161,7 @@
   --q-dialog-shadow: var(--q-elevation-float);
 
   --q-confirm-dialog-width: 20.5rem;
+  --q-type-picker-width: 22rem;
   --q-workspace-dialog-width: var(--q-size-448);
   --q-workspace-dialog-max-height: var(--q-size-512);
   --q-workspace-row-radius: var(--q-radius-lg);
