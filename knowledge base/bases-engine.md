@@ -16,7 +16,7 @@
 
 | Слой | Файл | Роль |
 | --- | --- | --- |
-1: | Парсер `.base` | `src/modules/bases/baseFormat.ts` | YAML → `BaseDefinition` (`views`, `filters`, `formulas`, `summaries`, `propertyLabels`, `unsupportedKeys`) |
+| Парсер `.base` | `src/modules/bases/baseFormat.ts` | YAML → `BaseDefinition` (`views`, `filters`, `formulas`, `summaries`, `propertyLabels`, `unsupportedKeys`) |
 | Движок | `core/src/search/bases/mod.rs` | фильтры, сортировка, `groupBy`, `limit`, колонки, `unsupported`, `errors` |
 | Формулы | `core/src/search/bases/formulas.rs` | `formulas:` считается вычислителем `dataview` и подставляется в строку как `formula.<имя>` |
 | Сводки | `core/src/search/bases/rollups.rs` | агрегаты `summaries` по связанным заметкам |
@@ -24,6 +24,7 @@
 | IPC | `src-tauri/src/search/commands.rs::query_base` | `query_base(workspacePath, query)` |
 | Шлюз | `src/modules/bases/gateway.ts::queryBase` | типизированный вызов из UI |
 | UI | `src/components/Bases/BaseView.tsx` | рисует `rows`, `groups`, `columns`, `unsupported`, `errors` |
+| Редактор | `src/components/Bases/BaseEditorPanel.tsx` | правит `views[i]`: `name`, `limit`, `groupBy`, `sort` (см. «Редактор представления») |
 | Блок в заметке | `src/components/Editor/extensions/baseFence/` | тот же `queryBase` для огороженного блока `base` в live preview |
 
 Запрос: `BaseQuery { definition, viewIndex, sort }`.
@@ -68,6 +69,40 @@
 неразобранное выражение фильтра. Строки в этом случае остаются видимыми — как и раньше, — но UI
 показывает предупреждение, чтобы неполный результат не выглядел точным. Сломанная формула сюда не
 относится: она даёт `null` в своей колонке и запись в `errors` (см. «Формулы»).
+
+## Редактор представления
+
+Кнопка с ползунками в шапке `BaseView` открывает панель
+`src/components/Bases/BaseEditorPanel.tsx` — компактный диалог для текущего представления:
+
+| Поле | Что пишется в `.base` |
+| --- | --- |
+| Название | `views[i].name` |
+| Ограничение строк | `views[i].limit`; пустое поле убирает ключ |
+| Группировка | `views[i].groupBy.property` и `groupBy.direction`; «без группировки» убирает `groupBy` |
+| Сортировка | `views[i].sort` — список `property` + `direction`; поля добавляются и удаляются, направление переключается в панели |
+
+`groupOrder` панель не редактирует, но и не теряет: запись идёт через `parseBase` → правку одной
+ветки → `serializeBase`, а сериализатор отдаёт `groupOrder`, `properties`, `formulas`, `summaries` и
+неизвестные ключи (верхнего уровня и самого представления) без изменений.
+
+Запись одна на все правки — `writeView` в `BaseView.tsx`:
+
+```
+readFileSnapshot(path) → parseBase(content) → mutate views[i] → serializeBase → writeFileAtomic(path, next, snapshot.hash)
+```
+
+Это тот же шлюз и тот же хеш, что у `addView`; второго писателя у `.base` файла нет. Записи
+выстраиваются в очередь (`viewWriteQueue`), чтобы два быстрых клика не читали один и тот же `hash`.
+Ошибка хеша или ввода-вывода не глотается: текст ошибки уходит в существующий `actionError` над
+таблицей, панель остаётся открытой. После успешной записи `BaseView` заново разбирает
+сериализованный текст (`parseBase(next)`) и кладёт его в состояние — вкладка, шапка и выборка видят
+ровно то, что лежит в файле.
+
+**Что остаётся в памяти.** Только выбранное представление (`activeView`) — оно живёт в ui-state
+(`loadBaseView`/`saveBaseView`), а не в `.base`. Сортировка по клику на заголовок колонки больше не
+держится отдельным состоянием: клик пишет `views[i].sort` тем же `writeView`, а `queryBase` получает
+`sort` из разобранного файла. Теневого оверрайда нет — источник правды один, `views[].sort`.
 
 ## Формулы
 
@@ -160,8 +195,8 @@ summaries:
 
 Поля: `name` — ключ колонки, значение попадает в поля строки как `summary.<name>`; `source` — откуда
 берутся связанные заметки; `property` — свойство связанной заметки; `formula` — `sum`, `avg`, `min`,
-`max`, `count` или `list`; необязательный `filter` — выражение того же синтаксиса, что фильтры view,
-применяется к связанным заметкам.
+`max`, `count`, `list` или `unique`; необязательный `filter` — выражение того же синтаксиса, что
+фильтры view, применяется к связанным заметкам.
 
 `source`:
 
@@ -183,6 +218,7 @@ field-index, что уже получил `evaluate`: отдельного пр�
 - `count` — число связанных заметок после фильтра, `property` не учитывается;
 - `list` — массив значений свойства в представлении field-index: скаляры приходят строками, списки —
   массивом строк;
+- `unique` — то же, что `list`, но без повторов: порядок — первого появления значения;
 
 Пустые случаи: связанных заметок нет — `count` = 0, `list` = `[]`, `sum`/`avg`/`min`/`max` = `null`.
 Свойство отсутствует у всех связанных заметок — `sum`/`avg`/`min`/`max` = `null`, `list` = `[]`,

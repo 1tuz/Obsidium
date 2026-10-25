@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide';
+import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Dialog, DialogFooter } from '../Common/Dialog';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
@@ -33,6 +33,7 @@ import { journalDates, journalNotePath } from '../../modules/journal';
 import type { JournalSettings } from '../../modules/settings';
 import { planCalendarCard, planKanbanCard } from '../../modules/bases/cardCreation';
 import { BaseCalendar } from './BaseCalendar';
+import { BaseEditorPanel, type BaseViewEdit } from './BaseEditorPanel';
 import { resolveBaseViewIndex } from '../../modules/bases/viewSelection';
 import './BaseView.css';
 
@@ -53,6 +54,8 @@ interface LoadedBase {
   path: string;
   definition: BaseDefinition;
 }
+
+const NO_SORT: BaseSort[] = [];
 
 function displayValue(value: BaseFieldValue | undefined): string {
   if (Array.isArray(value)) return value.join(', ');
@@ -134,8 +137,8 @@ export function BaseView({
   const [evaluation, setEvaluation] = useState<BaseEvaluation | null>(null);
   const [failed, setFailed] = useState(false);
   const [activeView, setActiveView] = useState(0);
-  const [sort, setSort] = useState<BaseSort[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [addViewMenu, setAddViewMenu] = useState(false);
   const [actionError, setActionError] = useState('');
   const [journalDays, setJournalDays] = useState<ReadonlySet<string>>(() => new Set());
@@ -143,6 +146,7 @@ export function BaseView({
   const selectionRevision = useRef(0);
   const evaluationPath = useRef('');
   const saveQueue = useRef(Promise.resolve());
+  const viewWriteQueue = useRef(Promise.resolve());
 
   const persistView = useCallback((index: number) => {
     saveQueue.current = saveQueue.current
@@ -158,8 +162,8 @@ export function BaseView({
     setActiveView(0);
     selectedPath.current = '';
     selectionRevision.current += 1;
-    setSort([]);
     setEditing(null);
+    setEditorOpen(false);
   }, [path]);
 
   useEffect(() => {
@@ -199,6 +203,9 @@ export function BaseView({
     return () => { cancelled = true; };
   }, [indexReady, indexRevision, path]);
 
+  const view = loaded?.definition.views[Math.min(activeView, (loaded?.definition.views.length ?? 1) - 1)];
+  const sort = view?.sort ?? NO_SORT;
+
   useEffect(() => {
     if (!loaded) return;
     let cancelled = false;
@@ -215,7 +222,6 @@ export function BaseView({
     return () => { cancelled = true; };
   }, [activeView, indexRevision, loaded, sort, workspacePath]);
 
-  const view = loaded?.definition.views[Math.min(activeView, (loaded?.definition.views.length ?? 1) - 1)];
   const rows = evaluation?.rows ?? [];
   const groups = evaluation?.groups ?? [];
   const columns = evaluation?.columns ?? [];
@@ -327,10 +333,58 @@ export function BaseView({
     onFileDeleted?.(row.path);
   };
 
+  const writeView = (
+    index: number,
+    mutate: (target: BaseViewDefinition) => void,
+  ): Promise<boolean> => {
+    const task = viewWriteQueue.current.then(async () => {
+      const snapshot = await readFileSnapshot(path);
+      const definition = parseBase(snapshot.content);
+      const target = definition.views[index];
+      if (!target) return false;
+      mutate(target);
+      const next = serializeBase(definition);
+      await writeFileAtomic(path, next, snapshot.hash);
+      const parsed = parseBase(next);
+      setLoaded((current) => current ? { ...current, definition: parsed } : current);
+      return true;
+    });
+    viewWriteQueue.current = task.then(() => undefined, () => undefined);
+    return task;
+  };
+
+  const reportActionError = (error: unknown) => {
+    setActionError(error instanceof Error ? error.message : String(error));
+  };
+
+  const saveViewEdit = async (edit: BaseViewEdit): Promise<boolean> => {
+    const index = Math.min(activeView, loaded.definition.views.length - 1);
+    try {
+      return await writeView(index, (target) => {
+        target.name = edit.name;
+        if (edit.limit === null) delete target.limit;
+        else target.limit = edit.limit;
+        if (edit.groupBy === null) delete target.groupBy;
+        else target.groupBy = { property: edit.groupBy.property, direction: edit.groupBy.direction };
+        if (edit.sort.length === 0) delete target.sort;
+        else target.sort = edit.sort.map((entry) => ({
+          property: entry.property,
+          direction: entry.direction === 'DESC' ? 'DESC' : 'ASC',
+        }));
+      });
+    } catch (error) {
+      reportActionError(error);
+      return false;
+    }
+  };
+
   const toggleSort = (property: string) => {
-    setSort((current) => current[0]?.property === property
-      ? [{ property, direction: current[0].direction === 'ASC' ? 'DESC' : 'ASC' }]
-      : [{ property, direction: 'ASC' }]);
+    const index = Math.min(activeView, loaded.definition.views.length - 1);
+    const next: BaseSort[] = sort[0]?.property === property
+      ? [{ property, direction: sort[0].direction === 'DESC' ? 'ASC' : 'DESC' }]
+      : [{ property, direction: 'ASC' }];
+    void writeView(index, (target) => { target.sort = next; })
+      .catch(reportActionError);
   };
 
   const addView = async (type: string) => {
@@ -351,7 +405,6 @@ export function BaseView({
     selectionRevision.current += 1;
     selectedPath.current = path;
     setActiveView(index);
-    setSort([]);
     persistView(index);
   };
 
@@ -371,7 +424,6 @@ export function BaseView({
                 selectionRevision.current += 1;
                 setActiveView(index);
                 selectedPath.current = path;
-                setSort([]);
                 persistView(index);
               }}
             >
@@ -404,6 +456,15 @@ export function BaseView({
             </div>
           )}
         </div>
+        <button
+          type="button"
+          className="q-base-view__edit"
+          aria-label={t('bases.editorOpen')}
+          title={t('bases.editorOpen')}
+          onClick={() => setEditorOpen(true)}
+        >
+          <Icon icon={SlidersHorizontal} />
+        </button>
         <span className="q-base-view__count">{rows.length}</span>
       </header>
 
@@ -485,6 +546,15 @@ export function BaseView({
           </section>
         ))}
       </div>
+
+      {editorOpen && (
+        <BaseEditorPanel
+          view={view}
+          columns={columns}
+          onClose={() => setEditorOpen(false)}
+          onSave={saveViewEdit}
+        />
+      )}
     </section>
   );
 }

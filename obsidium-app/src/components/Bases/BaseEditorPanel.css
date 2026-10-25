@@ -1,0 +1,117 @@
+.q-base-editor {
+  width: min(94vw, 34rem);
+}
+
+.q-base-editor__body {
+  display: grid;
+  gap: var(--q-space-12);
+  padding: var(--q-space-16);
+}
+
+.q-base-editor__field {
+  display: grid;
+  gap: var(--q-space-6);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-base-editor__field > span {
+  color: var(--q-text-tertiary);
+}
+
+.q-base-editor__row {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-8);
+}
+
+.q-base-editor__name,
+.q-base-editor__limit,
+.q-base-editor__row select {
+  min-height: var(--q-size-32);
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: var(--q-space-6);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-primary);
+  color: var(--q-text-primary);
+  font: inherit;
+}
+
+.q-base-editor__name:focus-visible,
+.q-base-editor__limit:focus-visible,
+.q-base-editor__row select:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+}
+
+.q-base-editor__row select:disabled {
+  cursor: default;
+  opacity: .55;
+}
+
+.q-base-editor__empty {
+  margin: 0;
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-base-editor__sort {
+  display: grid;
+  gap: var(--q-space-4);
+}
+
+.q-base-editor__sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-4);
+  padding: var(--q-space-4) var(--q-space-6);
+  border-radius: var(--q-radius-md);
+  background: var(--q-bg-surface-hover);
+}
+
+.q-base-editor__sort-row > span {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--q-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-base-editor__sort-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--q-size-24);
+  height: var(--q-size-24);
+  border: 0;
+  border-radius: var(--q-radius-md);
+  background: transparent;
+  color: var(--q-text-tertiary);
+  cursor: pointer;
+}
+
+.q-base-editor__sort-row button:hover {
+  background: var(--q-bg-surface-hover);
+  color: var(--q-text-primary);
+}
+
+.q-base-editor__sort-row button:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+}
+
+.q-base-editor__sort-row button svg {
+  width: var(--q-size-16);
+  height: var(--q-size-16);
+}
+
+.q-base-editor__row .q-button {
+  flex: 0 0 auto;
+}
+
+.q-base-editor__error {
+  margin: 0;
+  color: var(--q-text-danger, var(--q-red-600));
+  font-size: var(--q-font-size-ui-sm);
+}

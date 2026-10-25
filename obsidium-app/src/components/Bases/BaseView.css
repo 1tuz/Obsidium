@@ -751,6 +751,33 @@
   background: var(--q-bg-surface-hover);
 }
 
+.q-base-view__edit {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: var(--q-space-4);
+  border: 0;
+  border-radius: var(--q-radius-lg);
+  background: transparent;
+  color: var(--q-text-tertiary);
+  cursor: pointer;
+}
+
+.q-base-view__edit:hover {
+  background: var(--q-bg-surface-hover);
+  color: var(--q-text-primary);
+}
+
+.q-base-view__edit:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+}
+
+.q-base-view__edit svg {
+  width: var(--q-size-16);
+  height: var(--q-size-16);
+}
+
 .q-base-view__error {
   color: var(--q-text-danger, var(--q-red-600));
 }
