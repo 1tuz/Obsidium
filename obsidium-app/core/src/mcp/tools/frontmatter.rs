@@ -1,15 +1,17 @@
 use super::workspace::{indexed_vault, requested_vault};
 use super::{
-    limit, offset, open_after_write, optional_names, optional_text, require_write, text, tool,
-    version_name_property, workspace_property, write_retrying_with_hash,
+    flag, limit, offset, open_after_write, optional_names, optional_text, require_write,
+    target_name, targets, text, tool, version_name_property, workspace_property,
+    write_retrying_with_hash,
 };
 use crate::app_core::Core;
+use crate::files::document::read_text;
 use crate::history::Source;
 use crate::search::analyzer::frontmatter::FieldValue;
 use crate::search::analyzer::frontmatter_set;
 use crate::search::fields::{as_object, head_fields, note_fields, Field};
 use serde_json::{json, Map, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const FIND_LIMIT: usize = 200;
 
@@ -45,6 +47,29 @@ pub fn definitions() -> Vec<Value> {
             }),
             &[],
         ),
+        tool(
+            "batch_update_properties",
+            "Изменить свойства frontmatter сразу у многих заметок: targets — до 100 целей {path, match}, set — пары «ключ: значение». По умолчанию dryRun: true — ничего не пишется, ответ показывает, какие заметки изменились бы; для записи передайте dryRun: false. match — точные значения полей, которым должна соответствовать заметка, иначе цель попадает в skipped с причиной. Ошибка одной заметки не отменяет остальные: причина уходит в skipped. Значения приводятся к YAML-safe виду так же, как в set_frontmatter: null удаляет ключ, массив строк пишется блочным списком. Вкладки не открываются.",
+            json!({
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": { "type": "string", "description": "Путь или название заметки" },
+                            "match": { "type": "object", "description": "Точные значения полей, которым должна соответствовать заметка, например {\"type\": \"book\"}; иначе цель попадёт в skipped" }
+                        },
+                        "required": ["path"],
+                        "additionalProperties": false
+                    },
+                    "description": "Заметки за один вызов, не больше 100"
+                },
+                "set": { "type": "object", "description": "Пары «ключ: значение», например {\"status\": \"read\", \"tags\": [\"роман\"]}; null удаляет ключ" },
+                "dryRun": { "type": "boolean", "description": "true — только показать план, ничего не записывая; по умолчанию true" },
+                "workspace": workspace_property(),
+            }),
+            &["targets", "set"],
+        ),
     ]
 }
 
@@ -52,6 +77,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, 
     Some(match name {
         "set_frontmatter" => set_frontmatter(core, arguments),
         "find_notes" => find_notes(core, arguments),
+        "batch_update_properties" => batch_update_properties(core, arguments),
         _ => return None,
     })
 }
@@ -92,6 +118,10 @@ fn field_updates(arguments: &Value) -> Result<Vec<(String, FieldValue)>, String>
         .ok_or_else(|| {
             "Не заполнен аргумент «fields»: нужен объект вида {«ключ»: «значение»}".to_owned()
         })?;
+    updates_from(fields)
+}
+
+fn updates_from(fields: &Map<String, Value>) -> Result<Vec<(String, FieldValue)>, String> {
     if fields.is_empty() {
         return Err("Список полей пуст: нечего менять".to_owned());
     }
@@ -269,7 +299,11 @@ fn selected(pairs: &[(String, String)], wanted: &[String]) -> Value {
 }
 
 fn equals_from(arguments: &Value) -> Result<Vec<(String, String)>, String> {
-    let Some(fields) = arguments.get("match") else {
+    equals_of(arguments.get("match"))
+}
+
+fn equals_of(value: Option<&Value>) -> Result<Vec<(String, String)>, String> {
+    let Some(fields) = value else {
         return Ok(Vec::new());
     };
     let fields = fields.as_object().ok_or_else(|| {
@@ -291,6 +325,79 @@ fn equals_from(arguments: &Value) -> Result<Vec<(String, String)>, String> {
             Ok((key.trim().to_owned(), value))
         })
         .collect()
+}
+
+fn batch_update_properties(core: &Core, arguments: &Value) -> Result<Value, String> {
+    let dry_run = flag(arguments, "dryRun", true);
+    if !dry_run {
+        require_write(core)?;
+    }
+    let vault = requested_vault(core, arguments)?;
+    let set = arguments
+        .get("set")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            "Не заполнен аргумент «set»: нужен объект вида {«ключ»: «значение»}".to_owned()
+        })?
+        .clone();
+    let updates = updates_from(&set)?;
+    let applied = Value::Object(set);
+    let mut changed = Vec::new();
+    let mut skipped = Vec::new();
+    for target in targets(arguments)? {
+        let requested = target_name(target);
+        let note = match text(target, "path").and_then(|name| vault.note(core, &name)) {
+            Ok(note) => note,
+            Err(reason) => {
+                skipped.push(json!({ "path": requested, "reason": reason }));
+                continue;
+            }
+        };
+        let relative = vault.relative(&note);
+        match apply_one(core, &note, target, &updates, dry_run) {
+            Ok(true) => changed.push(json!({ "path": relative, "applied": applied.clone() })),
+            Ok(false) => {
+                skipped.push(json!({ "path": relative, "reason": "значения уже совпадают" }))
+            }
+            Err(reason) => skipped.push(json!({ "path": relative, "reason": reason })),
+        }
+    }
+    Ok(json!({ "changed": changed, "skipped": skipped, "dryRun": dry_run }))
+}
+
+fn apply_one(
+    core: &Core,
+    note: &Path,
+    target: &Value,
+    updates: &[(String, FieldValue)],
+    dry_run: bool,
+) -> Result<bool, String> {
+    let equals = equals_of(target.get("match"))?;
+    if !equals.is_empty() {
+        let names = equals
+            .iter()
+            .map(|(key, _)| key.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let filter = Filter {
+            equals,
+            has: Vec::new(),
+            missing: Vec::new(),
+        };
+        if !matches(&pairs_of(&head_fields(note)), &filter) {
+            return Err(format!("свойства не совпали с match ({names})"));
+        }
+    }
+    if dry_run {
+        let current = read_text(note).map_err(|error| error.to_string())?;
+        let next = frontmatter_set(&current, updates)?;
+        return Ok(next != current);
+    }
+    let (changed, _) =
+        write_retrying_with_hash(core, note, Source::Agent, None, None, |current| {
+            frontmatter_set(current, updates)
+        })?;
+    Ok(changed)
 }
 
 #[cfg(test)]

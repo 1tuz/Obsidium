@@ -2,8 +2,8 @@ use super::super::vault::Vault;
 use super::workspace::{indexed_vault, requested_vault, workspace_vault};
 use super::{
     content, flag, limit, offset, open_after_write, optional_content, optional_names,
-    optional_text, require_write, shorten, text, tool, tool_with, version_name_property,
-    workspace_property, write_retrying_with_hash,
+    optional_text, require_write, shorten, target_name, targets, text, tool, tool_with,
+    version_name_property, workspace_property, write_retrying_with_hash, BATCH_LIMIT,
 };
 use crate::app_core::Core;
 use crate::files::document::{ensure_directory_impl, read_file_snapshot_impl, read_text};
@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 const READ_LIMIT: usize = 8_000;
 const MANY_READ_LIMIT: usize = 2_000;
 const LIST_LIMIT: usize = 200;
-const BATCH_LIMIT: usize = 100;
+const MAX_READ_LIMIT: usize = 40_000;
 
 pub fn definitions() -> Vec<Value> {
     vec![
@@ -34,6 +34,34 @@ pub fn definitions() -> Vec<Value> {
             }),
             &[],
             json!({ "anyOf": [{ "required": ["note"] }, { "required": ["path"] }, { "required": ["notes"] }] }),
+        ),
+        tool(
+            "batch_read_notes",
+            "Прочитать несколько заметок или их разделов одним вызовом: targets — до 100 целей {path, heading, maxChars}. Частичный успех: заметка, которую не удалось прочитать, приходит записью с полем error и не роняет остальные. Каждая заметка отдаётся не длиннее perNoteChars (по умолчанию 2000) или maxChars у цели; truncated говорит, что текст обрезан. onOverflow=error превращает переполнение в ошибку этой заметки вместо обрезки. Хеша и frontmatter в ответе нет — за ними идите в read_note.",
+            json!({
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": { "type": "string", "description": "Путь или название заметки" },
+                            "heading": { "type": "string", "description": "Читать только этот раздел заметки" },
+                            "maxChars": { "type": "integer", "description": "Сколько символов вернуть по этой заметке; важнее perNoteChars" },
+                        },
+                        "required": ["path"],
+                        "additionalProperties": false,
+                    },
+                    "description": "Заметки за один вызов, не больше 100",
+                },
+                "onOverflow": {
+                    "type": "string",
+                    "enum": ["truncate", "error"],
+                    "description": "Что делать с заметкой длиннее лимита: truncate — обрезать (по умолчанию), error — вернуть ошибку в этой записи",
+                },
+                "perNoteChars": { "type": "integer", "description": "Сколько символов отдавать на заметку, по умолчанию 2000, максимум 40000" },
+                "workspace": workspace_property(),
+            }),
+            &["targets"],
         ),
         tool(
             "create_note",
@@ -139,6 +167,7 @@ pub fn definitions() -> Vec<Value> {
 pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, String>> {
     Some(match name {
         "read_note" => read_note(core, arguments),
+        "batch_read_notes" => batch_read_notes(core, arguments),
         "create_note" => create_note(core, arguments),
         "update_note" => update_note(core, arguments),
         "rename_note" => rename_note(core, arguments),
@@ -154,7 +183,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Option<Result<Value, 
 fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     let vault = requested_vault(core, arguments)?;
     let Some(many) = optional_names(arguments, "notes")? else {
-        let size = limit(arguments, READ_LIMIT, 40_000);
+        let size = limit(arguments, READ_LIMIT, MAX_READ_LIMIT);
         return read_one(core, &vault, &text(arguments, "note")?, arguments, size);
     };
     if many.len() > BATCH_LIMIT {
@@ -163,7 +192,7 @@ fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
             many.len()
         ));
     }
-    let size = limit(arguments, MANY_READ_LIMIT, 40_000);
+    let size = limit(arguments, MANY_READ_LIMIT, MAX_READ_LIMIT);
     let notes = many
         .iter()
         .map(|name| match read_one(core, &vault, name, arguments, size) {
@@ -174,6 +203,44 @@ fn read_note(core: &Core, arguments: &Value) -> Result<Value, String> {
     Ok(json!({ "notes": notes }))
 }
 
+struct NoteText {
+    path: String,
+    hash: String,
+    frontmatter: Value,
+    heading: Option<String>,
+    content: String,
+}
+
+fn read_source(
+    core: &Core,
+    vault: &Vault,
+    name: &str,
+    heading: Option<&str>,
+) -> Result<NoteText, String> {
+    let note = vault.note(core, name)?;
+    let snapshot = read_file_snapshot_impl(&note).map_err(|error| error.to_string())?;
+    let content = snapshot.content;
+    let frontmatter = super::frontmatter::map(&content);
+    let (content, heading) = match heading {
+        Some(wanted) => {
+            let outline = headings::headings(&content);
+            let found = single_heading(&outline, wanted)?;
+            (
+                content[found.start..found.content.end].to_owned(),
+                Some(found.title.clone()),
+            )
+        }
+        None => (content, None),
+    };
+    Ok(NoteText {
+        path: vault.relative(&note),
+        hash: snapshot.hash,
+        frontmatter,
+        heading,
+        content,
+    })
+}
+
 fn read_one(
     core: &Core,
     vault: &Vault,
@@ -181,37 +248,101 @@ fn read_one(
     arguments: &Value,
     size: usize,
 ) -> Result<Value, String> {
-    let note = vault.note(core, name)?;
-    let snapshot = read_file_snapshot_impl(&note).map_err(|error| error.to_string())?;
-    let content = snapshot.content;
-    let meta = super::frontmatter::map(&content);
-    let (content, section) = match optional_text(arguments, "heading").as_deref() {
-        Some(wanted) => {
-            let outline = headings::headings(&content);
-            let heading = single_heading(&outline, wanted)?;
-            (
-                content[heading.start..heading.content.end].to_owned(),
-                Some(heading.title.clone()),
-            )
-        }
-        None => (content, None),
-    };
+    let note = read_source(
+        core,
+        vault,
+        name,
+        optional_text(arguments, "heading").as_deref(),
+    )?;
 
     let offset = offset(arguments);
-    let (body, total) = window(&content, offset, size)?;
+    let (body, total) = window(&note.content, offset, size)?;
     let shown = size.min(total.saturating_sub(offset));
     let end = offset.saturating_add(shown);
 
     Ok(json!({
-        "path": vault.relative(&note),
-        "hash": snapshot.hash,
-        "frontmatter": meta,
-        "heading": section,
+        "path": note.path,
+        "hash": note.hash,
+        "frontmatter": note.frontmatter,
+        "heading": note.heading,
         "content": body,
         "totalChars": total,
         "truncated": end < total,
         "nextOffset": (end < total).then_some(end),
     }))
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Overflow {
+    Truncate,
+    Error,
+}
+
+fn overflow_mode(arguments: &Value) -> Result<Overflow, String> {
+    match optional_text(arguments, "onOverflow").as_deref() {
+        None | Some("truncate") => Ok(Overflow::Truncate),
+        Some("error") => Ok(Overflow::Error),
+        Some(other) => Err(format!(
+            "Неизвестное значение onOverflow: «{other}»; допустимы truncate и error"
+        )),
+    }
+}
+
+fn characters(value: Option<&Value>, fallback: usize) -> usize {
+    value
+        .and_then(Value::as_u64)
+        .map_or(fallback, |value| value as usize)
+        .clamp(1, MAX_READ_LIMIT)
+}
+
+fn batch_read_notes(core: &Core, arguments: &Value) -> Result<Value, String> {
+    let vault = requested_vault(core, arguments)?;
+    let overflow = overflow_mode(arguments)?;
+    let default_size = characters(arguments.get("perNoteChars"), MANY_READ_LIMIT);
+    let notes = targets(arguments)?
+        .iter()
+        .map(|target| read_target(core, &vault, target, default_size, overflow))
+        .collect::<Vec<_>>();
+    Ok(json!({ "notes": notes }))
+}
+
+fn read_target(
+    core: &Core,
+    vault: &Vault,
+    target: &Value,
+    default_size: usize,
+    overflow: Overflow,
+) -> Value {
+    let path = target_name(target);
+    let note = match text(target, "path").and_then(|name| {
+        read_source(
+            core,
+            vault,
+            &name,
+            optional_text(target, "heading").as_deref(),
+        )
+    }) {
+        Ok(note) => note,
+        Err(error) => {
+            return json!({ "path": path, "content": "", "truncated": false, "error": error })
+        }
+    };
+    let size = characters(target.get("maxChars"), default_size);
+    let (body, total) = match window(&note.content, 0, size) {
+        Ok(pair) => pair,
+        Err(error) => {
+            return json!({ "path": note.path, "content": "", "truncated": false, "error": error })
+        }
+    };
+    if total > size && overflow == Overflow::Error {
+        return json!({
+            "path": note.path,
+            "content": "",
+            "truncated": false,
+            "error": format!("Заметка длиннее {size} символов (всего {total}): увеличьте maxChars или perNoteChars, либо включите onOverflow=truncate"),
+        });
+    }
+    json!({ "path": note.path, "content": body, "truncated": total > size })
 }
 
 pub fn window(text: &str, offset: usize, size: usize) -> Result<(&str, usize), String> {

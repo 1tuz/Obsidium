@@ -29,6 +29,8 @@ pub use crate::files::gate::require_write;
 
 const WRITE_CONFLICT_RETRIES: usize = 1;
 
+pub const BATCH_LIMIT: usize = 100;
+
 pub const INSTRUCTIONS: &str = concat!(
     "Obsidium — локальная база знаний из markdown-файлов. ",
     "Заметки адресуются относительным путём от корня базы (например «Проекты/Obsidium.md») ",
@@ -50,7 +52,8 @@ pub const INSTRUCTIONS: &str = concat!(
     "поиск, чтение и правка пойдут в фоновом гостевом индексе, а у пользователя на экране ничего не переключится. ",
     "Запрещено вызывать switch_workspace и open_note для чтения или записи — они переключают видимое окно пользователя! ",
     "switch_workspace и open_note вызываются ИСКЛЮЧИТЕЛЬНО по прямой просьбе пользователя показать/открыть базу или заметку на экране. ",
-    "Запись (create_note, update_note, set_frontmatter, restore_version) по умолчанию не открывает вкладку: open: true передавайте только тогда, когда пользователь попросил показать результат."
+    "Запись (create_note, update_note, set_frontmatter, restore_version) по умолчанию не открывает вкладку: open: true передавайте только тогда, когда пользователь попросил показать результат. ",
+    "Несколько заметок или их разделов читайте одним вызовом batch_read_notes, а одинаковые свойства сразу у многих заметок ставьте через batch_update_properties: он по умолчанию ничего не пишет и сначала показывает план."
 );
 
 pub fn definitions() -> Vec<Value> {
@@ -267,6 +270,35 @@ pub fn optional_names(arguments: &Value, key: &str) -> Result<Option<Vec<String>
         })
         .collect::<Result<Vec<_>, _>>()
         .map(Some)
+}
+
+pub fn targets(arguments: &Value) -> Result<&[Value], String> {
+    let value = arguments.get("targets").ok_or_else(|| {
+        "Не заполнен аргумент «targets»: нужен список объектов вида {«path»: «Заметка.md»}"
+            .to_owned()
+    })?;
+    let list = value
+        .as_array()
+        .ok_or_else(|| "Аргумент «targets» должен быть списком объектов".to_owned())?;
+    if list.is_empty() {
+        return Err("Список «targets» пуст: нечего обрабатывать".to_owned());
+    }
+    if list.len() > BATCH_LIMIT {
+        return Err(format!(
+            "За один вызов обрабатывается не больше {BATCH_LIMIT} целей, запрошено {}",
+            list.len()
+        ));
+    }
+    Ok(list)
+}
+
+pub fn target_name(target: &Value) -> String {
+    ["path", "note"]
+        .iter()
+        .find_map(|key| target.get(*key).and_then(Value::as_str))
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_owned()
 }
 
 pub fn flag(arguments: &Value, key: &str, fallback: bool) -> bool {
