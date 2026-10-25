@@ -29,6 +29,8 @@ import {
 } from '../../modules/bases';
 import { appendBaseView } from '../../modules/bases/baseFormat';
 import { calendarDate } from '../../modules/bases/calendar';
+import { journalDates, journalNotePath } from '../../modules/journal';
+import type { JournalSettings } from '../../modules/settings';
 import { planCalendarCard, planKanbanCard } from '../../modules/bases/cardCreation';
 import { BaseCalendar } from './BaseCalendar';
 import { resolveBaseViewIndex } from '../../modules/bases/viewSelection';
@@ -39,6 +41,7 @@ interface BaseViewProps {
   workspacePath: string;
   indexReady: boolean;
   indexRevision: number;
+  journalSettings?: JournalSettings | null;
   onOpenNote: (path: string) => void;
   onFileRenamed?: (oldPath: string, newPath: string) => void;
   onFileDeleted?: (path: string) => void;
@@ -118,6 +121,7 @@ export function BaseView({
   workspacePath,
   indexReady,
   indexRevision,
+  journalSettings,
   onOpenNote,
   onFileRenamed,
   onFileDeleted,
@@ -132,6 +136,7 @@ export function BaseView({
   const [editing, setEditing] = useState<string | null>(null);
   const [addViewMenu, setAddViewMenu] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [journalDays, setJournalDays] = useState<ReadonlySet<string>>(() => new Set());
   const selectedPath = useRef('');
   const selectionRevision = useRef(0);
   const evaluationPath = useRef('');
@@ -214,6 +219,20 @@ export function BaseView({
   const columns = evaluation?.columns ?? [];
   const unsupported = evaluation?.unsupported ?? false;
 
+  const calendarOpen = view?.type === 'calendar';
+  useEffect(() => {
+    if (!calendarOpen || !workspacePath) return;
+    let active = true;
+    void journalDates(workspacePath)
+      .then((dates) => {
+        if (active) setJournalDays(new Set(dates));
+      })
+      .catch((error) => console.error('Failed to load journal dates', error));
+    return () => {
+      active = false;
+    };
+  }, [calendarOpen, indexRevision, journalSettings, workspacePath]);
+
   if (failed) return <div className="q-base-state">{t('bases.error')}</div>;
   if (!loaded || !view || !evaluation) return <div className="q-base-state">{t('bases.loading')}</div>;
 
@@ -260,6 +279,14 @@ export function BaseView({
   const reportCalendarError = useCallback((error: unknown) => {
     setActionError(error instanceof Error ? error.message : String(error));
   }, []);
+
+  const openJournalNote = async (date: string) => {
+    try {
+      onOpenNote(await journalNotePath(workspacePath, date));
+    } catch (error) {
+      reportCalendarError(error);
+    }
+  };
 
   const createCalendarCard = async (date: string) => {
     if (!loaded) return;
@@ -392,7 +419,9 @@ export function BaseView({
             rows={rows}
             view={view}
             workspacePath={workspacePath}
+            journalDays={journalDays}
             onOpen={onOpenNote}
+            onOpenJournal={(date) => void openJournalNote(date)}
             onCreateDay={createCalendarCard}
             onCreateError={reportCalendarError}
           />

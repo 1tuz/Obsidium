@@ -93,4 +93,32 @@ describe('BaseCalendar', () => {
     await actAndSettle();
     expect(onCreateDay).toHaveBeenCalledWith(date);
   });
+
+  it('marks the days that have a daily note and opens it on click', async () => {
+    const onOpenJournal = vi.fn();
+    const today = new Date();
+    const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const date = `${month}-12`;
+    act(() => {
+      renderer = mountDom(
+        <BaseCalendar
+          rows={[]}
+          view={view}
+          workspacePath="/vault"
+          journalDays={new Set([date])}
+          onOpen={vi.fn()}
+          onOpenJournal={onOpenJournal}
+          onCreateDay={vi.fn(async () => undefined)}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    const marked = [...renderer!.container.querySelectorAll<HTMLElement>('.q-base-calendar__journal')];
+    expect(marked).toHaveLength(1);
+    expect(marked[0].closest('.q-base-calendar__day')?.getAttribute('aria-label')).toBe(date);
+    act(() => marked[0].click());
+    await actAndSettle();
+    expect(onOpenJournal).toHaveBeenCalledWith(date);
+  });
 });

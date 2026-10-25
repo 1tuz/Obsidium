@@ -23,6 +23,7 @@ pub enum JournalError {
     Settings { message: String },
     Date { message: String },
     Template { message: String },
+    Task { message: String },
 }
 
 impl From<crate::files::error::FileCommandError> for JournalError {
@@ -33,12 +34,21 @@ impl From<crate::files::error::FileCommandError> for JournalError {
     }
 }
 
+impl From<crate::app_core::TaskFailed> for JournalError {
+    fn from(error: crate::app_core::TaskFailed) -> Self {
+        Self::Task {
+            message: error.to_string(),
+        }
+    }
+}
+
 impl std::fmt::Display for JournalError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (Self::Io { message }
         | Self::Settings { message }
         | Self::Date { message }
-        | Self::Template { message }) = self;
+        | Self::Template { message }
+        | Self::Task { message }) = self;
         formatter.write_str(message)
     }
 }

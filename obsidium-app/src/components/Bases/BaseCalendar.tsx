@@ -18,18 +18,29 @@ interface BaseCalendarProps {
   rows: readonly BaseRow[];
   view: BaseViewDefinition;
   workspacePath: string;
+  journalDays?: ReadonlySet<string>;
   onOpen: (path: string) => void;
+  onOpenJournal?: (date: string) => void;
   onCreateDay: (date: string) => Promise<void>;
   onCreateError?: (error: unknown) => void;
 }
 
-export function BaseCalendar({ rows, view, workspacePath, onOpen, onCreateDay, onCreateError }: BaseCalendarProps) {
+export function BaseCalendar({
+  rows,
+  view,
+  workspacePath,
+  journalDays,
+  onOpen,
+  onOpenJournal,
+  onCreateDay,
+  onCreateError,
+}: BaseCalendarProps) {
   const [anchor, setAnchor] = useState(() => monthOf(todayIso()) ?? { year: 2026, month: 1 });
   const [creating, setCreating] = useState<string | null>(null);
   const locale = document.documentElement.lang || 'en';
   const month = useMemo(
-    () => buildCalendarMonth(rows, view, workspacePath, anchor),
-    [rows, view, workspacePath, anchor],
+    () => buildCalendarMonth(rows, view, workspacePath, anchor, journalDays),
+    [rows, view, workspacePath, anchor, journalDays],
   );
   const weekdays = useMemo(() => weekdayLabels(locale), [locale]);
   const today = todayIso();
@@ -92,17 +103,28 @@ export function BaseCalendar({ rows, view, workspacePath, onOpen, onCreateDay, o
           >
             <div className="q-base-calendar__day-head">
               <span>{day.date ? String(Number(day.date.slice(8, 10))) : ''}</span>
-              {day.date && (
-                <button
-                  type="button"
-                  className="q-base-calendar__add"
-                  aria-label={t('bases.calendarAdd', { date: day.date })}
-                  disabled={creating === day.date}
-                  onClick={() => void createOn(day.date!)}
-                >
-                  <Icon icon={Plus} />
-                </button>
-              )}
+              <span className="q-base-calendar__day-actions">
+                {day.hasJournal && (
+                  <button
+                    type="button"
+                    className="q-base-calendar__journal"
+                    aria-label={t('bases.calendarJournal', { date: day.date ?? day.key })}
+                    title={t('bases.calendarJournal', { date: day.date ?? day.key })}
+                    onClick={() => onOpenJournal?.(day.date ?? day.key)}
+                  />
+                )}
+                {day.date && (
+                  <button
+                    type="button"
+                    className="q-base-calendar__add"
+                    aria-label={t('bases.calendarAdd', { date: day.date })}
+                    disabled={creating === day.date}
+                    onClick={() => void createOn(day.date!)}
+                  >
+                    <Icon icon={Plus} />
+                  </button>
+                )}
+              </span>
             </div>
             <div className="q-base-calendar__entries">
               {day.rows.map((row) => (

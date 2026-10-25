@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   loadDeferred: null as Promise<number> | null,
   rows: [] as { path: string; fields: Record<string, string> }[],
   baseContent: null as string | null,
+  journalDates: [] as string[],
 }));
 
 vi.mock('../../modules/documents/fileGateway', () => ({
@@ -57,6 +58,11 @@ vi.mock('../../modules/ui-state/gateway', () => ({
   saveBaseView: vi.fn(async (_workspace: string, _path: string, index: number) => { state.savedView = index; }),
 }));
 
+vi.mock('../../modules/journal', () => ({
+  journalDates: vi.fn(async () => state.journalDates),
+  journalNotePath: vi.fn(async (_workspace: string, date: string) => `/vault/journal/${date}.md`),
+}));
+
 const { BaseView } = await import('./BaseView');
 const { getBaseRows, queryBase } = await import('../../modules/bases/gateway');
 const { saveBaseView } = await import('../../modules/ui-state/gateway');
@@ -70,6 +76,7 @@ describe('BaseView view selection', () => {
     renderer = null;
     state.rows = [];
     state.baseContent = null;
+    state.journalDates = [];
   });
 
   it('opens the requested view and remembers it for an ordinary reopen', async () => {
@@ -275,6 +282,22 @@ describe('BaseView view selection', () => {
     expect(createFile).toHaveBeenCalledWith(
       `/vault/${due}.md`, `---\ndue: "${due}"\n---\n\n# ${due}\n`,
     );
+  });
+
+  it('marks calendar days that have a daily note and opens the note on click', async () => {
+    const due = new Date().toISOString().slice(0, 10);
+    state.journalDates = [due];
+    const onOpenNote = vi.fn();
+    act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
+      indexReady indexRevision={0} onOpenNote={onOpenNote}
+      viewRequest={{ path: '/vault/Project.base', index: 3, id: 5 }} />); });
+    await actAndSettle();
+
+    const marker = renderer!.container.querySelector<HTMLButtonElement>('.q-base-calendar__journal');
+    expect(marker?.closest('.q-base-calendar__day')?.getAttribute('aria-label')).toBe(due);
+    act(() => marker!.click());
+    await actAndSettle();
+    expect(onOpenNote).toHaveBeenCalledWith(`/vault/journal/${due}.md`);
   });
 
   it('moves an unassigned card using the keyboard-accessible column selector', async () => {

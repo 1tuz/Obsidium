@@ -28,6 +28,12 @@ export const SHORTCUTS = {
     key: 'U',
     primary: true,
   },
+  JOURNAL_TODAY: {
+    code: 'KeyD',
+    key: 'D',
+    primary: true,
+    shift: true,
+  },
   FOCUS_MODE: {
     code: 'KeyF',
     key: 'F',

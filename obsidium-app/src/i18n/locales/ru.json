@@ -235,6 +235,7 @@
       "reader": "Читалка",
       "search": "Поиск",
       "templates": "Шаблоны",
+      "journal": "Дневные заметки",
       "files": "Файлы",
       "analysis": "Анализ",
       "mcp": "ИИ-агенты",
@@ -458,6 +459,16 @@
       "createHint": "Создаст папку «{{folder}}» с шаблонами для книги и обычной заметки",
       "createButton": "Создать папку с шаблонами"
     },
+    "journal": {
+      "section": "Дневные заметки",
+      "folder": "Папка дневных заметок",
+      "folderHint": "Путь относительно корня базы знаний, например journal или Journal/Daily. Папка создаётся при первой заметке.",
+      "dateFormat": "Формат имени файла",
+      "dateFormatHint": "По одному разу YYYY, MM и DD: например YYYY-MM-DD или DD.MM.YYYY.",
+      "template": "Шаблон новой заметки",
+      "templateHint": "Путь к шаблону относительно корня базы знаний. Пусто — минимальная заготовка с frontmatter.",
+      "templatePlaceholder": "Templates/Daily.md"
+    },
     "files": {
       "section": "Файлы и вложения",
       "folder": "Папка для вложений",
@@ -507,6 +518,7 @@
       "global": "Глобальные",
       "newTab": "Новая вкладка",
       "newFromTemplate": "Новая заметка из шаблона",
+      "journalToday": "Дневная заметка на сегодня",
       "globalSearch": "Поиск по базе",
       "commandPalette": "Палитра команд",
       "searchWindow": "Окно поиска",
@@ -568,6 +580,7 @@
     "newNote": "Новая заметка",
     "newCanvas": "Новая доска Canvas",
     "newFromTemplate": "Новая заметка из шаблона",
+    "journalToday": "Открыть заметку на сегодня",
     "newCanvas": "Новый холст",
     "search": "Поиск по базе знаний",
     "graph": "Открыть граф",
@@ -623,6 +636,7 @@
     "calendarNext": "Следующий месяц",
     "calendarToday": "Сегодня",
     "calendarAdd": "Создать заметку на {{date}}",
+    "calendarJournal": "Открыть дневную заметку за {{date}}",
     "calendarUndated": "Без даты: {{count}}",
     "kanbanNotWritable": "Нельзя изменить значение колонки этой карточки.",
     "kanbanExcluded": "Эта колонка исключена фильтром доски."

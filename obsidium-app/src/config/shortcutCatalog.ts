@@ -18,6 +18,7 @@ export function shortcutCatalog(): ShortcutCatalogGroup[] {
       items: [
         { label: t('settings.shortcuts.newTab'), shortcut: SHORTCUTS.NEW_FILE },
         { label: t('settings.shortcuts.newFromTemplate'), shortcut: SHORTCUTS.NEW_FROM_TEMPLATE },
+        { label: t('settings.shortcuts.journalToday'), shortcut: SHORTCUTS.JOURNAL_TODAY },
         { label: t('settings.shortcuts.globalSearch'), shortcut: SHORTCUTS.GLOBAL_SEARCH },
         { label: t('settings.shortcuts.commandPalette'), shortcut: SHORTCUTS.COMMAND_PALETTE },
         { label: t('settings.shortcuts.focusMode'), shortcut: SHORTCUTS.FOCUS_MODE },

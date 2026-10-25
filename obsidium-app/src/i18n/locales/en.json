@@ -233,6 +233,7 @@
       "reader": "Reader",
       "search": "Search",
       "templates": "Templates",
+      "journal": "Daily notes",
       "files": "Files",
       "analysis": "Analysis",
       "mcp": "AI agents",
@@ -456,6 +457,16 @@
       "createHint": "Creates the “{{folder}}” folder with a book and a plain note template",
       "createButton": "Create templates folder"
     },
+    "journal": {
+      "section": "Daily notes",
+      "folder": "Daily notes folder",
+      "folderHint": "Relative to the vault root, for example journal or Journal/Daily. The folder is created with the first note.",
+      "dateFormat": "File name format",
+      "dateFormatHint": "Exactly one YYYY, MM and DD each: for example YYYY-MM-DD or DD.MM.YYYY.",
+      "template": "New note template",
+      "templateHint": "Template path relative to the vault root. Empty — a minimal frontmatter stub.",
+      "templatePlaceholder": "Templates/Daily.md"
+    },
     "files": {
       "section": "Files and attachments",
       "folder": "Attachments folder",
@@ -503,6 +514,7 @@
       "global": "Global",
       "newTab": "New tab",
       "newFromTemplate": "New note from a template",
+      "journalToday": "Today's daily note",
       "globalSearch": "Search the knowledge base",
       "commandPalette": "Command palette",
       "searchWindow": "Search window",
@@ -564,6 +576,7 @@
     "newNote": "New note",
     "newCanvas": "New Canvas",
     "newFromTemplate": "New note from template",
+    "journalToday": "Open today's daily note",
     "newCanvas": "New canvas",
     "search": "Search knowledge base",
     "graph": "Open graph",
@@ -619,6 +632,7 @@
     "calendarNext": "Next month",
     "calendarToday": "Today",
     "calendarAdd": "Create a note on {{date}}",
+    "calendarJournal": "Open the daily note for {{date}}",
     "calendarUndated": "No date: {{count}}",
     "kanbanNotWritable": "This card's column value cannot be edited.",
     "kanbanExcluded": "This destination is excluded by the board filter."

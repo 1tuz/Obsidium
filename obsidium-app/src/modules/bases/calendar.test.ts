@@ -89,6 +89,18 @@ describe('buildCalendarMonth', () => {
     expect(month.days.find((day) => day.date === '2026-10-06')?.rows).toHaveLength(1);
     expect(month.days.find((day) => day.date === '2026-10-07')?.rows).toHaveLength(0);
   });
+
+  it('marks only the days that have a daily note', () => {
+    const journalDays = new Set(['2026-09-30', '2026-10-25']);
+    const month = buildCalendarMonth([], view(), '/vault', { year: 2026, month: 10 }, journalDays);
+    expect(month.days.filter((day) => day.hasJournal).map((day) => day.date))
+      .toEqual(['2026-09-30', '2026-10-25']);
+  });
+
+  it('leaves every day unmarked without daily note data', () => {
+    const month = buildCalendarMonth([], view(), '/vault', { year: 2026, month: 10 });
+    expect(month.days.some((day) => day.hasJournal)).toBe(false);
+  });
 });
 
 describe('calendarProperty', () => {

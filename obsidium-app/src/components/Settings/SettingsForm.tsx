@@ -15,6 +15,7 @@ const ShortcutsSection = lazy(() => import('./sections/ShortcutsSection').then((
 const SystemSection = lazy(() => import('./sections/SystemSection').then((module) => ({ default: module.SystemSection })));
 const UiSection = lazy(() => import('./sections/UiSection').then((module) => ({ default: module.UiSection })));
 const TemplatesSection = lazy(() => import('./sections/TemplatesSection').then((module) => ({ default: module.TemplatesSection })));
+const JournalSection = lazy(() => import('./sections/JournalSection').then((module) => ({ default: module.JournalSection })));
 const FilesSection = lazy(() => import('./sections/FilesSection').then((module) => ({ default: module.FilesSection })));
 
 interface SettingsFormProps {
@@ -66,6 +67,9 @@ export function SettingsForm({
       break;
     case 'templates':
       content = <TemplatesSection config={config} workspacePath={workspacePath} onChange={onChange} />;
+      break;
+    case 'journal':
+      content = <JournalSection config={config} onChange={onChange} />;
       break;
     case 'files':
       content = <FilesSection config={config} workspacePath={workspacePath} onChange={onChange} />;

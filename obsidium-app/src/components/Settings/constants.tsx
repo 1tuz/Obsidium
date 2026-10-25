@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   BookOpen,
+  CalendarDays,
   History,
   Keyboard,
   Monitor,
@@ -26,6 +27,7 @@ export function settingsSections(): { id: SettingsSectionId; label: string }[] {
     { id: 'reader', label: t('settings.nav.reader') },
     { id: 'search', label: t('settings.nav.search') },
     { id: 'templates', label: t('settings.nav.templates') },
+    { id: 'journal', label: t('settings.nav.journal') },
     { id: 'files', label: t('settings.nav.files') },
     { id: 'analysis', label: t('settings.nav.analysis') },
     { id: 'mcp', label: t('settings.nav.mcp') },
@@ -43,6 +45,7 @@ export const SETTINGS_SECTION_ICONS: Record<SettingsSectionId, ReactNode> = {
   reader: <Icon icon={BookOpen} />,
   search: <Icon icon={Search} />,
   templates: <Icon icon={FileText} />,
+  journal: <Icon icon={CalendarDays} />,
   files: <Icon icon={Paperclip} />,
   analysis: <GraphAnalysisIcon />,
   mcp: <Icon icon={Plug} />,

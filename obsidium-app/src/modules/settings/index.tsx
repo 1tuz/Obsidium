@@ -157,6 +157,12 @@ export const DEFAULT_BUILTINS: BuiltinPluginSettings = {
   iconAssignments: {},
 };
 
+export interface JournalSettings {
+  folder: string;
+  dateFormat: string;
+  templatePath: string | null;
+}
+
 export interface AppConfig {
   builtins?: BuiltinPluginSettings;
   analysis: AnalysisSettings;
@@ -167,6 +173,7 @@ export interface AppConfig {
   editor: EditorSettings;
   reader: ReaderSettings;
   ui: UiSettings;
+  journal: JournalSettings;
   templates: { folder: string };
   files: { folder: string };
   updates: { auto: boolean };

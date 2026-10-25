@@ -139,11 +139,51 @@ created: 2026-10-25
 
 Практическое следствие: формат меняют один раз и осознанно, а существующие заметки переносят вручную или отдельным скриптом, который видит обе стороны и умеет обновлять ссылки. Ядро такой миграции не делает.
 
+## Применение
+
+### Команда «Открыть заметку на сегодня»
+
+Палитра команд (`src/App.tsx`) содержит команду `journal.today` с подписью «Открыть заметку на сегодня» и горячей клавишей `Mod+Shift+D` (`SHORTCUTS.JOURNAL_TODAY`). Команда доступна только при открытой базе знаний.
+
+Обработчик вызывает IPC-команду `journal_today(workspace_path)`, получает `{ path, created }` и открывает `path` тем же `openNote`, что и остальные файлы. Дерево файлов обновляется не вручную, а событием `workspace-changed` от наблюдателя за базой — ровно так же, как после создания связанной заметки из `[[ссылки]]`.
+
+Повторный вызов в тот же день открывает тот же файл: `created` в этом случае `false`, второй заметки не появляется.
+
+### IPC-команды
+
+Слой Tauri (`src-tauri/src/journal/commands.rs`) не содержит бизнес-логики: он берёт `journal` из `core.settings.get_config()` на каждый вызов и передаёт работу сервису ядра.
+
+| Команда | Аргументы | Результат |
+| --- | --- | --- |
+| `journal_today` | `workspacePath` | `{ path, created }` |
+| `journal_dates` | `workspacePath` | `["2026-10-25", …]` — ISO-даты |
+| `journal_note` | `workspacePath`, `year`, `month`, `day` | путь заметки на дату |
+
+Настройки читаются в момент вызова, поэтому смена папки или формата в настройках действует сразу, без перезапуска приложения.
+
+Фронтенд-обёртки лежат в `src/modules/journal/gateway.ts` (`journalToday`, `journalDates`, `journalNotePath`).
+
+### Маркеры в календаре
+
+Календарное представление Base (`src/components/Bases/BaseView.tsx`, `BaseCalendar.tsx`) при открытии вида запрашивает `journal_dates` и передаёт полученный набор ISO-дат в модель месяца (`buildCalendarMonth` в `src/modules/bases/calendar.ts`). У каждого дня модели есть флаг `hasJournal`; на отмеченных днях рисуется точка-маркер.
+
+Клик по маркеру строит путь через `journal_note` (учитывает текущую папку и формат) и открывает заметку. Список дат запрашивается заново при смене настроек журнала, поэтому новый формат или папка отражаются в календаре без перезапуска, и при изменении индекса базы — новая заметка появляется в календаре без переоткрытия вида. Запрос идёт на открытие вида и на изменение индекса, а не на каждый рендер: набор дат хранится в состоянии представления.
+
+### Настройки
+
+Раздел «Дневные заметки» в настройках (`src/components/Settings/sections/JournalSection.tsx`) правит три поля секции `journal`: папка, формат даты и путь к шаблону. Пустое поле шаблона сохраняется как `null` — минимальная заготовка с frontmatter.
+
+Ключи переводов: `settings.journal.*`, `settings.nav.journal`, `commands.journalToday`, `bases.calendarJournal`.
+
 ## Архитектура
 
 - `core/src/journal/mod.rs` — `JournalNote`, `JournalError`, публичные реэкспорты.
 - `core/src/journal/service.rs` — формат имён, `note_path`, `today`, `list_dates`, `link_target`, разбор шаблона.
 - `core/src/journal/tests.rs` — создание и идемпотентность, шаблон, список дат, формат, ссылка, настройки по умолчанию.
+- `src-tauri/src/journal/commands.rs` — IPC-команды `journal_today`, `journal_dates`, `journal_note`.
+- `src/modules/journal/gateway.ts` — обёртки `invoke` для фронтенда.
+- `src/components/Bases/BaseCalendar.tsx`, `src/modules/bases/calendar.ts` — маркеры дней с дневными заметками.
+- `src/components/Settings/sections/JournalSection.tsx` — раздел настроек журнала.
 - `core/src/settings/models.rs` — секция `journal` в `AppConfig`.
 - `core/src/search/note_date.rs` — единственный источник календарной арифметики: текущий момент, гражданская дата, длина месяца.
 - `core/src/files/document.rs` — создание файла без перезаписи и создание папок.
