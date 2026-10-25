@@ -100,6 +100,10 @@ impl IndexSynchronizer {
         self.progress.begin_scan();
         let mut known = metadata::load(&self.connection)?;
         let force_reindex = known.len() as u64 != self.index.document_count();
+        let relations_changed = super::graph::timeline::sync_relation_fields(
+            &self.connection,
+            &super::graph::model::declared_relation_fields(&self.root),
+        )?;
         let mut transaction = self.connection.transaction()?;
         super::graph::timeline::mark_rescan(&transaction)?;
         let mut pending = 0;
@@ -191,6 +195,16 @@ impl IndexSynchronizer {
             &mut timeline_paths,
             &mut graph_changed,
         )?;
+        if relations_changed {
+            let mut statement =
+                transaction.prepare("SELECT path FROM wiki_documents ORDER BY path")?;
+            let paths = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            drop(statement);
+            timeline_paths.extend(paths);
+            graph_changed = true;
+        }
         if !timeline_paths.is_empty() {
             super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
         }

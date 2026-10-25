@@ -1,11 +1,15 @@
 use super::timeline::{NoteChange, NoteState, TimelineChangeBatch};
+use crate::search::paths::is_visible_entry;
 use crate::search::wiki::target::{pick_candidate, target_key};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 type TargetKey = (String, String);
 type EdgePair = (String, String);
 type EdgeContributionKey = (bool, u32);
+
+pub const RELATION_TYPE: u32 = 8;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedEdge {
@@ -48,6 +52,7 @@ pub struct GraphModel {
     by_relative: HashMap<String, BTreeSet<String>>,
     sources_by_target: HashMap<TargetKey, HashSet<String>>,
     edge_contributions_by_pair: BTreeMap<EdgePair, BTreeMap<EdgeContributionKey, usize>>,
+    relation_fields: BTreeSet<String>,
 }
 
 impl GraphModel {
@@ -60,6 +65,7 @@ impl GraphModel {
             by_relative: HashMap::new(),
             sources_by_target: HashMap::new(),
             edge_contributions_by_pair: BTreeMap::new(),
+            relation_fields: declared_relation_fields(root),
         };
         for note in notes {
             model.insert_note(note);
@@ -285,7 +291,10 @@ impl GraphModel {
             let Some(target) = self.pick_target(path, kind, &key) else {
                 continue;
             };
-            let link_type = structural_type_mask(&link.field);
+            let link_type = structural_type_mask(&link.field, &self.relation_fields);
+            if link_type == 0 {
+                continue;
+            }
             contributions.push(ResolvedEdge {
                 target: target.clone(),
                 link_type,
@@ -461,19 +470,126 @@ fn clean_structural_target(value: &str) -> String {
         .to_owned()
 }
 
-fn structural_type_mask(field: &str) -> u32 {
+fn structural_type_mask(field: &str, relation_fields: &BTreeSet<String>) -> u32 {
     match field {
         "parent" => 4,
         "related" => 8,
         "depends_on" => 16,
         "blocks" => 32,
-        _ => 0,
+        other => {
+            if relation_fields.contains(other) {
+                RELATION_TYPE
+            } else {
+                0
+            }
+        }
     }
+}
+
+pub fn declared_relation_fields(root: &Path) -> BTreeSet<String> {
+    let mut fields = BTreeSet::new();
+    for entry in WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(is_visible_entry)
+        .filter_map(Result::ok)
+    {
+        if !entry.file_type().is_file() || !is_base_file(entry.path()) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        collect_relation_fields(&text, &mut fields);
+    }
+    fields
+}
+
+fn is_base_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("base"))
+}
+
+fn collect_relation_fields(text: &str, fields: &mut BTreeSet<String>) {
+    let mut in_properties = false;
+    let mut entry_indent = None::<usize>;
+    let mut entry = None::<String>;
+    for line in text.lines() {
+        let content = line.trim_end();
+        if content.trim().is_empty() || content.trim_start().starts_with('#') {
+            continue;
+        }
+        let indent = content.len() - content.trim_start().len();
+        let body = content.trim_start();
+        if indent == 0 {
+            in_properties = body == "properties:";
+            entry_indent = None;
+            entry = None;
+            continue;
+        }
+        if !in_properties {
+            continue;
+        }
+        if indent == *entry_indent.get_or_insert(indent) {
+            entry = split_key_value(body)
+                .filter(|(_, value)| value.is_empty())
+                .map(|(key, _)| decode_key(key).to_lowercase());
+            continue;
+        }
+        let Some(key) = entry.as_ref() else {
+            continue;
+        };
+        let Some(("type", value)) = split_key_value(body) else {
+            continue;
+        };
+        if decode_key(value).eq_ignore_ascii_case("relation") {
+            fields.insert(key.clone());
+        }
+    }
+}
+
+fn split_key_value(text: &str) -> Option<(&str, &str)> {
+    let mut quote = None::<char>;
+    let mut depth = 0usize;
+    for (index, symbol) in text.char_indices() {
+        if let Some(active) = quote {
+            if symbol == active {
+                quote = None;
+            }
+            continue;
+        }
+        match symbol {
+            '"' | '\'' => quote = Some(symbol),
+            '[' | '{' | '(' => depth += 1,
+            ']' | '}' | ')' => depth = depth.saturating_sub(1),
+            ':' if depth == 0 => return Some((text[..index].trim(), text[index + 1..].trim())),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn decode_key(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.len() >= 2 {
+        let bytes = trimmed.as_bytes();
+        let quote = bytes[0];
+        if (quote == b'"' || quote == b'\'') && bytes[bytes.len() - 1] == quote {
+            let inner = &trimmed[1..trimmed.len() - 1];
+            return if quote == b'"' {
+                serde_json::from_str::<String>(trimmed).unwrap_or_else(|_| inner.to_owned())
+            } else {
+                inner.replace("''", "'")
+            };
+        }
+    }
+    trimmed.to_owned()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::GraphModel;
+    use super::{declared_relation_fields, GraphModel, RELATION_TYPE};
     use crate::search::graph::timeline::{
         LinkState, NoteChange, NoteState, StructuralLinkState, TimelineChangeBatch,
     };
@@ -552,6 +668,86 @@ mod tests {
             "/vault/Source.md".to_owned(),
             8
         )));
+    }
+
+    #[test]
+    fn a_declared_relation_property_becomes_a_typed_structural_edge() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        std::fs::write(
+            root.join("Projects.base"),
+            [
+                "properties:",
+                "  mentor:",
+                "    type: relation",
+                "    displayName: Наставник",
+                "  reviewer:",
+                "    type: text",
+                "views:",
+                "  - type: table",
+                "    name: Table",
+                "",
+            ]
+            .join("\n"),
+        )
+        .unwrap();
+        let source_path = root.join("Source.md").to_string_lossy().into_owned();
+        let target_path = root.join("Target.md").to_string_lossy().into_owned();
+        let mut source = note(&source_path, "Source", Vec::new());
+        source.structural_links.push(StructuralLinkState {
+            field: "mentor".to_owned(),
+            target: "Target".to_owned(),
+        });
+        source.structural_links.push(StructuralLinkState {
+            field: "reviewer".to_owned(),
+            target: "Target".to_owned(),
+        });
+        let model =
+            GraphModel::from_notes(root, vec![source, note(&target_path, "Target", Vec::new())]);
+
+        assert_eq!(
+            model.directed_edges(),
+            vec![(source_path, target_path, RELATION_TYPE)]
+        );
+    }
+
+    #[test]
+    fn relation_declarations_come_from_base_files_only() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        std::fs::create_dir_all(root.join("Work")).unwrap();
+        std::fs::write(
+            root.join("Work/Projects.base"),
+            [
+                "properties:",
+                "  \"Mentor\":",
+                "    displayName: Наставник",
+                "    type: \"relation\"",
+                "  status:",
+                "    type: text",
+                "views:",
+                "  - type: table",
+                "    name: Table",
+                "    properties:",
+                "      owner:",
+                "        type: relation",
+                "",
+            ]
+            .join("\n"),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("Note.md"),
+            "---\nmentor:\n  type: relation\n---\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            declared_relation_fields(root)
+                .into_iter()
+                .collect::<Vec<_>>(),
+            vec!["mentor".to_owned()]
+        );
     }
 
     #[test]

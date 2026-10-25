@@ -115,6 +115,7 @@ import usersTabler from '@tabler/icons/outline/users.svg?raw';
 import xTabler from '@tabler/icons/outline/x.svg?raw';
 import zoomInTabler from '@tabler/icons/outline/zoom-in.svg?raw';
 import templateTabler from '@tabler/icons/outline/file-text.svg?raw';
+import timelineTabler from '@tabler/icons/outline/timeline.svg?raw';
 
 const svgBody = (source: string) => source.slice(source.indexOf('>') + 1, source.lastIndexOf('</svg>'));
 
@@ -235,4 +236,5 @@ export const TABLER_ICONS = {
   'x': svgBody(xTabler),
   'zoom-in': svgBody(zoomInTabler),
   'template': svgBody(templateTabler),
+  'timeline': svgBody(timelineTabler),
 } satisfies Record<IconId, string>;

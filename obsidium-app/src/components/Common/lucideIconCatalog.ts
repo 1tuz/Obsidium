@@ -1,5 +1,5 @@
 import type { IconNode } from 'lucide';
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Bold, BookOpen, Bookmark, Briefcase, BringToFront, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsUpDown, Circle, Code, Code2, CodeXml, Columns3, Command, Copy, CornerDownLeft, Crop, DatabaseZap, Diamond, ExternalLink, File, FileCode, FilePlus2, FileText, Folder, FolderOpen, FolderSearch, FolderTree, GitBranch, Group, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Heart, Highlighter, History, House, Image, IndentDecrease, IndentIncrease, Italic, Keyboard, Library, Link2, List, ListOrdered, ListTodo, LoaderCircle, Minus, Monitor, Moon, MoreHorizontal, MousePointer2, MoveDiagonal2, Music2, Network, Palette, PanelLeft, PanelRight, PanelRightClose, PanelRightOpen, Paperclip, Pencil, Pin, Plug, Plus, Power, Puzzle, Quote, Redo2, RefreshCw, RotateCcw, Rows3, Search, SearchX, SendToBack, Settings, Settings2, Shuffle, Square, Star, Strikethrough, Sun, Table2, TableCellsMerge, TableCellsSplit, Tag, Tags, TextSelect, Trash2, Type, Undo2, UnfoldVertical, Ungroup, Upload, Users, X, ZoomIn } from 'lucide';
+import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, ArrowUpRight, Bold, BookOpen, Bookmark, Briefcase, BringToFront, CalendarDays, ChartGantt, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsUpDown, Circle, Code, Code2, CodeXml, Columns3, Command, Copy, CornerDownLeft, Crop, DatabaseZap, Diamond, ExternalLink, File, FileCode, FilePlus2, FileText, Folder, FolderOpen, FolderSearch, FolderTree, GitBranch, Group, Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, Heart, Highlighter, History, House, Image, IndentDecrease, IndentIncrease, Italic, Keyboard, Library, Link2, List, ListOrdered, ListTodo, LoaderCircle, Minus, Monitor, Moon, MoreHorizontal, MousePointer2, MoveDiagonal2, Music2, Network, Palette, PanelLeft, PanelRight, PanelRightClose, PanelRightOpen, Paperclip, Pencil, Pin, Plug, Plus, Power, Puzzle, Quote, Redo2, RefreshCw, RotateCcw, Rows3, Search, SearchX, SendToBack, Settings, Settings2, Shuffle, Square, Star, Strikethrough, Sun, Table2, TableCellsMerge, TableCellsSplit, Tag, Tags, TextSelect, Trash2, Type, Undo2, UnfoldVertical, Ungroup, Upload, Users, X, ZoomIn } from 'lucide';
 
 import type { IconId } from './iconCatalog';
 
@@ -120,6 +120,7 @@ export const LUCIDE_ICONS = {
   'x': X,
   'zoom-in': ZoomIn,
   'template': FileText,
+  'timeline': ChartGantt,
 } satisfies Record<IconId, IconNode>;
 
 export const LEGACY_ICON_IDS = new Map<IconNode, IconId>([
@@ -239,4 +240,5 @@ export const LEGACY_ICON_IDS = new Map<IconNode, IconId>([
   [X, 'x'],
   [ZoomIn, 'zoom-in'],
   [FileText, 'file'],
+  [ChartGantt, 'timeline'],
 ]);

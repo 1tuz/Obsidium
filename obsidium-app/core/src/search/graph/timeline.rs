@@ -4,7 +4,7 @@ use crate::search::graph::snapshot::RenderSnapshot;
 use crate::search::{fields, wiki};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -72,6 +72,9 @@ pub fn open_schema(connection: &Connection) -> Result<(), SearchError> {
          CREATE TABLE IF NOT EXISTS graph_timeline_meta (
            key TEXT PRIMARY KEY NOT NULL,
            value INTEGER NOT NULL
+         ) WITHOUT ROWID;
+         CREATE TABLE IF NOT EXISTS graph_relation_fields (
+           key TEXT PRIMARY KEY NOT NULL
          ) WITHOUT ROWID;
          INSERT OR IGNORE INTO graph_timeline_meta(key, value) VALUES('rescan_epoch', 0);",
     )?;
@@ -141,6 +144,32 @@ pub fn rescan_epoch(connection: &Connection) -> Result<i64, SearchError> {
             |row| row.get(0),
         )
         .map_err(SearchError::from)
+}
+
+pub fn relation_fields(connection: &Connection) -> Result<BTreeSet<String>, SearchError> {
+    let mut statement = connection.prepare("SELECT key FROM graph_relation_fields")?;
+    let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+    Ok(rows.collect::<Result<BTreeSet<_>, _>>()?)
+}
+
+pub fn sync_relation_fields(
+    connection: &Connection,
+    fields: &BTreeSet<String>,
+) -> Result<bool, SearchError> {
+    if &relation_fields(connection)? == fields {
+        return Ok(false);
+    }
+    connection.execute("DELETE FROM graph_relation_fields", [])?;
+    let mut statement = connection.prepare("INSERT INTO graph_relation_fields(key) VALUES(?1)")?;
+    for field in fields {
+        statement.execute([field])?;
+    }
+    Ok(true)
+}
+
+fn is_structural_field(field: &str, relation_fields: &BTreeSet<String>) -> bool {
+    matches!(field, "parent" | "related" | "depends_on" | "blocks")
+        || relation_fields.contains(field)
 }
 
 pub fn mark_rescan(transaction: &Transaction<'_>) -> Result<(), SearchError> {
@@ -289,6 +318,8 @@ pub fn snapshot_at(
     )?;
     wiki::open_schema(&snapshot_connection)?;
     fields::open_schema(&snapshot_connection)?;
+    open_schema(&snapshot_connection)?;
+    sync_relation_fields(&snapshot_connection, &relation_fields(connection)?)?;
     let transaction = snapshot_connection.unchecked_transaction()?;
     for note in notes {
         transaction.execute(
@@ -391,9 +422,10 @@ fn read_note(connection: &Connection, path: &str) -> Result<Option<NoteState>, S
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
+    let declared = relation_fields(connection)?;
     let mut statement = connection.prepare(
         "SELECT key_lower, text, items FROM note_fields
-         WHERE path=?1 AND key_lower IN ('parent', 'related', 'depends_on', 'blocks')
+         WHERE path=?1
          ORDER BY ordinal",
     )?;
     let fields = statement.query_map([path], |row| {
@@ -405,6 +437,9 @@ fn read_note(connection: &Connection, path: &str) -> Result<Option<NoteState>, S
     })?;
     for field in fields {
         let (field, text, items) = field?;
+        if !is_structural_field(&field, &declared) {
+            continue;
+        }
         let targets = items
             .and_then(|items| serde_json::from_str::<Vec<String>>(&items).ok())
             .filter(|items| !items.is_empty())

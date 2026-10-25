@@ -195,7 +195,8 @@ mod tests {
             .execute_batch(
                 "CREATE TABLE wiki_documents(path TEXT, relative_key TEXT, title_key TEXT);
                  CREATE TABLE wiki_links(source_path TEXT, target_key TEXT, target_kind TEXT, link_type TEXT);
-                 CREATE TABLE note_fields(path TEXT, key_lower TEXT, text TEXT, items TEXT, ordinal INTEGER);",
+                 CREATE TABLE note_fields(path TEXT, key_lower TEXT, text TEXT, items TEXT, ordinal INTEGER);
+                 CREATE TABLE graph_relation_fields(key TEXT PRIMARY KEY NOT NULL);",
             )
             .unwrap();
         GraphSnapshot::load(&connection, root).unwrap()

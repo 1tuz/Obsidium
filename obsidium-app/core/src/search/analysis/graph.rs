@@ -223,9 +223,9 @@ fn append_structural(
             .or_default()
             .push(&document.path);
     }
+    let declared = crate::search::graph::timeline::relation_fields(connection)?;
     let mut statement = connection.prepare(
         "SELECT path, key_lower, text, items FROM note_fields
-         WHERE key_lower IN ('parent', 'related', 'depends_on', 'blocks')
          ORDER BY path, ordinal",
     )?;
     let rows = statement.query_map([], |row| {
@@ -238,7 +238,7 @@ fn append_structural(
     })?;
     for row in rows {
         let (source, field, text, items) = row?;
-        let Some(label) = structural_label(&field) else {
+        let Some(label) = structural_label(&field, &declared) else {
             continue;
         };
         let values = items
@@ -287,12 +287,13 @@ fn append_structural(
     Ok(())
 }
 
-fn structural_label(field: &str) -> Option<&'static str> {
+fn structural_label(field: &str, declared: &BTreeSet<String>) -> Option<&'static str> {
     match field {
         "parent" => Some("parent"),
         "related" => Some("related"),
         "depends_on" => Some("depends_on"),
         "blocks" => Some("blocks"),
+        other if declared.contains(other) => Some("related"),
         _ => None,
     }
 }

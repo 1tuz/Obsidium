@@ -45,6 +45,7 @@ function definition(names: string[]): BaseDefinition {
     views: names.map((name) => ({ type: 'table', name, order: [] })),
     summaries: [],
     propertyLabels: {},
+    relationProperties: [],
     formulas: {},
     unsupportedKeys: [],
     extra: {},

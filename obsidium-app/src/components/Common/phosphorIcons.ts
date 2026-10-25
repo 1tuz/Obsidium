@@ -115,6 +115,7 @@ import usersPhosphor from '@phosphor-icons/core/regular/users.svg?raw';
 import xPhosphor from '@phosphor-icons/core/regular/x.svg?raw';
 import zoomInPhosphor from '@phosphor-icons/core/regular/magnifying-glass-plus.svg?raw';
 import templatePhosphor from '@phosphor-icons/core/regular/file-text.svg?raw';
+import timelinePhosphor from '@phosphor-icons/core/regular/chart-bar-horizontal.svg?raw';
 
 const svgBody = (source: string) => source.slice(source.indexOf('>') + 1, source.lastIndexOf('</svg>'));
 
@@ -235,4 +236,5 @@ export const PHOSPHOR_ICONS = {
   'x': svgBody(xPhosphor),
   'zoom-in': svgBody(zoomInPhosphor),
   'template': svgBody(templatePhosphor),
+  'timeline': svgBody(timelinePhosphor),
 } satisfies Record<IconId, string>;

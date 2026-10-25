@@ -115,6 +115,7 @@ export const ICON_IDS = [
   'x',
   'zoom-in',
   'template',
+  'timeline',
 ] as const;
 export const ICON_SETS = ['lucide', 'tabler', 'phosphor'] as const;
 export type IconSet = typeof ICON_SETS[number];
