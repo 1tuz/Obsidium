@@ -397,6 +397,271 @@ fn set_frontmatter_writes_and_removes_list_values() {
 }
 
 #[test]
+fn batch_read_notes_keeps_partial_success_and_honours_each_limit() {
+    let fixture = fixture_with([
+        ("A.md".to_owned(), NOTE_A.to_owned()),
+        (
+            "Sections.md".to_owned(),
+            "# Один\n\nпервый\n\n## Два\n\nвторой\n".to_owned(),
+        ),
+        (
+            "Long.md".to_owned(),
+            format!("---\ntitle: L\n---\n{}\n", "я".repeat(300)),
+        ),
+    ]);
+
+    let answer = call(
+        &fixture.core,
+        "batch_read_notes",
+        &json!({
+            "targets": [
+                { "path": "A.md" },
+                { "path": "Нет такой.md" },
+                { "path": "Sections.md", "heading": "Два" },
+                { "path": "Long.md", "maxChars": 20 }
+            ],
+            "perNoteChars": 5000
+        }),
+    )
+    .unwrap();
+
+    let notes = answer["notes"].as_array().unwrap();
+    assert_eq!(notes.len(), 4);
+    assert_eq!(notes[0]["path"], "A.md");
+    assert!(notes[0]["content"].as_str().unwrap().contains("тело"));
+    assert_eq!(notes[0]["truncated"], false);
+    assert_eq!(notes[1]["path"], "Нет такой.md");
+    assert!(
+        notes[1]["error"].as_str().unwrap().contains("не найдена"),
+        "ошибка одной заметки не роняет вызов: {}",
+        notes[1]
+    );
+    assert_eq!(notes[2]["content"], "## Два\n\nвторой\n");
+    assert_eq!(
+        notes[3]["content"].as_str().unwrap().chars().count(),
+        20,
+        "maxChars цели важнее perNoteChars"
+    );
+    assert_eq!(notes[3]["truncated"], true);
+    fixture.core.shutdown();
+}
+
+#[test]
+fn batch_read_notes_truncates_by_default_and_fails_on_overflow_when_asked() {
+    let fixture = fixture_with([("Long.md".to_owned(), "я".repeat(40))]);
+
+    let cut = call(
+        &fixture.core,
+        "batch_read_notes",
+        &json!({ "targets": [{ "path": "Long.md" }], "perNoteChars": 7 }),
+    )
+    .unwrap();
+    assert_eq!(cut["notes"][0]["content"], "я".repeat(7));
+    assert_eq!(cut["notes"][0]["truncated"], true);
+
+    let refused = call(
+        &fixture.core,
+        "batch_read_notes",
+        &json!({
+            "targets": [{ "path": "Long.md" }, { "path": "Long.md", "maxChars": 100 }],
+            "perNoteChars": 10,
+            "onOverflow": "error"
+        }),
+    )
+    .unwrap();
+    let notes = refused["notes"].as_array().unwrap();
+    assert_eq!(notes[0]["content"], "");
+    assert_eq!(notes[0]["truncated"], false);
+    assert!(
+        notes[0]["error"].as_str().unwrap().contains("perNoteChars"),
+        "ошибка называет, что увеличить: {}",
+        notes[0]
+    );
+    assert_eq!(notes[1]["content"].as_str().unwrap().chars().count(), 40);
+    assert_eq!(notes[1]["truncated"], false);
+    fixture.core.shutdown();
+}
+
+#[test]
+fn batch_update_properties_previews_by_default_and_writes_only_on_request() {
+    let fixture = fixture_with([(
+        "B.md".to_owned(),
+        "---\ntype: book\nstatus: draft\n---\nтело\n".to_owned(),
+    )]);
+    let note = fixture.root.join("B.md");
+    let before = fs::read_to_string(&note).unwrap();
+
+    let preview = call(
+        &fixture.core,
+        "batch_update_properties",
+        &json!({
+            "targets": [{ "path": "B.md" }],
+            "set": { "status": "read", "tags": ["роман"] }
+        }),
+    )
+    .unwrap();
+    assert_eq!(preview["dryRun"], true);
+    assert_eq!(preview["changed"].as_array().unwrap().len(), 1);
+    assert_eq!(preview["changed"][0]["path"], "B.md");
+    assert_eq!(preview["changed"][0]["applied"]["status"], "read");
+    assert_eq!(
+        fs::read_to_string(&note).unwrap(),
+        before,
+        "dryRun не пишет"
+    );
+
+    let written = call(
+        &fixture.core,
+        "batch_update_properties",
+        &json!({
+            "targets": [{ "path": "B.md" }],
+            "set": { "status": "read", "tags": ["роман"] },
+            "dryRun": false
+        }),
+    )
+    .unwrap();
+    assert_eq!(written["dryRun"], false);
+    assert_eq!(written["changed"].as_array().unwrap().len(), 1);
+    let text = fs::read_to_string(&note).unwrap();
+    assert!(text.contains("status: \"read\""), "{text}");
+    assert!(text.contains("tags:\n  - \"роман\""), "{text}");
+    assert!(text.ends_with("---\nтело\n"), "тело не тронуто: {text}");
+    fixture.core.shutdown();
+}
+
+#[test]
+fn batch_update_properties_skips_unmatched_notes_and_unneeded_writes() {
+    let fixture = fixture_with([
+        (
+            "Book.md".to_owned(),
+            "---\ntype: book\n---\nтело\n".to_owned(),
+        ),
+        (
+            "Article.md".to_owned(),
+            "---\ntype: article\n---\nтело\n".to_owned(),
+        ),
+        (
+            "Same.md".to_owned(),
+            "---\nstatus: \"read\"\n---\nтело\n".to_owned(),
+        ),
+    ]);
+
+    let answer = call(
+        &fixture.core,
+        "batch_update_properties",
+        &json!({
+            "targets": [
+                { "path": "Book.md", "match": { "type": "book" } },
+                { "path": "Article.md", "match": { "type": "book" } },
+                { "path": "Same.md", "match": { "status": "read" } },
+                { "path": "Нет такой.md", "match": { "type": "book" } }
+            ],
+            "set": { "status": "read" },
+            "dryRun": false
+        }),
+    )
+    .unwrap();
+
+    let changed = answer["changed"].as_array().unwrap();
+    assert_eq!(changed.len(), 1, "записана только подходящая заметка");
+    assert_eq!(changed[0]["path"], "Book.md");
+
+    let skipped = answer["skipped"].as_array().unwrap();
+    assert_eq!(skipped.len(), 3);
+    assert_eq!(skipped[0]["path"], "Article.md");
+    assert!(
+        skipped[0]["reason"].as_str().unwrap().contains("match"),
+        "причина пропуска называет фильтр: {}",
+        skipped[0]
+    );
+    assert_eq!(skipped[1]["path"], "Same.md");
+    assert!(
+        skipped[1]["reason"].as_str().unwrap().contains("совпадают"),
+        "заметка без изменений не попадает в changed: {}",
+        skipped[1]
+    );
+    assert_eq!(skipped[2]["path"], "Нет такой.md");
+
+    assert!(fs::read_to_string(fixture.root.join("Book.md"))
+        .unwrap()
+        .contains("status: \"read\""));
+    assert!(!fs::read_to_string(fixture.root.join("Article.md"))
+        .unwrap()
+        .contains("status"));
+    fixture.core.shutdown();
+}
+
+#[test]
+fn batch_update_properties_needs_write_permission_only_for_real_writes() {
+    let fixture = fixture();
+    let mut config = fixture.core.settings.get_config();
+    config.mcp.allow_write = false;
+    fixture.core.settings.update_config(config).unwrap();
+
+    let preview = call(
+        &fixture.core,
+        "batch_update_properties",
+        &json!({ "targets": [{ "path": "A.md" }], "set": { "status": "read" } }),
+    )
+    .unwrap();
+    assert_eq!(preview["changed"].as_array().unwrap().len(), 1);
+
+    let error = call(
+        &fixture.core,
+        "batch_update_properties",
+        &json!({
+            "targets": [{ "path": "A.md" }],
+            "set": { "status": "read" },
+            "dryRun": false
+        }),
+    )
+    .unwrap_err();
+    assert!(error.contains("запрещено"), "{error}");
+    fixture.core.shutdown();
+}
+
+#[test]
+fn batch_tools_declare_their_arguments() {
+    let read = definition("batch_read_notes")["inputSchema"].clone();
+    validate(
+        &read,
+        &json!({
+            "targets": [{ "path": "A.md", "heading": "Раздел", "maxChars": 100 }],
+            "onOverflow": "error",
+            "perNoteChars": 100
+        }),
+    )
+    .unwrap();
+    assert!(
+        validate(&read, &json!({ "targets": [{ "heading": "Раздел" }] })).is_err(),
+        "цель без path не проходит схему"
+    );
+    assert!(
+        validate(
+            &read,
+            &json!({ "targets": [{ "path": "A.md" }], "limit": 5 })
+        )
+        .is_err(),
+        "лишний аргумент не проходит схему"
+    );
+
+    let update = definition("batch_update_properties")["inputSchema"].clone();
+    validate(
+        &update,
+        &json!({
+            "targets": [{ "path": "A.md", "match": { "type": "book" } }],
+            "set": { "status": "read" },
+            "dryRun": false
+        }),
+    )
+    .unwrap();
+    assert!(
+        validate(&update, &json!({ "targets": [{ "path": "A.md" }] })).is_err(),
+        "без set инструмент не вызывается"
+    );
+}
+
+#[test]
 fn writes_do_not_navigate_without_an_explicit_open() {
     let fixture = fixture();
     call(
