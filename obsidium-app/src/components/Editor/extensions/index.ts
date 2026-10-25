@@ -30,21 +30,37 @@ import { noteSuggestExtension } from './suggest';
 import { bodySetup } from './bodySetup';
 import type { LinkDisposition, WikiLinkResolver } from '../../../modules/links';
 
-export function useEditorExtensions(
-    resolveWikiLinks: WikiLinkResolver,
-    onOpenWikiLink: (target: string, disposition: LinkDisposition) => void,
-    onOpenExternalUrl: (url: string) => void,
+export interface EditorExtensionConfig {
+    resolveWikiLinks: WikiLinkResolver;
+    onOpenWikiLink: (target: string, disposition: LinkDisposition) => void;
+    onOpenExternalUrl: (url: string) => void;
+    smartDashes?: boolean;
+    listCallouts?: boolean;
+    autoLinkTitle?: boolean;
+    workspacePath?: string | null;
+    onReadBookCallout?: (request: BookCalloutReadRequest) => void;
+    notePath?: () => string;
+    linkSuggest?: boolean;
+    linkSuggestMinChars?: number;
+    highlightrEnabled?: boolean;
+    advancedOutlinerEnabled?: boolean;
+}
+
+export function useEditorExtensions({
+    resolveWikiLinks,
+    onOpenWikiLink,
+    onOpenExternalUrl,
     smartDashes = true,
     listCallouts = true,
     autoLinkTitle = true,
-    workspacePath: string | null = null,
-    onReadBookCallout?: (request: BookCalloutReadRequest) => void,
-    notePath: () => string = () => '',
+    workspacePath = null,
+    onReadBookCallout,
+    notePath = () => '',
     linkSuggest = true,
     linkSuggestMinChars = 2,
     highlightrEnabled = true,
     advancedOutlinerEnabled = true,
-) {
+}: EditorExtensionConfig) {
     return useMemo(() => {
         return [
             bodySetup,
@@ -91,5 +107,5 @@ export function useEditorExtensions(
             EditorView.lineWrapping,
             placeholder("Начните писать текст..."),
         ];
-    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, highlightrEnabled, advancedOutlinerEnabled]);
+    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, highlightrEnabled, advancedOutlinerEnabled, notePath]);
 }

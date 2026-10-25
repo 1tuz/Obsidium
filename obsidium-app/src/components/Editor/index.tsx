@@ -140,21 +140,21 @@ export function Editor({
     onFailure: reportFailure,
   }) : []), [clientID, currentNotePath, loaded, reportFailure]);
 
-  const baseExtensions = useEditorExtensions(
+  const baseExtensions = useEditorExtensions({
     resolveWikiLinks,
     onOpenWikiLink,
-    reader.handleOpenExternalUrl,
+    onOpenExternalUrl: reader.handleOpenExternalUrl,
     smartDashes,
     listCallouts,
     autoLinkTitle,
     workspacePath,
-    reader.handleReadBookCallout,
-    currentNotePath,
+    onReadBookCallout: reader.handleReadBookCallout,
+    notePath: currentNotePath,
     linkSuggest,
     linkSuggestMinChars,
     highlightrEnabled,
     advancedOutlinerEnabled,
-  );
+  });
   const extensions = useMemo(
     () => (isReady ? [baseExtensions, syncExtension] : []),
     [baseExtensions, isReady, syncExtension],
