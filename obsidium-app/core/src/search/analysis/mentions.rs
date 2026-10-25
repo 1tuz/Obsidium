@@ -89,10 +89,7 @@ pub fn count_mentions(body: &str, needle: &str) -> usize {
 
 fn count_needles(body: &str, needles: &[&str]) -> usize {
     let body = body.to_lowercase();
-    needles
-        .iter()
-        .map(|needle| count_in(&body, needle))
-        .sum()
+    needles.iter().map(|needle| count_in(&body, needle)).sum()
 }
 
 fn count_in(body: &str, needle: &str) -> usize {
