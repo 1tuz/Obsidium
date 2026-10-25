@@ -64,6 +64,11 @@ impl IndexSynchronizer {
         })
     }
 
+    #[cfg(test)]
+    pub fn connection(&self) -> &Connection {
+        &self.connection
+    }
+
     pub fn plan(&self) -> Result<ScanPlan, SearchError> {
         let state = metadata::read_state(&self.connection)?;
         if !state.clean_shutdown
@@ -547,12 +552,11 @@ mod tests {
         assert!(!synchronizer.holds_writer(), "открытие не создаёт писателя");
 
         synchronizer.full_scan(&cancelled).unwrap();
-        let timeline_connection = rusqlite::Connection::open(&metadata_path).unwrap();
         assert_eq!(
-            super::super::graph::timeline::rescan_epoch(&timeline_connection).unwrap(),
+            super::super::graph::timeline::rescan_epoch(synchronizer.connection()).unwrap(),
             1
         );
-        let initial_latest = super::super::graph::timeline::range(&timeline_connection)
+        let initial_latest = super::super::graph::timeline::range(synchronizer.connection())
             .unwrap()
             .latest_event;
         assert!(initial_latest > 0, "индексация заметки записала дельту");
@@ -571,7 +575,7 @@ mod tests {
 
         synchronizer.full_scan(&cancelled).unwrap();
         assert_eq!(
-            super::super::graph::timeline::rescan_epoch(&timeline_connection).unwrap(),
+            super::super::graph::timeline::rescan_epoch(synchronizer.connection()).unwrap(),
             2
         );
         assert!(
@@ -579,7 +583,7 @@ mod tests {
             "неизменённая база писателя не создаёт"
         );
         assert_eq!(
-            super::super::graph::timeline::range(&timeline_connection)
+            super::super::graph::timeline::range(synchronizer.connection())
                 .unwrap()
                 .latest_event,
             initial_latest,
@@ -602,7 +606,7 @@ mod tests {
             "правка видна поиску сразу"
         );
         assert!(
-            super::super::graph::timeline::range(&timeline_connection)
+            super::super::graph::timeline::range(synchronizer.connection())
                 .unwrap()
                 .latest_event
                 > initial_latest,

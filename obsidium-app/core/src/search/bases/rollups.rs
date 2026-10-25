@@ -130,6 +130,7 @@ enum Aggregate {
     Maximum,
     Count,
     List,
+    Unique,
 }
 
 impl Aggregate {
@@ -141,6 +142,7 @@ impl Aggregate {
             "max" => Some(Self::Maximum),
             "count" => Some(Self::Count),
             "list" => Some(Self::List),
+            "unique" => Some(Self::Unique),
             _ => None,
         }
     }
@@ -169,6 +171,15 @@ impl Aggregate {
                     .filter_map(|path| field(path, index, &summary.property, root))
                     .collect(),
             ),
+            Self::Unique => {
+                let mut seen = HashSet::new();
+                let values = filtered
+                    .iter()
+                    .filter_map(|path| field(path, index, &summary.property, root))
+                    .filter(|value| seen.insert(value.to_string()))
+                    .collect();
+                Value::Array(values)
+            }
             Self::Sum => total(root, &filtered, summary, index)
                 .map(|values| number(values.iter().sum()))
                 .unwrap_or(Value::Null),

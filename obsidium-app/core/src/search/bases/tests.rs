@@ -790,6 +790,32 @@ fn empty_related_sets_return_neutral_values() {
 }
 
 #[test]
+fn unique_keeps_first_seen_order_while_list_keeps_duplicates() {
+    let connection = wiki_connection(&[
+        (LIST, "[[Books/A]] [[Books/B]] [[Books/C]] [[Books/A]]"),
+        (BOOK_A, "a"),
+        (BOOK_B, "b"),
+        (BOOK_C, "c"),
+    ]);
+    let rows = vec![
+        row(LIST, json!({})),
+        row(BOOK_A, json!({ "price": 20 })),
+        row(BOOK_B, json!({ "price": 10 })),
+        row(BOOK_C, json!({ "price": 20 })),
+    ];
+    let query = summary_query(json!([
+        { "name": "prices", "source": "file.links", "property": "price", "formula": "list" },
+        { "name": "distinct", "source": "file.links", "property": "price", "formula": "unique" },
+        { "name": "unknown", "source": "file.links", "property": "price", "formula": "median" },
+    ]));
+    let result = evaluate(Path::new(ROOT), rows, &query, Some(&connection));
+    assert_eq!(summary(&result, LIST, "prices"), &json!([20, 10, 20]));
+    assert_eq!(summary(&result, LIST, "distinct"), &json!([20, 10]));
+    assert_eq!(summary(&result, LIST, "unknown"), &Value::Null);
+    assert!(result.unsupported);
+}
+
+#[test]
 fn broken_links_are_skipped_without_flagging_unsupported() {
     let connection = wiki_connection(&[(LIST, "[[Missing]] [[Books/A]]"), (BOOK_A, "a")]);
     let rows = vec![row(LIST, json!({})), row(BOOK_A, json!({ "price": 10 }))];
