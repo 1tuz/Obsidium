@@ -5,6 +5,7 @@ use super::fields::NoteFields;
 use super::models::{
     Backlink, NoteSuggestion, OutgoingLink, SearchIndexStatus, SearchResponse, WikiLinkResolution,
 };
+use super::CalendarEvent;
 use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::files::error::FileCommandError;
@@ -125,6 +126,17 @@ pub async fn get_base_rows(
 ) -> Result<Vec<NoteFields>, SearchError> {
     let service = core.search.clone();
     run_blocking(move || service.base_rows(&workspace_path)).await
+}
+
+#[tauri::command]
+pub async fn get_calendar_events(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    year: i64,
+    month: i64,
+) -> Result<Vec<CalendarEvent>, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.calendar_events(&workspace_path, year, month)).await
 }
 
 #[tauri::command]

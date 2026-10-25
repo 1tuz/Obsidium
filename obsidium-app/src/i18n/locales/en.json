@@ -636,6 +636,9 @@
     "calendarAdd": "Create a note on {{date}}",
     "calendarJournal": "Open the daily note for {{date}}",
     "calendarUndated": "No date: {{count}}",
+    "calendarEvents": "Show {{count}} events on {{date}}",
+    "calendarEventsTitle": "Events on {{date}}",
+    "calendarEventsClose": "Close events",
     "kanbanNotWritable": "This card's column value cannot be edited.",
     "kanbanExcluded": "This destination is excluded by the board filter."
   },

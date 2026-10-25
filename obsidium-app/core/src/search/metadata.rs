@@ -17,7 +17,7 @@ pub struct FileState {
 pub type Fingerprint = (i64, i64);
 pub type PathKey = [u8; 16];
 
-const SCHEMA_VERSION: i64 = 14;
+const SCHEMA_VERSION: i64 = 15;
 
 const INDEX_STATE_DDL: &str = "CREATE TABLE IF NOT EXISTS index_state (
            id INTEGER PRIMARY KEY CHECK (id = 0),
@@ -87,7 +87,7 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
         if version < 11 {
             connection.execute_batch(ADD_CREATED_COLUMNS)?;
         }
-        if version < 13 {
+        if version < 15 {
             connection.execute_batch(REINDEX_DOCUMENTS)?;
         }
         connection.execute_batch(&format!("PRAGMA user_version={SCHEMA_VERSION};"))?;
@@ -95,6 +95,7 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
     super::wiki::open_schema(&connection)?;
     super::fields::open_schema(&connection)?;
     super::tasks::open_schema(&connection)?;
+    super::events::open_schema(&connection)?;
     super::graph::timeline::open_schema(&connection)?;
     super::graph::timeline::ensure_baseline(&mut connection)?;
     Ok(connection)
@@ -284,6 +285,17 @@ mod tests {
           ) WITHOUT ROWID;
          PRAGMA user_version=13;";
 
+    const SCHEMA_V14: &str = "CREATE TABLE documents (
+           path TEXT PRIMARY KEY,
+           modified_ns INTEGER NOT NULL,
+           size INTEGER NOT NULL,
+           content_hash BLOB NOT NULL,
+           analyzer_version INTEGER NOT NULL DEFAULT 0,
+           created_ns INTEGER NOT NULL DEFAULT 0,
+           created_source INTEGER NOT NULL DEFAULT 0
+          ) WITHOUT ROWID;
+         PRAGMA user_version=14;";
+
     const SCHEMA_V10: &str = "CREATE TABLE documents (
            path TEXT PRIMARY KEY,
            modified_ns INTEGER NOT NULL,
@@ -363,5 +375,39 @@ mod tests {
             IndexState::default(),
             "неподтверждённое состояние заставляет первый старт идти полным сканом"
         );
+    }
+
+    #[test]
+    fn upgrade_to_fifteen_creates_the_event_table_and_queues_reindexing() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("documents.sqlite3");
+        let legacy = Connection::open(&path).expect("legacy database");
+        legacy.execute_batch(SCHEMA_V14).expect("legacy schema");
+        legacy
+            .execute(
+                "INSERT INTO documents VALUES('C:/vault/note.md', 42, 7, x'00', ?1, 0, 0)",
+                [crate::search::ANALYZER_VERSION],
+            )
+            .expect("legacy row");
+        drop(legacy);
+
+        let connection = open(&path).expect("upgraded database");
+        let version = connection
+            .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
+            .expect("schema version");
+        let analyzer_version: i64 = connection
+            .query_row(
+                "SELECT analyzer_version FROM documents WHERE path='C:/vault/note.md'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("stored analyzer version");
+        let events: i64 = connection
+            .query_row("SELECT COUNT(*) FROM note_events", [], |row| row.get(0))
+            .expect("event table");
+
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(analyzer_version, 0);
+        assert_eq!(events, 0);
     }
 }

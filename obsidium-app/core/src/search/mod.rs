@@ -8,6 +8,7 @@ pub mod content;
 pub mod created;
 pub mod dataview;
 pub mod error;
+pub mod events;
 pub mod excerpt;
 pub mod fields;
 pub mod graph;
@@ -34,6 +35,7 @@ pub mod wiki;
 pub mod worker;
 
 pub use analyzer::ANALYZER_VERSION;
+pub use events::{extract_events, CalendarEvent, Event};
 
 use std::path::PathBuf;
 use std::sync::Arc;

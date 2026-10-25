@@ -1,6 +1,7 @@
 use super::blocks;
 use super::created::{self, CreatedAt, CreatedSource};
 use super::error::SearchError;
+use super::events;
 use super::fields;
 use super::headings;
 use super::index::SearchIndex;
@@ -90,6 +91,7 @@ pub fn apply_prepared(
     wiki::index_document(transaction, root, &prepared.path, &prepared.body)?;
     fields::index_document(transaction, &prepared.path, &prepared.body)?;
     tasks::index_document(transaction, &prepared.path, &prepared.body)?;
+    events::index_document(transaction, &prepared.path, &prepared.body)?;
     upsert(transaction, key, &prepared, created)?;
     Ok(true)
 }
@@ -115,6 +117,7 @@ pub fn apply_path(
         wiki::remove_document(transaction, path)?;
         fields::remove_document(transaction, path)?;
         tasks::remove_document(transaction, path)?;
+        events::remove_document(transaction, path)?;
         transaction.execute("DELETE FROM documents WHERE path=?1", params![key])?;
         return Ok(true);
     }
