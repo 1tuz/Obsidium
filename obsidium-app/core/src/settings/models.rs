@@ -338,6 +338,7 @@ pub struct AppConfig {
     pub files: FilesSettings,
     pub updates: UpdateSettings,
     pub graph: GraphSettings,
+    pub spaces: SpaceSettings,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -402,5 +403,43 @@ pub struct UpdateSettings {
 impl Default for UpdateSettings {
     fn default() -> Self {
         Self { auto: true }
+    }
+}
+
+pub const DEFAULT_SPACE_ID: &str = "all";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Space {
+    pub id: String,
+    pub name: String,
+    pub root: String,
+    pub include_tags: Vec<String>,
+    pub exclude_folders: Vec<String>,
+}
+
+impl Default for Space {
+    fn default() -> Self {
+        Self {
+            id: DEFAULT_SPACE_ID.to_owned(),
+            name: "Всё".to_owned(),
+            root: String::new(),
+            include_tags: Vec::new(),
+            exclude_folders: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SpaceSettings {
+    pub spaces: Vec<Space>,
+}
+
+impl Default for SpaceSettings {
+    fn default() -> Self {
+        Self {
+            spaces: vec![Space::default()],
+        }
     }
 }

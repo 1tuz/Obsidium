@@ -16,6 +16,7 @@ pub mod migration;
 pub mod schema;
 pub mod search;
 pub mod settings;
+pub mod spaces;
 pub mod ui_state;
 pub mod web_agent;
 pub mod wiki;

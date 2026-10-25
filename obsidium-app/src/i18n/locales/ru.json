@@ -1156,5 +1156,26 @@
     "next": "Следующее изображение",
     "closeViewer": "Закрыть изображение",
     "position": "{{current}} из {{total}}"
+  },
+  "spaces": {
+    "switcher": "Пространство знаний",
+    "manage": "Управление пространствами",
+    "dialogTitle": "Пространства",
+    "createTitle": "Новое пространство",
+    "editTitle": "Параметры пространства",
+    "name": "Название",
+    "namePlaceholder": "Например, Работа",
+    "root": "Папка",
+    "rootWholeVault": "Вся база знаний",
+    "includeTags": "Теги",
+    "includeTagsPlaceholder": "проект, чтение",
+    "excludeFolders": "Исключённые папки",
+    "excludeFoldersPlaceholder": "архив, черновики",
+    "save": "Сохранить",
+    "edit": "Изменить пространство",
+    "delete": "Удалить пространство",
+    "deleteTitle": "Удалить пространство?",
+    "deleteDescription": "«{{name}}» исчезнет из списка пространств. Заметки останутся в базе знаний.",
+    "newSpace": "Создать пространство"
   }
 }

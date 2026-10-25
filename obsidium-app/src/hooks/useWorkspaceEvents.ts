@@ -4,7 +4,7 @@ import { comparablePath, parentDirectory } from '../modules/paths';
 import { forgetAttachmentUrls } from '../modules/docs/vaultAttachments';
 import { useTauriEvent } from './useTauriEvent';
 
-const EVENT_NAME = 'workspace-changed';
+export const WORKSPACE_CHANGED_EVENT = 'workspace-changed';
 const EVENT_DELAY_MS = 60;
 const REFRESH_CONCURRENCY = 4;
 
@@ -32,7 +32,7 @@ export function useWorkspaceEvents(options: WorkspaceEventsOptions): void {
     };
   }, []);
 
-  useTauriEvent<string[]>(EVENT_NAME, (paths) => {
+  useTauriEvent<string[]>(WORKSPACE_CHANGED_EVENT, (paths) => {
     forgetAttachmentUrls();
     paths.forEach((path) => changedPathsRef.current.add(path));
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
