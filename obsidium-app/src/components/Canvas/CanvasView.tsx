@@ -9,7 +9,7 @@ import { splitNoteLink, type CanvasNoteSource, type CanvasNoteTarget } from './c
 import { openExternalUrl } from '../../modules/openExternalUrl';
 import { isFileCommandError, isMarkdownPath, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { createUniqueFile } from '../../modules/documents/documentFactory';
-import { registerCanvasFlush } from '../../modules/canvas/persistence';
+import { recalledCanvasCamera, registerCanvasFlush, rememberCanvasCamera } from '../../modules/canvas/persistence';
 import {
   addCanvasEdge,
   addCanvasNode,
@@ -73,13 +73,19 @@ import { registerNoteDropTarget } from '../../modules/dragPayload';
 import { mediaExtensionForFile, mediaKindForFile } from '../../modules/docs/imageEmbeds';
 import { importIntoFiles } from '../../modules/docs/vaultFiles';
 import {
+  CANVAS_VIEW_MARGIN_PX,
   canvasContentBounds,
+  canvasNodeVisible,
+  canvasVisibleBounds,
+  clampCanvasCamera,
   clampCanvasZoom,
   fitCanvasCamera,
+  nextCanvasZoom,
   panCanvas,
   zoomCanvasAt,
   zoomCanvasAtCenter,
   type CanvasCamera,
+  type CanvasZoomDirection,
 } from '../../modules/canvas/viewport';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
@@ -331,6 +337,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const documentRef = useRef<CanvasDocument | null>(null);
   const historyRef = useRef<CanvasHistory<CanvasDocument> | null>(null);
   const cameraRef = useRef(camera);
+  const viewportRef = useRef(viewport);
   const dragRef = useRef<DragState | null>(null);
   const pressRef = useRef<{ node: CanvasTypedNode; shift: boolean } | null>(null);
   const pendingMoveRef = useRef<{
@@ -367,8 +374,13 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, []);
 
   const setCameraValue = useCallback((next: CanvasCamera, persist = true) => {
-    const value = { ...next, zoom: clampCanvasZoom(next.zoom) };
+    const value = clampCanvasCamera(
+      { ...next, zoom: clampCanvasZoom(next.zoom) },
+      canvasContentBounds(documentRef.current?.nodes ?? []),
+      viewportRef.current,
+    );
     cameraRef.current = value;
+    rememberCanvasCamera(path, value);
     setCamera(value);
     if (cameraTimerRef.current !== null) window.clearTimeout(cameraTimerRef.current);
     cameraTimerRef.current = null;
@@ -378,7 +390,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       const current = documentRef.current;
       if (current) setCanvasDocument(withBoardPreferences(current, { camera: cameraRef.current }), false);
     }, CAMERA_PERSIST_DELAY_MS);
-  }, [setCanvasDocument]);
+  }, [path, setCanvasDocument]);
 
   useEffect(() => {
     let cancelled = false;
@@ -399,7 +411,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
       savedTextRef.current = serializeCanvasDocument(parsed.value);
       setDocument(parsed.value);
       setHistory(historyRef.current);
-      setCameraValue(readCamera(parsed.value), false);
+      setCameraValue(recalledCanvasCamera(path) ?? readCamera(parsed.value), false);
       setSaveState('saved');
       setLoading(false);
     }).catch((cause: unknown) => {
@@ -519,15 +531,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [document, selectedGroups]);
   const visibleNodes = useMemo(() => {
     if (!document) return [];
-    if (viewport.width <= 0 || viewport.height <= 0) return document.nodes;
-    const left = -camera.x / camera.zoom;
-    const top = -camera.y / camera.zoom;
-    const right = (viewport.width - camera.x) / camera.zoom;
-    const bottom = (viewport.height - camera.y) / camera.zoom;
-    return document.nodes.filter((node) => (
-      selectionSet.has(node.id)
-      || (node.x <= right && node.x + node.width >= left && node.y <= bottom && node.y + node.height >= top)
-    ));
+    const bounds = canvasVisibleBounds(camera, viewport, CANVAS_VIEW_MARGIN_PX);
+    if (!bounds) return document.nodes;
+    return document.nodes.filter((node) => selectionSet.has(node.id) || canvasNodeVisible(node, bounds));
   }, [camera, document, selectionSet, viewport]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.id)), [visibleNodes]);
 
@@ -578,7 +584,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     stageRef.current = node;
     if (!node) return;
     const observer = new ResizeObserver(([entry]) => {
-      setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
+      const size = { width: entry.contentRect.width, height: entry.contentRect.height };
+      viewportRef.current = size;
+      setViewport(size);
     });
     observer.observe(node);
     viewportObserverRef.current = observer;
@@ -1048,9 +1056,11 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     applyHistory(redoCanvasHistory(historyRef.current));
   }, [applyHistory]);
 
-  const zoomBy = useCallback((factor: number) => {
-    setCameraValue(zoomCanvasAtCenter(cameraRef.current, viewport, factor));
-  }, [setCameraValue, viewport]);
+  const zoomBy = useCallback((direction: CanvasZoomDirection) => {
+    const current = cameraRef.current;
+    const factor = nextCanvasZoom(current.zoom, direction) / current.zoom;
+    setCameraValue(zoomCanvasAtCenter(current, viewportRef.current, factor));
+  }, [setCameraValue]);
 
   const fitView = useCallback(() => {
     const current = documentRef.current;
@@ -1802,12 +1812,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
     }
     if (command && (event.key === '=' || event.key === '+')) {
       event.preventDefault();
-      zoomBy(1.2);
+      zoomBy(1);
       return;
     }
     if (command && event.key === '-') {
       event.preventDefault();
-      zoomBy(1 / 1.2);
+      zoomBy(-1);
       return;
     }
     if (command && event.key === '0') {
@@ -2116,9 +2126,9 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
         onExportPng={exportPng}
       />
       <div className="q-canvas__controls" role="group" aria-label={t('canvas.toolbar.view')}>
-        <button type="button" onClick={() => zoomBy(1 / 1.2)} aria-label={t('canvas.toolbar.zoomOut')}>−</button>
+        <button type="button" onClick={() => zoomBy(-1)} aria-label={t('canvas.toolbar.zoomOut')}>−</button>
         <span>{Math.round(camera.zoom * 100)}%</span>
-        <button type="button" onClick={() => zoomBy(1.2)} aria-label={t('canvas.toolbar.zoomIn')}>+</button>
+        <button type="button" onClick={() => zoomBy(1)} aria-label={t('canvas.toolbar.zoomIn')}>+</button>
         <IconButton label={t('canvas.toolbar.fitView')} size="small" onClick={fitView}><Icon icon="crop" size={16} /></IconButton>
         <IconButton label={t('canvas.toolbar.resetView')} size="small" onClick={() => setCameraValue({ x: 0, y: 0, zoom: 1 })}><Icon icon="rotate-ccw" size={16} /></IconButton>
         <span role="status" aria-live="polite">{t(`canvas.save.${saveState}`)}</span>

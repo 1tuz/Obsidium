@@ -3,6 +3,7 @@ import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { importIntoFiles } from '../../modules/docs/vaultFiles';
+import { forgetCanvasCamera } from '../../modules/canvas/persistence';
 import { dropNoteOnTarget } from '../../modules/dragPayload';
 import { open } from '@tauri-apps/plugin-dialog';
 
@@ -93,6 +94,8 @@ describe('CanvasView', () => {
   afterEach(() => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
+    forgetCanvasCamera('/vault/Board.canvas');
+    forgetCanvasCamera('/vault/Boards/Board.canvas');
     canvasSource.content = '{"nodes":[],"edges":[]}';
     vi.clearAllMocks();
   });
@@ -2104,5 +2107,102 @@ describe('CanvasView', () => {
     const writes = vi.mocked(writeFileAtomic).mock.calls;
     const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
     expect(saved.nodes[0]).toMatchObject({ type: 'file', file: 'New note.md' });
+  });
+
+  it('renders only on-screen cards plus the view margin', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [
+        { id: 'near', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'Near node' },
+        { id: 'margin', type: 'text', x: 1100, y: 0, width: 100, height: 80, text: 'Margin node' },
+        { id: 'far', type: 'text', x: 1400, y: 0, width: 100, height: 80, text: 'Far node' },
+      ],
+      edges: [],
+    });
+    const originalResizeObserver = globalThis.ResizeObserver;
+    const callbacks: ResizeObserverCallback[] = [];
+    class StubResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        callbacks.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = StubResizeObserver as unknown as typeof ResizeObserver;
+    try {
+      act(() => {
+        renderer = mountDom(
+          <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+        );
+      });
+      await actAndSettle();
+      await actAndSettle(() => {
+        for (const callback of callbacks) {
+          callback([{ contentRect: { width: 1000, height: 800 } } as ResizeObserverEntry], {} as ResizeObserver);
+        }
+      });
+
+      expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(2);
+      expect(renderer!.container.textContent).toContain('Near node');
+      expect(renderer!.container.textContent).toContain('Margin node');
+      expect(renderer!.container.textContent).not.toContain('Far node');
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver;
+    }
+  });
+
+  it('steps zoom through the preset levels and stops at the bounds', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const world = () => renderer!.container.querySelector<HTMLElement>('.q-canvas__world')!;
+    const zoomIn = renderer!.container.querySelector<HTMLButtonElement>('button[aria-label="canvas.toolbar.zoomIn"]')!;
+    const zoomOut = renderer!.container.querySelector<HTMLButtonElement>('button[aria-label="canvas.toolbar.zoomOut"]')!;
+
+    for (let step = 0; step < 4; step += 1) {
+      await actAndSettle(() => { zoomIn.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    }
+    expect(world().style.transform).toBe('translate(0px, 0px) scale(2)');
+
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: '0', metaKey: true, bubbles: true, cancelable: true })); });
+    for (let step = 0; step < 4; step += 1) {
+      await actAndSettle(() => { zoomOut.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    }
+    expect(world().style.transform).toBe('translate(0px, 0px) scale(0.25)');
+
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: '0', metaKey: true, bubbles: true, cancelable: true })); });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: '=', metaKey: true, bubbles: true, cancelable: true })); });
+    expect(world().style.transform).toBe('translate(0px, 0px) scale(1.5)');
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: '=', metaKey: true, bubbles: true, cancelable: true })); });
+    expect(world().style.transform).toBe('translate(0px, 0px) scale(2)');
+  });
+
+  it('keeps the camera when the board remounts before the debounced write lands', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' }],
+      edges: [],
+    });
+    const mountBoard = () => mountDom(
+      <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+    );
+    act(() => { renderer = mountBoard(); });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => { stage.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true })); });
+    const panned = renderer!.container.querySelector<HTMLElement>('.q-canvas__world')!.style.transform;
+    expect(panned).toBe('translate(0px, -100px) scale(1)');
+
+    act(() => renderer?.unmount());
+    renderer = null;
+    act(() => { renderer = mountBoard(); });
+    await actAndSettle();
+
+    expect(renderer!.container.querySelector<HTMLElement>('.q-canvas__world')!.style.transform).toBe(panned);
   });
 });
