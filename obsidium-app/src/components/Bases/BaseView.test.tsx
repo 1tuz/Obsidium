@@ -581,6 +581,11 @@ describe('BaseView view editor', () => {
     return props;
   }
 
+  function lastQueryDefinition() {
+    const calls = vi.mocked(queryBase).mock.calls;
+    return calls[calls.length - 1][1].definition;
+  }
+
   it('renames the current view through the hash-protected writer', async () => {
     mountBase();
     await actAndSettle();
@@ -690,11 +695,155 @@ describe('BaseView view editor', () => {
     }));
   });
 
+  it('writes a flat filter condition in the engine shape and re-queries with it', async () => {
+    state.columns = ['file.name', 'status'];
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    mountBase();
+    await actAndSettle();
+
+    const panel = await openEditor(renderer!.container);
+    act(() => button(t('bases.editorFilterAdd'), panel).click());
+    await actAndSettle();
+    choose(
+      panel.querySelector<HTMLSelectElement>(`select[aria-label="${t('bases.editorFilterProperty', { index: 1 })}"]`)!,
+      'status',
+    );
+    typeInto(
+      panel.querySelector<HTMLInputElement>(`input[aria-label="${t('bases.editorFilterValue', { index: 1 })}"]`)!,
+      'todo',
+    );
+    await actAndSettle();
+    await save(renderer!.container);
+
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written).toContain('filters:');
+    expect(written).toContain('status == ');
+    expect(lastQueryDefinition().views[0].filters).toBe('status == "todo"');
+  });
+
+  it('removes a filter condition from the file', async () => {
+    state.baseContent = [
+      'views:',
+      '  - type: table',
+      '    name: Overview',
+      '    filters: status == "todo"',
+    ].join('\n');
+    state.columns = ['file.name', 'status'];
+    mountBase();
+    await actAndSettle();
+
+    const panel = await openEditor(renderer!.container);
+    expect(panel.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('bases.editorFilterValue', { index: 1 })}"]`,
+    )!.value).toBe('todo');
+    act(() => panel
+      .querySelector<HTMLButtonElement>(`button[aria-label="${t('bases.editorFilterRemove', { index: 1 })}"]`)!
+      .click());
+    await actAndSettle();
+    await save(renderer!.container);
+
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written).not.toContain('filters:');
+    expect(lastQueryDefinition().views[0].filters).toBeUndefined();
+  });
+
+  it('writes an any-of group when conditions are matched with or', async () => {
+    state.columns = ['file.name', 'status', 'priority'];
+    mountBase();
+    await actAndSettle();
+
+    const panel = await openEditor(renderer!.container);
+    act(() => button(t('bases.editorFilterAdd'), panel).click());
+    await actAndSettle();
+    act(() => button(t('bases.editorFilterAdd'), panel).click());
+    await actAndSettle();
+    choose(
+      panel.querySelector<HTMLSelectElement>(`select[aria-label="${t('bases.editorFilterProperty', { index: 1 })}"]`)!,
+      'status',
+    );
+    typeInto(
+      panel.querySelector<HTMLInputElement>(`input[aria-label="${t('bases.editorFilterValue', { index: 1 })}"]`)!,
+      'todo',
+    );
+    choose(
+      panel.querySelector<HTMLSelectElement>(`select[aria-label="${t('bases.editorFilterProperty', { index: 2 })}"]`)!,
+      'priority',
+    );
+    choose(
+      panel.querySelector<HTMLSelectElement>(`select[aria-label="${t('bases.editorFilterOperatorLabel', { index: 2 })}"]`)!,
+      'greaterOrEqual',
+    );
+    typeInto(
+      panel.querySelector<HTMLInputElement>(`input[aria-label="${t('bases.editorFilterValue', { index: 2 })}"]`)!,
+      '3',
+    );
+    choose(
+      panel.querySelector<HTMLSelectElement>(`select[aria-label="${t('bases.editorFilterMatch')}"]`)!,
+      'or',
+    );
+    await actAndSettle();
+    await save(renderer!.container);
+
+    expect(lastQueryDefinition().views[0].filters).toEqual({
+      or: ['status == "todo"', 'priority >= 3'],
+    });
+  });
+
+  it('reorders views[].order and writes the whole array', async () => {
+    state.baseContent = [
+      'views:',
+      '  - type: table',
+      '    name: Overview',
+      '    order: [file.name, status, due]',
+    ].join('\n');
+    state.columns = ['file.name', 'status', 'due'];
+    mountBase();
+    await actAndSettle();
+
+    const panel = await openEditor(renderer!.container);
+    act(() => panel
+      .querySelector<HTMLButtonElement>(`button[aria-label="${t('bases.editorColumnDown', { property: 'file.name' })}"]`)!
+      .click());
+    await actAndSettle();
+    await save(renderer!.container);
+
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written).toContain('order: [status, file.name, due]');
+    expect(lastQueryDefinition().views[0].order).toEqual(['status', 'file.name', 'due']);
+  });
+
+  it('keeps an uneditable nested filter untouched', async () => {
+    state.baseContent = [
+      'views:',
+      '  - type: table',
+      '    name: Overview',
+      '    filters:',
+      '      not:',
+      '        - status == done',
+    ].join('\n');
+    state.columns = ['file.name', 'status'];
+    mountBase();
+    await actAndSettle();
+
+    const panel = await openEditor(renderer!.container);
+    expect(panel.textContent).toContain(t('bases.editorFiltersAdvanced'));
+    typeInto(panel.querySelector<HTMLInputElement>('.q-base-editor__name')!, 'Nested');
+    await actAndSettle();
+    await save(renderer!.container);
+
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written).toContain('not:');
+    expect(written).toContain('status == done');
+    expect(lastQueryDefinition().views[0].filters).toEqual({ not: ['status == done'] });
+  });
+
   it('keeps summaries, properties and unknown keys when the panel writes', async () => {
     state.baseContent = [
       'properties:',
       '  total:',
       '    displayName: Total',
+      '  mentor:',
+      '    type: relation',
       'summaries:',
       '  - name: total',
       '    source: file.links',
@@ -712,6 +861,12 @@ describe('BaseView view editor', () => {
 
     const panel = await openEditor(renderer!.container);
     typeInto(panel.querySelector<HTMLInputElement>('.q-base-editor__name')!, 'Kept');
+    act(() => button(t('bases.editorFilterAdd'), panel).click());
+    await actAndSettle();
+    typeInto(
+      panel.querySelector<HTMLInputElement>(`input[aria-label="${t('bases.editorFilterValue', { index: 1 })}"]`)!,
+      'Task',
+    );
     await actAndSettle();
     await save(renderer!.container);
 
@@ -720,10 +875,12 @@ describe('BaseView view editor', () => {
     expect(written).toContain('name: total');
     expect(written).toContain('source: file.links');
     expect(written).toContain('displayName: Total');
+    expect(written).toContain('type: relation');
     expect(written).toContain('legacyKey: keep-me');
     expect(written).toContain('customFlag: yes');
     expect(written).toContain('groupOrder: [open, done]');
     expect(written).toContain('name: Kept');
+    expect(lastQueryDefinition().views[0].filters).toBe('file.name == "Task"');
   });
 
   it('reports a hash conflict through the action error surface', async () => {

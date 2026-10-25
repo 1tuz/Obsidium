@@ -25,7 +25,7 @@
 | IPC | `src-tauri/src/search/commands.rs::query_base` | `query_base(workspacePath, query)` |
 | Шлюз | `src/modules/bases/gateway.ts::queryBase` | типизированный вызов из UI |
 | UI | `src/components/Bases/BaseView.tsx` | рисует `rows`, `groups`, `columns`, `unsupported`, `errors` |
-| Редактор | `src/components/Bases/BaseEditorPanel.tsx` | правит `views[i]`: `name`, `limit`, `groupBy`, `sort` (см. «Редактор представления») |
+| Редактор | `src/components/Bases/BaseEditorPanel.tsx` | правит `views[i]`: `name`, `limit`, `groupBy`, `sort`, `filters`, `order` (см. «Редактор представления») |
 | Блок в заметке | `src/components/Editor/extensions/baseFence/` | тот же `queryBase` для огороженного блока `base` в live preview |
 
 Запрос: `BaseQuery { definition, viewIndex, sort }`.
@@ -126,7 +126,33 @@ properties:
 | Ограничение строк | `views[i].limit`; пустое поле убирает ключ |
 | Группировка | `views[i].groupBy.property` и `groupBy.direction`; «без группировки» убирает `groupBy` |
 | Сортировка | `views[i].sort` — список `property` + `direction`; поля добавляются и удаляются, направление переключается в панели |
+| Фильтры | `views[i].filters` — плоский список условий; одно условие пишется строкой, несколько — группой `and` или `or` |
+| Порядок колонок | `views[i].order` — панель двигает колонки вверх/вниз и пишет весь массив |
 | Тип свойства | `properties.<key>.type` — «Связь» ставит `type: relation`, «Обычное» снимает только этот ключ (см. «Свойства-связи») |
+
+**Фильтры.** Условие — это ровно та строка-выражение, которую понимает движок
+(`evaluate_filter` в `core/src/search/bases/mod.rs`). Панель предлагает все поддерживаемые формы и
+сама собирает строку:
+
+- сравнение — `property == value`, `!=`, `>`, `>=`, `<`, `<=`;
+- подстрока — `property.contains(value)`;
+- тег — `file.hasTag(tag)`;
+- папка — `file.inFolder(folder)`.
+
+Значение-число и `true`/`false` пишутся без кавычек, остальные значения — в кавычках: так их
+разбирает `literal()` в движке. Одно условие сохраняется как строка (`filters: status == "todo"`),
+несколько — как `{ and: [...] }` или `{ or: [...] }`; переключатель «Все условия» / «Любое условие»
+появляется, когда условий больше одного.
+
+Вложенные группы панель не строит: `not`, `and` внутри `or` и `unsupported` правятся только в самом
+`.base`. Если в файле уже лежит такая группа, панель показывает пометку и сохраняет `filters` без
+изменений — незнакомая конструкция не переписывается и не теряется. То есть UI умеет плоский список
+с одним уровнем `and`/`or`, а вложенные отрицания остаются ручной правкой файла.
+
+**Порядок колонок.** Панель показывает текущий `views[i].order`, а если ключа нет — колонки
+выборки, и двигает строки вверх/вниз; сохранение пишет весь массив `order`. Пока порядок не
+трогали, ключ не появляется: пустой `order` по-прежнему означает «колонки в том порядке, в каком их
+нашёл движок».
 
 `groupOrder` панель не редактирует, но и не теряет: запись идёт через `parseBase` → правку одной
 ветки → `serializeBase`, а сериализатор отдаёт `groupOrder`, `properties`, `formulas`, `summaries` и
