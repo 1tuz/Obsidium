@@ -214,10 +214,13 @@ describe('BaseView view selection', () => {
 
     expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
       '/vault/Project.base',
-      expect.stringContaining('type: "calendar"'),
+      expect.stringContaining('type: calendar'),
       'hash',
     );
-    expect(vi.mocked(writeFileAtomic).mock.calls[0][1]).toContain('dateField: "due"');
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written.split('type: calendar')).toHaveLength(3);
+    expect(written.split('dateField: due')).toHaveLength(3);
+    expect(written.split('- type: ')).toHaveLength(6);
     expect(renderer!.container.querySelector('.q-base-calendar')).not.toBeNull();
   });
 

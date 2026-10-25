@@ -1,9 +1,11 @@
 export type BaseScalar = string | number | boolean | null;
+export type BaseYamlValue = BaseScalar | BaseYamlValue[] | { [key: string]: BaseYamlValue };
 export type BaseFilter = string | {
   unsupported?: true;
   and?: BaseFilter[];
   or?: BaseFilter[];
   not?: BaseFilter | BaseFilter[];
+  raw?: BaseYamlValue;
 };
 
 export interface BaseGroupBy {
@@ -26,6 +28,7 @@ export interface BaseViewDefinition {
   groupBy?: BaseGroupBy;
   groupOrder?: BaseScalar[];
   sort?: BaseSort[];
+  extra?: Record<string, BaseYamlValue>;
 }
 
 export interface BaseDefinition {
@@ -34,6 +37,7 @@ export interface BaseDefinition {
   views: BaseViewDefinition[];
   propertyLabels: Record<string, string>;
   unsupportedKeys: string[];
+  extra: Record<string, BaseYamlValue>;
 }
 
 export type BaseFieldValue = string | string[] | number | boolean | null;

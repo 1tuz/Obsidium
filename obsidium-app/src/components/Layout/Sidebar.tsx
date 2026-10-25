@@ -37,6 +37,7 @@ interface SidebarProps {
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
   panel?: 'files' | 'boards';
   onOpenBaseView: (path: string, viewIndex: number) => void;
+  onOpenAsText?: (path: string) => void;
   onBoardRenamed?: (oldPath: string, newPath: string) => void;
   boardActionRequest?: BoardActionRequest | null;
   onBoardActionRequestComplete: () => void;
@@ -62,6 +63,7 @@ export const Sidebar = memo(function Sidebar({
   onPatchFileInTree,
   panel = 'files',
   onOpenBaseView,
+  onOpenAsText,
   onBoardRenamed,
   boardActionRequest,
   onBoardActionRequestComplete,
@@ -168,9 +170,10 @@ export const Sidebar = memo(function Sidebar({
     ...fileOps.rowActions,
     addToBoard: onAddToBoard,
     removeFromBoard: onRemoveFromBoard,
+    openAsText: onOpenAsText,
     toggleFolder,
     prefetchFolder,
-  }), [fileOps.rowActions, onAddToBoard, onRemoveFromBoard, prefetchFolder, selectionActions, toggleFolder]);
+  }), [fileOps.rowActions, onAddToBoard, onOpenAsText, onRemoveFromBoard, prefetchFolder, selectionActions, toggleFolder]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;

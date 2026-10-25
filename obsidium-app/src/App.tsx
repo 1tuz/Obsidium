@@ -246,6 +246,7 @@ export default function App() {
       disposition?: LinkDisposition;
       record?: boolean;
       paneId?: string;
+      textMode?: boolean;
     },
   ) => {
     const {
@@ -253,8 +254,10 @@ export default function App() {
       disposition = 'current',
       record = true,
       paneId,
+      textMode,
     } = options ?? {};
-    if (offset === undefined && activeFile === path && paneId === undefined) return;
+    if (offset === undefined && activeFile === path && paneId === undefined
+      && (textMode === true) === (activeTab?.textMode === true)) return;
     const isNote = isMarkdownPath(path);
     if (isNote) beginOpenTrace(path);
     if (record) {
@@ -265,8 +268,12 @@ export default function App() {
       const nonce = crypto.randomUUID();
       setSearchReveal({ path, paneId: paneId ?? activePaneId, offset, nonce });
     }
-    activateFile(path, { disposition, paneId });
-  }, [activateFile, activeFile, activePaneId, push]);
+    activateFile(path, { disposition, paneId, textMode });
+  }, [activateFile, activeFile, activePaneId, activeTab?.textMode, push]);
+
+  const openAsText = useCallback((path: string) => {
+    openNote(path, { textMode: true });
+  }, [openNote]);
 
   const createNewCanvas = useCallback(async () => {
     if (!workspacePath) return;
@@ -684,6 +691,10 @@ export default function App() {
     targetsFor: tabTargets,
     onPatchFileInTree: patchFileInTree,
   });
+  const tabActions = useMemo(
+    () => ({ ...tabFileOps.rowActions, openAsText }),
+    [openAsText, tabFileOps.rowActions],
+  );
   useNoteRelocation({ renamed: handleFileRenamed, deleted: closeTab });
 
   useActiveNoteReport(activeFile && isMarkdownPath(activeFile) ? activeFile : null);
@@ -699,8 +710,8 @@ export default function App() {
     const paneActiveTab = paneTabs.find((tab) => tab.tabId === pane.activeTabId) ?? paneTabs[0] ?? null;
     const graphTab = paneTabs.find((tab) => tab.kind === 'graph') ?? null;
     const graphActive = graphTab?.tabId === paneActiveTab?.tabId;
-    const activeBasePath = paneActiveTab?.kind === 'document' && isBasePath(paneActiveTab.path)
-      ? paneActiveTab.path : null;
+    const activeBasePath = paneActiveTab?.kind === 'document' && !paneActiveTab.textMode
+      && isBasePath(paneActiveTab.path) ? paneActiveTab.path : null;
     const activeCanvasPath = paneActiveTab?.kind === 'document' && isCanvasPath(paneActiveTab.path)
       ? paneActiveTab.path : null;
     const activePdfPath = paneActiveTab?.kind === 'document' && isPdfPath(paneActiveTab.path)
@@ -721,7 +732,7 @@ export default function App() {
           onReorder={(from, to) => reorderTabs(from, to, paneId)}
           onMoveTab={moveTab}
           renamingPath={tabFileOps.renamingPath}
-          tabActions={tabFileOps.rowActions}
+          tabActions={tabActions}
           onSelect={(path, tabId) => {
             if (!tabId) return;
             const tab = paneTabs.find((item) => item.tabId === tabId);
@@ -820,6 +831,14 @@ export default function App() {
                         onOpenNoteLink={(link, sourcePath) => openCanvasNote(link, paneId, tab.path, sourcePath).catch(() => undefined)}
                       />
                     </Suspense>
+                  ) : isBasePath(tab.path) ? (
+                    tab.textMode ? (
+                      <TextFilePane
+                        key={`${tab.tabId}:${tab.path}`}
+                        path={tab.path}
+                        inactive={tab.tabId !== paneActiveTab?.tabId}
+                      />
+                    ) : null
                   ) : isTextFilePath(tab.path) && !isMarkdownPath(tab.path) ? (
                     <TextFilePane
                       key={`${tab.tabId}:${tab.path}`}
@@ -907,6 +926,7 @@ export default function App() {
           onPatchFileInTree={patchFileInTree}
           panel={sidebarPanel}
           onOpenBaseView={openBaseView}
+          onOpenAsText={openAsText}
           onBoardRenamed={handleFileRenamed}
           boardActionRequest={boardActionRequest}
           onBoardActionRequestComplete={() => setBoardActionRequest(null)}

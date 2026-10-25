@@ -216,6 +216,7 @@
     "settings": "Settings",
     "rename": "Rename",
     "duplicate": "Duplicate",
+    "openAsText": "Open as text",
     "openFolder": "Open folder",
     "copy": "Copy",
     "paste": "Paste",

@@ -61,7 +61,7 @@ export function useTabs(
 
   const activateFile = useCallback((
     path: string,
-    options?: { disposition?: LinkDisposition; paneId?: string },
+    options?: { disposition?: LinkDisposition; paneId?: string; textMode?: boolean },
   ) => {
     if (path === GRAPH_TAB_PATH) {
       openGraph();
@@ -69,8 +69,10 @@ export function useTabs(
     }
     const disposition = options?.disposition ?? 'current';
     const paneId = options?.paneId ?? activePaneId;
+    const textMode = options?.textMode === true;
     const existing = disposition === 'current'
-      ? state.tabs.find((tab) => tab.paneId === paneId && tab.path === path)
+      ? state.tabs.find((tab) => tab.paneId === paneId && tab.path === path
+        && (tab.textMode === true) === textMode)
       : undefined;
     if (existing) {
       touch();
@@ -81,8 +83,8 @@ export function useTabs(
     touch();
     if (paneId !== activePaneId) dispatch({ type: 'focus-pane', paneId });
     dispatch(disposition === 'new-tab'
-      ? { type: 'open-file-new-tab', path, tabId: crypto.randomUUID() }
-      : { type: 'open-file', path, tabId: crypto.randomUUID() });
+      ? { type: 'open-file-new-tab', path, tabId: crypto.randomUUID(), textMode }
+      : { type: 'open-file', path, tabId: crypto.randomUUID(), textMode });
   }, [activePaneId, openGraph, state.tabs, touch]);
 
   const closeTab = useCallback((path: string, tabId?: string) => {

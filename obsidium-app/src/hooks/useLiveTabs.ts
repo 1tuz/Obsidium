@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { nextLiveTabs, sameTabOrder } from '../modules/liveTabs';
 import type { SessionTab } from '../modules/ui-state';
-import { isTextFilePath } from '../modules/documents/fileGateway';
+import { isBasePath, isTextFilePath } from '../modules/documents/fileGateway';
 
 export function useLiveTabs(
   tabs: SessionTab[],
@@ -13,7 +13,8 @@ export function useLiveTabs(
 
   useEffect(() => {
     const keepable = (tabId: string) => tabs.some(
-      (tab) => tab.tabId === tabId && tab.kind === 'document' && isTextFilePath(tab.path),
+      (tab) => tab.tabId === tabId && tab.kind === 'document' && isTextFilePath(tab.path)
+        && (!isBasePath(tab.path) || tab.textMode === true),
     );
     setLive((previous) => {
       const next = nextLiveTabs(previous, activeTabId, keepable, limit, pinnedTabIds);
