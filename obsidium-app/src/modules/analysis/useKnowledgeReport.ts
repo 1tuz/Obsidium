@@ -28,7 +28,7 @@ export function useKnowledgeReport(
       .catch((error) => {
         if (!current) return;
         console.error('Failed to load the knowledge report', error);
-        setState({ key, report: { brokenLinks: [], isolatedNotes: [], staleNotes: [], staleAfterDays: days, indexedDocuments: 0, indexing: false }, failed: true });
+        setState({ key, report: { brokenLinks: [], isolatedNotes: [], staleNotes: [], unusedTags: { tags: [], total: 0, truncated: false }, staleAfterDays: days, indexedDocuments: 0, indexing: false }, failed: true });
       });
     return () => {
       current = false;

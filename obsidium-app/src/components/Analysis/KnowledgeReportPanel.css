@@ -148,7 +148,11 @@
 }
 
 .q-knowledge-report__row-detail {
+  overflow: hidden;
   flex: none;
+  max-width: 55%;
   color: var(--q-text-tertiary);
   font-size: var(--q-font-size-ui-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -10,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const DEFAULT_STALE_DAYS: u64 = 90;
 pub const MAX_STALE_DAYS: u64 = 3650;
+pub const MAX_UNUSED_TAGS: usize = 100;
 const NS_PER_DAY: i64 = 86_400_000_000_000;
 
 #[derive(Clone, Debug, Serialize)]
@@ -39,10 +40,27 @@ pub struct StaleNote {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UnusedTag {
+    pub tag: String,
+    pub note_count: u64,
+    pub paths: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnusedTagSection {
+    pub tags: Vec<UnusedTag>,
+    pub total: u64,
+    pub truncated: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeReport {
     pub broken_links: Vec<BrokenLink>,
     pub isolated_notes: Vec<ReportNote>,
     pub stale_notes: Vec<StaleNote>,
+    pub unused_tags: UnusedTagSection,
     pub stale_after_days: u64,
     pub indexed_documents: u64,
     pub indexing: bool,
@@ -208,9 +226,65 @@ pub fn build(
         broken_links,
         isolated_notes,
         stale_notes,
+        unused_tags: unused_tag_section(connection)?,
         stale_after_days,
         indexed_documents: documents.len() as u64,
         indexing,
+    })
+}
+
+fn unused_tag_section(connection: &Connection) -> Result<UnusedTagSection, SearchError> {
+    let mut statement = connection.prepare(
+        "SELECT path, text, items FROM note_fields
+         WHERE key_lower IN ('tags', 'tag')
+         ORDER BY path, ordinal",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?,
+        ))
+    })?;
+    let mut by_tag = HashMap::<String, HashSet<String>>::new();
+    for row in rows {
+        let (path, text, items) = row?;
+        let values = match items {
+            Some(raw) => serde_json::from_str::<Vec<String>>(&raw).unwrap_or_default(),
+            None => vec![text],
+        };
+        for value in values {
+            let tag = value.trim().trim_start_matches('#').trim().to_lowercase();
+            if tag.is_empty() {
+                continue;
+            }
+            by_tag.entry(tag).or_default().insert(path.clone());
+        }
+    }
+    let mut tags = by_tag
+        .into_iter()
+        .filter(|(_, paths)| paths.len() <= 1)
+        .map(|(tag, paths)| {
+            let mut paths = paths.into_iter().collect::<Vec<_>>();
+            paths.sort();
+            UnusedTag {
+                tag,
+                note_count: paths.len() as u64,
+                paths,
+            }
+        })
+        .collect::<Vec<_>>();
+    tags.sort_by(|left, right| {
+        left.note_count
+            .cmp(&right.note_count)
+            .then_with(|| left.tag.cmp(&right.tag))
+    });
+    let total = tags.len() as u64;
+    tags.truncate(MAX_UNUSED_TAGS);
+    Ok(UnusedTagSection {
+        truncated: total > tags.len() as u64,
+        tags,
+        total,
     })
 }
 
@@ -246,7 +320,9 @@ fn title(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{build, stale_after_days, DEFAULT_STALE_DAYS, MAX_STALE_DAYS, NS_PER_DAY};
+    use super::{
+        build, stale_after_days, DEFAULT_STALE_DAYS, MAX_STALE_DAYS, MAX_UNUSED_TAGS, NS_PER_DAY,
+    };
     use crate::search::wiki;
     use rusqlite::{params, Connection};
     use std::fs;
@@ -255,6 +331,7 @@ mod tests {
     fn connection() -> Connection {
         let connection = Connection::open_in_memory().unwrap();
         wiki::open_schema(&connection).unwrap();
+        crate::search::fields::open_schema(&connection).unwrap();
         connection
             .execute_batch(
                 "CREATE TABLE documents (
@@ -272,6 +349,7 @@ mod tests {
             let path = root.join(format!("{name}.md"));
             fs::write(&path, body).unwrap();
             wiki::index_document(&transaction, root, &path, body).unwrap();
+            crate::search::fields::index_document(&transaction, &path, body).unwrap();
         }
         transaction.commit().unwrap();
     }
@@ -384,5 +462,92 @@ mod tests {
         assert_eq!(report.broken_links[0].target, "Missing Note");
         assert_eq!(report.broken_links[0].line, 2);
         assert!(report.indexing);
+    }
+
+    #[test]
+    fn unused_tags_come_from_frontmatter_lists_and_inline_forms() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        seed(
+            &mut connection,
+            root,
+            &[
+                ("list", "---\ntags: [Alpha, beta, alpha]\n---\n"),
+                ("inline", "tags:: [beta, gamma]\ntag:: #delta\n"),
+            ],
+        );
+
+        let report = build(&connection, root, 90, 0, false).unwrap();
+
+        let found = report
+            .unused_tags
+            .tags
+            .iter()
+            .map(|tag| (tag.tag.as_str(), tag.note_count))
+            .collect::<Vec<_>>();
+        assert_eq!(found, vec![("alpha", 1), ("delta", 1), ("gamma", 1)]);
+        assert_eq!(report.unused_tags.total, 3);
+        assert!(!report.unused_tags.truncated);
+        assert_eq!(
+            report.unused_tags.tags[0].paths,
+            vec![root.join("list.md").to_string_lossy().into_owned()]
+        );
+    }
+
+    #[test]
+    fn a_tag_used_by_two_notes_is_not_unused() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        seed(
+            &mut connection,
+            root,
+            &[
+                ("one", "---\ntags: [shared, solo]\n---\n"),
+                ("two", "---\ntags: shared\n---\n"),
+            ],
+        );
+
+        let report = build(&connection, root, 90, 0, false).unwrap();
+
+        let found = report
+            .unused_tags
+            .tags
+            .iter()
+            .map(|tag| tag.tag.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(found, vec!["solo"]);
+    }
+
+    #[test]
+    fn unused_tags_are_capped_and_report_truncation() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        let tags = (0..MAX_UNUSED_TAGS + 5)
+            .map(|index| format!("tag{index:03}"))
+            .collect::<Vec<_>>();
+        let body = format!("---\ntags: [{}]\n---\n", tags.join(", "));
+        seed(&mut connection, root, &[("many", body.as_str())]);
+
+        let report = build(&connection, root, 90, 0, false).unwrap();
+
+        assert_eq!(report.unused_tags.tags.len(), MAX_UNUSED_TAGS);
+        assert_eq!(report.unused_tags.total, tags.len() as u64);
+        assert!(report.unused_tags.truncated);
+        assert_eq!(report.unused_tags.tags[0].tag, "tag000");
+    }
+
+    #[test]
+    fn an_index_without_tags_has_an_empty_unused_tag_section() {
+        let directory = tempfile::tempdir().unwrap();
+        let connection = connection();
+
+        let report = build(&connection, directory.path(), 90, 0, false).unwrap();
+
+        assert!(report.unused_tags.tags.is_empty());
+        assert_eq!(report.unused_tags.total, 0);
+        assert!(!report.unused_tags.truncated);
     }
 }

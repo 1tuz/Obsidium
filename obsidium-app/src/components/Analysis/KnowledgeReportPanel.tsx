@@ -8,6 +8,7 @@ import { plural, t } from '../../i18n';
 import {
   DEFAULT_STALE_DAYS,
   MAX_STALE_DAYS,
+  MAX_UNUSED_TAGS,
   clampStaleDays,
   filterSection,
   reportSections,
@@ -27,6 +28,7 @@ interface KnowledgeReportPanelProps {
 function rowDetail(section: ReportSection, row: ReportRow): string {
   if (section.id === 'staleNotes') return plural('insights.days', Number(row.detail));
   if (section.id === 'brokenLinks') return `[[${row.detail}]]`;
+  if (section.id === 'unusedTags') return row.detail;
   return '';
 }
 
@@ -64,6 +66,11 @@ function ReportSectionView({
           ))}
         </ul>
       )}
+      {section.truncated ? (
+        <p className="q-knowledge-report__section-empty">
+          {t('insights.unusedTags.truncated', { count: MAX_UNUSED_TAGS })}
+        </p>
+      ) : null}
     </section>
   );
 }
