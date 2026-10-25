@@ -539,7 +539,8 @@
       "pageSearchWindow": "Find in note",
       "reader": "Reader",
       "nextPage": "Next page",
-      "previousPage": "Previous page"
+      "previousPage": "Previous page",
+      "bookmark": "Bookmark the page"
     },
     "numberValue": "Numeric value"
   },
@@ -744,7 +745,15 @@
     "fontSize": "Font size",
     "lineHeight": "Line height",
     "columnWidth": "Column width, characters",
-    "columnWidthAria": "Column width"
+    "columnWidthAria": "Column width",
+    "contents": "Contents",
+    "toc": "Table of contents",
+    "noContents": "This book has no table of contents",
+    "bookmarks": "Bookmarks",
+    "noBookmarks": "No bookmarks yet",
+    "addBookmark": "Bookmark this page",
+    "removeBookmark": "Remove bookmark",
+    "panelClose": "Close the contents panel"
   },
   "graph": {
     "settings": "Graph settings",

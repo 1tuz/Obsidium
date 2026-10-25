@@ -117,6 +117,11 @@ export const SHORTCUTS = {
     key: 'ArrowLeft',
     display: '←',
   },
+  READER_BOOKMARK: {
+    code: 'KeyB',
+    key: 'B',
+    primary: true,
+  },
   SEARCH_PREVIOUS: {
     key: 'ArrowUp',
     display: '↑',

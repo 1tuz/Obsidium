@@ -1,8 +1,9 @@
-import { rewriteDocument } from '../documents/documentGateway';
+import { rewriteDocument, readDocument } from '../documents/documentGateway';
 import type { WriteSource } from '../documents/fileGateway';
 import { PathQueue } from '../pathQueue';
 import { comparablePath } from '../paths';
 import {
+  FM_BOOKMARKS,
   FM_READ_PERCENT,
   FM_READER_POSITION,
   formatReadPercent,
@@ -10,11 +11,14 @@ import {
 } from './frontmatter';
 import { parsePages } from './bookProgress';
 import { publishBookPageProgress } from './bookPageRuntime';
+import { parseBookmarksFromDoc, serializeBookmarks } from './bookBookmarks';
+import type { BookBookmark } from './bookBookmarks';
 
 type BookReaderMeta = {
   pages?: string;
   readerPosition?: string;
   readPercent?: number;
+  bookmarks?: readonly BookBookmark[];
 };
 
 const READING_WRITE: WriteSource = { kind: 'readingProgress' };
@@ -27,6 +31,9 @@ function metaFields(meta: BookReaderMeta): [string, string][] {
   if (meta.readerPosition !== undefined) fields.push([FM_READER_POSITION, meta.readerPosition]);
   if (meta.readPercent !== undefined) {
     fields.push([FM_READ_PERCENT, formatReadPercent(meta.readPercent / 100)]);
+  }
+  if (meta.bookmarks !== undefined) {
+    fields.push([FM_BOOKMARKS, serializeBookmarks(meta.bookmarks)]);
   }
   return fields;
 }
@@ -64,4 +71,14 @@ export function persistBookReaderMeta(pagePath: string, meta: BookReaderMeta): P
 
 export async function flushBookReaderMeta(pagePath: string): Promise<void> {
   await writes.current(pagePath);
+}
+
+export async function readBookmarks(pagePath: string): Promise<BookBookmark[]> {
+  try {
+    const { text } = await readDocument(pagePath);
+    return parseBookmarksFromDoc(text);
+  } catch (error) {
+    console.error('Failed to read book bookmarks', error);
+    return [];
+  }
 }

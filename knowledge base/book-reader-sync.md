@@ -48,6 +48,12 @@ FoliateReaderEngine.onRelocate
 `progressPagePath` — absolute path **страницы книги** (`.md`), задаётся при открытии
 ридера со страницы книги или из hydrate callout (`bookPagePath`).
 
+Закладки идут тем же путём, но вне цепочки перелистывания: `BookReader` вызывает
+`persistBookReaderMeta(progressPagePath, { bookmarks })` только на действие пользователя, а читает
+их при открытии книги через `readBookmarks(progressPagePath)`. Прогресс от этого не зависит:
+`pendingMeta` сливает поля, поэтому запись закладки во время перелистывания не теряет ни `pages`, ни
+`bookmarks`.
+
 ## Coalesced persist
 
 `persistBookReaderMeta` копит ещё не записанные поля в `pendingMeta` по ключу
