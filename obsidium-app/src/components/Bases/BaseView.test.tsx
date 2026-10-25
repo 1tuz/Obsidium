@@ -63,6 +63,10 @@ vi.mock('../../modules/journal', () => ({
   journalNotePath: vi.fn(async (_workspace: string, date: string) => `/vault/journal/${date}.md`),
 }));
 
+vi.mock('../../modules/calendar/gateway', () => ({
+  getCalendarEvents: vi.fn(async () => []),
+}));
+
 const { BaseView } = await import('./BaseView');
 const { getBaseRows, queryBase } = await import('../../modules/bases/gateway');
 const { saveBaseView } = await import('../../modules/ui-state/gateway');

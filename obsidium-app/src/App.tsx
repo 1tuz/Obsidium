@@ -772,7 +772,7 @@ export default function App() {
                       indexReady={linkIndexReady}
                       indexRevision={linkIndexRevision}
                       journalSettings={config?.journal ?? null}
-                      onOpenNote={(path) => openNote(path, { paneId })}
+                      onOpenNote={(path, offset) => openNote(path, { paneId, offset })}
                       onFileRenamed={handleFileRenamed}
                       onFileDeleted={closeTab}
                       viewRequest={baseViewRequest?.path === activeBasePath && baseViewRequest.paneId === paneId ? baseViewRequest : null}

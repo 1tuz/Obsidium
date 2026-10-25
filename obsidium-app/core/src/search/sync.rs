@@ -1,4 +1,5 @@
 use super::error::SearchError;
+use super::events;
 use super::fields;
 use super::index::SearchIndex;
 use super::index_document::{apply_path, apply_prepared, prepare_file, probe, PreparedFile, Probe};
@@ -400,6 +401,7 @@ fn remove_stale(
             wiki::remove_document(transaction, Path::new(&path))?;
             fields::remove_document(transaction, Path::new(&path))?;
             tasks::remove_document(transaction, Path::new(&path))?;
+            events::remove_document(transaction, Path::new(&path))?;
             transaction.execute("DELETE FROM documents WHERE path=?1", params![path])?;
             *graph_changed |= before != graph_state(transaction, &path)?;
             timeline_paths.push(path);
@@ -668,6 +670,38 @@ mod tests {
             !index.search_defaults("изменённое", 5).unwrap().1.is_empty(),
             "найденное изменение применено к индексу"
         );
+    }
+
+    #[test]
+    fn a_scanned_note_fills_the_event_table_and_a_deletion_clears_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let (vault, mut synchronizer) = open_synchronizer(directory.path(), &index);
+        let note = vault.join("Планёрка.md");
+        fs::write(
+            &note,
+            "---\ndate: 2026-10-07 09:30\n---\n- созвон @2026-10-07 14:15\n",
+        )
+        .unwrap();
+        let cancelled = AtomicBool::new(false);
+        let summary = synchronizer.full_scan(&cancelled).unwrap();
+        synchronizer.finish_scan(summary.max_mtime_ns).unwrap();
+
+        let connection =
+            crate::search::metadata::open(&directory.path().join("documents.sqlite3")).unwrap();
+        let found = crate::search::events::list_month(&connection, 2026, 10).unwrap();
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].title, "Планёрка");
+        assert_eq!(found[0].time.as_deref(), Some("09:30"));
+        assert_eq!(found[1].title, "созвон");
+        assert_eq!(found[1].time.as_deref(), Some("14:15"));
+
+        fs::remove_file(&note).unwrap();
+        synchronizer
+            .apply_paths(HashSet::from([note.clone()]))
+            .unwrap();
+        let found = crate::search::events::list_month(&connection, 2026, 10).unwrap();
+        assert!(found.is_empty(), "удалённая заметка не оставляет событий");
     }
 
     #[test]
