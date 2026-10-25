@@ -2,6 +2,7 @@ pub mod analysis;
 pub mod analyzer;
 #[cfg(test)]
 mod benches;
+pub mod content;
 pub mod created;
 pub mod dataview;
 pub mod error;

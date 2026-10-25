@@ -1,3 +1,4 @@
+use super::content::ContentCache;
 use super::error::SearchError;
 use super::models::SearchResult;
 use super::{query, schema};
@@ -20,6 +21,7 @@ pub struct SearchIndex {
     pub index: Index,
     pub reader: IndexReader,
     pub fields: SearchFields,
+    pub(crate) content: ContentCache,
     field_stats: RwLock<Option<FieldStats>>,
     graph_revision: AtomicU64,
 }
@@ -45,6 +47,7 @@ impl SearchIndex {
             index,
             reader,
             fields,
+            content: ContentCache::new(),
             field_stats: RwLock::new(None),
             graph_revision: AtomicU64::new(0),
         })

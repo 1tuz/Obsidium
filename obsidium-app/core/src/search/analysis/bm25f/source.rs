@@ -22,12 +22,13 @@ pub fn load_source(
         .next()
     {
         let document = searcher.doc::<TantivyDocument>(address)?;
-        let body = stored_text(&document, index.fields.body).unwrap_or_default();
-        let stored_title = stored_text(&document, index.fields.title)
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| title(absolute.as_ref()));
-        if !body.is_empty() || !stored_title.is_empty() {
-            return Ok((stored_title, body));
+        let indexed_path = stored_text(&document, index.fields.id).unwrap_or_default();
+        if !indexed_path.is_empty() {
+            let body = index
+                .content
+                .read(Path::new(&indexed_path))
+                .unwrap_or_default();
+            return Ok((title(&indexed_path), body.to_string()));
         }
     }
 
@@ -43,9 +44,5 @@ pub fn stored_text(document: &TantivyDocument, field: Field) -> Option<String> {
 }
 
 pub fn title(path: &str) -> String {
-    Path::new(path)
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or_default()
-        .to_owned()
+    crate::search::matching::file_stem(Path::new(path))
 }

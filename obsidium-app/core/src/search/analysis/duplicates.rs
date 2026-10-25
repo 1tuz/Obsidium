@@ -66,15 +66,13 @@ pub fn analyze(
         if candidate_identity == source_identity || !seen.insert(candidate_identity) {
             continue;
         }
-        let body = stored_text(&candidate, index.fields.body).unwrap_or_default();
+        let body = index.content.read(Path::new(&path)).unwrap_or_default();
         let profile = Profile::new(&body);
         let overlap = source.jaccard(&profile);
         if overlap < MIN_JACCARD || source.length_ratio(&profile) < MIN_LENGTH_RATIO {
             continue;
         }
-        let candidate_title = stored_text(&candidate, index.fields.title)
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| title(&path));
+        let candidate_title = title(&path);
         results.push(AnalysisResult {
             path,
             title: candidate_title,

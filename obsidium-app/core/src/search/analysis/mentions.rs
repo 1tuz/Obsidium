@@ -65,15 +65,13 @@ pub fn analyze(
         {
             continue;
         }
-        let body = stored_text(&candidate, index.fields.body).unwrap_or_default();
+        let body = index.content.read(&candidate_path).unwrap_or_default();
         let mentions = count_mentions(&body, &needle);
         if mentions == 0 {
             continue;
         }
         results.push(AnalysisResult {
-            title: stored_text(&candidate, index.fields.title)
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| title(&path)),
+            title: title(&path),
             path,
             raw_score: mentions as f64,
             similarity: None,

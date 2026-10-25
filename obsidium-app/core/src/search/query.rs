@@ -64,7 +64,13 @@ pub fn search(
     let mut results = Vec::with_capacity(top_docs.len());
     for (score, address) in top_docs {
         let document = searcher.doc::<TantivyDocument>(address)?;
-        if let Some(result) = result_from_document(&document, search_index.fields, &terms, score) {
+        if let Some(result) = result_from_document(
+            &document,
+            search_index.fields,
+            &search_index.content,
+            &terms,
+            score,
+        ) {
             results.push(result);
         }
     }

@@ -4,7 +4,7 @@ use super::filters::{ExclusionFilter, SanitizingTokenizer};
 use super::morphology::StemFilter;
 
 pub const TOKENIZER_NAME: &str = "obsidium_text";
-pub const ANALYZER_VERSION: u32 = 14;
+pub const ANALYZER_VERSION: u32 = 15;
 
 pub fn indexing_tokenizer() -> TextAnalyzer {
     TextAnalyzer::builder(SanitizingTokenizer::default())
