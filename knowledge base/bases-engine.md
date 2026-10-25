@@ -16,15 +16,10 @@
 
 | Слой | Файл | Роль |
 | --- | --- | --- |
-<<<<<<< HEAD
-| Парсер `.base` | `src/modules/bases/baseFormat.ts` | YAML → `BaseDefinition` (`views`, `filters`, `formulas`, `propertyLabels`, `unsupportedKeys`) |
+1: | Парсер `.base` | `src/modules/bases/baseFormat.ts` | YAML → `BaseDefinition` (`views`, `filters`, `formulas`, `summaries`, `propertyLabels`, `unsupportedKeys`) |
 | Движок | `core/src/search/bases/mod.rs` | фильтры, сортировка, `groupBy`, `limit`, колонки, `unsupported`, `errors` |
 | Формулы | `core/src/search/bases/formulas.rs` | `formulas:` считается вычислителем `dataview` и подставляется в строку как `formula.<имя>` |
-=======
-| Парсер `.base` | `src/modules/bases/baseFormat.ts` | YAML → `BaseDefinition` (`views`, `filters`, `summaries`, `propertyLabels`, `unsupportedKeys`) |
-| Движок | `core/src/search/bases/mod.rs` | фильтры, сортировка, `groupBy`, `limit`, колонки, `unsupported` |
 | Сводки | `core/src/search/bases/rollups.rs` | агрегаты `summaries` по связанным заметкам |
->>>>>>> codex/omp-rollups
 | Сервис | `core/src/search/bases/service.rs` | `SearchService::query_base` — берёт строки из `base_rows` и передаёт их движку |
 | IPC | `src-tauri/src/search/commands.rs::query_base` | `query_base(workspacePath, query)` |
 | Шлюз | `src/modules/bases/gateway.ts::queryBase` | типизированный вызов из UI |
