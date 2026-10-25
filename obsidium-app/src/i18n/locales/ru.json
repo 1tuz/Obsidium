@@ -131,7 +131,10 @@
     "open": "открыть",
     "newPane": "новая панель",
     "create": "создать",
-    "matchedTag": "Совпавший тег",
+    "addTermHint": "Добавить это слово в запрос",
+    "addTagHint": "Добавить этот тег в запрос",
+    "addTermToQuery": "Добавить в запрос: {{term}}",
+    "addTagToQuery": "Отфильтровать по тегу: {{tag}}",
     "matches": {
       "one": "{{count}} совпадение",
       "few": "{{count}} совпадения",

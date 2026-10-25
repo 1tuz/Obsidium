@@ -136,7 +136,7 @@
   --q-search-height: 70vh;
   --q-search-box-height: var(--q-size-48);
   --q-search-key-hint-color: var(--q-text-tertiary);
-  --q-search-result-height: 6.75rem;
+  --q-search-result-height: 8.5rem;
   --q-search-result-radius: var(--q-rounded-xl);
   --q-search-result-bg: var(--q-bg-surface-subtle);
   --q-search-result-bg-hover: var(--q-bg-surface-hover);

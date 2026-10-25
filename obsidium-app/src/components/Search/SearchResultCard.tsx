@@ -1,11 +1,10 @@
 import { File } from 'lucide';
 import { Icon } from '../Common/Icon';
+import { Chip } from '../Common/Chip';
 import type { SearchResult } from '../../modules/search';
 import { highlightMatches } from './highlight';
 import './SearchResultCard.css';
 import { plural, t } from '../../i18n';
-
-const MAX_TAGS = 2;
 
 interface SearchResultCardProps {
   result: SearchResult;
@@ -13,6 +12,7 @@ interface SearchResultCardProps {
   selected: boolean;
   onSelect: (newTab: boolean) => void;
   onHover: () => void;
+  onAddQueryTerm: (term: string) => void;
 }
 
 export function SearchResultCard({
@@ -21,10 +21,14 @@ export function SearchResultCard({
   selected,
   onSelect,
   onHover,
+  onAddQueryTerm,
 }: SearchResultCardProps) {
+  const matchedTerms = result.matchedTerms ?? [];
+  const matchedTags = result.matchedTags ?? [];
+  const snippetTerms = result.matchedTerms ?? queryTerms;
+
   return (
-    <button
-      type="button"
+    <div
       role="option"
       aria-selected={selected}
       className={`q-search-result ${selected ? 'is-selected' : ''}`}
@@ -48,18 +52,43 @@ export function SearchResultCard({
               {result.heading}
             </span>
           )}
-          {result.matchedTags.slice(0, MAX_TAGS).map((tag) => (
-            <span key={tag} className="q-search-result__tag" title={t('search.matchedTag')}>
-              #{tag}
-            </span>
-          ))}
         </span>
         <span className="q-search-result__count">{formatMatchCount(result.matchCount)}</span>
       </span>
+      {matchedTerms.length + matchedTags.length > 0 && (
+        <span className="q-search-result__matches">
+          {matchedTerms.map((term) => (
+            <Chip
+              key={`term:${term}`}
+              className="q-search-result__chip"
+              label={term}
+              title={t('search.addTermHint')}
+              aria-label={t('search.addTermToQuery', { term })}
+              onClick={(event) => {
+                event.stopPropagation();
+                onAddQueryTerm(term);
+              }}
+            />
+          ))}
+          {matchedTags.map((tag) => (
+            <Chip
+              key={`tag:${tag}`}
+              className="q-search-result__chip q-search-result__chip--tag"
+              label={`#${tag}`}
+              title={t('search.addTagHint')}
+              aria-label={t('search.addTagToQuery', { tag })}
+              onClick={(event) => {
+                event.stopPropagation();
+                onAddQueryTerm(`tag:${tag}`);
+              }}
+            />
+          ))}
+        </span>
+      )}
       <span className="q-search-result__snippet">
-        {highlightMatches(result.snippet, queryTerms)}
+        {highlightMatches(result.snippet, snippetTerms)}
       </span>
-    </button>
+    </div>
   );
 }
 
