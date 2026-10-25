@@ -113,6 +113,23 @@ fn shape(cursor: &mut Cursor<'_>) -> Result<Shape, String> {
         let show_path = !without_id(cursor)?;
         return Ok(Shape::Tasks { show_path });
     }
+    if cursor.take_word("calendar") {
+        if without_id(cursor)? {
+            return Err(
+                "«CALENDAR» всегда показывает ссылку на заметку: «WITHOUT ID» у него нет"
+                    .to_owned(),
+            );
+        }
+        let mut requested = columns(cursor)?;
+        if requested.is_empty() {
+            return Err("После «CALENDAR» ожидается выражение с датой".to_owned());
+        }
+        let date = requested.remove(0);
+        return Ok(Shape::Calendar {
+            date,
+            columns: requested,
+        });
+    }
     if cursor.take_word("list") {
         let show_path = !without_id(cursor)?;
         let value = if at_clause(cursor) {
@@ -122,7 +139,7 @@ fn shape(cursor: &mut Cursor<'_>) -> Result<Shape, String> {
         };
         return Ok(Shape::List { value, show_path });
     }
-    Err("Запрос начинается словом «TABLE», «LIST» или «TASK»".to_owned())
+    Err("Запрос начинается словом «TABLE», «LIST», «TASK» или «CALENDAR»".to_owned())
 }
 
 fn without_id(cursor: &mut Cursor<'_>) -> Result<bool, String> {
@@ -375,6 +392,46 @@ SORT file.ctime DESC"#;
                 show_path: false
             }
         ));
+    }
+
+    #[test]
+    fn calendar_keeps_the_date_expression_apart_from_the_extra_columns() {
+        let query = parse(
+            r#"CALENDAR due AS "Срок", status FROM "Книги" WHERE status = "draft" SORT due LIMIT 5"#,
+        )
+        .expect("запрос разобран");
+        let Shape::Calendar { date, columns } = &query.shape else {
+            panic!("это календарь");
+        };
+        assert_eq!(date.title, "Срок");
+        assert_eq!(columns.len(), 1);
+        assert_eq!(columns[0].title, "status");
+        assert_eq!(query.source, Some(Source::Folder("Книги".to_owned())));
+        assert!(matches!(query.clauses[0], Clause::Where(_)));
+        assert!(matches!(query.clauses[1], Clause::Sort(_)));
+        assert!(matches!(query.clauses[2], Clause::Limit(5)));
+    }
+
+    #[test]
+    fn calendar_names_the_date_column_by_its_own_source_text() {
+        let query = parse("CALENDAR file.ctime").expect("запрос разобран");
+        let Shape::Calendar { date, columns } = &query.shape else {
+            panic!("это календарь");
+        };
+        assert_eq!(date.title, "file.ctime");
+        assert!(columns.is_empty());
+    }
+
+    #[test]
+    fn calendar_needs_a_date_expression() {
+        assert!(parse("CALENDAR").unwrap_err().contains("датой"));
+        assert!(parse(r#"CALENDAR FROM "Книги""#)
+            .unwrap_err()
+            .contains("датой"));
+        assert!(parse("CALENDAR WITHOUT ID due")
+            .unwrap_err()
+            .contains("ссылку на заметку"));
+        assert!(parse("CALENDAR WITHOUT").unwrap_err().contains("ID"));
     }
 
     #[test]

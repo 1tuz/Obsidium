@@ -11,9 +11,13 @@ export interface BaseViewEdit {
   name: string;
   limit: number | null;
   groupBy: BaseGroupBy | null;
+  laneBy: BaseGroupBy | null;
+  startField: string | null;
+  endField: string | null;
   sort: BaseSort[];
   relations: string[];
   order: string[];
+  wipLimits: Record<string, number>;
   filters?: BaseFilter | null;
 }
 
@@ -21,6 +25,7 @@ interface BaseEditorPanelProps {
   view: BaseViewDefinition;
   columns: string[];
   relations: string[];
+  groupValues: string[];
   onClose: () => void;
   onSave: (edit: BaseViewEdit) => Promise<boolean>;
 }
@@ -272,19 +277,37 @@ function ColumnOrderSection({ busy, columns, onMove }: ColumnOrderSectionProps) 
   );
 }
 
-export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: BaseEditorPanelProps) {
+export function BaseEditorPanel({
+  view,
+  columns,
+  relations,
+  groupValues,
+  onClose,
+  onSave,
+}: BaseEditorPanelProps) {
   const [name, setName] = useState(view.name);
   const [limit, setLimit] = useState(view.limit === undefined ? '' : String(view.limit));
   const [groupProperty, setGroupProperty] = useState(view.groupBy?.property ?? '');
   const [groupDirection, setGroupDirection] = useState<'ASC' | 'DESC'>(
     view.groupBy?.direction === 'DESC' ? 'DESC' : 'ASC',
   );
+  const [laneProperty, setLaneProperty] = useState(view.laneBy?.property ?? '');
+  const [laneDirection, setLaneDirection] = useState<'ASC' | 'DESC'>(
+    view.laneBy?.direction === 'DESC' ? 'DESC' : 'ASC',
+  );
+  const [startField, setStartField] = useState(view.startField ?? '');
+  const [endField, setEndField] = useState(view.endField ?? '');
   const [sort, setSort] = useState<BaseSort[]>(view.sort ?? []);
   const [relationKeys, setRelationKeys] = useState<string[]>(relations);
   const initialFilters = readFilters(view.filters);
   const [filterMode, setFilterMode] = useState<FilterMode>(initialFilters?.mode ?? 'and');
   const [conditions, setConditions] = useState<FilterCondition[]>(initialFilters?.conditions ?? []);
   const [order, setOrder] = useState<string[]>(view.order);
+  const [wipLimits, setWipLimits] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const [key, value] of Object.entries(view.wipLimits ?? {})) initial[key] = String(value);
+    return initial;
+  });
   const [sortProperty, setSortProperty] = useState(
     columns.find((property) => !(view.sort ?? []).some((entry) => entry.property === property)) ?? '',
   );
@@ -298,8 +321,17 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
   const groupOptions = groupProperty && !columns.includes(groupProperty)
     ? [groupProperty, ...columns]
     : columns;
+  const laneOptions = laneProperty && !columns.includes(laneProperty)
+    ? [laneProperty, ...columns]
+    : columns;
+  const dateOptions = [...new Set([
+    ...columns,
+    ...(startField ? [startField] : []),
+    ...(endField ? [endField] : []),
+  ])];
   const relationOptions = [...new Set([...columns, ...relationKeys])]
     .filter((property) => !/^(?:file|formula|summary)\./u.test(property));
+  const wipColumns = [...new Set([...groupValues, ...Object.keys(view.wipLimits ?? {})])];
 
   const submit = async () => {
     if (busy) return;
@@ -330,6 +362,16 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
         }
       }
     }
+    const nextWipLimits: Record<string, number> = {};
+    for (const [column, raw] of Object.entries(wipLimits)) {
+      if (!raw.trim()) continue;
+      const parsed = Number(raw);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        setError(t('bases.editorWipLimitInvalid'));
+        return;
+      }
+      nextWipLimits[column] = parsed;
+    }
     setBusy(true);
     setError('');
     try {
@@ -337,9 +379,13 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
         name: trimmed,
         limit: nextLimit,
         groupBy: groupProperty ? { property: groupProperty, direction: groupDirection } : null,
+        laneBy: laneProperty ? { property: laneProperty, direction: laneDirection } : null,
+        startField: startField || null,
+        endField: endField || null,
         sort,
         relations: relationKeys,
         order: order.length > 0 ? order : view.order,
+        wipLimits: nextWipLimits,
         filters: advancedFilters ? undefined : buildFilters(conditions, filterMode),
       });
       if (saved) onClose();
@@ -458,6 +504,62 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
             </select>
           </div>
         </div>
+        {view.type === 'kanban' && (
+          <div className="q-base-editor__field">
+            <span>{t('bases.editorLaneBy')}</span>
+            <div className="q-base-editor__row">
+              <select
+                aria-label={t('bases.editorLaneBy')}
+                value={laneProperty}
+                onChange={(event) => setLaneProperty(event.currentTarget.value)}
+              >
+                <option value="">{t('bases.editorLaneNone')}</option>
+                {laneOptions.map((property) => (
+                  <option key={property} value={property}>{property}</option>
+                ))}
+              </select>
+              <select
+                aria-label={t('bases.editorLaneDirection')}
+                value={laneDirection}
+                disabled={!laneProperty}
+                onChange={(event) => setLaneDirection(event.currentTarget.value === 'DESC' ? 'DESC' : 'ASC')}
+              >
+                <option value="ASC">{t('bases.editorAscending')}</option>
+                <option value="DESC">{t('bases.editorDescending')}</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {view.type === 'timeline' && (
+          <>
+            <label className="q-base-editor__field">
+              <span>{t('bases.editorTimelineStart')}</span>
+              <select
+                aria-label={t('bases.editorTimelineStart')}
+                value={startField}
+                onChange={(event) => setStartField(event.currentTarget.value)}
+              >
+                <option value="">{t('bases.editorTimelineStartDefault')}</option>
+                {dateOptions.map((property) => (
+                  <option key={property} value={property}>{property}</option>
+                ))}
+              </select>
+            </label>
+            <label className="q-base-editor__field">
+              <span>{t('bases.editorTimelineEnd')}</span>
+              <select
+                aria-label={t('bases.editorTimelineEnd')}
+                value={endField}
+                onChange={(event) => setEndField(event.currentTarget.value)}
+              >
+                <option value="">{t('bases.editorTimelineEndDefault')}</option>
+                {dateOptions.map((property) => (
+                  <option key={property} value={property}>{property}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
         <FilterSection
           advanced={advancedFilters}
           busy={busy}
@@ -470,6 +572,32 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
           onRemove={removeCondition}
         />
         <ColumnOrderSection busy={busy} columns={orderColumns} onMove={moveColumn} />
+        {wipColumns.length > 0 && (
+          <div className="q-base-editor__field">
+            <span>{t('bases.editorWipLimits')}</span>
+            <p className="q-base-editor__empty">{t('bases.editorWipLimitsHint')}</p>
+            <div className="q-base-editor__sort">
+              {wipColumns.map((column) => (
+                <div className="q-base-editor__row" key={column}>
+                  <span title={column}>{column || t('bases.kanbanUnassigned')}</span>
+                  <input
+                    className="q-base-editor__wip"
+                    type="number"
+                    min={1}
+                    step={1}
+                    aria-label={t('bases.editorWipLimit', { column: column || t('bases.kanbanUnassigned') })}
+                    placeholder={t('bases.editorWipLimitNone')}
+                    value={wipLimits[column] ?? ''}
+                    onChange={(event) => {
+                      const next = event.currentTarget.value;
+                      setWipLimits((current) => ({ ...current, [column]: next }));
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="q-base-editor__field">
           <span>{t('bases.editorSort')}</span>
           {sort.length === 0 ? (

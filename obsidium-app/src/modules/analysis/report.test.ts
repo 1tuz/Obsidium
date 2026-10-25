@@ -11,6 +11,7 @@ import {
   reportTotal,
   sortRows,
   staleNoteRow,
+  unusedTagRow,
   type KnowledgeReport,
 } from './report';
 
@@ -24,6 +25,14 @@ const populated: KnowledgeReport = {
     { path: '/vault/old.md', title: 'old', modifiedNs: 1, days: 400 },
     { path: '/vault/older.md', title: 'older', modifiedNs: 0, days: 900 },
   ],
+  unusedTags: {
+    tags: [
+      { tag: 'zeta', noteCount: 1, paths: ['/vault/z.md'] },
+      { tag: 'alpha', noteCount: 1, paths: ['/vault/a.md'] },
+    ],
+    total: 2,
+    truncated: false,
+  },
   staleAfterDays: 90,
   indexedDocuments: 12,
   indexing: false,
@@ -33,10 +42,16 @@ describe('knowledge report sections', () => {
   it('counts every section and keeps the backend order', () => {
     const sections = reportSections(populated);
 
-    expect(sections.map((section) => section.id)).toEqual(['brokenLinks', 'isolatedNotes', 'staleNotes']);
-    expect(sections.map((section) => section.count)).toEqual([2, 1, 2]);
+    expect(sections.map((section) => section.id)).toEqual([
+      'brokenLinks',
+      'isolatedNotes',
+      'staleNotes',
+      'unusedTags',
+    ]);
+    expect(sections.map((section) => section.count)).toEqual([2, 1, 2, 2]);
     expect(sections[0].rows.map((row) => row.title)).toEqual(['a', 'b']);
     expect(sections[2].rows.map((row) => row.detail)).toEqual(['900', '400']);
+    expect(sections[3].rows.map((row) => row.title)).toEqual(['#alpha', '#zeta']);
   });
 
   it('reports no sections before the first response', () => {
@@ -45,7 +60,7 @@ describe('knowledge report sections', () => {
   });
 
   it('sums the findings across sections', () => {
-    expect(reportTotal(populated)).toBe(5);
+    expect(reportTotal(populated)).toBe(7);
     expect(reportTotal(emptyReport())).toBe(0);
   });
 
@@ -90,8 +105,30 @@ describe('knowledge report sections', () => {
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys[0]).toBe('broken:/vault/a.md:3:Ghost:0');
     expect(keys[2]).toBe('isolated:/vault/orphan.md');
+    expect(keys[5]).toBe('unusedTag:alpha');
     expect(brokenLinkRow(populated.brokenLinks[0], 0).path).toBe('/vault/a.md');
     expect(staleNoteRow(populated.staleNotes[0]).detail).toBe('400');
+    expect(unusedTagRow(populated.unusedTags.tags[0])).toEqual({
+      key: 'unusedTag:zeta',
+      path: '/vault/z.md',
+      title: '#zeta',
+      detail: '/vault/z.md',
+    });
+  });
+
+  it('reports the full tag total and the truncation flag', () => {
+    const section = reportSections({
+      ...populated,
+      unusedTags: {
+        tags: [{ tag: 'solo', noteCount: 1, paths: ['/vault/solo.md'] }],
+        total: 150,
+        truncated: true,
+      },
+    })[3];
+
+    expect(section.count).toBe(150);
+    expect(section.truncated).toBe(true);
+    expect(section.rows.map((row) => row.title)).toEqual(['#solo']);
   });
 });
 
@@ -101,6 +138,8 @@ describe('filtering entries', () => {
     expect(filterRows(reportSections(populated)[0].rows, 'MISSING')).toHaveLength(1);
     expect(filterRows(reportSections(populated)[2].rows, '900')).toHaveLength(1);
     expect(filterRows(reportSections(populated)[1].rows, 'vault/orphan')).toHaveLength(1);
+    expect(filterRows(reportSections(populated)[3].rows, '#zeta')).toHaveLength(1);
+    expect(filterRows(reportSections(populated)[3].rows, 'z.md')).toHaveLength(1);
   });
 
   it('returns every row for a blank query without touching the original array', () => {

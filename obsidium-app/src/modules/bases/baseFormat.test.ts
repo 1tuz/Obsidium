@@ -75,6 +75,32 @@ describe('parseBase', () => {
     expect(parsed.views[1].groupOrder).toEqual([null, true, 3, 'нет']);
   });
 
+  it('round-trips per-column card order and WIP limits', () => {
+    const parsed = expectRoundTrip([
+      'views:',
+      '  - type: kanban',
+      '    name: Board',
+      '    groupBy:',
+      '      property: status',
+      '    groupOrder: [todo, doing]',
+      '    cardOrder:',
+      '      todo: [Alpha.md, "Sub/Beta.md"]',
+      '      "": [Loose.md]',
+      '      doing: []',
+      '    wipLimits:',
+      '      doing: 3',
+      '',
+    ].join('\n'));
+
+    expect(parsed.views[0].cardOrder).toEqual({
+      todo: ['Alpha.md', 'Sub/Beta.md'],
+      '': ['Loose.md'],
+    });
+    expect(parsed.views[0].wipLimits).toEqual({ doing: 3 });
+    expect(serializeBase(parsed)).toContain('todo: [Alpha.md, Sub/Beta.md]');
+    expect(serializeBase(parsed)).toContain('doing: 3');
+  });
+
   it('keeps the timeline start and end properties as view fields', () => {
     const parsed = expectRoundTrip([
       'views:',
@@ -373,6 +399,59 @@ describe('parseBase', () => {
     expect(serialized).toContain('displayName: Наставник');
     expect(serialized).toContain('options: [Ada, Grace]');
     expect(serializeBase(parseBase(serialized))).toBe(serialized);
+  });
+
+  it('round-trips swimlane keys and keeps the fixed key order', () => {
+    const parsed = expectRoundTrip([
+      'views:',
+      '  - type: kanban',
+      '    name: Board',
+      '    groupBy:',
+      '      property: status',
+      '    laneBy:',
+      '      property: owner',
+      '      direction: DESC',
+      '    groupOrder: [todo, doing]',
+      '    laneOrder: [Ada, "Bob Smith", 3, null]',
+      '    cardOrder:',
+      '      "Ada / todo": [Alpha.md]',
+      '    wipLimits:',
+      '      "Ada / doing": 2',
+      '',
+    ].join('\n'));
+
+    expect(parsed.views[0].laneBy).toEqual({ property: 'owner', direction: 'DESC' });
+    expect(parsed.views[0].laneOrder).toEqual(['Ada', 'Bob Smith', 3, null]);
+    expect(parsed.views[0].cardOrder).toEqual({ 'Ada / todo': ['Alpha.md'] });
+    expect(parsed.views[0].wipLimits).toEqual({ 'Ada / doing': 2 });
+    expect(parsed.views[0].extra).toBeUndefined();
+
+    const serialized = serializeBase(parsed);
+    const keys = serialized.split('\n')
+      .map((line) => /^ {4}(\w+):/u.exec(line)?.[1])
+      .filter((key): key is string => Boolean(key));
+    expect(keys).toEqual([
+      'name', 'groupBy', 'laneBy', 'groupOrder', 'laneOrder', 'cardOrder', 'wipLimits',
+    ]);
+    expect(serialized).toContain('laneBy:');
+    expect(serialized).toContain('direction: DESC');
+  });
+
+  it('omits lane keys for a view that has none', () => {
+    const parsed = expectRoundTrip([
+      'views:',
+      '  - type: kanban',
+      '    name: Board',
+      '    groupBy:',
+      '      property: status',
+      '',
+    ].join('\n'));
+
+    expect(parsed.views[0].laneBy).toBeUndefined();
+    expect(parsed.views[0].laneOrder).toBeUndefined();
+    const serialized = serializeBase(parsed);
+    expect(serialized).not.toContain('laneBy');
+    expect(serialized).not.toContain('laneOrder');
   });
 
   it('marks and unmarks a relation property without losing the rest of the entry', () => {

@@ -782,6 +782,41 @@ describe('GraphSettings', () => {
     expect(onChange).toHaveBeenNthCalledWith(3, { propertyKeyFilter: 'type' });
   });
 
+  it('toggles text similarity links and filters them by type', () => {
+    const onChange = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <GraphSettings
+          {...PATH_CONTROLS}
+          controls={DEFAULT_CONTROLS}
+          range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
+          onChange={onChange}
+          onRefresh={() => {}}
+          presets={{}}
+          onSavePreset={() => {}}
+          onApplyPreset={() => {}}
+          onDeletePreset={() => {}}
+        />,
+      );
+    });
+
+    const row = [...renderer!.container.querySelectorAll('.q-graph-settings-toggle')]
+      .find((item) => item.textContent === t('graph.similarEdges'))!;
+    const toggle = row.querySelector<HTMLButtonElement>('button[role="switch"]')!;
+    act(() => toggle.click());
+
+    expect(onChange).toHaveBeenCalledWith({ similarEdges: true });
+
+    const group = [...renderer!.container.querySelectorAll('.q-graph-settings-choice')]
+      .find((item) => item.textContent?.includes(t('graph.edgeType')))!;
+    act(() => group.querySelector<HTMLButtonElement>('.q-dropdown__trigger')!.click());
+    const similar = [...document.body.querySelectorAll<HTMLButtonElement>('[role="option"]')]
+      .find((button) => button.textContent === t('graph.edgeTypeSimilar'))!;
+    act(() => similar.click());
+
+    expect(onChange).toHaveBeenCalledWith({ edgeType: 'similar' });
+  });
+
   it('filters graph links by their indexed type', () => {
     const onChange = vi.fn();
     act(() => {

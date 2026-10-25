@@ -346,6 +346,7 @@ pub struct AppConfig {
 pub struct GraphSettings {
     pub preferences: Option<serde_json::Value>,
     pub presets: Option<serde_json::Value>,
+    pub similar_edges: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

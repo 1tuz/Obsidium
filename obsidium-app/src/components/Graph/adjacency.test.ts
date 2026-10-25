@@ -122,6 +122,17 @@ describe('buildAdjacency', () => {
     expect([...neighbours(adjacency, 0)]).toEqual([]);
   });
 
+  it('keeps only similar-text links when that type is selected', () => {
+    const graph = snapshot(3, [0, 1, 1, 2]);
+    graph.edgeTypes.set([64, 1]);
+
+    const adjacency = buildAdjacency(graph, 'similar');
+
+    expect([...neighbours(adjacency, 0)]).toEqual([1]);
+    expect([...neighbours(adjacency, 1)]).toEqual([0]);
+    expect([...neighbours(adjacency, 2)]).toEqual([]);
+  });
+
   it('requests compaction after the sparse overlay exceeds its bound', () => {
     const adjacency = buildAdjacency(snapshot(4_098, []));
     const updates = Array.from({ length: 2_049 }, (_, edge) => ({

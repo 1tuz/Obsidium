@@ -4,9 +4,12 @@ import {
   activityLevel,
   buildActivityGrid,
   countByDay,
+  dayIsoDate,
   dayToUtcDate,
   firstDayOfMonthMonthsAgo,
+  formatClock,
   formatDayNumber,
+  formatNoteMoment,
   localDayNumber,
   localDayNumberFromNs,
   mondayIndex,
@@ -92,6 +95,21 @@ describe('counting notes per day', () => {
       note('c.md', localMs(2026, 9, 20), localMs(2026, 9, 20)),
     ], 'created');
     expect([...counts.values()]).toEqual([1]);
+  });
+});
+
+describe('formatting moments', () => {
+  it('writes a day number as a civil ISO date', () => {
+    const day = localDayNumber(localMs(2026, 9, 25, 14, 30));
+    expect(dayIsoDate(day)).toBe('2026-10-25');
+  });
+
+  it('keeps the clock and the moment in the local time of the note', () => {
+    const nanos = localMs(2026, 9, 25, 14, 30) * 1_000_000;
+    const clock = formatClock(nanos, 'en');
+    expect(clock).toMatch(/\d{1,2}[:.]\d{2}/);
+    expect(formatNoteMoment(nanos, 'en')).toContain('Oct');
+    expect(formatNoteMoment(nanos, 'en').endsWith(clock)).toBe(true);
   });
 });
 

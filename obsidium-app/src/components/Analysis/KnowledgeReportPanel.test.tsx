@@ -13,6 +13,7 @@ const emptyReport: KnowledgeReport = {
   brokenLinks: [],
   isolatedNotes: [],
   staleNotes: [],
+  unusedTags: { tags: [], total: 0, truncated: false },
   staleAfterDays: 90,
   indexedDocuments: 4,
   indexing: false,
@@ -25,6 +26,11 @@ const report: KnowledgeReport = {
   ],
   isolatedNotes: [{ path: '/vault/orphan.md', title: 'orphan' }],
   staleNotes: [{ path: '/vault/old.md', title: 'old', modifiedNs: 1, days: 400 }],
+  unusedTags: {
+    tags: [{ tag: 'solo', noteCount: 1, paths: ['/vault/tagged.md'] }],
+    total: 1,
+    truncated: false,
+  },
   staleAfterDays: 90,
   indexedDocuments: 4,
   indexing: false,
@@ -75,7 +81,7 @@ describe('KnowledgeReportPanel', () => {
     expect(rows(renderer)).toEqual([]);
   });
 
-  it('renders four counts and opens a note from every section', async () => {
+  it('renders five counts and opens a note from every section', async () => {
     const onOpenNote = vi.fn();
     vi.mocked(invoke).mockResolvedValue(report);
     renderer = mountDom(
@@ -88,20 +94,79 @@ describe('KnowledgeReportPanel', () => {
       t('insights.brokenLinks.title'),
       t('insights.isolatedNotes.title'),
       t('insights.staleNotes.title'),
+      t('insights.unusedTags.title'),
     ]);
     const counts = [...renderer.container.querySelectorAll('.q-knowledge-report__count')]
       .map((node) => node.textContent);
-    expect(counts).toEqual(['2', '1', '1']);
+    expect(counts).toEqual(['2', '1', '1', '1']);
     expect(rows(renderer).map((row) => row.textContent)).toEqual([
       'a[[Ghost]]',
       'b[[Missing note]]',
       'orphan',
       `old${t('insights.days.other', { count: 400 })}`,
+      '#solo/vault/tagged.md',
     ]);
 
     act(() => rows(renderer!)[1].click());
     act(() => rows(renderer!)[2].click());
-    expect(onOpenNote.mock.calls).toEqual([['/vault/b.md'], ['/vault/orphan.md']]);
+    act(() => rows(renderer!)[4].click());
+    expect(onOpenNote.mock.calls).toEqual([
+      ['/vault/b.md'],
+      ['/vault/orphan.md'],
+      ['/vault/tagged.md'],
+    ]);
+  });
+
+  it('filters single-use tags by tag and by note path', async () => {
+    const onOpenNote = vi.fn();
+    vi.mocked(invoke).mockResolvedValue({
+      ...report,
+      unusedTags: {
+        tags: [
+          { tag: 'alpha', noteCount: 1, paths: ['/vault/one.md'] },
+          { tag: 'zeta', noteCount: 1, paths: ['/vault/two.md'] },
+        ],
+        total: 2,
+        truncated: false,
+      },
+    });
+    renderer = mountDom(
+      <KnowledgeReportPanel active workspacePath="/vault" onOpenNote={onOpenNote} />,
+    );
+    await actAndSettle();
+    await actAndSettle();
+
+    const filter = renderer.container.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('insights.filter')}"]`,
+    )!;
+    act(() => {
+      filter.value = '#zeta';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await actAndSettle();
+    await actAndSettle();
+
+    expect(rows(renderer).map((row) => row.textContent)).toEqual(['#zeta/vault/two.md']);
+    act(() => rows(renderer!)[0].click());
+    expect(onOpenNote).toHaveBeenCalledWith('/vault/two.md');
+  });
+
+  it('says when the tag list is truncated', async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      ...report,
+      unusedTags: {
+        tags: [{ tag: 'solo', noteCount: 1, paths: ['/vault/tagged.md'] }],
+        total: 150,
+        truncated: true,
+      },
+    });
+    renderer = mountDom(<KnowledgeReportPanel active workspacePath="/vault" onOpenNote={() => {}} />);
+    await actAndSettle();
+    await actAndSettle();
+
+    expect(renderer.container.textContent).toContain(
+      t('insights.unusedTags.truncated', { count: 100 }),
+    );
   });
 
   it('rebuilds the report on refresh and on a new stale window', async () => {
@@ -152,7 +217,7 @@ describe('KnowledgeReportPanel', () => {
     expect(rows(renderer).map((row) => row.textContent)).toEqual(['a[[Ghost]]']);
     const counts = [...renderer.container.querySelectorAll('.q-knowledge-report__count')]
       .map((node) => node.textContent);
-    expect(counts).toEqual(['2', '1', '1']);
+    expect(counts).toEqual(['2', '1', '1', '1']);
     expect(renderer.container.textContent).toContain(t('insights.filterEmpty'));
   });
 

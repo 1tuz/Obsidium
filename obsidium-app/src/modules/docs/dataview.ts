@@ -11,7 +11,7 @@ export interface DataviewCell {
 }
 
 export interface DataviewOutput {
-  shape: 'table' | 'list' | 'tasks';
+  shape: 'table' | 'list' | 'tasks' | 'calendar';
   refreshSeconds: number | null;
   title: string | null;
   columns: string[];
@@ -30,6 +30,30 @@ export function runDataviewQuery(
     workspacePath,
     documentPath,
     query,
+    tzOffsetMinutes: -new Date().getTimezoneOffset(),
+  });
+}
+
+export interface DataviewInlineExpression {
+  id: string;
+  expr: string;
+}
+
+export interface DataviewInlineValue {
+  id: string;
+  value: string;
+  error: string | null;
+}
+
+export function evaluateInlineExpressions(
+  workspacePath: string,
+  notePath: string,
+  expressions: DataviewInlineExpression[],
+): Promise<DataviewInlineValue[]> {
+  return invoke<DataviewInlineValue[]>('evaluate_inline_expressions', {
+    workspacePath,
+    notePath,
+    expressions,
     tzOffsetMinutes: -new Date().getTimezoneOffset(),
   });
 }

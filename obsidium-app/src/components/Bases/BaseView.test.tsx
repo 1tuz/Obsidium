@@ -106,6 +106,12 @@ function dragEvent(type: string, dataTransfer: KanbanDataTransfer): Event {
   return event;
 }
 
+function dragEventAt(type: string, dataTransfer: KanbanDataTransfer, clientY: number): Event {
+  const event = dragEvent(type, dataTransfer);
+  Object.defineProperty(event, 'clientY', { value: clientY });
+  return event;
+}
+
 function kanbanCards(container: HTMLElement, column: string): HTMLElement[] {
   const section = [...container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
     .find((item) => item.dataset.kanbanColumn === column);
@@ -519,6 +525,270 @@ describe('BaseView view selection', () => {
     expect(kanbanCards(renderer!.container, 'done')).toHaveLength(0);
     expect(renderer!.container.querySelector('[role="alert"]')?.textContent)
       .toBe(t('bases.kanbanMoveError', { reason: 'Error: disk full' }));
+  });
+});
+
+describe('BaseView kanban card order and WIP limits', () => {
+  let renderer: MountedDom | null = null;
+
+  const kanbanBase = [
+    'views:',
+    '  - type: kanban',
+    '    name: Board',
+    '    groupBy:',
+    '      property: status',
+    '    groupOrder: [todo, doing, done]',
+  ].join('\n');
+
+  beforeEach(() => {
+    state.savedView = 0;
+    state.loadDeferred = null;
+    vi.mocked(writeFileAtomic).mockReset();
+    vi.mocked(writeFileAtomic).mockImplementation(async (path: string, content: string) => {
+      if (path === '/vault/Project.base') state.baseContent = content;
+      return { hash: 'saved' };
+    });
+  });
+
+  afterEach(() => {
+    if (renderer) act(() => renderer?.unmount());
+    renderer = null;
+    state.rows = [];
+    state.errors = [];
+    state.columns = [];
+    state.baseContent = null;
+    state.journalDates = [];
+    state.resolved = {};
+  });
+
+  function mountKanban(index = 0) {
+    act(() => {
+      renderer = mountDom(<BaseView
+        path="/vault/Project.base" workspacePath="/vault" indexReady indexRevision={0}
+        onOpenNote={vi.fn()}
+        viewRequest={{ path: '/vault/Project.base', index, id: 1 }}
+      />);
+    });
+  }
+
+  function columnElement(container: HTMLElement, value: string): HTMLElement {
+    return [...container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
+      .find((item) => item.dataset.kanbanColumn === value)!;
+  }
+
+  function titles(container: HTMLElement, value: string): string[] {
+    return kanbanCards(container, value).map(
+      (card) => card.querySelector('.q-base-card__title')?.textContent ?? '',
+    );
+  }
+
+  function dragBefore(
+    container: HTMLElement,
+    source: HTMLElement,
+    target: HTMLElement,
+    column: string,
+  ) {
+    const transfer = kanbanDataTransfer();
+    act(() => { source.dispatchEvent(dragEvent('dragstart', transfer)); });
+    act(() => { target.dispatchEvent(dragEventAt('dragover', transfer, 0)); });
+    act(() => {
+      columnElement(container, column).dispatchEvent(dragEvent('drop', transfer));
+    });
+  }
+
+  function baseWrite(): string {
+    const call = vi.mocked(writeFileAtomic).mock.calls.find(([path]) => path === '/vault/Project.base');
+    return call ? call[1] : '';
+  }
+
+  it('writes both the group value and the card index when a card is dropped before another', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [
+      { path: '/vault/Task.md', fields: { status: 'todo' } },
+      { path: '/vault/Alpha.md', fields: { status: 'todo' } },
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    expect(titles(container, 'done')).toEqual(['Done1']);
+    dragBefore(container, kanbanCards(container, 'todo')[0], kanbanCards(container, 'done')[0], 'done');
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
+    );
+    expect(baseWrite()).toContain('cardOrder:');
+    expect(baseWrite()).toContain('done: [Task.md, Done1.md]');
+    expect(baseWrite()).toContain('todo: [Alpha.md]');
+    expect(titles(container, 'done')).toEqual(['Task', 'Done1']);
+  });
+
+  it('keeps the stored order after a reload and appends new cards at the end', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+      { path: '/vault/Done2.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    dragBefore(container, kanbanCards(container, 'done')[1], kanbanCards(container, 'done')[0], 'done');
+    await actAndSettle();
+    expect(titles(container, 'done')).toEqual(['Done2', 'Done1']);
+
+    act(() => renderer!.unmount());
+    state.rows = [
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+      { path: '/vault/Done2.md', fields: { status: 'done' } },
+      { path: '/vault/Done3.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    expect(titles(renderer!.container, 'done')).toEqual(['Done2', 'Done1', 'Done3']);
+  });
+
+  it('drops a card from the order when its note is deleted', async () => {
+    state.baseContent = [
+      kanbanBase,
+      '    cardOrder:',
+      '      done: [Gone.md, Done1.md]',
+    ].join('\n');
+    state.rows = [{ path: '/vault/Done1.md', fields: { status: 'done' } }];
+    mountKanban();
+    await actAndSettle();
+
+    expect(titles(renderer!.container, 'done')).toEqual(['Done1']);
+  });
+
+  it('shows n / limit and warns past the limit but still accepts the drop', async () => {
+    state.baseContent = [
+      kanbanBase,
+      '    wipLimits:',
+      '      doing: 1',
+    ].join('\n');
+    state.rows = [
+      { path: '/vault/Doing1.md', fields: { status: 'doing' } },
+      { path: '/vault/Doing2.md', fields: { status: 'doing' } },
+      { path: '/vault/Task.md', fields: { status: 'todo' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    const doing = columnElement(container, 'doing');
+    expect(doing.querySelector('.q-base-kanban__header strong')?.textContent).toBe('2 / 1');
+    expect(doing.querySelector('.q-base-kanban__count--over')).not.toBeNull();
+    expect(columnElement(container, 'todo').querySelector('.q-base-kanban__count--over')).toBeNull();
+
+    const transfer = kanbanDataTransfer();
+    act(() => { kanbanCards(container, 'todo')[0].dispatchEvent(dragEvent('dragstart', transfer)); });
+    act(() => { doing.dispatchEvent(dragEvent('dragover', transfer)); });
+    act(() => { doing.dispatchEvent(dragEvent('drop', transfer)); });
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('status: doing'), 'hash',
+    );
+    expect(titles(container, 'doing')).toEqual(['Doing1', 'Doing2', 'Task']);
+    expect(columnElement(container, 'doing').querySelector('.q-base-kanban__header strong')?.textContent)
+      .toBe('3 / 1');
+  });
+
+  it('keeps summaries, relations and unknown view keys when a drag writes the order', async () => {
+    state.baseContent = [
+      'properties:',
+      '  mentor:',
+      '    type: relation',
+      'summaries:',
+      '  - name: total',
+      '    source: file.name',
+      '    property: total',
+      '    formula: count',
+      'views:',
+      '  - type: kanban',
+      '    name: Board',
+      '    groupBy:',
+      '      property: status',
+      '    groupOrder: [todo, done]',
+      '    customFlag: yes',
+    ].join('\n');
+    state.rows = [
+      { path: '/vault/Task.md', fields: { status: 'todo' } },
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    dragBefore(container, kanbanCards(container, 'todo')[0], kanbanCards(container, 'done')[0], 'done');
+    await actAndSettle();
+
+    const written = baseWrite();
+    expect(written).toContain('summaries:');
+    expect(written).toContain('type: relation');
+    expect(written).toContain('customFlag: yes');
+    expect(written).toContain('cardOrder:');
+  });
+
+  it('writes WIP limits from the editor panel and reads them back', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    mountKanban();
+    await actAndSettle();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const input = panel.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('bases.editorWipLimit', { column: 'doing' })}"]`,
+    )!;
+    input.value = '2';
+    act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    expect(baseWrite()).toContain('wipLimits:');
+    expect(baseWrite()).toContain('doing: 2');
+    expect(renderer!.container.querySelector('.q-base-editor')).toBeNull();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    expect(renderer!.container.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('bases.editorWipLimit', { column: 'doing' })}"]`,
+    )!.value).toBe('2');
+  });
+
+  it('rejects a non-positive WIP limit without writing the file', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    mountKanban();
+    await actAndSettle();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const input = panel.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('bases.editorWipLimit', { column: 'todo' })}"]`,
+    )!;
+    input.value = '0';
+    act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    expect(renderer!.container.querySelector('.q-base-editor')).not.toBeNull();
+    expect(panel.querySelector('[role="alert"]')?.textContent)
+      .toBe(t('bases.editorWipLimitInvalid'));
+    expect(vi.mocked(writeFileAtomic)).not.toHaveBeenCalled();
   });
 });
 
@@ -1067,5 +1337,356 @@ describe('BaseView relation values', () => {
 
     act(() => link!.click());
     expect(onOpenNote).toHaveBeenCalledWith('/vault/People/Ada.md');
+  });
+});
+
+describe('BaseView kanban swimlanes', () => {
+  let renderer: MountedDom | null = null;
+
+  const laneBase = [
+    'views:',
+    '  - type: kanban',
+    '    name: Board',
+    '    groupBy:',
+    '      property: status',
+    '    laneBy:',
+    '      property: owner',
+    '    groupOrder: [todo, doing]',
+    '    laneOrder: [Ada, Bob]',
+  ].join('\n');
+
+  beforeEach(() => {
+    state.savedView = 0;
+    state.loadDeferred = null;
+    vi.mocked(writeFileAtomic).mockReset();
+    vi.mocked(writeFileAtomic).mockImplementation(async (path: string, content: string) => {
+      if (path === '/vault/Project.base') state.baseContent = content;
+      return { hash: 'saved' };
+    });
+  });
+
+  afterEach(() => {
+    if (renderer) act(() => renderer?.unmount());
+    renderer = null;
+    state.rows = [];
+    state.errors = [];
+    state.columns = [];
+    state.baseContent = null;
+    state.journalDates = [];
+    state.resolved = {};
+  });
+
+  function mountBoard(base: string, index = 0) {
+    state.baseContent = base;
+    act(() => {
+      renderer = mountDom(<BaseView
+        path="/vault/Project.base" workspacePath="/vault" indexReady indexRevision={0}
+        onOpenNote={vi.fn()}
+        viewRequest={{ path: '/vault/Project.base', index, id: 1 }}
+      />);
+    });
+  }
+
+  function laneElement(lane: string): HTMLElement {
+    return [...renderer!.container.querySelectorAll<HTMLElement>('[data-kanban-lane]')]
+      .find((item) => item.dataset.kanbanLane === lane)!;
+  }
+
+  function cell(lane: string, column: string): HTMLElement {
+    return [...laneElement(lane).querySelectorAll<HTMLElement>('[data-kanban-column]')]
+      .find((item) => item.dataset.kanbanColumn === column)!;
+  }
+
+  function cellTitles(lane: string, column: string): string[] {
+    return [...cell(lane, column).querySelectorAll<HTMLElement>('.q-base-card__title')]
+      .map((title) => title.textContent ?? '');
+  }
+
+  function baseWrite(): string {
+    const call = vi.mocked(writeFileAtomic).mock.calls.find(([path]) => path === '/vault/Project.base');
+    return call ? call[1] : '';
+  }
+
+  it('draws one row per lane and keeps an empty configured lane', async () => {
+    state.rows = [
+      { path: '/vault/One.md', fields: { status: 'todo', owner: 'Ada' } },
+      { path: '/vault/Two.md', fields: { status: 'doing', owner: 'Ada' } },
+      { path: '/vault/Three.md', fields: { status: 'doing', owner: 'Bob' } },
+      { path: '/vault/Loose.md', fields: { status: 'todo' } },
+    ];
+    mountBoard(laneBase);
+    await actAndSettle();
+
+    const lanes = [...renderer!.container.querySelectorAll<HTMLElement>('.q-base-kanban__lane')];
+    expect(lanes.map((lane) => lane.dataset.kanbanLane)).toEqual(['Ada', 'Bob', '']);
+    expect(cellTitles('Ada', 'todo')).toEqual(['One']);
+    expect(cellTitles('Ada', 'doing')).toEqual(['Two']);
+    expect(cellTitles('Bob', 'todo')).toEqual([]);
+    expect(cellTitles('Bob', 'doing')).toEqual(['Three']);
+    expect(cellTitles('', 'todo')).toEqual(['Loose']);
+    expect(renderer!.container.textContent).toContain(t('bases.kanbanUnassigned'));
+  });
+
+  it('scopes the stored card order to its lane', async () => {
+    state.rows = [
+      { path: '/vault/A.md', fields: { status: 'doing', owner: 'Ada' } },
+      { path: '/vault/B.md', fields: { status: 'doing', owner: 'Ada' } },
+      { path: '/vault/C.md', fields: { status: 'doing', owner: 'Bob' } },
+    ];
+    mountBoard([
+      laneBase,
+      '    cardOrder:',
+      '      "Ada / doing": [B.md, A.md]',
+    ].join('\n'));
+    await actAndSettle();
+
+    expect(cellTitles('Ada', 'doing')).toEqual(['B', 'A']);
+    expect(cellTitles('Bob', 'doing')).toEqual(['C']);
+  });
+
+  it('moves a card to another lane and writes the lane property', async () => {
+    state.rows = [
+      { path: '/vault/Task.md', fields: { status: 'todo', owner: 'Ada' } },
+      { path: '/vault/Other.md', fields: { status: 'todo', owner: 'Bob' } },
+    ];
+    mountBoard(laneBase);
+    await actAndSettle();
+
+    const transfer = kanbanDataTransfer();
+    const card = cell('Ada', 'todo').querySelector<HTMLElement>('.q-base-kanban__card')!;
+    act(() => { card.dispatchEvent(dragEvent('dragstart', transfer)); });
+    act(() => { cell('Bob', 'todo').dispatchEvent(dragEvent('dragover', transfer)); });
+    act(() => { cell('Bob', 'todo').dispatchEvent(dragEvent('drop', transfer)); });
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('owner: Bob'), 'hash',
+    );
+    expect(cellTitles('Bob', 'todo')).toEqual(['Other', 'Task']);
+    expect(cellTitles('Ada', 'todo')).toEqual([]);
+
+    const written = baseWrite();
+    expect(written).toContain('laneBy:');
+    expect(written).toContain('Bob / todo: [Other.md, Task.md]');
+  });
+
+  it('moves a card between lanes with the lane selector', async () => {
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo', owner: 'Ada' } }];
+    mountBoard(laneBase);
+    await actAndSettle();
+
+    const select = cell('Ada', 'todo').querySelector<HTMLSelectElement>(
+      `select[aria-label="${t('bases.kanbanMoveToLane', { title: 'Task' })}"]`,
+    )!;
+    act(() => {
+      select.value = 'Bob';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('owner: Bob'), 'hash',
+    );
+    expect(cellTitles('Bob', 'todo')).toEqual(['Task']);
+  });
+
+  it('writes the lane property when a card is created in a lane', async () => {
+    state.rows = [];
+    mountBoard(laneBase);
+    await actAndSettle();
+
+    const add = cell('Ada', 'todo').querySelector<HTMLButtonElement>('.q-base-kanban__add')!;
+    act(() => add.click());
+    await actAndSettle();
+    const input = renderer!.container.querySelector<HTMLInputElement>('.q-base-kanban__composer input')!;
+    input.value = 'Ship patch';
+    act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle();
+    act(() => [...cell('Ada', 'todo').querySelectorAll<HTMLButtonElement>('.q-base-kanban__composer button')]
+      .find((button) => button.textContent === t('bases.kanbanCreate'))!
+      .click());
+    await actAndSettle();
+
+    const written = vi.mocked(createFile).mock.calls[vi.mocked(createFile).mock.calls.length - 1][1] as string;
+    expect(written).toContain('status: "todo"');
+    expect(written).toContain('owner: Ada');
+    expect(cellTitles('Ada', 'todo')).toEqual(['Ship patch']);
+  });
+
+  it('writes the swimlane property from the editor panel and clears it again', async () => {
+    state.columns = ['file.name', 'status', 'owner'];
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo', owner: 'Ada' } }];
+    mountBoard([
+      'views:',
+      '  - type: kanban',
+      '    name: Board',
+      '    groupBy:',
+      '      property: status',
+      '    groupOrder: [todo, doing]',
+    ].join('\n'));
+    await actAndSettle();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    let panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const laneSelect = panel.querySelector<HTMLSelectElement>(
+      `select[aria-label="${t('bases.editorLaneBy')}"]`,
+    )!;
+    expect(laneSelect.value).toBe('');
+    expect(laneSelect.textContent).toContain('owner');
+    act(() => {
+      laneSelect.value = 'owner';
+      laneSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    const written = baseWrite();
+    expect(written).toContain('laneBy:');
+    expect(written).toContain('property: owner');
+    expect(renderer!.container.querySelectorAll('.q-base-kanban__lane')).toHaveLength(1);
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const reopened = panel.querySelector<HTMLSelectElement>(
+      `select[aria-label="${t('bases.editorLaneBy')}"]`,
+    )!;
+    expect(reopened.value).toBe('owner');
+    act(() => {
+      reopened.value = '';
+      reopened.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    const calls = vi.mocked(writeFileAtomic).mock.calls
+      .filter(([path]) => path === '/vault/Project.base');
+    expect(calls[calls.length - 1][1]).not.toContain('laneBy');
+  });
+});
+
+describe('BaseView timeline date fields', () => {
+  let renderer: MountedDom | null = null;
+
+  const timelineBase = [
+    'views:',
+    '  - type: table',
+    '    name: Overview',
+    '  - type: timeline',
+    '    name: Plan',
+  ].join('\n');
+
+  beforeEach(() => {
+    state.savedView = 0;
+    state.loadDeferred = null;
+    vi.mocked(writeFileAtomic).mockReset();
+    vi.mocked(writeFileAtomic).mockImplementation(async () => ({ hash: 'saved' }));
+  });
+
+  afterEach(() => {
+    if (renderer) act(() => renderer?.unmount());
+    renderer = null;
+    state.rows = [];
+    state.errors = [];
+    state.columns = [];
+    state.baseContent = null;
+    state.journalDates = [];
+    state.resolved = {};
+  });
+
+  it('writes the start and end properties chosen in the editor panel', async () => {
+    state.baseContent = timelineBase;
+    state.columns = ['file.name', 'begin', 'finish'];
+    state.rows = [{
+      path: '/vault/Release.md',
+      fields: { begin: '2026-10-01', finish: '2026-10-09' },
+    }];
+    act(() => {
+      renderer = mountDom(<BaseView
+        path="/vault/Project.base" workspacePath="/vault" indexReady indexRevision={0}
+        onOpenNote={vi.fn()}
+        viewRequest={{ path: '/vault/Project.base', index: 1, id: 1 }}
+      />);
+    });
+    await actAndSettle();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const start = panel.querySelector<HTMLSelectElement>(
+      `select[aria-label="${t('bases.editorTimelineStart')}"]`,
+    )!;
+    const end = panel.querySelector<HTMLSelectElement>(
+      `select[aria-label="${t('bases.editorTimelineEnd')}"]`,
+    )!;
+    expect(start.querySelector('option[value=""]')?.textContent)
+      .toBe(t('bases.editorTimelineStartDefault'));
+    expect(panel.querySelector(`select[aria-label="${t('bases.editorLaneBy')}"]`)).toBeNull();
+
+    act(() => {
+      start.value = 'begin';
+      start.dispatchEvent(new Event('change', { bubbles: true }));
+      end.value = 'finish';
+      end.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written).toContain('startField: begin');
+    expect(written).toContain('endField: finish');
+    expect(renderer!.container.querySelectorAll('.q-base-timeline__bar')).toHaveLength(1);
+  });
+
+  it('clears the fields back to the defaults', async () => {
+    state.baseContent = [
+      'views:',
+      '  - type: table',
+      '    name: Overview',
+      '  - type: timeline',
+      '    name: Plan',
+      '    startField: begin',
+      '    endField: finish',
+    ].join('\n');
+    state.columns = ['file.name', 'begin', 'finish'];
+    act(() => {
+      renderer = mountDom(<BaseView
+        path="/vault/Project.base" workspacePath="/vault" indexReady indexRevision={0}
+        onOpenNote={vi.fn()}
+        viewRequest={{ path: '/vault/Project.base', index: 1, id: 2 }}
+      />);
+    });
+    await actAndSettle();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const start = panel.querySelector<HTMLSelectElement>(
+      `select[aria-label="${t('bases.editorTimelineStart')}"]`,
+    )!;
+    expect(start.value).toBe('begin');
+    act(() => {
+      start.value = '';
+      start.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written).not.toContain('startField');
+    expect(written).toContain('endField: finish');
   });
 });

@@ -1,7 +1,7 @@
 export type HeatmapAxis = 'none' | 'modified' | 'created';
 export type EdgeStyle = 'solid' | 'dashed';
 export type EdgeColor = 'theme' | 'nodes' | 'heat' | 'custom';
-export type GraphEdgeType = 'all' | 'wiki' | 'markdown' | 'parent' | 'related' | 'depends_on' | 'blocks';
+export type GraphEdgeType = 'all' | 'wiki' | 'markdown' | 'parent' | 'related' | 'depends_on' | 'blocks' | 'similar';
 export type GraphEdgeDirection = 'all' | 'incoming' | 'outgoing';
 export type GraphSuggestionMethod = 'adamicAdar' | 'bm25f';
 export type GraphLayoutMode = 'force' | 'hierarchical' | 'ring';
@@ -48,6 +48,7 @@ export interface GraphPreferences {
   suggestionMethod: GraphSuggestionMethod;
   edgeType: GraphEdgeType;
   edgeDirection: GraphEdgeDirection;
+  similarEdges: boolean;
 }
 
 export interface GraphPreset extends GraphPreferences {
@@ -93,6 +94,7 @@ export const DEFAULT_PREFERENCES: GraphPreferences = {
   suggestionMethod: 'adamicAdar',
   edgeType: 'all',
   edgeDirection: 'all',
+  similarEdges: false,
 };
 
 export interface GraphDisplay extends GraphPreferences {

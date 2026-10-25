@@ -28,7 +28,11 @@ export interface BaseViewDefinition {
   order: string[];
   filters?: BaseFilter;
   groupBy?: BaseGroupBy;
+  laneBy?: BaseGroupBy;
   groupOrder?: BaseScalar[];
+  laneOrder?: BaseScalar[];
+  cardOrder?: Record<string, string[]>;
+  wipLimits?: Record<string, number>;
   sort?: BaseSort[];
   extra?: Record<string, BaseYamlValue>;
 }

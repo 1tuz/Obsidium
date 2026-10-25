@@ -263,7 +263,7 @@ export const Sidebar = memo(function Sidebar({
             active={isOpen && panel === 'insights'}
             workspacePath={workspacePath}
             onOpenNote={onFileSelect}
-            activity={<ActivityHeatmap workspacePath={workspacePath} />}
+            activity={<ActivityHeatmap workspacePath={workspacePath} onOpenNote={onFileSelect} />}
           />
         </div>
       </div>

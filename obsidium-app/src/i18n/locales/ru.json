@@ -180,7 +180,11 @@
       "revert": "Отмена изменений"
     },
     "renameAria": "Название версии",
-    "versionActions": "Действия с версией"
+    "versionActions": "Действия с версией",
+    "chunkRevert": "Убрать",
+    "chunkKeep": "Оставить",
+    "chunkRevertTitle": "Убрать этот кусок из заметки",
+    "chunkKeepTitle": "Оставить этот кусок как есть"
   },
   "analysis": {
     "tab": "Анализ графа",
@@ -210,7 +214,7 @@
     "loading": "Читаю индекс…",
     "failed": "Не удалось построить отчёт",
     "indexing": "Индекс ещё обновляется, счётчики могут быть неполными",
-    "empty": "Исправлять нечего: битых ссылок, изолированных и устаревших заметок нет",
+    "empty": "Исправлять нечего: битых ссылок, изолированных и устаревших заметок и тегов-одиночек нет",
     "days": {
       "one": "{{count}} день",
       "few": "{{count}} дня",
@@ -231,6 +235,12 @@
       "title": "Давно не изменялись",
       "hint": "Не менялись дольше выбранного срока",
       "empty": "Устаревших заметок нет"
+    },
+    "unusedTags": {
+      "title": "Теги в одной заметке",
+      "hint": "Теги, встречающиеся только в одной заметке; теги без заметок без реестра не найти",
+      "empty": "Тегов, встречающихся один раз, нет",
+      "truncated": "Показаны только первые {{count}} тегов"
     }
   },
   "wikixiv": {
@@ -658,6 +668,8 @@
     "kanbanUnassignedHint": "Заметки без значения колонки. Перетащите их в колонку или выберите её из списка.",
     "kanbanAdd": "Добавить карточку",
     "kanbanAddTo": "Добавить карточку в {{column}}",
+    "kanbanAddToLane": "Добавить карточку в {{lane}}, {{column}}",
+    "kanbanMoveToLane": "Переместить {{title}} в дорожку",
     "kanbanCardTitle": "Название карточки",
     "kanbanCreate": "Создать",
     "kanbanCreating": "Создаём…",
@@ -673,6 +685,8 @@
     "kanbanDeleteTitle": "Удалить карточку?",
     "kanbanDeleteDescription": "Переместить {{title}} в корзину? Страницу Markdown можно восстановить.",
     "kanbanDeleteError": "Не удалось удалить карточку: {{reason}}",
+    "kanbanOrderError": "Не удалось сохранить порядок карточек.",
+    "kanbanWipWarning": "Колонка превышает лимит {{limit}}. Перетаскивание всё равно разрешено.",
     "addView": "Добавить представление",
     "editorOpen": "Настроить представление",
     "editorTitle": "Настройки представления",
@@ -704,6 +718,11 @@
     "editorColumnsEmpty": "Нет колонок для упорядочивания",
     "editorColumnUp": "Переместить {{property}} выше",
     "editorColumnDown": "Переместить {{property}} ниже",
+    "editorWipLimits": "Лимиты WIP",
+    "editorWipLimitsHint": "Мягкий лимит на колонку: доска показывает n / лимит и предупреждает о превышении, но не запрещает перетаскивание.",
+    "editorWipLimit": "Лимит WIP для {{column}}",
+    "editorWipLimitNone": "Без лимита",
+    "editorWipLimitInvalid": "Укажите целое число карточек на колонку или оставьте поле пустым.",
     "editorSort": "Сортировка",
     "editorSortEmpty": "Нет полей сортировки",
     "editorSortAdd": "Добавить поле сортировки",
@@ -739,7 +758,22 @@
     "kanbanExcluded": "Эта колонка исключена фильтром доски.",
     "fenceNoViews": "В этом файле .base нет представлений.",
     "fenceViewMissing": "В этом файле .base нет представления {{view}}.",
-    "fenceError": "Не удалось показать блок base: {{reason}}"
+    "fenceError": "Не удалось показать блок base: {{reason}}",
+    "editorLaneBy": "Дорожки по",
+    "editorLaneNone": "Без дорожек",
+    "editorLaneDirection": "Порядок дорожек",
+    "editorTimelineStart": "Свойство даты начала",
+    "editorTimelineStartDefault": "По умолчанию (start)",
+    "editorTimelineEnd": "Свойство даты конца",
+    "editorTimelineEndDefault": "По умолчанию (end)"
+  },
+  "dataview": {
+    "calendarPrevious": "Предыдущий месяц",
+    "calendarNext": "Следующий месяц",
+    "calendarToday": "Сегодня",
+    "calendarUndated": "Без даты: {{count}}",
+    "inlineEmpty": "—",
+    "inlineFailed": "Ошибка выражения"
   },
   "boards": {
     "title": "Доски",
@@ -963,6 +997,9 @@
     "edgeTypeRelated": "Связанные",
     "edgeTypeDependsOn": "Зависит от",
     "edgeTypeBlocks": "Блокирует",
+    "edgeTypeSimilar": "Похожий текст",
+    "similarEdges": "Похожие заметки",
+    "similarEdgesHint": "Связи MinHash между заметками с общими термами; применяются после обновления графа",
     "edgeDirection": "Направление от выбранной заметки",
     "edgeDirectionAll": "Все",
     "edgeDirectionIncoming": "Входящие",
@@ -1281,13 +1318,22 @@
         "many": "{{count}} заметок",
         "other": "{{count}} заметки"
       },
-      "hint": "Наведите на день, чтобы увидеть число заметок",
+      "hint": "Нажмите на день, чтобы увидеть его заметки",
       "total": "Заметок за 12 месяцев: {{count}}",
       "empty": "За эти 12 месяцев заметок нет",
       "loading": "Загружаем активность…",
       "failed": "Не удалось загрузить активность: {{reason}}",
       "less": "Меньше",
-      "more": "Больше"
+      "more": "Больше",
+      "back": "К календарю",
+      "dayNotesLoading": "Загружаем заметки дня…",
+      "dayNotesFailed": "Не удалось загрузить заметки дня: {{reason}}",
+      "dayNotesEmpty": "В этот день заметок нет",
+      "openNote": "Открыть заметку {{name}}",
+      "recentTitle": "Последние изменения",
+      "recentLoading": "Загружаем последние изменения…",
+      "recentFailed": "Не удалось загрузить последние изменения: {{reason}}",
+      "recentEmpty": "Изменений пока нет"
     }
   }
 }

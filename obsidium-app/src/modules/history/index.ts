@@ -79,4 +79,10 @@ export {
   type OpenedVersion,
 } from './openedVersions';
 export { applyFromHistory, restoreVersion, revertVersion, type Rewrite } from './rewrite';
+export {
+  revertChunkText,
+  revertVersionChunk,
+  type ChunkChange,
+  type VersionChunk,
+} from './chunk';
 export { useNoteHistory } from './useNoteHistory';

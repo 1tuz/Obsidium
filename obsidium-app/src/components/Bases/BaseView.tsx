@@ -16,7 +16,11 @@ import { resolveWikiLinks } from '../../modules/links/gateway';
 import {
   baseProperty,
   boardMembership,
-  buildKanbanColumns,
+  buildKanbanBoard,
+  kanbanCell,
+  kanbanCells,
+  kanbanLaneProperty,
+  kanbanOrderWithCard,
   kanbanProperty,
   kanbanWritableProperty,
   parseBase,
@@ -29,6 +33,7 @@ import {
   type BaseRow,
   type BaseSort,
   type BaseViewDefinition,
+  type KanbanCell,
 } from '../../modules/bases';
 import { calendarDate } from '../../modules/bases/calendar';
 import { journalDates, journalNotePath } from '../../modules/journal';
@@ -354,21 +359,34 @@ export function BaseView({
     } : current);
   };
 
-  const createCard = async (title: string, groupValue: string) => {
+  const createCard = async (title: string, groupValue: string, laneValue: string) => {
     if (!loaded) return;
     const viewIndex = Math.min(activeView, loaded.definition.views.length - 1);
     const draft = planKanbanCard(loaded.definition, viewIndex, path, workspacePath, title, groupValue);
+    const laneProperty = kanbanLaneProperty(loaded.definition.views[viewIndex]);
+    const laneKey = laneProperty === null ? null : editableKey(laneProperty);
+    const laneWritable = laneProperty !== null && laneKey !== null
+      && kanbanWritableProperty(laneProperty);
+    const laneFields: Record<string, string> = laneWritable && laneKey !== null
+      ? { [laneKey]: laneValue }
+      : {};
+    const content = laneWritable && laneKey !== null
+      ? nextFrontmatter(draft.content, laneKey, laneValue, false)
+      : draft.content;
     const safeName = sanitizeFileName(title);
     if (!safeName) throw new Error(t('bases.kanbanInvalidTitle'));
     await ensureDirectory(draft.directory);
     const created = await createAtFreeName(
       (attempt) => childPath(draft.directory, `${safeName}${attempt ? ` ${attempt}` : ''}.md`),
-      (candidate) => createFile(candidate, draft.content),
+      (candidate) => createFile(candidate, content),
     );
     if (!created) throw new Error(t('bases.kanbanNameExhausted'));
     setEvaluation((current) => current && evaluationPath.current === path ? {
       ...current,
-      rows: [...current.rows.filter((row) => row.path !== created), { path: created, fields: draft.fields }],
+      rows: [...current.rows.filter((row) => row.path !== created), {
+        path: created,
+        fields: { ...draft.fields, ...laneFields },
+      }],
     } : current);
   };
 
@@ -454,12 +472,20 @@ export function BaseView({
         else target.limit = edit.limit;
         if (edit.groupBy === null) delete target.groupBy;
         else target.groupBy = { property: edit.groupBy.property, direction: edit.groupBy.direction };
+        if (edit.laneBy === null) delete target.laneBy;
+        else target.laneBy = { property: edit.laneBy.property, direction: edit.laneBy.direction };
+        if (edit.startField === null) delete target.startField;
+        else target.startField = edit.startField;
+        if (edit.endField === null) delete target.endField;
+        else target.endField = edit.endField;
         if (edit.sort.length === 0) delete target.sort;
         else target.sort = edit.sort.map((entry) => ({
           property: entry.property,
           direction: entry.direction === 'DESC' ? 'DESC' : 'ASC',
         }));
         target.order = [...edit.order];
+        if (Object.keys(edit.wipLimits).length === 0) delete target.wipLimits;
+        else target.wipLimits = { ...edit.wipLimits };
         if (edit.filters !== undefined) {
           if (edit.filters === null) delete target.filters;
           else target.filters = edit.filters;
@@ -470,6 +496,14 @@ export function BaseView({
       reportActionError(error);
       return false;
     }
+  };
+
+  const writeKanbanOrder = (index: number, order: Record<string, string[]>): Promise<boolean> => {
+    const entries = Object.entries(order).filter(([, paths]) => paths.length > 0);
+    return writeView(index, (target) => {
+      if (entries.length === 0) delete target.cardOrder;
+      else target.cardOrder = Object.fromEntries(entries);
+    });
   };
 
   const toggleSort = (property: string) => {
@@ -616,11 +650,13 @@ export function BaseView({
             view={view}
             viewIndex={Math.min(activeView, loaded.definition.views.length - 1)}
             workspacePath={workspacePath}
+            indexRevision={indexRevision}
             onCommit={commitProperty}
             onCreate={createCard}
             onOpen={onOpenNote}
             onRename={renameCard}
             onDelete={deleteCard}
+            onOrder={(next) => writeKanbanOrder(Math.min(activeView, loaded.definition.views.length - 1), next)}
           />
         ) : groups.map((group, index) => (
           <section className="q-base-group" key={`${group.label ?? '__all__'}:${index}`}>
@@ -664,6 +700,9 @@ export function BaseView({
           view={view}
           columns={columns}
           relations={relationProperties}
+          groupValues={kind === 'kanban'
+            ? buildKanbanBoard(rows, view, workspacePath).columnValues
+            : []}
           onClose={() => setEditorOpen(false)}
           onSave={saveViewEdit}
         />
@@ -838,11 +877,13 @@ function BaseKanban({
   view,
   viewIndex,
   workspacePath,
+  indexRevision,
   onCommit,
   onCreate,
   onOpen,
   onRename,
   onDelete,
+  onOrder,
 }: {
   rows: BaseRow[];
   columns: string[];
@@ -850,34 +891,59 @@ function BaseKanban({
   view: BaseViewDefinition;
   viewIndex: number;
   workspacePath: string;
+  indexRevision: number;
   onCommit: (row: BaseRow, property: string, value: string) => Promise<void>;
-  onCreate: (title: string, group: string) => Promise<void>;
+  onCreate: (title: string, column: string, lane: string) => Promise<void>;
   onOpen: (path: string) => void;
   onRename: (row: BaseRow, name: string) => Promise<void>;
   onDelete: (row: BaseRow) => Promise<void>;
+  onOrder: (order: Record<string, string[]>) => Promise<boolean>;
 }) {
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ key: string; index: number } | null>(null);
   const [draggingPath, setDraggingPath] = useState<string | null>(null);
-  const [moves, setMoves] = useState<Record<string, string>>({});
+  const [moves, setMoves] = useState<Record<string, { lane?: string; column?: string }>>({});
+  const [order, setOrder] = useState<Record<string, string[]> | null>(null);
   const dragged = useRef<BaseRow | null>(null);
+  const seenRevision = useRef(indexRevision);
+  useEffect(() => {
+    if (seenRevision.current === indexRevision) return;
+    seenRevision.current = indexRevision;
+    setMoves({});
+    setOrder(null);
+  }, [indexRevision]);
   const [menu, setMenu] = useState<{ row: BaseRow; position: MenuPosition } | null>(null);
   const [renameTarget, setRenameTarget] = useState<BaseRow | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<BaseRow | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const groupProperty = kanbanProperty(view);
+  const laneProperty = kanbanLaneProperty(view);
   const writable = kanbanWritableProperty(groupProperty);
+  const laneWritable = laneProperty !== null && kanbanWritableProperty(laneProperty);
   const groupKey = editableKey(groupProperty);
-  const board = buildKanbanColumns(groupKey ? rows.map((row) => moves[row.path] === undefined ? row : {
-    ...row,
-    fields: { ...row.fields, [groupKey]: moves[row.path] },
-  }) : rows, view, workspacePath);
+  const laneKey = laneProperty === null ? null : editableKey(laneProperty);
+  const movedRows = Object.keys(moves).length === 0 ? rows : rows.map((row) => {
+    const move = moves[row.path];
+    if (!move) return row;
+    const fields = { ...row.fields };
+    if (groupKey !== null && move.column !== undefined) fields[groupKey] = move.column;
+    if (laneKey !== null && move.lane !== undefined) fields[laneKey] = move.lane;
+    return { ...row, fields };
+  });
+  const board = buildKanbanBoard(
+    movedRows,
+    order ? { ...view, cardOrder: { ...(view.cardOrder ?? {}), ...order } } : view,
+    workspacePath,
+  );
+  const cells = kanbanCells(board);
   const cardFields = columns
-    .filter((property) => property !== 'file.name' && property !== groupProperty)
+    .filter((property) => property !== 'file.name' && property !== groupProperty
+      && property !== laneProperty)
     .slice(0, 4);
 
   const clearMove = (path: string) => setMoves((current) => {
@@ -887,27 +953,70 @@ function BaseKanban({
     return next;
   });
 
-  const move = async (row: BaseRow, value: string) => {
-    if (!writable || Array.isArray(baseProperty(row, groupProperty, workspacePath))) {
+  const move = async (row: BaseRow, target: KanbanCell, index?: number) => {
+    const column = target.columnValue;
+    const lane = target.laneValue;
+    const columnValue = baseProperty(row, groupProperty, workspacePath);
+    const laneValue = board.laneProperty === null
+      ? undefined
+      : baseProperty(row, board.laneProperty, workspacePath);
+    const currentColumn = displayValue(columnValue);
+    const currentLane = displayValue(laneValue);
+    const columnChanged = currentColumn !== column;
+    const laneChanged = board.laneProperty !== null && currentLane !== lane;
+    if (columnChanged && (!writable || Array.isArray(columnValue))) {
+      setError(t('bases.kanbanNotWritable'));
+      return;
+    }
+    if (laneChanged && (!laneWritable || Array.isArray(laneValue))) {
       setError(t('bases.kanbanNotWritable'));
       return;
     }
     const membership = boardMembership(definition, viewIndex);
-    if (membership.kind === 'property'
-      && membership.property === groupProperty.replace(/^note\./, '')
-      && value !== membership.value) {
-      setError(t('bases.kanbanExcluded'));
-      return;
+    if (columnChanged) {
+      if (membership.kind === 'property'
+        && membership.property === groupProperty.replace(/^note\./, '')
+        && column !== membership.value) {
+        setError(t('bases.kanbanExcluded'));
+        return;
+      }
     }
-    const current = displayValue(baseProperty(row, groupProperty, workspacePath));
-    if (current === value) return;
-    setMoves((state) => ({ ...state, [row.path]: value }));
+    if (!columnChanged && !laneChanged && index === undefined) return;
+    const currentIndex = target.rows.findIndex((entry) => entry.path === row.path);
+    const destination = index ?? target.rows.length;
+    const unchanged = !columnChanged && !laneChanged
+      && (currentIndex === -1 || currentIndex === destination || currentIndex === destination - 1);
+    if (unchanged) return;
+    const nextOrder = kanbanOrderWithCard(cells, row, target, destination, workspacePath);
+    setOrder(nextOrder);
+    if (columnChanged || laneChanged) {
+      setMoves((state) => ({
+        ...state,
+        [row.path]: {
+          ...state[row.path],
+          ...(columnChanged ? { column } : {}),
+          ...(laneChanged ? { lane } : {}),
+        },
+      }));
+    }
+    let committed = false;
     try {
-      await onCommit(row, groupProperty, value);
-      clearMove(row.path);
+      if (columnChanged) {
+        await onCommit(row, groupProperty, column);
+        committed = true;
+      }
+      if (laneChanged && board.laneProperty !== null) {
+        await onCommit(row, board.laneProperty, lane);
+        committed = true;
+      }
+      const saved = await onOrder(nextOrder);
+      if (!saved) throw new Error(t('bases.kanbanOrderError'));
       setError('');
     } catch (cause) {
-      clearMove(row.path);
+      if (!committed) {
+        clearMove(row.path);
+        setOrder(null);
+      }
       setError(t('bases.kanbanMoveError', { reason: String(cause) }));
     }
   };
@@ -924,24 +1033,42 @@ function BaseKanban({
     dragged.current = null;
     setDraggingPath(null);
     setDragOver(null);
+    setDropTarget(null);
   };
-  const dragOverColumn = (event: ReactDragEvent<HTMLElement>, key: string) => {
+  const dragOverCell = (event: ReactDragEvent<HTMLElement>, cell: KanbanCell) => {
     if (!writable || !dragged.current) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-    setDragOver(key);
+    setDragOver(cell.key);
+    setDropTarget({ key: cell.key, index: cell.rows.length });
   };
-  const leaveColumn = (event: ReactDragEvent<HTMLElement>) => {
+  const dragOverCard = (
+    event: ReactDragEvent<HTMLElement>,
+    cell: KanbanCell,
+    index: number,
+  ) => {
+    if (!writable || !dragged.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const rect = event.currentTarget.getBoundingClientRect();
+    const after = event.clientY > rect.top + rect.height / 2;
+    setDragOver(cell.key);
+    setDropTarget({ key: cell.key, index: index + (after ? 1 : 0) });
+  };
+  const leaveCell = (event: ReactDragEvent<HTMLElement>) => {
     const next = event.relatedTarget as Node | null;
     if (next && event.currentTarget.contains(next)) return;
     setDragOver(null);
+    setDropTarget(null);
   };
-  const dropOnColumn = (event: ReactDragEvent<HTMLElement>, value: string) => {
+  const dropOnCell = (event: ReactDragEvent<HTMLElement>, cell: KanbanCell) => {
     event.preventDefault();
     const row = dragged.current
       ?? rows.find((candidate) => candidate.path === event.dataTransfer?.getData('text/plain'));
+    const index = dropTarget?.key === cell.key ? dropTarget.index : cell.rows.length;
     endDrag();
-    if (row) void move(row, value);
+    if (row) void move(row, cell, index);
   };
   const showMenu = (row: BaseRow, x: number, y: number) => {
     setMenu({ row, position: { left: x, top: y } });
@@ -969,12 +1096,12 @@ function BaseKanban({
     } finally { setActionBusy(false); }
   };
 
-  const create = async (value: string) => {
+  const create = async (cell: KanbanCell) => {
     if (!draft.trim() || creating) return;
     setCreating(true);
     setError('');
     try {
-      await onCreate(draft.trim(), value);
+      await onCreate(draft.trim(), cell.columnValue, cell.laneValue);
       setDraft('');
       setAddingTo(null);
     } catch (cause) {
@@ -984,121 +1111,195 @@ function BaseKanban({
     }
   };
 
+  const renderCell = (cell: KanbanCell, showColumnTitle: boolean) => (
+    <section
+      key={cell.key}
+      data-kanban-column={cell.columnValue}
+      data-kanban-column-key={cell.key}
+      data-kanban-lane={cell.laneValue}
+      data-kanban-cell={cell.key}
+      className={`q-base-kanban__column${dragOver === cell.key ? ' q-base-kanban__column--drop' : ''}`}
+      onDragOver={(event) => dragOverCell(event, cell)}
+      onDragLeave={leaveCell}
+      onDrop={(event) => dropOnCell(event, cell)}
+    >
+      <header className="q-base-kanban__header">
+        {showColumnTitle && (
+          <span title={!cell.columnValue ? t('bases.kanbanUnassignedHint') : undefined}>
+            {cell.columnValue || t('bases.kanbanUnassigned')}
+          </span>
+        )}
+        {cell.limit === undefined ? (
+          <strong>{cell.rows.length}</strong>
+        ) : (
+          <strong
+            className={`q-base-kanban__count${cell.overLimit ? ' q-base-kanban__count--over' : ''}`}
+            title={cell.overLimit ? t('bases.kanbanWipWarning', { limit: cell.limit }) : undefined}
+          >
+            {cell.rows.length} / {cell.limit}
+          </strong>
+        )}
+      </header>
+      <div className="q-base-kanban__cards">
+        {cell.rows.map((row, index) => (
+          <article
+            key={row.path}
+            className={`q-base-kanban__card${draggingPath === row.path ? ' q-base-kanban__card--dragging' : ''}`}
+            tabIndex={0}
+            draggable={writable}
+            aria-label={rowTitle(row, workspacePath)}
+            onDragStart={(event) => startDrag(event, row)}
+            onDragEnd={endDrag}
+            onDragOver={(event) => dragOverCard(event, cell, index)}
+            onContextMenu={(event) => { event.preventDefault(); showMenu(row, event.clientX, event.clientY); }}
+            onClick={(event) => {
+              if (!(event.target as HTMLElement).closest('button, select, input')) onOpen(row.path);
+            }}
+            onKeyDown={(event) => {
+              if (event.currentTarget !== event.target) return;
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault(); onOpen(row.path);
+              }
+            }}
+          >
+            <div className="q-base-kanban__card-heading">
+              <button type="button" className="q-base-card__title" onClick={() => onOpen(row.path)}>
+                {rowTitle(row, workspacePath)}
+              </button>
+              <button type="button" className="q-base-kanban__menu-trigger"
+                aria-label={t('bases.kanbanCardActions', { title: rowTitle(row, workspacePath) })}
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  showMenu(row, rect.right, rect.bottom);
+                }}
+              ><Icon icon={MoreHorizontal} /></button>
+            </div>
+            {cardFields.map((property) => (
+              <div className="q-base-card__property" key={property}>
+                <span>{propertyLabel(definition, property)}</span>
+                <strong>{displayValue(baseProperty(row, property, workspacePath)) || '—'}</strong>
+              </div>
+            ))}
+            {writable && (
+              <select
+                className="q-base-kanban__move"
+                draggable={false}
+                aria-label={t('bases.kanbanMoveTo', { title: rowTitle(row, workspacePath) })}
+                value={cell.columnValue}
+                onChange={(event) => {
+                  const target = kanbanCell(board, cell.laneValue, event.currentTarget.value);
+                  if (target) void move(row, target);
+                }}
+              >
+                {board.columnValues.map((value) => (
+                  <option value={value} key={value || '__empty__'}>
+                    {value || t('bases.kanbanUnassigned')}
+                  </option>
+                ))}
+              </select>
+            )}
+            {laneWritable && (
+              <select
+                className="q-base-kanban__move q-base-kanban__move--lane"
+                draggable={false}
+                aria-label={t('bases.kanbanMoveToLane', { title: rowTitle(row, workspacePath) })}
+                value={cell.laneValue}
+                onChange={(event) => {
+                  const target = kanbanCell(board, event.currentTarget.value, cell.columnValue);
+                  if (target) void move(row, target);
+                }}
+              >
+                {board.laneValues.map((value) => (
+                  <option value={value} key={value || '__empty__'}>
+                    {value || t('bases.kanbanUnassigned')}
+                  </option>
+                ))}
+              </select>
+            )}
+          </article>
+        ))}
+      </div>
+      <div className="q-base-kanban__footer">
+        {addingTo === cell.key ? (
+          <div className="q-base-kanban__composer">
+            <input
+              autoFocus
+              value={draft}
+              placeholder={t('bases.kanbanCardTitle')}
+              aria-label={t('bases.kanbanCardTitle')}
+              disabled={creating}
+              onChange={(event) => setDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') { event.preventDefault(); void create(cell); }
+                if (event.key === 'Escape') { setAddingTo(null); setDraft(''); setError(''); }
+              }}
+            />
+            <div className="q-base-kanban__composer-actions">
+              <button type="button" disabled={creating || !draft.trim()} onClick={() => void create(cell)}>
+                {creating ? t('bases.kanbanCreating') : t('bases.kanbanCreate')}
+              </button>
+              <button type="button" disabled={creating} onClick={() => { setAddingTo(null); setDraft(''); }}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="q-base-kanban__add"
+            aria-label={board.laneProperty === null
+              ? t('bases.kanbanAddTo', { column: cell.columnValue || t('bases.kanbanUnassigned') })
+              : t('bases.kanbanAddToLane', {
+                lane: cell.laneValue || t('bases.kanbanUnassigned'),
+                column: cell.columnValue || t('bases.kanbanUnassigned'),
+              })}
+            onClick={() => { setDraft(''); setError(''); setAddingTo(cell.key); }}
+          >
+            <Icon icon={Plus} /> {t('bases.kanbanAdd')}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+
   return (
     <div className="q-base-kanban-wrapper">
       {error && <p className="q-base-kanban__error" role="alert">{error}</p>}
-      <div className="q-base-kanban" role="list">
-        {board.map((column) => (
-          <section
-            key={column.key}
-            data-kanban-column={column.value}
-            data-kanban-column-key={column.key}
-            className={`q-base-kanban__column${dragOver === column.key ? ' q-base-kanban__column--drop' : ''}`}
-            onDragOver={(event) => dragOverColumn(event, column.key)}
-            onDragLeave={leaveColumn}
-            onDrop={(event) => dropOnColumn(event, column.value)}
-          >
-            <header className="q-base-kanban__header">
-              <span title={!column.value ? t('bases.kanbanUnassignedHint') : undefined}>
-                {column.value || t('bases.kanbanUnassigned')}
+      {board.laneProperty === null ? (
+        <div className="q-base-kanban" role="list">
+          {cells.map((cell) => renderCell(cell, true))}
+        </div>
+      ) : (
+        <div className="q-base-kanban-board">
+          <div className="q-base-kanban__columns">
+            <span className="q-base-kanban__lane-corner" />
+            {board.columnValues.map((value) => (
+              <span className="q-base-kanban__column-title" key={value || '__empty__'}>
+                {value || t('bases.kanbanUnassigned')}
               </span>
-              <strong>{column.rows.length}</strong>
-            </header>
-            <div className="q-base-kanban__cards">
-              {column.rows.map((row) => (
-                <article
-                  key={row.path}
-                  className={`q-base-kanban__card${draggingPath === row.path ? ' q-base-kanban__card--dragging' : ''}`}
-                  tabIndex={0}
-                  draggable={writable}
-                  aria-label={rowTitle(row, workspacePath)}
-                  onDragStart={(event) => startDrag(event, row)}
-                  onDragEnd={endDrag}
-                  onContextMenu={(event) => { event.preventDefault(); showMenu(row, event.clientX, event.clientY); }}
-                  onClick={(event) => {
-                    if (!(event.target as HTMLElement).closest('button, select, input')) onOpen(row.path);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.currentTarget !== event.target) return;
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault(); onOpen(row.path);
-                    }
-                  }}
-                >
-                  <div className="q-base-kanban__card-heading">
-                    <button type="button" className="q-base-card__title" onClick={() => onOpen(row.path)}>
-                      {rowTitle(row, workspacePath)}
-                    </button>
-                    <button type="button" className="q-base-kanban__menu-trigger"
-                      aria-label={t('bases.kanbanCardActions', { title: rowTitle(row, workspacePath) })}
-                      onClick={(event) => {
-                        const rect = event.currentTarget.getBoundingClientRect();
-                        showMenu(row, rect.right, rect.bottom);
-                      }}
-                    ><Icon icon={MoreHorizontal} /></button>
-                  </div>
-                  {cardFields.map((property) => (
-                    <div className="q-base-card__property" key={property}>
-                      <span>{propertyLabel(definition, property)}</span>
-                      <strong>{displayValue(baseProperty(row, property, workspacePath)) || '—'}</strong>
-                    </div>
-                  ))}
-                  {writable && (
-                    <select
-                      className="q-base-kanban__move"
-                      draggable={false}
-                      aria-label={t('bases.kanbanMoveTo', { title: rowTitle(row, workspacePath) })}
-                      value={column.value}
-                      onChange={(event) => void move(row, event.currentTarget.value)}
-                    >
-                      {board.map((target) => (
-                        <option value={target.value} key={target.key}>
-                          {target.value || t('bases.kanbanUnassigned')}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </article>
-              ))}
+            ))}
+          </div>
+          {board.lanes.map((lane) => (
+            <div
+              className="q-base-kanban__lane"
+              key={lane.key}
+              data-kanban-lane={lane.value}
+              role="group"
+              aria-label={lane.value || t('bases.kanbanUnassigned')}
+            >
+              <span
+                className="q-base-kanban__lane-title"
+                title={lane.value || t('bases.kanbanUnassigned')}
+              >
+                {lane.value || t('bases.kanbanUnassigned')}
+              </span>
+              <div className="q-base-kanban__lane-cells">
+                {lane.cells.map((cell) => renderCell(cell, false))}
+              </div>
             </div>
-            <div className="q-base-kanban__footer">
-              {addingTo === column.key ? (
-                <div className="q-base-kanban__composer">
-                  <input
-                    autoFocus
-                    value={draft}
-                    placeholder={t('bases.kanbanCardTitle')}
-                    aria-label={t('bases.kanbanCardTitle')}
-                    disabled={creating}
-                    onChange={(event) => setDraft(event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') { event.preventDefault(); void create(column.value); }
-                      if (event.key === 'Escape') { setAddingTo(null); setDraft(''); setError(''); }
-                    }}
-                  />
-                  <div className="q-base-kanban__composer-actions">
-                    <button type="button" disabled={creating || !draft.trim()} onClick={() => void create(column.value)}>
-                      {creating ? t('bases.kanbanCreating') : t('bases.kanbanCreate')}
-                    </button>
-                    <button type="button" disabled={creating} onClick={() => { setAddingTo(null); setDraft(''); }}>
-                      {t('common.cancel')}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="q-base-kanban__add"
-                  aria-label={t('bases.kanbanAddTo', { column: column.value || t('bases.kanbanUnassigned') })}
-                  onClick={() => { setDraft(''); setError(''); setAddingTo(column.key); }}
-                >
-                  <Icon icon={Plus} /> {t('bases.kanbanAdd')}
-                </button>
-              )}
-            </div>
-          </section>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       <Menu open={Boolean(menu)} position={menu?.position ?? null}
         onClose={() => setMenu(null)} items={menu ? [
           { id: 'open', label: t('bases.kanbanOpen'), icon: ExternalLink,

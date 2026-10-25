@@ -9,6 +9,7 @@ import { coloredHighlightExtension } from './highlightr';
 import { tablesExtension } from './tables';
 import { bookCalloutTheme, type BookCalloutReadRequest } from './bookCallout';
 import { dataviewTheme } from './dataview';
+import { dataviewInlineExtension } from './dataview/inline';
 import { baseFenceTheme } from './baseFence';
 import { blockquoteTheme } from './blockquotePreview';
 import { readerQuoteTheme } from './readerQuote';
@@ -78,6 +79,7 @@ export function useEditorExtensions({
             blockWidthExtension(),
             bookCalloutTheme,
             dataviewTheme,
+            dataviewInlineExtension(),
             baseFenceTheme,
             blockquoteTheme,
             readerQuoteTheme,

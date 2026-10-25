@@ -10,6 +10,7 @@ type EdgePair = (String, String);
 type EdgeContributionKey = (bool, u32);
 
 pub const RELATION_TYPE: u32 = 8;
+pub const SIMILAR_TYPE: u32 = 64;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedEdge {
@@ -53,6 +54,7 @@ pub struct GraphModel {
     sources_by_target: HashMap<TargetKey, HashSet<String>>,
     edge_contributions_by_pair: BTreeMap<EdgePair, BTreeMap<EdgeContributionKey, usize>>,
     relation_fields: BTreeSet<String>,
+    similar_edges: Vec<DirectedEdge>,
 }
 
 impl GraphModel {
@@ -66,6 +68,7 @@ impl GraphModel {
             sources_by_target: HashMap::new(),
             edge_contributions_by_pair: BTreeMap::new(),
             relation_fields: declared_relation_fields(root),
+            similar_edges: Vec::new(),
         };
         for note in notes {
             model.insert_note(note);
@@ -125,6 +128,10 @@ impl GraphModel {
         }
         let mut affected = affected.into_iter().collect::<Vec<_>>();
         affected.sort_unstable();
+        let affected_set = affected.iter().cloned().collect::<HashSet<_>>();
+        self.similar_edges.retain(|edge| {
+            !affected_set.contains(&edge.source) && !affected_set.contains(&edge.target)
+        });
         let mut previous_pair_masks = BTreeMap::new();
         for path in &affected {
             if let Some(edges) = self.contributions_by_source.get(path) {
@@ -216,6 +223,36 @@ impl GraphModel {
                 }
             }
         }
+        for edge in &self.similar_edges {
+            visit(&edge.source, &edge.target, edge.link_type);
+        }
+    }
+
+    pub fn set_similar_edges(&mut self, pairs: impl IntoIterator<Item = (String, String)>) {
+        let mut seen = BTreeSet::new();
+        let mut edges = Vec::new();
+        for (left, right) in pairs {
+            if left == right || !self.notes.contains_key(&left) || !self.notes.contains_key(&right)
+            {
+                continue;
+            }
+            let pair = edge_pair_key(&left, &right);
+            if !seen.insert(pair.clone()) || self.edge_contributions_by_pair.contains_key(&pair) {
+                continue;
+            }
+            edges.push(DirectedEdge {
+                source: pair.0.clone(),
+                target: pair.1.clone(),
+                link_type: SIMILAR_TYPE,
+            });
+            edges.push(DirectedEdge {
+                source: pair.1,
+                target: pair.0,
+                link_type: SIMILAR_TYPE,
+            });
+        }
+        edges.sort();
+        self.similar_edges = edges;
     }
 
     #[cfg(test)]

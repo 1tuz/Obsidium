@@ -1,4 +1,14 @@
 import { createTaskCheckbox, TASK_CHECKBOX_CLASS } from '../../../Common/taskCheckbox';
+import { t } from '../../../../i18n';
+import { noteDateToIso, parseNoteDate } from '../../../../modules/notedate';
+import {
+  buildMonthGrid,
+  monthLabel,
+  monthOf,
+  shiftMonth,
+  todayIso,
+  weekdayLabels,
+} from '../../../../modules/calendar/monthGrid';
 import type { DataviewCell, DataviewOutput } from '../../../../modules/docs/dataview';
 import { DATAVIEW_CLASSES, DATAVIEW_MESSAGES, UNKNOWN_HEIGHT } from './constants';
 import type { DataviewResult } from './store';
@@ -34,11 +44,17 @@ export function renderDataviewDom(
     return root;
   }
 
-  card.append(output.shape === 'table' ? table(output) : list(output, output.shape === 'tasks'));
+  card.append(shapeOutput(output));
   if (output.truncated) {
     card.append(message(DATAVIEW_MESSAGES.truncated(output.rows.length, output.total)));
   }
   return root;
+}
+
+function shapeOutput(output: DataviewOutput): HTMLElement {
+  if (output.shape === 'table') return table(output);
+  if (output.shape === 'calendar') return calendar(output);
+  return list(output, output.shape === 'tasks');
 }
 
 function heading(text: string, shape: DataviewOutput['shape']): HTMLElement {
@@ -87,6 +103,166 @@ function list(output: DataviewOutput, tasks = false): HTMLElement {
     element.append(item);
   }
   return element;
+}
+
+interface CalendarRecord {
+  date: string | null;
+  label: string;
+  target: string | null;
+  details: string;
+}
+
+function calendar(output: DataviewOutput): HTMLElement {
+  const element = document.createElement('div');
+  element.className = DATAVIEW_CLASSES.calendar;
+  const records = calendarRecords(output);
+  const locale = document.documentElement.lang || 'en';
+  const today = todayIso();
+  let anchor = firstMonth(records) ?? monthOf(today) ?? { year: 2026, month: 1 };
+  const undated = records.filter((record) => record.date === null).length;
+
+  const render = () => {
+    const grid = buildMonthGrid(records, (record) => record.date, anchor);
+    const toolbar = document.createElement('div');
+    toolbar.className = DATAVIEW_CLASSES.calendarToolbar;
+    toolbar.append(
+      calendarStep(t('dataview.calendarPrevious'), '‹', () => {
+        anchor = shiftMonth(anchor.year, anchor.month, -1);
+        render();
+      }),
+      calendarHeading(monthLabel(anchor.year, anchor.month, locale)),
+      calendarStep(t('dataview.calendarNext'), '›', () => {
+        anchor = shiftMonth(anchor.year, anchor.month, 1);
+        render();
+      }),
+      calendarStep(t('dataview.calendarToday'), t('dataview.calendarToday'), () => {
+        anchor = monthOf(today) ?? anchor;
+        render();
+      }),
+    );
+    if (undated > 0) {
+      const counter = document.createElement('span');
+      counter.className = DATAVIEW_CLASSES.calendarUndated;
+      counter.textContent = t('dataview.calendarUndated', { count: undated });
+      toolbar.append(counter);
+    }
+
+    const weekdays = document.createElement('div');
+    weekdays.className = DATAVIEW_CLASSES.calendarWeekdays;
+    weekdays.setAttribute('aria-hidden', 'true');
+    for (const label of weekdayLabels(locale)) {
+      const weekday = document.createElement('span');
+      weekday.textContent = label;
+      weekdays.append(weekday);
+    }
+
+    const month = document.createElement('div');
+    month.className = DATAVIEW_CLASSES.calendarGrid;
+    for (const day of grid.days) {
+      const cell = document.createElement('div');
+      cell.className = [
+        DATAVIEW_CLASSES.calendarDay,
+        day.inMonth ? '' : DATAVIEW_CLASSES.calendarOutside,
+        day.date === today ? DATAVIEW_CLASSES.calendarToday : '',
+      ].filter(Boolean).join(' ');
+      cell.setAttribute('role', 'group');
+      cell.setAttribute('aria-label', day.date);
+
+      const head = document.createElement('div');
+      head.className = DATAVIEW_CLASSES.calendarDayHead;
+      head.textContent = String(Number(day.date.slice(8, 10)));
+      cell.append(head);
+
+      const entries = document.createElement('div');
+      entries.className = DATAVIEW_CLASSES.calendarEntries;
+      for (const record of day.rows) entries.append(calendarEntry(record));
+      cell.append(entries);
+      month.append(cell);
+    }
+
+    element.replaceChildren(toolbar, weekdays, month);
+  };
+
+  render();
+  return element;
+}
+
+function calendarRecords(output: DataviewOutput): CalendarRecord[] {
+  const width = Math.max(output.width, 1);
+  const records: CalendarRecord[] = [];
+  for (let start = 0; start < output.rows.length; start += width) {
+    const cells = output.rows.slice(start, start + width);
+    const parsed = parseNoteDate(cellText(cells[0]).trim());
+    const link = calendarLink(cells[1]);
+    records.push({
+      date: parsed === null ? null : noteDateToIso(parsed),
+      label: link?.text ?? cellText(cells[1]),
+      target: link?.target ?? null,
+      details: cells.slice(2).map(cellText).filter((text) => text.length > 0).join(' · '),
+    });
+  }
+  return records;
+}
+
+function firstMonth(records: readonly CalendarRecord[]): { year: number; month: number } | null {
+  let earliest: string | null = null;
+  for (const record of records) {
+    if (record.date !== null && (earliest === null || record.date < earliest)) earliest = record.date;
+  }
+  return earliest === null ? null : monthOf(earliest);
+}
+
+function calendarLink(cell: DataviewCell | undefined): { target: string; text: string } | null {
+  for (const part of cell?.parts ?? []) {
+    if (part.kind === 'link') return part;
+  }
+  return null;
+}
+
+function cellText(cell: DataviewCell | undefined): string {
+  return (cell?.parts ?? []).map((part) => {
+    if (part.kind === 'progress') return `${part.percent}%`;
+    if (part.kind === 'check') return part.done ? '✓' : '☐';
+    return part.text;
+  }).join('');
+}
+
+function calendarStep(label: string, text: string, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.textContent = text;
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function calendarHeading(text: string): HTMLElement {
+  const element = document.createElement('strong');
+  element.className = DATAVIEW_CLASSES.calendarMonth;
+  element.textContent = text;
+  return element;
+}
+
+function calendarEntry(record: CalendarRecord): HTMLElement {
+  const entry = document.createElement('div');
+  entry.className = DATAVIEW_CLASSES.calendarEntry;
+  if (record.target) {
+    const link = document.createElement('span');
+    link.className = DATAVIEW_CLASSES.link;
+    link.dataset.target = record.target;
+    link.textContent = record.label;
+    entry.append(link);
+  } else {
+    entry.append(document.createTextNode(record.label));
+  }
+  if (record.details) {
+    const meta = document.createElement('span');
+    meta.className = DATAVIEW_CLASSES.calendarMeta;
+    meta.textContent = record.details;
+    entry.append(meta);
+  }
+  return entry;
 }
 
 function fillCell(target: HTMLElement, cell: DataviewCell | undefined): void {

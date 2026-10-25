@@ -135,6 +135,7 @@ function includesEdgeType(mask: number, edgeType: GraphEdgeType): boolean {
     related: 8,
     depends_on: 16,
     blocks: 32,
+    similar: 64,
   }[edgeType];
   return (mask & typeMask) !== 0;
 }

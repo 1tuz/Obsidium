@@ -90,12 +90,12 @@ pub fn attach_tasks(
     Ok(())
 }
 
-fn note_name(relative: &str) -> String {
+pub fn note_name(relative: &str) -> String {
     let name = relative.rsplit('/').next().unwrap_or(relative);
     strip_markdown_extension(name).to_owned()
 }
 
-fn folder_of(relative: &str) -> String {
+pub fn folder_of(relative: &str) -> String {
     match relative.rfind('/') {
         Some(position) => relative[..position].to_owned(),
         None => String::new(),

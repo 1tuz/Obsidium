@@ -25,12 +25,15 @@ pub async fn get_graph_snapshot(
     layout_mode: String,
     attraction: f64,
     repulsion: f64,
+    similar_edges: Option<bool>,
 ) -> Result<tauri::ipc::Response, SearchError> {
     let options = layout_options(&layout_mode, attraction, repulsion)?;
+    let similar_edges =
+        similar_edges.unwrap_or_else(|| core.settings.get_config().graph.similar_edges);
     let service = core.search.clone();
     let bytes = run_blocking(move || {
         service
-            .render_graph(&workspace_path, options)
+            .render_graph_with_similarity(&workspace_path, options, similar_edges)
             .map(|snapshot| snapshot.as_ref().clone())
     })
     .await?;

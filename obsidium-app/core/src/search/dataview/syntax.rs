@@ -18,6 +18,7 @@ const GRAMMAR: &str = "\
   TABLE [WITHOUT ID] [выражение [AS \"Колонка\"], …]
   LIST  [WITHOUT ID] [выражение]
   TASK  [WITHOUT ID]
+  CALENDAR выражение-дата [AS \"Колонка\"], [выражение [AS \"Колонка\"], …]
 
 Дальше в любом порядке:
 

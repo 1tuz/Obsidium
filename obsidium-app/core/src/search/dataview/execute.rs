@@ -2,6 +2,7 @@ use super::ast::{Clause, Column, Direction, Expr, Query, Shape, Source};
 use super::eval::{evaluate, note_object, Scope};
 use super::rows::Row;
 use super::value::Value;
+use crate::search::note_date;
 use serde::Serialize;
 use std::cmp::Ordering;
 use std::rc::Rc;
@@ -119,6 +120,7 @@ pub fn run(query: &Query, rows: Vec<Row>) -> Result<QueryOutput, String> {
             list(&entries, value.as_ref(), *show_path, total, truncated)
         }
         Shape::Tasks { show_path } => Ok(task_list(&entries, *show_path, total, truncated)),
+        Shape::Calendar { date, columns } => calendar(&entries, date, columns, total, truncated),
     }?;
     output.title = query.title.clone();
     output.refresh_seconds = query.refresh;
@@ -365,6 +367,50 @@ fn list(
         total,
         truncated,
     })
+}
+
+fn calendar(
+    entries: &[Entry],
+    date: &Column,
+    columns: &[Column],
+    total: usize,
+    truncated: bool,
+) -> Result<QueryOutput, String> {
+    let mut titles = Vec::with_capacity(columns.len() + 2);
+    titles.push(date.title.clone());
+    titles.push(NOTE_COLUMN.to_owned());
+    titles.extend(columns.iter().map(|column| column.title.clone()));
+
+    let width = titles.len();
+    let mut cells = Vec::with_capacity(entries.len() * width);
+    for entry in entries {
+        let scope = entry.scope();
+        cells.push(day_cell(&evaluate(&date.value, &scope)?));
+        cells.push(entry.title_cell());
+        for column in columns {
+            cells.push(cell(evaluate(&column.value, &scope)?));
+        }
+    }
+
+    Ok(QueryOutput {
+        shape: "calendar",
+        title: None,
+        refresh_seconds: None,
+        columns: titles,
+        rows: cells,
+        width,
+        total,
+        truncated,
+    })
+}
+
+fn day_cell(value: &Value) -> Cell {
+    match value {
+        Value::Date(nanos) => cell(Value::Text(note_date::format(note_date::start_of_day(
+            *nanos,
+        )))),
+        other => cell(other.clone()),
+    }
 }
 
 fn cell(value: Value) -> Cell {
