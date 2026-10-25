@@ -752,3 +752,282 @@ fn validate(schema: &Value, instance: &Value) -> Result<(), String> {
     }
     Ok(())
 }
+
+fn install_schema(fixture: &Fixture, schema: &Value) {
+    let folder = fixture.root.join(crate::history::OBSIDIUM_FOLDER);
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join("schema.json"), schema.to_string()).unwrap();
+}
+
+fn book_schema() -> Value {
+    json!({
+        "version": 1,
+        "types": [
+            {
+                "name": "Book",
+                "icon": "book",
+                "color": "#b5651d",
+                "properties": [
+                    { "name": "author", "kind": "text", "required": true },
+                    { "name": "pages", "kind": "number", "default": 320 },
+                    { "name": "status", "kind": "select", "options": ["draft", "read"] },
+                    { "name": "finished", "kind": "date", "format": "YYYY-MM-DD" },
+                    { "name": "genres", "kind": "multiSelect", "options": ["роман", "повесть"] },
+                    { "name": "tags", "kind": "tags" },
+                    { "name": "done", "kind": "checkbox" },
+                    { "name": "link", "kind": "url" },
+                    { "name": "phone", "kind": "phone" },
+                    { "name": "mail", "kind": "email" }
+                ]
+            },
+            { "name": "Novel", "extends": "Book", "properties": [] }
+        ]
+    })
+}
+
+#[test]
+fn describe_schema_reports_empty_schema_and_note_type() {
+    let fixture = fixture();
+    let answer = call(
+        &fixture.core,
+        "describe_schema",
+        &json!({ "workspace": fixture.root.to_string_lossy() }),
+    )
+    .unwrap();
+    assert_eq!(
+        answer,
+        json!({ "types": [], "noteType": "Note", "relations": [] })
+    );
+    fixture.core.shutdown();
+}
+
+#[test]
+fn describe_schema_lists_full_type_definitions() {
+    let fixture = fixture();
+    install_schema(&fixture, &book_schema());
+    let answer = call(
+        &fixture.core,
+        "describe_schema",
+        &json!({ "workspace": fixture.root.to_string_lossy() }),
+    )
+    .unwrap();
+    assert_eq!(
+        answer,
+        json!({
+            "types": [
+                {
+                    "name": "Book",
+                    "extends": null,
+                    "icon": "book",
+                    "color": "#b5651d",
+                    "properties": [
+                        { "name": "author", "kind": "text", "options": [], "required": true },
+                        { "name": "pages", "kind": "number", "options": [], "required": false, "default": 320 },
+                        { "name": "status", "kind": "select", "options": ["draft", "read"], "required": false },
+                        { "name": "finished", "kind": "date", "options": [], "required": false, "format": "YYYY-MM-DD" },
+                        { "name": "genres", "kind": "multiSelect", "options": ["роман", "повесть"], "required": false },
+                        { "name": "tags", "kind": "tags", "options": [], "required": false },
+                        { "name": "done", "kind": "checkbox", "options": [], "required": false },
+                        { "name": "link", "kind": "url", "options": [], "required": false },
+                        { "name": "phone", "kind": "phone", "options": [], "required": false },
+                        { "name": "mail", "kind": "email", "options": [], "required": false }
+                    ]
+                },
+                {
+                    "name": "Novel",
+                    "extends": "Book",
+                    "icon": null,
+                    "color": null,
+                    "properties": []
+                }
+            ],
+            "noteType": "Note",
+            "relations": []
+        })
+    );
+    fixture.core.shutdown();
+}
+
+#[test]
+fn describe_schema_filters_types_and_rejects_unknown() {
+    let fixture = fixture();
+    install_schema(&fixture, &book_schema());
+    let answer = call(
+        &fixture.core,
+        "describe_schema",
+        &json!({
+            "workspace": fixture.root.to_string_lossy(),
+            "types": ["novel"],
+            "includeRelations": false
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        answer,
+        json!({
+            "types": [
+                {
+                    "name": "Novel",
+                    "extends": "Book",
+                    "icon": null,
+                    "color": null,
+                    "properties": []
+                }
+            ],
+            "noteType": "Note"
+        })
+    );
+    let error = call(
+        &fixture.core,
+        "describe_schema",
+        &json!({ "workspace": fixture.root.to_string_lossy(), "types": ["Film"] }),
+    )
+    .expect_err("неизвестный тип должен падать");
+    for expected in ["Film", "Book", "Novel", "Доступные типы"] {
+        assert!(
+            error.contains(expected),
+            "в ошибке нет «{expected}»: {error}"
+        );
+    }
+    fixture.core.shutdown();
+}
+
+#[test]
+fn describe_schema_reports_broken_schema_as_error() {
+    let fixture = fixture();
+    let folder = fixture.root.join(crate::history::OBSIDIUM_FOLDER);
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join("schema.json"), "{ это не схема").unwrap();
+    let error = call(
+        &fixture.core,
+        "describe_schema",
+        &json!({ "workspace": fixture.root.to_string_lossy() }),
+    )
+    .expect_err("сломанная схема должна падать");
+    assert!(
+        error.contains("Схема базы знаний не читается"),
+        "ошибка не описывает схему: {error}"
+    );
+    fixture.core.shutdown();
+}
+
+#[test]
+fn create_typed_note_writes_frontmatter_and_heading() {
+    let fixture = fixture();
+    install_schema(&fixture, &book_schema());
+    let answer = call(
+        &fixture.core,
+        "create_typed_note",
+        &json!({
+            "workspace": fixture.root.to_string_lossy(),
+            "type": "book",
+            "title": "Книга",
+            "folder": "Книги/",
+            "properties": { "author": "Лем", "pages": 320, "status": "read" }
+        }),
+    )
+    .unwrap();
+    assert_eq!(answer["created"], json!(true));
+    assert_eq!(answer["type"], json!("Book"));
+    assert_eq!(answer["path"], json!("Книги/Книга.md"));
+    let content = fs::read_to_string(fixture.root.join("Книги/Книга.md")).unwrap();
+    assert_eq!(
+        content,
+        "---\ntype: \"Book\"\nauthor: \"Лем\"\npages: 320\nstatus: \"read\"\n---\n\n# Книга\n"
+    );
+    fixture.core.shutdown();
+}
+
+#[test]
+fn create_typed_note_rejects_invalid_properties_before_writing() {
+    let fixture = fixture();
+    install_schema(&fixture, &book_schema());
+    let error = call(
+        &fixture.core,
+        "create_typed_note",
+        &json!({
+            "workspace": fixture.root.to_string_lossy(),
+            "type": "Book",
+            "title": "Плохая",
+            "properties": { "pages": "много" }
+        }),
+    )
+    .expect_err("нарушения схемы должны падать");
+    for expected in ["author", "pages", "Свойства не соответствуют схеме «Book»"]
+    {
+        assert!(
+            error.contains(expected),
+            "в ошибке нет «{expected}»: {error}"
+        );
+    }
+    assert!(!fixture.root.join("Плохая.md").exists());
+    fixture.core.shutdown();
+}
+
+#[test]
+fn create_typed_note_rejects_unknown_type() {
+    let fixture = fixture();
+    install_schema(&fixture, &book_schema());
+    let error = call(
+        &fixture.core,
+        "create_typed_note",
+        &json!({
+            "workspace": fixture.root.to_string_lossy(),
+            "type": "Film",
+            "title": "Неизвестная"
+        }),
+    )
+    .expect_err("неизвестный тип должен падать");
+    for expected in ["Film", "Book", "Novel"] {
+        assert!(
+            error.contains(expected),
+            "в ошибке нет «{expected}»: {error}"
+        );
+    }
+    assert!(!fixture.root.join("Неизвестная.md").exists());
+    fixture.core.shutdown();
+}
+
+#[test]
+fn create_typed_note_refuses_existing_file() {
+    let fixture = fixture();
+    install_schema(&fixture, &book_schema());
+    fs::write(fixture.root.join("Книга.md"), "старое\n").unwrap();
+    let error = call(
+        &fixture.core,
+        "create_typed_note",
+        &json!({
+            "workspace": fixture.root.to_string_lossy(),
+            "type": "Book",
+            "title": "Книга",
+            "properties": { "author": "Лем" }
+        }),
+    )
+    .expect_err("существующий файл не перезаписывается");
+    assert!(error.contains("существует"), "ошибка не про файл: {error}");
+    assert_eq!(
+        fs::read_to_string(fixture.root.join("Книга.md")).unwrap(),
+        "старое\n"
+    );
+    fixture.core.shutdown();
+}
+
+#[test]
+fn create_typed_note_does_not_let_properties_override_type() {
+    let fixture = fixture();
+    install_schema(&fixture, &book_schema());
+    let error = call(
+        &fixture.core,
+        "create_typed_note",
+        &json!({
+            "workspace": fixture.root.to_string_lossy(),
+            "type": "Book",
+            "title": "Подмена",
+            "properties": { "author": "Лем", "type": "Novel" }
+        }),
+    )
+    .expect_err("type из properties не должен подменять аргумент");
+    assert!(error.contains("type"), "ошибка не про type: {error}");
+    assert!(!fixture.root.join("Подмена.md").exists());
+    fixture.core.shutdown();
+}

@@ -5,6 +5,7 @@ mod history;
 mod links;
 mod notes;
 mod review;
+mod schema;
 mod search;
 mod search_context;
 mod tasks;
@@ -64,6 +65,7 @@ pub fn definitions() -> Vec<Value> {
     all.extend(context::definitions());
     all.extend(connections::definitions());
     all.extend(review::definitions());
+    all.extend(schema::definitions());
     all.extend(links::definitions());
     all.extend(tasks::definitions());
     all.extend(transaction::definitions());
@@ -81,6 +83,7 @@ pub fn call(core: &Core, name: &str, arguments: &Value) -> Result<Value, String>
         .or_else(|| context::call(core, name, arguments))
         .or_else(|| connections::call(core, name, arguments))
         .or_else(|| review::call(core, name, arguments))
+        .or_else(|| schema::call(core, name, arguments))
         .or_else(|| links::call(core, name, arguments))
         .or_else(|| tasks::call(core, name, arguments))
         .or_else(|| transaction::call(core, name, arguments))
