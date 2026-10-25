@@ -108,3 +108,27 @@ test('Rust formatting receives changed source paths without formatting unrelated
   assert.match(ci, /RUST_CLI_FILES:[^\n]*rust_cli_files/u);
   assert.match(ci, /node scripts\/check-rust-format\.mjs/u);
 });
+
+test('the performance gate benchmarks core changes and fails on a baseline regression', () => {
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  const job = ci.match(/\n  performance:\n([\s\S]*?)\n  auto-merge:/u);
+  assert.ok(job, 'performance job is missing');
+  assert.match(job[1], /steps\.changes\.outputs\.rust_core_bench/u);
+  assert.match(job[1], /OBSIDIUM_BENCH_SIZES: '1000'/u);
+  assert.match(job[1], /for bench in benchmark_indexing benchmark_search_pipeline/u);
+  assert.match(job[1], /summarize\.mjs --format=summary/u);
+  assert.match(job[1], /check-regression\.mjs/u);
+  assert.match(job[1], /--baseline=obsidium-app\/scripts\/bench\/baseline\.json/u);
+  assert.match(job[1], /GITHUB_STEP_SUMMARY/u);
+  assert.match(ci, /needs:\s*\[route, quality, performance\]/u);
+
+  const filters = readFileSync('.github/filters.yml', 'utf8');
+  assert.match(filters, /rust_core_bench:\n\s+- 'obsidium-app\/core\/\*\*'/u);
+
+  const baseline = JSON.parse(readFileSync('obsidium-app/scripts/bench/baseline.json', 'utf8'));
+  assert.ok(baseline.ratio > 1, 'the baseline must define a regression ratio above 1');
+  for (const metric of ['search_us', 'bm25f_warm_us']) {
+    assert.ok(baseline.sizes['1000'].benchmark_search_pipeline[metric] > 0, `baseline must gate ${metric}`);
+  }
+  assert.ok(baseline.sizes['1000'].benchmark_indexing.cold_ms > 0, 'baseline must gate cold_ms');
+});

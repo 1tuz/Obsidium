@@ -1,0 +1,32 @@
+{
+  "ratio": 1.5,
+  "updated": "2026-10-25",
+  "sizes": {
+    "1000": {
+      "benchmark_indexing": {
+        "cold_ms": 1200,
+        "incremental_ms": 1200,
+        "save_median_ms": 600
+      },
+      "benchmark_search_pipeline": {
+        "initial_scan_ms": 1200,
+        "search_us": 8000,
+        "repeated_search_median_us": 7000,
+        "bm25f_warm_us": 8000
+      }
+    },
+    "10000": {
+      "benchmark_indexing": {
+        "cold_ms": 4000,
+        "incremental_ms": 2500,
+        "save_median_ms": 600
+      },
+      "benchmark_search_pipeline": {
+        "initial_scan_ms": 4000,
+        "search_us": 10000,
+        "repeated_search_median_us": 9000,
+        "bm25f_warm_us": 12000
+      }
+    }
+  }
+}

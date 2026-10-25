@@ -16,6 +16,11 @@ frontend_full:
   - 'obsidium-app/src/styles/**'
 rust_core:
   - 'obsidium-app/core/**/*.rs'
+rust_core_bench:
+  - 'obsidium-app/core/**'
+  - 'obsidium-app/src-tauri/Cargo.lock'
+  - 'obsidium-app/scripts/bench/**'
+  - '.github/workflows/ci.yml'
 rust_app:
   - 'obsidium-app/src-tauri/**/*.rs'
   - 'obsidium-app/src-tauri/build.rs'

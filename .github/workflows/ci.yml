@@ -196,9 +196,90 @@ jobs:
           cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli
           node scripts/agent-smoke.mjs
 
+  performance:
+    name: Performance gate
+    needs: route
+    if: needs.route.outputs.run_checks != 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: dorny/paths-filter@v4
+        if: github.event_name != 'workflow_dispatch'
+        id: changes
+        with:
+          base: main
+          filters: .github/filters.yml
+
+      - name: Check whether the core performance surface changed
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CORE_CHANGED: ${{ steps.changes.outputs.rust_core_bench }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$CORE_CHANGED" == "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::obsidium-app/core is untouched by this push; the performance gate did not run."
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.scope.outputs.run == 'true'
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.scope.outputs.run == 'true'
+        with:
+          workspaces: obsidium-app/src-tauri -> target
+          key: performance
+
+      - name: Benchmark indexing and search on 1000 notes
+        if: steps.scope.outputs.run == 'true'
+        env:
+          OBSIDIUM_BENCH_SIZES: '1000'
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/bench"
+          for bench in benchmark_indexing benchmark_search_pipeline; do
+            cargo test --release --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-core \
+              --lib "$bench" -- --ignored --nocapture 2>&1 | tee "$RUNNER_TEMP/bench/$bench.log"
+          done
+
+      - name: Publish the measurement table
+        if: always() && steps.scope.outputs.run == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/bench"
+          {
+            echo "## Performance (release, 1000 notes)"
+            echo
+            node obsidium-app/scripts/bench/summarize.mjs --format=summary "$RUNNER_TEMP"/bench/*.log || true
+            echo
+            echo "<details><summary>BENCH- lines</summary>"
+            echo
+            echo '```'
+            grep -h '^BENCH-' "$RUNNER_TEMP"/bench/*.log || true
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on a regression against the baseline
+        if: steps.scope.outputs.run == 'true'
+        run: |
+          set -o pipefail
+          node obsidium-app/scripts/bench/check-regression.mjs \
+            --baseline=obsidium-app/scripts/bench/baseline.json \
+            "$RUNNER_TEMP"/bench/*.log | tee -a "$GITHUB_STEP_SUMMARY"
+
   auto-merge:
     name: Merge owner changes after checks
-    needs: [route, quality]
+    needs: [route, quality, performance]
     if: >-
       success() &&
       github.event_name == 'push' && github.actor == github.repository_owner && needs.route.outputs.run_checks == 'true'
