@@ -589,7 +589,8 @@
     "boards": "Open boards and calendars",
     "newBoard": "New board",
     "addCurrentNoteToBoard": "Add current note to a board",
-    "setType": "Set the note type"
+    "setType": "Set the note type",
+    "openGallery": "Open gallery"
   },
   "localGraph": {
     "tab": "Local graph",
@@ -1118,5 +1119,16 @@
   "layout": {
     "resizeLeftPanel": "Resize the file panel",
     "resizeRightPanel": "Resize the links panel"
+  },
+  "gallery": {
+    "title": "Gallery",
+    "empty": "This knowledge base has no images yet",
+    "loading": "Collecting images…",
+    "error": "Could not load the images",
+    "close": "Close the gallery",
+    "previous": "Previous image",
+    "next": "Next image",
+    "closeViewer": "Close the image",
+    "position": "{{current}} of {{total}}"
   }
 }

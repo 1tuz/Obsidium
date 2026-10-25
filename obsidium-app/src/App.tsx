@@ -16,6 +16,7 @@ import { SearchDialog } from "./components/Search/SearchDialog";
 import { TemplateDialog } from "./components/Templates/TemplateDialog";
 import { TypePickerDialog } from "./components/Schema/TypePickerDialog";
 import { WorkspaceDialog } from "./components/Workspace/WorkspaceDialog";
+import { GalleryDialog } from "./components/Gallery/GalleryDialog";
 import { BacklinksPanel } from "./components/Backlinks/BacklinksPanel";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useTabs } from "./hooks/useTabs";
@@ -87,6 +88,7 @@ export default function App() {
   const typePicker = useOverlay();
   const settings = useOverlay();
   const workspaces = useOverlay();
+  const gallery = useOverlay();
   const [leftSidebarOpen, setLeftSidebarOpen] = useLocalState('obsidium_sidebar_left_open', true);
   const [rightSidebarOpen, setRightSidebarOpen] = useLocalState('obsidium_sidebar_right_open', true);
   const [storedLeftWidth, setStoredLeftWidth] = useLocalState<number>('obsidium_sidebar_left_width', PANEL_LIMITS.left.fallback);
@@ -623,6 +625,13 @@ export default function App() {
       run: toggleFocusMode,
     },
     { id: 'view.graph', title: t('commands.graph'), enabled: () => Boolean(workspacePath), run: openGraph },
+    {
+      id: 'gallery.open',
+      title: t('commands.openGallery'),
+      keywords: ['gallery', 'images', 'галерея', 'изображения'],
+      enabled: () => Boolean(workspacePath),
+      run: gallery.show,
+    },
     { id: 'boards.open', title: t('commands.boards'), enabled: () => Boolean(workspacePath && kanbanEnabled), run: openBoards },
     { id: 'boards.new', title: t('commands.newBoard'), enabled: () => Boolean(workspacePath && kanbanEnabled), run: openNewBoard },
     { id: 'boards.addCurrentNote', title: t('commands.addCurrentNoteToBoard'), enabled: () => Boolean(kanbanEnabled && activeFile && isMarkdownPath(activeFile)), run: addCurrentNoteToBoard },
@@ -642,7 +651,7 @@ export default function App() {
     commandPalette.toggle, config, createCanvas, createNewFile, openGraph, search.show, settings.show,
     templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
     workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile, kanbanEnabled,
-    openJournalToday, openTypePicker,
+    openJournalToday, openTypePicker, gallery.show,
   ]);
 
   useEffect(() => {
@@ -997,6 +1006,12 @@ export default function App() {
         currentPath={workspacePath}
         onClose={workspaces.hide}
         onOpenWorkspace={openWorkspace}
+      />
+
+      <GalleryDialog
+        open={gallery.open}
+        workspacePath={workspacePath}
+        onClose={gallery.hide}
       />
     </div>
   );
