@@ -1,7 +1,7 @@
 pub mod expr;
 pub mod query;
 
-use super::ast::Query;
+use super::ast::{Expr, Query};
 use super::lexer::{tokenize, Piece, Symbol, Token};
 
 pub fn parse(text: &str) -> Result<Query, String> {
@@ -15,6 +15,17 @@ pub fn parse(text: &str) -> Result<Query, String> {
             _ => "",
         };
         return Err(format!("Лишнее в запросе после разбора: «{found}»{hint}"));
+    }
+    Ok(parsed)
+}
+
+pub fn parse_expression(text: &str) -> Result<Expr, String> {
+    let tokens = tokenize(text)?;
+    let mut cursor = Cursor::new(text, &tokens);
+    let parsed = expr::expression(&mut cursor)?;
+    if let Some(token) = cursor.peek() {
+        let found = cursor.text_of(token);
+        return Err(format!("Лишнее в формуле после разбора: «{found}»"));
     }
     Ok(parsed)
 }

@@ -409,6 +409,14 @@ export function BaseView({
         <p className="q-base-view__notice">{t('bases.unsupported')}</p>
       )}
 
+      {evaluation?.errors.map((error) => (
+        <p
+          key={`${error.formula}\u0000${error.message}`}
+          className="q-base-view__notice q-base-view__error"
+          role="alert"
+        >{`formula.${error.formula}: ${error.message}`}</p>
+      ))}
+
       {actionError && (
         <p className="q-base-view__notice q-base-view__error" role="alert">{actionError}</p>
       )}

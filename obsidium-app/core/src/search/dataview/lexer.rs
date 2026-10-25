@@ -157,6 +157,7 @@ fn read_text(rest: &str) -> Result<(String, usize), String> {
 fn read_symbol(rest: &str) -> Option<(Symbol, usize)> {
     for (text, symbol) in [
         ("=>", Symbol::Arrow),
+        ("==", Symbol::Equal),
         ("!=", Symbol::NotEqual),
         (">=", Symbol::GreaterOrEqual),
         ("<=", Symbol::LessOrEqual),

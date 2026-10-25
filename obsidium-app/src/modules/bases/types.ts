@@ -36,6 +36,7 @@ export interface BaseDefinition {
   filters?: BaseFilter;
   views: BaseViewDefinition[];
   propertyLabels: Record<string, string>;
+  formulas: Record<string, string>;
   unsupportedKeys: string[];
   extra: Record<string, BaseYamlValue>;
 }
@@ -59,9 +60,16 @@ export interface BaseGroup {
   end: number;
 }
 
+export interface BaseFormulaError {
+  formula: string;
+  path: string;
+  message: string;
+}
+
 export interface BaseEvaluation {
   rows: BaseRow[];
   groups: BaseGroup[];
   columns: string[];
   unsupported: boolean;
+  errors: BaseFormulaError[];
 }
