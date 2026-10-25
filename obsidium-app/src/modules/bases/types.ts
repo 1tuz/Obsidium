@@ -28,10 +28,19 @@ export interface BaseViewDefinition {
   sort?: BaseSort[];
 }
 
+export interface BaseSummary {
+  name: string;
+  source: string;
+  property: string;
+  formula: string;
+  filter?: BaseFilter;
+}
+
 export interface BaseDefinition {
   raw: string;
   filters?: BaseFilter;
   views: BaseViewDefinition[];
+  summaries: BaseSummary[];
   propertyLabels: Record<string, string>;
   unsupportedKeys: string[];
 }

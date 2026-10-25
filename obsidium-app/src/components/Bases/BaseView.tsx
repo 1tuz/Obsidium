@@ -66,11 +66,13 @@ function propertyLabel(definition: BaseDefinition, property: string): string {
   const key = property.startsWith('note.') ? property.slice('note.'.length) : property;
   return definition.propertyLabels[property]
     ?? definition.propertyLabels[key]
-    ?? key.replace(/^formula\./, '');
+    ?? key.replace(/^(?:formula|summary)\./, '');
 }
 
 function editableKey(property: string): string | null {
-  if (property.startsWith('file.') || property.startsWith('formula.')) return null;
+  if (property.startsWith('file.') || property.startsWith('formula.') || property.startsWith('summary.')) {
+    return null;
+  }
   return property.startsWith('note.') ? property.slice('note.'.length) : property;
 }
 

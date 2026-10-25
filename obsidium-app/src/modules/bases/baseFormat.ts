@@ -4,6 +4,7 @@ import type {
   BaseGroupBy,
   BaseScalar,
   BaseSort,
+  BaseSummary,
   BaseViewDefinition,
 } from './types';
 
@@ -255,6 +256,20 @@ function sort(value: YamlValue | undefined): BaseSort[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+function summary(value: YamlValue): BaseSummary | null {
+  if (!isObject(value)) return null;
+  const name = text(value.name);
+  const source = text(value.source);
+  if (!name || !source) return null;
+  return {
+    name,
+    source,
+    property: text(value.property),
+    formula: text(value.formula).toLowerCase(),
+    filter: filter(value.filter),
+  };
+}
+
 function view(value: YamlValue, index: number): BaseViewDefinition | null {
   if (!isObject(value)) return null;
   const type = text(value.type, 'table').toLowerCase();
@@ -295,10 +310,17 @@ export function parseBase(raw: string): BaseDefinition {
   const views = Array.isArray(root.views)
     ? root.views.map(view).filter((item): item is BaseViewDefinition => item !== null)
     : [];
+  const summaries = Array.isArray(root.summaries)
+    ? root.summaries.flatMap((entry) => {
+      const item = summary(entry);
+      return item ? [item] : [];
+    })
+    : [];
   return {
     raw,
     filters: filter(root.filters),
     views: views.length > 0 ? views : [{ type: 'table', name: 'Table', order: ['file.name'] }],
+    summaries,
     propertyLabels,
     unsupportedKeys: Object.keys(root).filter((key) => !SUPPORTED_TOP_LEVEL.has(key)),
   };

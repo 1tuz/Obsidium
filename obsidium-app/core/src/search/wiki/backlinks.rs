@@ -15,6 +15,26 @@ pub fn backlinks(
     root: &Path,
     document: &Path,
 ) -> Result<Vec<Backlink>, SearchError> {
+    Ok(backlink_rows(connection, root, document, LINK_LIST_LIMIT)?
+        .into_iter()
+        .map(|(path, offset)| Backlink {
+            title: Path::new(&path)
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default()
+                .to_owned(),
+            path,
+            offset: offset.max(0) as usize,
+        })
+        .collect())
+}
+
+pub fn backlink_rows(
+    connection: &Connection,
+    root: &Path,
+    document: &Path,
+    limit: usize,
+) -> Result<Vec<(String, i64)>, SearchError> {
     let title = title_key(document);
     let relative = relative_key(root, document);
     let candidates = select_candidates(connection, &title)?;
@@ -28,7 +48,7 @@ pub fn backlinks(
     let mut cursor_path = String::new();
     let mut cursor_offset = -1;
     let mut items = Vec::new();
-    while items.len() < LINK_LIST_LIMIT {
+    while items.len() < limit {
         let rows = query_batch(
             &mut statement,
             &title,
@@ -47,16 +67,8 @@ pub fn backlinks(
             {
                 continue;
             }
-            items.push(Backlink {
-                path: source,
-                title: source_path
-                    .file_stem()
-                    .and_then(|value| value.to_str())
-                    .unwrap_or_default()
-                    .to_owned(),
-                offset: offset_utf16.max(0) as usize,
-            });
-            if items.len() == LINK_LIST_LIMIT {
+            items.push((source, offset_utf16.max(0)));
+            if items.len() == limit {
                 break;
             }
         }
