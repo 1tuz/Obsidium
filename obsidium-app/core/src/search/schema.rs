@@ -14,6 +14,7 @@ pub fn build() -> Schema {
     builder.add_text_field("tags", text_options(Store::Always));
     builder.add_text_field("body", text_options(Store::Never));
     builder.add_text_field("headings", text_options(Store::Never));
+    builder.add_text_field("block_ids", text_options(Store::Never));
     builder.build()
 }
 
@@ -52,6 +53,7 @@ pub fn fields(schema: &Schema) -> Result<SearchFields, SearchError> {
         tags: field(schema, "tags")?,
         body: field(schema, "body")?,
         headings: field(schema, "headings")?,
+        block_ids: field(schema, "block_ids")?,
     })
 }
 

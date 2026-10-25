@@ -16,6 +16,7 @@ pub struct SearchFields {
     pub tags: Field,
     pub body: Field,
     pub headings: Field,
+    pub block_ids: Field,
 }
 
 pub struct SearchIndex {

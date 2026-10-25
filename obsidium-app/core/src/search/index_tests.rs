@@ -65,6 +65,7 @@ fn indexed_tagged(documents: &[(&str, &str, &str, &str)]) -> (tempfile::TempDir,
                 index.fields.tags => *tags,
                 index.fields.body => *body,
                 index.fields.headings => super::index_document::headings_text(*body),
+                index.fields.block_ids => super::index_document::block_ids_text(*body),
             ))
             .unwrap();
     }
@@ -269,4 +270,45 @@ fn an_empty_section_filter_narrows_nothing() {
     let results = index.search_defaults("section: план", 10).unwrap().1;
     assert_eq!(results.len(), 2);
     assert!(index.search_defaults("section:", 10).unwrap().1.is_empty());
+}
+
+#[test]
+fn a_block_filter_finds_the_note_with_that_paragraph_id() {
+    let (_directory, index) = indexed(&[
+        (
+            "notes/Диаграмма.md",
+            "Диаграмма",
+            "Описание.\n\nСхема потока ^diagram\n",
+        ),
+        ("notes/План.md", "План", "Описание без якоря.\n"),
+    ]);
+
+    let results = index.search_defaults("block:diagram", 10).unwrap().1;
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].title, "Диаграмма");
+}
+
+#[test]
+fn two_block_filters_intersect_and_an_empty_one_narrows_nothing() {
+    let (_directory, index) = indexed(&[
+        ("notes/Оба.md", "Оба", "Первый ^one\n\nВторой ^two\n"),
+        ("notes/Один.md", "Один", "Первый ^one\n"),
+    ]);
+
+    let results = index.search_defaults("block:one block:two", 10).unwrap().1;
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].title, "Оба");
+    assert_eq!(index.search_defaults("block:", 10).unwrap().1.len(), 0);
+}
+
+#[test]
+fn a_block_id_inside_code_is_not_indexed() {
+    let (_directory, index) = indexed(&[
+        ("notes/Код.md", "Код", "```\nтекст ^diagram\n```\n"),
+        ("notes/Текст.md", "Текст", "Абзац ^diagram\n"),
+    ]);
+
+    let results = index.search_defaults("block:diagram", 10).unwrap().1;
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].title, "Текст");
 }

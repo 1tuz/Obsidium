@@ -13,7 +13,7 @@ fn tokens(text: &str) -> Vec<String> {
 
 #[test]
 fn index_version_tracks_text_and_link_parsing() {
-    assert_eq!(ANALYZER_VERSION, 16);
+    assert_eq!(ANALYZER_VERSION, 17);
 }
 
 #[test]

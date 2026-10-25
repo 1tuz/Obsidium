@@ -1,3 +1,4 @@
+use super::blocks;
 use super::created::{self, CreatedAt, CreatedSource};
 use super::error::SearchError;
 use super::fields;
@@ -185,6 +186,7 @@ fn update_document(
         index.fields.tags => tags_text(body),
         index.fields.body => body,
         index.fields.headings => headings_text(body),
+        index.fields.block_ids => block_ids_text(body),
     ))?;
     Ok(())
 }
@@ -207,6 +209,14 @@ pub(crate) fn headings_text(body: &str) -> String {
     headings::headings(body)
         .into_iter()
         .map(|heading| heading.title)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub(crate) fn block_ids_text(body: &str) -> String {
+    blocks::block_ids(body)
+        .into_iter()
+        .map(|block| block.id)
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -273,6 +283,16 @@ mod tests {
             "Риски План"
         );
         assert_eq!(super::headings_text("без заголовков"), "");
+    }
+
+    #[test]
+    fn block_ids_become_one_searchable_line_without_the_marker() {
+        assert_eq!(
+            super::block_ids_text("Первый ^one\n\nВторой\nабзац ^two-2\n"),
+            "one two-2"
+        );
+        assert_eq!(super::block_ids_text("без блоков"), "");
+        assert_eq!(super::block_ids_text("```\n^fenced\n```\n"), "");
     }
 
     #[test]

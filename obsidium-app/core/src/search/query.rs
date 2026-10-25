@@ -25,6 +25,7 @@ pub struct Filters {
     pub folders: Vec<String>,
     pub extensions: Vec<String>,
     pub sections: Vec<String>,
+    pub blocks: Vec<String>,
 }
 
 impl Default for Filters {
@@ -35,6 +36,7 @@ impl Default for Filters {
             folders: Vec::new(),
             extensions: Vec::new(),
             sections: Vec::new(),
+            blocks: Vec::new(),
         }
     }
 }
@@ -79,9 +81,9 @@ pub fn search(
     Ok((terms, results))
 }
 
-/// Splits `tag:`, `title:`, `folder:`, `ext:` and `section:` prefixes from the free text.
-/// An unknown prefix stays part of the text: a typo in a filter must not empty the result set.
-/// A known prefix with an empty value is dropped, so a bare `section:` narrows nothing.
+/// Splits `tag:`, `title:`, `folder:`, `ext:`, `section:` and `block:` prefixes from the free
+/// text. An unknown prefix stays part of the text: a typo in a filter must not empty the result
+/// set. A known prefix with an empty value is dropped, so a bare `section:` narrows nothing.
 pub fn parse_query(input: &str) -> ParsedQuery {
     let mut filters = Filters::default();
     let mut text = Vec::new();
@@ -118,6 +120,7 @@ fn filter_bucket<'a>(filters: &'a mut Filters, kind: &str) -> Option<&'a mut Vec
         "folder" => Some(&mut filters.folders),
         "ext" => Some(&mut filters.extensions),
         "section" => Some(&mut filters.sections),
+        "block" => Some(&mut filters.blocks),
         _ => None,
     }
 }
@@ -128,6 +131,7 @@ struct AnalyzedFilters {
     folders: Vec<String>,
     extensions: Vec<String>,
     sections: Vec<String>,
+    blocks: Vec<String>,
 }
 
 fn analyzed_filters(filters: &Filters) -> AnalyzedFilters {
@@ -137,6 +141,7 @@ fn analyzed_filters(filters: &Filters) -> AnalyzedFilters {
         folders: analyze_all(&filters.folders),
         extensions: analyze_all(&filters.extensions),
         sections: analyze_all(&filters.sections),
+        blocks: analyze_all(&filters.blocks),
     }
 }
 
@@ -147,6 +152,7 @@ impl AnalyzedFilters {
             && self.folders.is_empty()
             && self.extensions.is_empty()
             && self.sections.is_empty()
+            && self.blocks.is_empty()
     }
 }
 
@@ -236,6 +242,7 @@ fn combined_query(
         (index.fields.path, &filters.folders),
         (index.fields.path, &filters.extensions),
         (index.fields.headings, &filters.sections),
+        (index.fields.block_ids, &filters.blocks),
     ] {
         for value in values {
             required.push((
@@ -332,6 +339,20 @@ mod tests {
     fn a_quoted_section_keeps_its_spaces() {
         let parsed = parse_query("section:\"план работ\" отчёт");
         assert_eq!(parsed.filters.sections, ["план работ"]);
+        assert_eq!(parsed.text, "отчёт");
+    }
+
+    #[test]
+    fn a_block_prefix_becomes_a_filter_and_an_empty_one_is_dropped() {
+        let parsed = parse_query("block:diagram block: план");
+        assert_eq!(parsed.filters.blocks, ["diagram"]);
+        assert_eq!(parsed.text, "план");
+    }
+
+    #[test]
+    fn a_quoted_block_keeps_its_spaces() {
+        let parsed = parse_query("block:\"two words\" отчёт");
+        assert_eq!(parsed.filters.blocks, ["two words"]);
         assert_eq!(parsed.text, "отчёт");
     }
 }
