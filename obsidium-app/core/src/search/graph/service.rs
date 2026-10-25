@@ -14,13 +14,13 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 struct GraphSource {
     root: PathBuf,
     generation: u64,
     revision: u64,
-    metadata_path: PathBuf,
+    metadata: Arc<Mutex<Connection>>,
 }
 
 #[derive(Default)]
@@ -123,7 +123,7 @@ fn validate_layout_options(options: Options) -> Result<(), SearchError> {
 impl SearchService {
     pub fn graph_timeline_range(&self, workspace: &str) -> Result<TimelineRange, SearchError> {
         let source = self.graph_source(workspace)?;
-        let connection = Connection::open(&source.metadata_path)?;
+        let connection = source.metadata.lock().map_err(SearchError::task)?;
         timeline::range(&connection)
     }
 
@@ -134,7 +134,7 @@ impl SearchService {
         limit: usize,
     ) -> Result<Vec<TimelineEvent>, SearchError> {
         let source = self.graph_source(workspace)?;
-        let connection = Connection::open(&source.metadata_path)?;
+        let connection = source.metadata.lock().map_err(SearchError::task)?;
         timeline::events(&connection, after, limit)
     }
 
@@ -147,7 +147,7 @@ impl SearchService {
         validate_layout_options(options)?;
         let _building = self.render_lock.lock().map_err(SearchError::task)?;
         let source = self.graph_source(workspace)?;
-        let connection = Connection::open(&source.metadata_path)?;
+        let connection = source.metadata.lock().map_err(SearchError::task)?;
         let range = timeline::range(&connection)?;
         if event_id < range.baseline_event || event_id > range.latest_event {
             return Err(SearchError::InvalidWorkspace {
@@ -162,6 +162,8 @@ impl SearchService {
             &cached_positions,
             options,
         )?;
+        let timeline_rescan_epoch = timeline::rescan_epoch(&connection)?;
+        drop(connection);
         let epoch = self.next_render_epoch.fetch_add(1, Ordering::Relaxed) + 1;
         let bytes = Arc::new(encode(&snapshot, epoch));
         let newest = modified_newest(&snapshot.modified_days);
@@ -182,7 +184,7 @@ impl SearchService {
             paths,
             bytes: Arc::clone(&bytes),
             timeline_cursor: event_id,
-            timeline_rescan_epoch: timeline::rescan_epoch(&connection)?,
+            timeline_rescan_epoch,
             model: None,
             path_indices: HashMap::new(),
             modified_newest: newest,
@@ -216,7 +218,7 @@ impl SearchService {
         if let Some(ready) = self.cached_render_graph(&source, &layout_key)? {
             return Ok(ready);
         }
-        let mut connection = Connection::open(&source.metadata_path)?;
+        let mut connection = source.metadata.lock().map_err(SearchError::task)?;
         let cached_positions = load_layout_coordinates(&connection, options)?;
         let timeline_rescan_epoch = timeline::rescan_epoch(&connection)?;
         let mut cache = self.render_graph.write().map_err(SearchError::task)?;
@@ -269,6 +271,7 @@ impl SearchService {
             (snapshot, Some(model), cursor)
         };
         save_new_layout_coordinates(&mut connection, &snapshot, options)?;
+        drop(connection);
         let epoch = self.next_render_epoch.fetch_add(1, Ordering::Relaxed) + 1;
         let bytes = Arc::new(encode(&snapshot, epoch));
         let (edge_slots, edge_masks, edge_slot_indices, edge_count) = edge_slot_state(&snapshot);
@@ -345,7 +348,7 @@ impl SearchService {
         validate_layout_options(options)?;
         let _building = self.render_lock.lock().map_err(SearchError::task)?;
         let source = self.graph_source(workspace)?;
-        let connection = Connection::open(&source.metadata_path)?;
+        let connection = source.metadata.lock().map_err(SearchError::task)?;
         let rescan_epoch = timeline::rescan_epoch(&connection)?;
         let mut cache = self.render_graph.write().map_err(SearchError::task)?;
         let Some(cached) = cache.as_mut().filter(|cached| {
@@ -366,6 +369,7 @@ impl SearchService {
         let Some(changes) = timeline::changes_after(&connection, cached.timeline_cursor)? else {
             return Ok(None);
         };
+        drop(connection);
         let revision_count = source.revision - cached.model_revision;
         if usize::try_from(revision_count).ok() != Some(changes.len()) {
             return Ok(None);
@@ -484,7 +488,7 @@ impl SearchService {
         validate_layout_options(options)?;
         let _building = self.render_lock.lock().map_err(SearchError::task)?;
         let source = self.graph_source(workspace)?;
-        let connection = Connection::open(&source.metadata_path)?;
+        let connection = source.metadata.lock().map_err(SearchError::task)?;
         let rescan_epoch = timeline::rescan_epoch(&connection)?;
         let mut cache = self.render_graph.write().map_err(SearchError::task)?;
         let Some(cached) = cache.as_mut().filter(|cached| {
@@ -882,8 +886,9 @@ impl SearchService {
                 })
                 .collect::<Result<Vec<_>, _>>()?
         };
-        let mut connection = Connection::open(&source.metadata_path)?;
+        let mut connection = source.metadata.lock().map_err(SearchError::task)?;
         persist_graph_positions(&mut connection, &paths, updates, options)?;
+        drop(connection);
         let mut cache = self.render_graph.write().map_err(SearchError::task)?;
         let cached = cache
             .as_mut()
@@ -934,7 +939,7 @@ impl SearchService {
         } else {
             Some(format!("{}/", identity(&source.root.join(relative_folder))))
         };
-        let connection = Connection::open(&source.metadata_path)?;
+        let connection = source.metadata.lock().map_err(SearchError::task)?;
         let allowed = metadata_paths(&connection, &filter)?;
         Ok(graph_indices(
             &paths,
@@ -970,7 +975,7 @@ impl SearchService {
             root: active.root.clone(),
             generation: active.generation,
             revision: status.revision,
-            metadata_path: active.metadata_path.clone(),
+            metadata: Arc::clone(&active.metadata),
         })
     }
 
@@ -1829,6 +1834,59 @@ mod tests {
         let modified = SystemTime::now() + Duration::from_secs(seconds);
         file.set_times(std::fs::FileTimes::new().set_modified(modified))
             .unwrap();
+    }
+
+    #[test]
+    fn graph_reads_share_the_active_metadata_connection_after_a_write() {
+        let (_directory, root, service, progress) = open_live_graph();
+        let root_text = root.to_string_lossy().into_owned();
+        let active_metadata =
+            Arc::clone(&service.active.read().unwrap().as_ref().unwrap().metadata);
+        let source = service.graph_source(&root_text).unwrap();
+        assert!(
+            Arc::ptr_eq(&source.metadata, &active_metadata),
+            "граф берёт соединение активного индекса, а не открывает своё"
+        );
+
+        let options = Options::default();
+        service.render_graph(&root_text, options).unwrap();
+        let before = service.graph_timeline_range(&root_text).unwrap();
+        let base_revision = progress.snapshot().revision;
+
+        let note = root.join("Second.md");
+        std::fs::write(&note, "[[First]] linked second").unwrap();
+        set_modified_after(&note, 3);
+        service.notify_content_path(note);
+        wait_for_revision(&progress, base_revision);
+
+        let after = service.graph_timeline_range(&root_text).unwrap();
+        assert!(
+            after.latest_event > before.latest_event,
+            "запись таймлайна видна общему соединению"
+        );
+        let events = service
+            .graph_timeline_events(&root_text, before.latest_event, 8)
+            .unwrap();
+        assert_eq!(
+            events.last().map(|event| event.event_id),
+            Some(after.latest_event),
+            "чтение после записи отдаёт новое событие"
+        );
+        assert_eq!(
+            service
+                .graph_timeline_range(&root_text)
+                .unwrap()
+                .latest_event,
+            after.latest_event,
+            "повторное чтение тем же соединением не упирается в замок"
+        );
+        assert!(
+            !service
+                .render_graph(&root_text, options)
+                .unwrap()
+                .is_empty(),
+            "снимок после записи строится через то же соединение"
+        );
     }
 
     fn set_modified_before(path: &Path, seconds: u64) {

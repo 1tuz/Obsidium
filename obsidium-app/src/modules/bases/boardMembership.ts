@@ -32,7 +32,7 @@ function unsupported(reason: string): BoardMembership {
 
 export function boardMembership(definition: BaseDefinition, viewIndex: number): BoardMembership {
   const view = definition.views[viewIndex];
-  if (!view || (view.type !== 'kanban' && view.type !== 'calendar')) {
+  if (!view || (view.type !== 'kanban' && view.type !== 'calendar' && view.type !== 'timeline')) {
     return unsupported('Selected view has no board membership.');
   }
   const isKanban = view.type === 'kanban';

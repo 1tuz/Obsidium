@@ -10,7 +10,7 @@ import { boardMembership, type BoardMembership } from './boardMembership';
 export interface KanbanBoardView {
   index: number;
   name: string;
-  type: 'kanban' | 'calendar';
+  type: 'kanban' | 'calendar' | 'timeline';
   membership: BoardMembership;
 }
 
@@ -116,7 +116,7 @@ export async function scanKanbanBoards(
     if (cached?.hash === snapshot.hash) return cached.board;
     const definition = parseBase(snapshot.content);
     const views = definition.views.flatMap((view, index): KanbanBoardView[] => (
-      view.type === 'kanban' || view.type === 'calendar'
+      view.type === 'kanban' || view.type === 'calendar' || view.type === 'timeline'
         ? [{ index, name: view.name, type: view.type, membership: boardMembership(definition, index) }]
         : []
     ));

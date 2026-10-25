@@ -28,6 +28,8 @@ const VIEW_KEYS: Record<string, true> = {
   name: true,
   limit: true,
   dateField: true,
+  startField: true,
+  endField: true,
   order: true,
   filters: true,
   groupBy: true,
@@ -321,12 +323,16 @@ function view(value: YamlValue, index: number): BaseViewDefinition | null {
     ? Math.max(1, Math.floor(value.limit))
     : undefined;
   const dateField = text(value.dateField) || undefined;
+  const startField = text(value.startField) || undefined;
+  const endField = text(value.endField) || undefined;
   const definition: BaseViewDefinition = {
     type,
     name: text(value.name, `${type || 'view'} ${index + 1}`),
     order,
     limit,
     dateField,
+    startField,
+    endField,
     filters: filter(value.filters),
     groupBy: groupBy(value.groupBy),
     groupOrder,
@@ -347,10 +353,12 @@ export function parseBase(raw: string): BaseDefinition {
   const root = isObject(document) ? document : {};
   const properties = isObject(root.properties) ? root.properties : {};
   const propertyLabels: Record<string, string> = {};
+  const relationProperties: string[] = [];
   for (const [key, definition] of Object.entries(properties)) {
     if (!isObject(definition)) continue;
     const label = text(definition.displayName);
     if (label) propertyLabels[key] = label;
+    if (text(definition.type).trim().toLowerCase() === 'relation') relationProperties.push(key);
   }
   const views = Array.isArray(root.views)
     ? root.views.map(view).filter((item): item is BaseViewDefinition => item !== null)
@@ -379,6 +387,7 @@ export function parseBase(raw: string): BaseDefinition {
     views: views.length > 0 ? views : [{ type: 'table', name: 'Table', order: ['file.name'] }],
     summaries,
     propertyLabels,
+    relationProperties,
     formulas,
     unsupportedKeys: Object.keys(root)
       .filter((key) => SUPPORTED_TOP_LEVEL[key] !== true)
@@ -389,6 +398,34 @@ export function parseBase(raw: string): BaseDefinition {
 
 function isYamlObject(value: BaseYamlValue | undefined): value is Record<string, BaseYamlValue> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function setRelationProperties(
+  definition: BaseDefinition,
+  keys: readonly string[],
+): void {
+  const wanted = new Set(keys);
+  const properties: Record<string, BaseYamlValue> = isYamlObject(definition.extra.properties)
+    ? { ...definition.extra.properties }
+    : {};
+  const known = new Set([...Object.keys(properties), ...definition.relationProperties]);
+  for (const key of known) {
+    const entry = properties[key];
+    if (wanted.has(key)) {
+      properties[key] = isYamlObject(entry) ? { ...entry, type: 'relation' } : { type: 'relation' };
+      continue;
+    }
+    if (!isYamlObject(entry) || text(entry.type).toLowerCase() !== 'relation') continue;
+    const remaining: Record<string, BaseYamlValue> = {};
+    for (const [name, value] of Object.entries(entry)) {
+      if (name !== 'type') remaining[name] = value;
+    }
+    if (Object.keys(remaining).length > 0) properties[key] = remaining;
+    else delete properties[key];
+  }
+  if (Object.keys(properties).length > 0) definition.extra.properties = properties;
+  else delete definition.extra.properties;
+  definition.relationProperties = [...wanted].sort();
 }
 
 function plainText(value: string): string {
@@ -532,6 +569,8 @@ function viewValue(view: BaseViewDefinition): BaseYamlValue {
   result.type = view.type;
   result.name = view.name;
   if (view.dateField) result.dateField = view.dateField;
+  if (view.startField) result.startField = view.startField;
+  if (view.endField) result.endField = view.endField;
   if (view.limit !== undefined) result.limit = view.limit;
   if (view.order.length > 0) result.order = [...view.order];
   if (view.filters !== undefined) result.filters = filterValue(view.filters);

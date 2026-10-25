@@ -64,6 +64,11 @@ impl IndexSynchronizer {
         })
     }
 
+    #[cfg(test)]
+    pub fn connection(&self) -> &Connection {
+        &self.connection
+    }
+
     pub fn plan(&self) -> Result<ScanPlan, SearchError> {
         let state = metadata::read_state(&self.connection)?;
         if !state.clean_shutdown
@@ -95,6 +100,10 @@ impl IndexSynchronizer {
         self.progress.begin_scan();
         let mut known = metadata::load(&self.connection)?;
         let force_reindex = known.len() as u64 != self.index.document_count();
+        let relations_changed = super::graph::timeline::sync_relation_fields(
+            &self.connection,
+            &super::graph::model::declared_relation_fields(&self.root),
+        )?;
         let mut transaction = self.connection.transaction()?;
         super::graph::timeline::mark_rescan(&transaction)?;
         let mut pending = 0;
@@ -186,6 +195,16 @@ impl IndexSynchronizer {
             &mut timeline_paths,
             &mut graph_changed,
         )?;
+        if relations_changed {
+            let mut statement =
+                transaction.prepare("SELECT path FROM wiki_documents ORDER BY path")?;
+            let paths = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            drop(statement);
+            timeline_paths.extend(paths);
+            graph_changed = true;
+        }
         if !timeline_paths.is_empty() {
             super::graph::timeline::record_changes(&transaction, &timeline_paths)?;
         }
@@ -547,12 +566,11 @@ mod tests {
         assert!(!synchronizer.holds_writer(), "открытие не создаёт писателя");
 
         synchronizer.full_scan(&cancelled).unwrap();
-        let timeline_connection = rusqlite::Connection::open(&metadata_path).unwrap();
         assert_eq!(
-            super::super::graph::timeline::rescan_epoch(&timeline_connection).unwrap(),
+            super::super::graph::timeline::rescan_epoch(synchronizer.connection()).unwrap(),
             1
         );
-        let initial_latest = super::super::graph::timeline::range(&timeline_connection)
+        let initial_latest = super::super::graph::timeline::range(synchronizer.connection())
             .unwrap()
             .latest_event;
         assert!(initial_latest > 0, "индексация заметки записала дельту");
@@ -571,7 +589,7 @@ mod tests {
 
         synchronizer.full_scan(&cancelled).unwrap();
         assert_eq!(
-            super::super::graph::timeline::rescan_epoch(&timeline_connection).unwrap(),
+            super::super::graph::timeline::rescan_epoch(synchronizer.connection()).unwrap(),
             2
         );
         assert!(
@@ -579,7 +597,7 @@ mod tests {
             "неизменённая база писателя не создаёт"
         );
         assert_eq!(
-            super::super::graph::timeline::range(&timeline_connection)
+            super::super::graph::timeline::range(synchronizer.connection())
                 .unwrap()
                 .latest_event,
             initial_latest,
@@ -602,7 +620,7 @@ mod tests {
             "правка видна поиску сразу"
         );
         assert!(
-            super::super::graph::timeline::range(&timeline_connection)
+            super::super::graph::timeline::range(synchronizer.connection())
                 .unwrap()
                 .latest_event
                 > initial_latest,

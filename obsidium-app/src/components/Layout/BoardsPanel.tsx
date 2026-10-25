@@ -94,7 +94,7 @@ function FolderTree({
                 title={board.path}
                 onClick={() => onOpenView(board.path, view.index)}
               >
-                <Icon icon={view.type === 'calendar' ? CalendarDays : Columns3} />
+                <Icon icon={view.type === 'calendar' ? CalendarDays : view.type === 'timeline' ? 'timeline' : Columns3} />
                 <span>{view.name}</span>
               </button>
               {index === 0 ? (

@@ -23,6 +23,8 @@ export interface BaseViewDefinition {
   name: string;
   limit?: number;
   dateField?: string;
+  startField?: string;
+  endField?: string;
   order: string[];
   filters?: BaseFilter;
   groupBy?: BaseGroupBy;
@@ -45,6 +47,7 @@ export interface BaseDefinition {
   views: BaseViewDefinition[];
   summaries: BaseSummary[];
   propertyLabels: Record<string, string>;
+  relationProperties: string[];
   formulas: Record<string, string>;
   unsupportedKeys: string[];
   extra: Record<string, BaseYamlValue>;

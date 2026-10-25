@@ -3,6 +3,7 @@ export * from './boards';
 export * from './boardMembership';
 export * from './boardTree';
 export * from './calendar';
+export * from './timeline';
 export * from './properties';
 export * from './gateway';
 export * from './kanban';

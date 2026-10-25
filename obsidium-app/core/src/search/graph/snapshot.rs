@@ -5,7 +5,7 @@ use super::rank;
 use crate::search::error::SearchError;
 use crate::search::wiki;
 use rusqlite::Connection;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 
 const NANOS_PER_DAY: f64 = 86_400_000_000_000.0;
@@ -238,9 +238,9 @@ fn append_structural_edges(
     identity_of_path: &HashMap<&str, u32>,
     directed: &mut Vec<(u32, u32, u32)>,
 ) -> Result<(), SearchError> {
+    let declared = crate::search::graph::timeline::relation_fields(connection)?;
     let mut statement = connection.prepare(
         "SELECT path, key_lower, text, items FROM note_fields
-         WHERE key_lower IN ('parent', 'related', 'depends_on', 'blocks')
          ORDER BY path, ordinal",
     )?;
     let rows = statement.query_map([], |row| {
@@ -294,7 +294,10 @@ fn append_structural_edges(
             if source_index == target_index {
                 continue;
             }
-            let mask = structural_type_mask(&field);
+            let mask = structural_type_mask(&field, &declared);
+            if mask == 0 {
+                continue;
+            }
             directed.push((source_index, target_index, mask));
             if field == "related" {
                 directed.push((target_index, source_index, mask));
@@ -322,12 +325,13 @@ fn structural_target(value: &str) -> String {
         .to_owned()
 }
 
-fn structural_type_mask(field: &str) -> u32 {
+fn structural_type_mask(field: &str, declared: &BTreeSet<String>) -> u32 {
     match field {
         "parent" => 4,
         "related" => 8,
         "depends_on" => 16,
         "blocks" => 32,
+        other if declared.contains(other) => crate::search::graph::model::RELATION_TYPE,
         _ => 0,
     }
 }
@@ -446,6 +450,7 @@ mod tests {
             .expect("documents table");
         wiki::open_schema(&connection).expect("wiki schema");
         fields::open_schema(&connection).expect("fields schema");
+        crate::search::graph::timeline::open_schema(&connection).expect("timeline schema");
         let transaction = connection.transaction().expect("transaction");
         for (name, body) in [
             ("Hub", "[[Leaf]] and [[Other]]"),
@@ -669,6 +674,7 @@ mod tests {
             .expect("documents table");
         wiki::open_schema(&connection).expect("wiki schema");
         fields::open_schema(&connection).expect("fields schema");
+        crate::search::graph::timeline::open_schema(&connection).expect("timeline schema");
 
         let snapshot = RenderSnapshot::build(&connection, Path::new("C:/vault")).expect("snapshot");
 
