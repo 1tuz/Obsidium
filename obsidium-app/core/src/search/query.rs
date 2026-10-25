@@ -24,6 +24,7 @@ pub struct Filters {
     pub titles: Vec<String>,
     pub folders: Vec<String>,
     pub extensions: Vec<String>,
+    pub sections: Vec<String>,
 }
 
 impl Default for Filters {
@@ -33,6 +34,7 @@ impl Default for Filters {
             titles: Vec::new(),
             folders: Vec::new(),
             extensions: Vec::new(),
+            sections: Vec::new(),
         }
     }
 }
@@ -77,35 +79,46 @@ pub fn search(
     Ok((terms, results))
 }
 
-/// Splits `tag:`, `title:`, `folder:` and `ext:` prefixes from the free text.
+/// Splits `tag:`, `title:`, `folder:`, `ext:` and `section:` prefixes from the free text.
 /// An unknown prefix stays part of the text: a typo in a filter must not empty the result set.
+/// A known prefix with an empty value is dropped, so a bare `section:` narrows nothing.
 pub fn parse_query(input: &str) -> ParsedQuery {
     let mut filters = Filters::default();
     let mut text = Vec::new();
     for token in tokens(input) {
-        let (kind, value) = match token.split_once(':') {
-            Some((kind, value)) => (kind.to_lowercase(), value),
-            None => (String::new(), ""),
-        };
-        let value = value.trim_matches('"').trim_start_matches('.');
-        if !value.is_empty() {
-            let bucket = match kind.as_str() {
-                "tag" => Some(&mut filters.tags),
-                "title" => Some(&mut filters.titles),
-                "folder" => Some(&mut filters.folders),
-                "ext" => Some(&mut filters.extensions),
-                _ => None,
-            };
-            if let Some(bucket) = bucket {
-                bucket.push(value.to_owned());
-                continue;
+        let consumed = match token.split_once(':') {
+            Some((kind, value)) => {
+                let value = value.trim_matches('"').trim_start_matches('.');
+                match filter_bucket(&mut filters, kind) {
+                    Some(bucket) => {
+                        if !value.is_empty() {
+                            bucket.push(value.to_owned());
+                        }
+                        true
+                    }
+                    None => false,
+                }
             }
+            None => false,
+        };
+        if !consumed {
+            text.push(token);
         }
-        text.push(token);
     }
     ParsedQuery {
         text: text.join(" "),
         filters,
+    }
+}
+
+fn filter_bucket<'a>(filters: &'a mut Filters, kind: &str) -> Option<&'a mut Vec<String>> {
+    match kind.to_lowercase().as_str() {
+        "tag" => Some(&mut filters.tags),
+        "title" => Some(&mut filters.titles),
+        "folder" => Some(&mut filters.folders),
+        "ext" => Some(&mut filters.extensions),
+        "section" => Some(&mut filters.sections),
+        _ => None,
     }
 }
 
@@ -114,6 +127,7 @@ struct AnalyzedFilters {
     titles: Vec<String>,
     folders: Vec<String>,
     extensions: Vec<String>,
+    sections: Vec<String>,
 }
 
 fn analyzed_filters(filters: &Filters) -> AnalyzedFilters {
@@ -122,6 +136,7 @@ fn analyzed_filters(filters: &Filters) -> AnalyzedFilters {
         titles: analyze_all(&filters.titles),
         folders: analyze_all(&filters.folders),
         extensions: analyze_all(&filters.extensions),
+        sections: analyze_all(&filters.sections),
     }
 }
 
@@ -131,6 +146,7 @@ impl AnalyzedFilters {
             && self.titles.is_empty()
             && self.folders.is_empty()
             && self.extensions.is_empty()
+            && self.sections.is_empty()
     }
 }
 
@@ -219,6 +235,7 @@ fn combined_query(
         (index.fields.title, &filters.titles),
         (index.fields.path, &filters.folders),
         (index.fields.path, &filters.extensions),
+        (index.fields.headings, &filters.sections),
     ] {
         for value in values {
             required.push((
@@ -302,5 +319,19 @@ mod tests {
             synonym_variants(&велосипед[0], &groups),
             [велосипед[0].clone()]
         );
+    }
+
+    #[test]
+    fn a_section_prefix_becomes_a_filter_and_an_empty_one_is_dropped() {
+        let parsed = parse_query("section:Риски section: план");
+        assert_eq!(parsed.filters.sections, ["Риски"]);
+        assert_eq!(parsed.text, "план");
+    }
+
+    #[test]
+    fn a_quoted_section_keeps_its_spaces() {
+        let parsed = parse_query("section:\"план работ\" отчёт");
+        assert_eq!(parsed.filters.sections, ["план работ"]);
+        assert_eq!(parsed.text, "отчёт");
     }
 }

@@ -1,6 +1,7 @@
 use super::created::{self, CreatedAt, CreatedSource};
 use super::error::SearchError;
 use super::fields;
+use super::headings;
 use super::index::SearchIndex;
 use super::metadata::{self, FileState, Fingerprint, PathKey};
 use super::paths::relative_slash_path;
@@ -183,6 +184,7 @@ fn update_document(
         index.fields.title => title,
         index.fields.tags => tags_text(body),
         index.fields.body => body,
+        index.fields.headings => headings_text(body),
     ))?;
     Ok(())
 }
@@ -199,6 +201,14 @@ fn tags_text(body: &str) -> String {
             }
         })
         .unwrap_or_default()
+}
+
+pub(crate) fn headings_text(body: &str) -> String {
+    headings::headings(body)
+        .into_iter()
+        .map(|heading| heading.title)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn upsert(
@@ -254,6 +264,15 @@ mod tests {
             nanos,
             source: CreatedSource::Frontmatter,
         }
+    }
+
+    #[test]
+    fn heading_titles_become_one_searchable_line() {
+        assert_eq!(
+            super::headings_text("# Риски\n\nтекст\n\n## План\n\nещё\n"),
+            "Риски План"
+        );
+        assert_eq!(super::headings_text("без заголовков"), "");
     }
 
     #[test]

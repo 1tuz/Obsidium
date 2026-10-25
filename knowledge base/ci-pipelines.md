@@ -1,6 +1,6 @@
 # Конвейеры GitHub Actions
 
-Статус: актуально на 2026-10-22. Здесь только то, что нельзя понять из YAML: почему проверки
+Статус: актуально на 2026-10-25. Здесь только то, что нельзя понять из YAML: почему проверки
 разделены именно так и что делать, когда задание покраснело.
 
 ## Связанные документы
@@ -8,13 +8,13 @@
 - [[cross-platform-build]] — сборка приложения под три платформы.
 - [[release-and-updates]] — теги, публикация, автообновление.
 - [[build-artifacts-separation]] — почему сборки лежат в `.artifacts/`.
-- [[search-lexical]] — что именно меряет job `performance`.
+- [[search-lexical]] — что именно меряют джобы `performance`.
 
 ## Пять workflow и их зоны ответственности
 
 | Файл | Когда запускается | Что делает |
 | --- | --- | --- |
-| `ci.yml` | push в любую ветку кроме `main`, `workflow_dispatch` | Роутинг по изменённым файлам, статический анализ, `tsc`, связанные тесты, `cargo test` изменённых крейтов, автомерж ветки владельца |
+| `ci.yml` | push в любую ветку кроме `main`, `workflow_dispatch` | Роутинг по изменённым файлам, статический анализ, `tsc`, связанные тесты, `cargo test` изменённых крейтов, бенчмарки ядра с порогом регрессии, автомерж ветки владельца |
 | `nightly-tests.yml` | Расписание `23:00 UTC`, `workflow_dispatch` | Полный `npm test`, сборка фронта, `cargo test --workspace`, тесты установщиков, бюджет производительности, компиляция под macOS и Windows |
 | `release.yml` | push тега `v*`, `workflow_dispatch` (только существующий тег) | Preflight-проверки, сборка Windows/macOS/Ubuntu, подпись обновлений, публикация релиза |
 | `build-macos-app.yml` | `workflow_dispatch` | Быстрый артефакт `.app` для проверки без релиза |
@@ -54,6 +54,7 @@
 | `frontend_related` | изменённые `.ts/.tsx/.js/.jsx` | `scripts/run-related-vitest.mjs` — только связанные тесты |
 | `frontend_full` | манифест, конфиги Vite/TS, CSS/JSON, `src/styles/**` | полный `npm test` |
 | `rust_core` / `rust_app` / `rust_cli` | соответствующие каталоги | `cargo test -p <крейт>` |
+| `rust_core_bench` | `obsidium-app/core/**`, `Cargo.lock`, `scripts/bench/**`, сам `ci.yml` | job `performance`: бенчмарки ядра на 1000 заметках и сравнение с базой |
 | `rust_workspace` | `Cargo.toml`, toolchain, cargo config | `cargo test --workspace` |
 | `rust_lock` | `obsidium-app/src-tauri/Cargo.lock` | `cargo metadata --locked` без компиляции |
 | `workflow` | `.github/**`, скрипты роутинга | проверка YAML (строгий парсер, ловит дубли ключей), `actionlint`, тесты роутинга |
@@ -87,6 +88,85 @@ packages» сначала смотрит diff против `main` по трём 
 проверяется: это ловит ночной `cargo test --workspace` и job `compile`. Компромисс сознательный —
 цена ошибки ограничена сутками до ночного прогона, а цена прежнего поведения платилась на каждом
 релизе.
+
+## Что добавлено 25.10.2026: job `performance` в `ci.yml`
+
+До этого производительность проверялась только ночью: регрессию в ядре можно было внести утром и
+узнать о ней через сутки. Теперь каждый push, затронувший `obsidium-app/core/**` (а также
+`Cargo.lock`, `scripts/bench/**` и сам `ci.yml` — флаг `rust_core_bench`), запускает отдельный джоб
+`Performance gate`:
+
+1. `cargo test --release -p obsidium-core --lib benchmark_indexing -- --ignored --nocapture`;
+2. то же для `benchmark_search_pipeline`;
+3. оба — с `OBSIDIUM_BENCH_SIZES=1000`.
+
+`quality` при этом не удлиняется: джоб висит на своём раннере, использует `Swatinem/rust-cache` с
+ключом `performance` и запускает ровно те два бенчмарка, которых нет в обычном `cargo test` (они
+`#[ignore]`). Ночной `performance` остаётся: он меряет 1000 и 10000 заметок и держит грубый потолок
+`OBSIDIUM_BENCH_BUDGET_MS`, а дневной джоб сравнивает с записанной базой.
+
+Джоб добавлен в `needs` автомержа: PR не сольётся, пока не отработал порог регрессии. Если ядро не
+тронуто, джоб пропускается (`run=false`) и автомержу не мешает.
+
+### Что попадает в summary
+
+`obsidium-app/scripts/bench/summarize.mjs --format=summary` печатает Markdown-таблицы индексации и
+поиска, ниже — блок со строками `BENCH-` из журнала прогона. Артефакты не загружаются: числа и
+строки видны в summary и в журнале шага, а бинарные артефакты прогона хранить незачем. Тот же
+скрипт с `--format=readme` печатает таблицу для README (её и держат в корне репозитория).
+
+### Порог регрессии
+
+База лежит в `obsidium-app/scripts/bench/baseline.json`:
+
+| Поле | Смысл |
+| --- | --- |
+| `ratio` | допустимое превышение базы (1.5) |
+| `updated` | дата последней ручной правки |
+| `sizes.<N>.<bench>.<metric>` | записанное значение показателя для N заметок |
+
+`obsidium-app/scripts/bench/check-regression.mjs` берёт последнюю строку на каждый размер,
+умножает базу на `ratio` и падает, если замер больше предела. Сообщение называет бенчмарк, размер,
+показатель, базу и предел:
+
+```
+benchmark_search_pipeline at 1000 notes: `search_us` = 41000, baseline 8000, limit 12000 (1.5x).
+```
+
+Размеры, которых нет в базе, только упоминаются в summary. Размеры из базы, которых не было в
+прогоне, джоб не валят — поэтому один файл базы годится и для дневного прогона на 1000, и для
+ночного на 10000.
+
+База записана с запасом в 2–4 раза относительно локального замера на Apple Silicon: shared-раннер
+медленнее и шумнее, а порог должен ловить структурную регрессию (лишний проход по индексу, снятые
+позиции, тяжёлый анализ заметки), а не разброс соседей по железу. После первого зелёного прогона в
+CI базу стоит затянуть фактическими числами раннера по тому же порядку, что описан ниже.
+
+### Как обновить базу
+
+1. Дождаться зелёного `Performance gate` на нужной ревизии или прогнать локально
+   `SIZES=1000 obsidium-app/scripts/bench/run-all.sh`.
+2. Взять из таблицы summary (`Cold, ms`, `Search (median), ms`, `BM25F warm, ms`) значения для
+   нужных размеров.
+3. Записать в `baseline.json` округлённые вверх числа, не меняя `ratio`, и обновить `updated`.
+4. Проверить локально:
+   `node obsidium-app/scripts/bench/check-regression.mjs --baseline=obsidium-app/scripts/bench/baseline.json .artifacts/benchmarks/indexing.log .artifacts/benchmarks/search_pipeline.log`
+   — должно напечататься `Performance gate passed`. Скрипт берёт последнюю строку на каждый
+   размер, поэтому сравнивать нужно со свежим прогоном, а не со старым журналом.
+
+База лежит в репозитории, поэтому её правка видна в диффе PR: поднятая база без объяснения в
+описании PR считается попыткой обойти проверку. Понижать базу (ужесточать) можно тем же порядком.
+
+### Как проверить сам порог
+
+```sh
+printf 'BENCH-SEARCH documents=1000 initial_scan_ms=320 search_us=41000 repeated_search_median_us=38000 bm25f_warm_us=44000\n' > /tmp/fake.log
+node obsidium-app/scripts/bench/check-regression.mjs \
+  --baseline=obsidium-app/scripts/bench/baseline.json /tmp/fake.log
+```
+
+Скрипт печатает таблицу с колонкой `Result` и выходит с кодом 1, называя каждый превышенный
+показатель. Тот же файл можно подать в `summarize.mjs`, чтобы увидеть, как выглядит summary.
 
 ## Что добавлено 22.10.2026
 

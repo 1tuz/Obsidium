@@ -64,6 +64,7 @@ fn indexed_tagged(documents: &[(&str, &str, &str, &str)]) -> (tempfile::TempDir,
                 index.fields.title => *title,
                 index.fields.tags => *tags,
                 index.fields.body => *body,
+                index.fields.headings => super::index_document::headings_text(*body),
             ))
             .unwrap();
     }
@@ -179,4 +180,93 @@ fn a_multi_word_query_ranks_partial_matches_instead_of_returning_nothing() {
         Some("Ощущение камеры"),
         "фрагмент подписан разделом, в котором нашлось совпадение"
     );
+}
+
+#[test]
+fn a_yo_word_is_found_by_a_ye_query_and_back() {
+    let (_directory, index) = indexed(&[(
+        "notes/Ёлка.md",
+        "Ёлка",
+        "# Ёлка\n\nЗелёная ёлка стоит в углу.\n",
+    )]);
+
+    assert_eq!(
+        index.search_defaults("елка", 10).unwrap().1.len(),
+        1,
+        "запрос с `е` находит заметку с `ё`"
+    );
+    assert_eq!(
+        index.search_defaults("ёлка", 10).unwrap().1.len(),
+        1,
+        "запрос с `ё` находит заметку с `ё`"
+    );
+
+    let (_directory, index) = indexed(&[(
+        "notes/Елка.md",
+        "Елка",
+        "# Елка\n\nПушистая елка стоит дома.\n",
+    )]);
+
+    assert_eq!(
+        index.search_defaults("ёлка", 10).unwrap().1.len(),
+        1,
+        "запрос с `ё` находит заметку с `е`"
+    );
+    assert_eq!(index.search_defaults("елка", 10).unwrap().1.len(), 1);
+}
+
+#[test]
+fn a_section_filter_narrows_results_to_notes_with_that_heading() {
+    let (_directory, index) = indexed(&[
+        (
+            "notes/Риски.md",
+            "Риски",
+            "# Риски\n\nПлан работ на квартал.\n",
+        ),
+        ("notes/План.md", "План", "# План\n\nБез рисков.\n"),
+    ]);
+
+    let (_terms, results) = index.search_defaults("section:Риски план", 10).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].title, "Риски");
+}
+
+#[test]
+fn a_section_filter_alone_is_case_insensitive() {
+    let (_directory, index) = indexed(&[
+        ("notes/Риски.md", "Риски", "# Риски\n\nТекст.\n"),
+        ("notes/Итоги.md", "Итоги", "# Итоги\n\nТекст.\n"),
+    ]);
+
+    let results = index.search_defaults("section:риски", 10).unwrap().1;
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].title, "Риски");
+}
+
+#[test]
+fn two_section_filters_intersect() {
+    let (_directory, index) = indexed(&[
+        ("notes/Риски.md", "Риски", "# Риски\n\nТекст.\n"),
+        ("notes/План.md", "План", "# Риски\n\n## План\n\nТекст.\n"),
+        ("notes/Итоги.md", "Итоги", "# План\n\nТекст.\n"),
+    ]);
+
+    let results = index
+        .search_defaults("section:Риски section:План", 10)
+        .unwrap()
+        .1;
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].title, "План");
+}
+
+#[test]
+fn an_empty_section_filter_narrows_nothing() {
+    let (_directory, index) = indexed(&[
+        ("notes/Риски.md", "Риски", "# Риски\n\nплан\n"),
+        ("notes/Прочее.md", "Прочее", "# Прочее\n\nплан\n"),
+    ]);
+
+    let results = index.search_defaults("section: план", 10).unwrap().1;
+    assert_eq!(results.len(), 2);
+    assert!(index.search_defaults("section:", 10).unwrap().1.is_empty());
 }
