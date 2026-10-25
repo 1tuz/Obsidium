@@ -203,6 +203,7 @@ pub fn run() {
             search::commands::suggest_notes,
             search::commands::get_note_fields,
             search::commands::get_base_rows,
+            search::commands::get_calendar_events,
             search::commands::query_base,
             search::commands::run_dataview_query,
             search::commands::update_task_status,

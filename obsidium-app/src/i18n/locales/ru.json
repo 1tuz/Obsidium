@@ -640,6 +640,9 @@
     "calendarAdd": "Создать заметку на {{date}}",
     "calendarJournal": "Открыть дневную заметку за {{date}}",
     "calendarUndated": "Без даты: {{count}}",
+    "calendarEvents": "Показать события за {{date}}: {{count}}",
+    "calendarEventsTitle": "События {{date}}",
+    "calendarEventsClose": "Закрыть события",
     "kanbanNotWritable": "Нельзя изменить значение колонки этой карточки.",
     "kanbanExcluded": "Эта колонка исключена фильтром доски."
   },

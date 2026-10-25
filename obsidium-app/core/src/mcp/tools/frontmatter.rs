@@ -121,7 +121,9 @@ fn field_updates(arguments: &Value) -> Result<Vec<(String, FieldValue)>, String>
     updates_from(fields)
 }
 
-fn updates_from(fields: &Map<String, Value>) -> Result<Vec<(String, FieldValue)>, String> {
+pub(super) fn updates_from(
+    fields: &Map<String, Value>,
+) -> Result<Vec<(String, FieldValue)>, String> {
     if fields.is_empty() {
         return Err("Список полей пуст: нечего менять".to_owned());
     }

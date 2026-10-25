@@ -32,6 +32,15 @@ pub fn civil_date(value: &str) -> Option<(i64, i64, i64)> {
     Some(civil_from_days(civil_day(date)?))
 }
 
+pub fn clock(value: &str) -> Option<(i64, i64)> {
+    let text = value
+        .split(['T', ' ', 't'])
+        .filter(|part| !part.is_empty())
+        .nth(1)?;
+    let seconds = time_of_day(text)?;
+    Some((seconds / 3600, seconds % 3600 / 60))
+}
+
 fn civil_day(text: &str) -> Option<i64> {
     let separator = text
         .chars()
@@ -253,6 +262,14 @@ mod tests {
         assert!(parse("07-10-24").is_none());
         assert!(parse("вчера").is_none());
         assert!(parse("").is_none());
+    }
+
+    #[test]
+    fn a_clock_is_read_from_a_date_or_a_date_with_time() {
+        assert_eq!(super::clock("2024-10-07 17:17"), Some((17, 17)));
+        assert_eq!(super::clock("2024-10-07T09:05"), Some((9, 5)));
+        assert_eq!(super::clock("2024-10-07"), None);
+        assert_eq!(super::clock("2024-10-07 99:99"), None);
     }
 
     #[test]

@@ -42,7 +42,7 @@ interface BaseViewProps {
   indexReady: boolean;
   indexRevision: number;
   journalSettings?: JournalSettings | null;
-  onOpenNote: (path: string) => void;
+  onOpenNote: (path: string, offset?: number) => void;
   onFileRenamed?: (oldPath: string, newPath: string) => void;
   onFileDeleted?: (path: string) => void;
   viewRequest?: { path: string; index: number; id: number } | null;
@@ -420,7 +420,9 @@ export function BaseView({
             view={view}
             workspacePath={workspacePath}
             journalDays={journalDays}
+            indexRevision={indexRevision}
             onOpen={onOpenNote}
+            onOpenEvent={(path, offset) => onOpenNote(path, offset)}
             onOpenJournal={(date) => void openJournalNote(date)}
             onCreateDay={createCalendarCard}
             onCreateError={reportCalendarError}
