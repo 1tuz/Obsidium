@@ -20,6 +20,7 @@ import {
   kanbanWritableProperty,
   parseBase,
   queryBase,
+  serializeBase,
   type BaseDefinition,
   type BaseEvaluation,
   type BaseFieldValue,
@@ -27,7 +28,6 @@ import {
   type BaseSort,
   type BaseViewDefinition,
 } from '../../modules/bases';
-import { appendBaseView } from '../../modules/bases/baseFormat';
 import { calendarDate } from '../../modules/bases/calendar';
 import { journalDates, journalNotePath } from '../../modules/journal';
 import type { JournalSettings } from '../../modules/settings';
@@ -66,11 +66,13 @@ function propertyLabel(definition: BaseDefinition, property: string): string {
   const key = property.startsWith('note.') ? property.slice('note.'.length) : property;
   return definition.propertyLabels[property]
     ?? definition.propertyLabels[key]
-    ?? key.replace(/^formula\./, '');
+    ?? key.replace(/^(?:formula|summary)\./, '');
 }
 
 function editableKey(property: string): string | null {
-  if (property.startsWith('file.') || property.startsWith('formula.')) return null;
+  if (property.startsWith('file.') || property.startsWith('formula.') || property.startsWith('summary.')) {
+    return null;
+  }
   return property.startsWith('note.') ? property.slice('note.'.length) : property;
 }
 
@@ -334,16 +336,18 @@ export function BaseView({
   const addView = async (type: string) => {
     const snapshot = await readFileSnapshot(path);
     const dateField = type === 'calendar' ? detectDateProperty(rows, workspacePath) : undefined;
-    const next = appendBaseView(snapshot.content, {
+    const definition = parseBase(snapshot.content);
+    definition.views.push({
       type,
       name: t(`bases.viewName.${type}`),
-      dateField,
+      order: [],
+      ...(dateField ? { dateField } : {}),
     });
-    if (next === snapshot.content) return;
+    const next = serializeBase(definition);
     await writeFileAtomic(path, next, snapshot.hash);
-    const definition = parseBase(next);
-    setLoaded((current) => current ? { ...current, definition } : current);
-    const index = definition.views.length - 1;
+    const parsed = parseBase(next);
+    setLoaded((current) => current ? { ...current, definition: parsed } : current);
+    const index = parsed.views.length - 1;
     selectionRevision.current += 1;
     selectedPath.current = path;
     setActiveView(index);
@@ -406,6 +410,14 @@ export function BaseView({
       {unsupported && (
         <p className="q-base-view__notice">{t('bases.unsupported')}</p>
       )}
+
+      {evaluation?.errors.map((error) => (
+        <p
+          key={`${error.formula}\u0000${error.message}`}
+          className="q-base-view__notice q-base-view__error"
+          role="alert"
+        >{`formula.${error.formula}: ${error.message}`}</p>
+      ))}
 
       {actionError && (
         <p className="q-base-view__notice q-base-view__error" role="alert">{actionError}</p>

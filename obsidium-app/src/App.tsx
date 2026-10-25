@@ -4,7 +4,7 @@ import { TextFilePane } from "./components/Editor/TextFilePane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { PaneLayoutView } from "./components/Layout/PaneLayoutView";
 import { WindowControls } from "./components/Layout/WindowControls";
-import { Sidebar } from "./components/Layout/Sidebar";
+import { Sidebar, type SpacesControls } from "./components/Layout/Sidebar";
 import { SidebarRail } from "./components/Layout/SidebarRail";
 import { PanelResizer } from "./components/Layout/PanelResizer";
 import { UpdateSplash } from "./components/Common/UpdateSplash";
@@ -19,6 +19,7 @@ import { WorkspaceDialog } from "./components/Workspace/WorkspaceDialog";
 import { GalleryDialog } from "./components/Gallery/GalleryDialog";
 import { BacklinksPanel } from "./components/Backlinks/BacklinksPanel";
 import { useWorkspace } from "./hooks/useWorkspace";
+import { useSpaces } from "./hooks/useSpaces";
 import { useTabs } from "./hooks/useTabs";
 import { useNavigationHistory } from "./hooks/useNavigationHistory";
 import { useLiveTabs } from "./hooks/useLiveTabs";
@@ -81,6 +82,9 @@ const CanvasView = lazy(() => import("./components/Canvas/CanvasView")
 const PdfViewer = lazy(() => import("./components/Pdf/PdfViewer")
   .then((module) => ({ default: module.PdfViewer })));
 
+const EMPTY_PATHS: ReadonlySet<string> = new Set();
+const noDirectoryLoad = (): Promise<boolean> => Promise.resolve(true);
+
 export default function App() {
   const search = useOverlay();
   const commandPalette = useOverlay();
@@ -135,6 +139,31 @@ export default function App() {
     loadDirectory,
     patchFileInTree,
   } = useWorkspace();
+  const {
+    spaces: availableSpaces,
+    activeSpaceId,
+    directories: spaceDirectories,
+    files: spaceFiles,
+    selectSpace,
+    saveSpace,
+    deleteSpace,
+  } = useSpaces(workspacePath);
+  const filteredSpace = spaceDirectories !== null;
+  const sidebarFiles = filteredSpace ? spaceFiles ?? [] : files;
+  const sidebarDirectories = filteredSpace ? spaceDirectories : directories;
+  const sidebarLoadingDirectories = filteredSpace ? EMPTY_PATHS : loadingDirectories;
+  const sidebarLoadDirectory = filteredSpace ? noDirectoryLoad : loadDirectory;
+  const spaces = useMemo<SpacesControls>(() => ({
+    spaces: availableSpaces,
+    activeSpaceId,
+    onSelect: selectSpace,
+    onSave: async (space) => {
+      await saveSpace(space);
+    },
+    onDelete: async (id) => {
+      await deleteSpace(id);
+    },
+  }), [activeSpaceId, availableSpaces, deleteSpace, saveSpace, selectSpace]);
   const {
     ensureReady: ensureLinksReady,
     ready: linkIndexReady,
@@ -246,6 +275,7 @@ export default function App() {
       disposition?: LinkDisposition;
       record?: boolean;
       paneId?: string;
+      textMode?: boolean;
     },
   ) => {
     const {
@@ -253,8 +283,10 @@ export default function App() {
       disposition = 'current',
       record = true,
       paneId,
+      textMode,
     } = options ?? {};
-    if (offset === undefined && activeFile === path && paneId === undefined) return;
+    if (offset === undefined && activeFile === path && paneId === undefined
+      && (textMode === true) === (activeTab?.textMode === true)) return;
     const isNote = isMarkdownPath(path);
     if (isNote) beginOpenTrace(path);
     if (record) {
@@ -265,8 +297,12 @@ export default function App() {
       const nonce = crypto.randomUUID();
       setSearchReveal({ path, paneId: paneId ?? activePaneId, offset, nonce });
     }
-    activateFile(path, { disposition, paneId });
-  }, [activateFile, activeFile, activePaneId, push]);
+    activateFile(path, { disposition, paneId, textMode });
+  }, [activateFile, activeFile, activePaneId, activeTab?.textMode, push]);
+
+  const openAsText = useCallback((path: string) => {
+    openNote(path, { textMode: true });
+  }, [openNote]);
 
   const createNewCanvas = useCallback(async () => {
     if (!workspacePath) return;
@@ -684,6 +720,10 @@ export default function App() {
     targetsFor: tabTargets,
     onPatchFileInTree: patchFileInTree,
   });
+  const tabActions = useMemo(
+    () => ({ ...tabFileOps.rowActions, openAsText }),
+    [openAsText, tabFileOps.rowActions],
+  );
   useNoteRelocation({ renamed: handleFileRenamed, deleted: closeTab });
 
   useActiveNoteReport(activeFile && isMarkdownPath(activeFile) ? activeFile : null);
@@ -699,8 +739,8 @@ export default function App() {
     const paneActiveTab = paneTabs.find((tab) => tab.tabId === pane.activeTabId) ?? paneTabs[0] ?? null;
     const graphTab = paneTabs.find((tab) => tab.kind === 'graph') ?? null;
     const graphActive = graphTab?.tabId === paneActiveTab?.tabId;
-    const activeBasePath = paneActiveTab?.kind === 'document' && isBasePath(paneActiveTab.path)
-      ? paneActiveTab.path : null;
+    const activeBasePath = paneActiveTab?.kind === 'document' && !paneActiveTab.textMode
+      && isBasePath(paneActiveTab.path) ? paneActiveTab.path : null;
     const activeCanvasPath = paneActiveTab?.kind === 'document' && isCanvasPath(paneActiveTab.path)
       ? paneActiveTab.path : null;
     const activePdfPath = paneActiveTab?.kind === 'document' && isPdfPath(paneActiveTab.path)
@@ -721,7 +761,7 @@ export default function App() {
           onReorder={(from, to) => reorderTabs(from, to, paneId)}
           onMoveTab={moveTab}
           renamingPath={tabFileOps.renamingPath}
-          tabActions={tabFileOps.rowActions}
+          tabActions={tabActions}
           onSelect={(path, tabId) => {
             if (!tabId) return;
             const tab = paneTabs.find((item) => item.tabId === tabId);
@@ -820,6 +860,14 @@ export default function App() {
                         onOpenNoteLink={(link, sourcePath) => openCanvasNote(link, paneId, tab.path, sourcePath).catch(() => undefined)}
                       />
                     </Suspense>
+                  ) : isBasePath(tab.path) ? (
+                    tab.textMode ? (
+                      <TextFilePane
+                        key={`${tab.tabId}:${tab.path}`}
+                        path={tab.path}
+                        inactive={tab.tabId !== paneActiveTab?.tabId}
+                      />
+                    ) : null
                   ) : isTextFilePath(tab.path) && !isMarkdownPath(tab.path) ? (
                     <TextFilePane
                       key={`${tab.tabId}:${tab.path}`}
@@ -892,14 +940,14 @@ export default function App() {
         />
         <Sidebar
           activeFile={activeFile}
-          files={files}
-          directories={directories}
-          loadingDirectories={loadingDirectories}
+          files={sidebarFiles}
+          directories={sidebarDirectories}
+          loadingDirectories={sidebarLoadingDirectories}
           workspacePath={workspacePath}
           workspaceName={workspaceName}
           onFileSelect={openNote}
           onCreateNote={() => commandRegistry.execute('note.new').then(() => undefined)}
-          onLoadDirectory={loadDirectory}
+          onLoadDirectory={sidebarLoadDirectory}
           isOpen={leftSidebarVisible}
           onOpenSettings={() => { void commandRegistry.execute('view.settings'); }}
           onOpenWorkspaces={() => { void commandRegistry.execute('workspace.switch'); }}
@@ -907,12 +955,14 @@ export default function App() {
           onPatchFileInTree={patchFileInTree}
           panel={sidebarPanel}
           onOpenBaseView={openBaseView}
+          onOpenAsText={openAsText}
           onBoardRenamed={handleFileRenamed}
           boardActionRequest={boardActionRequest}
           onBoardActionRequestComplete={() => setBoardActionRequest(null)}
           createBoardRequest={createBoardRequest}
           onAddToBoard={kanbanEnabled ? (path) => requestBoardAction(path, 'add') : undefined}
           onRemoveFromBoard={kanbanEnabled ? removeNoteFromBoard : undefined}
+          spaces={spaces}
         />
         {leftSidebarVisible && (
           <PanelResizer

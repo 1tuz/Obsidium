@@ -40,6 +40,8 @@
     "embeddedBlockUnavailable": "Block “{{blockId}}” was not found",
     "embeddedNoteEmpty": "The note is empty",
     "embeddedNoteCycle": "A note cannot embed itself",
+    "embeddedEditHint": "Click to edit the section",
+    "embeddedRangeChanged": "Text around the section changed outside — editing from the embed is disabled",
     "focusMode": "Focus mode",
     "noteActions": "Note actions",
     "formatting": {
@@ -131,7 +133,10 @@
     "open": "open",
     "newPane": "new pane",
     "create": "create",
-    "matchedTag": "Matched tag",
+    "addTermHint": "Add this word to the query",
+    "addTagHint": "Add this tag to the query",
+    "addTermToQuery": "Add to the query: {{term}}",
+    "addTagToQuery": "Filter by tag: {{tag}}",
     "matches": {
       "one": "{{count}} match",
       "other": "{{count}} matches"
@@ -216,6 +221,7 @@
     "settings": "Settings",
     "rename": "Rename",
     "duplicate": "Duplicate",
+    "openAsText": "Open as text",
     "openFolder": "Open folder",
     "copy": "Copy",
     "paste": "Paste",
@@ -538,7 +544,8 @@
       "pageSearchWindow": "Find in note",
       "reader": "Reader",
       "nextPage": "Next page",
-      "previousPage": "Previous page"
+      "previousPage": "Previous page",
+      "bookmark": "Bookmark the page"
     },
     "numberValue": "Numeric value"
   },
@@ -743,7 +750,15 @@
     "fontSize": "Font size",
     "lineHeight": "Line height",
     "columnWidth": "Column width, characters",
-    "columnWidthAria": "Column width"
+    "columnWidthAria": "Column width",
+    "contents": "Contents",
+    "toc": "Table of contents",
+    "noContents": "This book has no table of contents",
+    "bookmarks": "Bookmarks",
+    "noBookmarks": "No bookmarks yet",
+    "addBookmark": "Bookmark this page",
+    "removeBookmark": "Remove bookmark",
+    "panelClose": "Close the contents panel"
   },
   "graph": {
     "settings": "Graph settings",
@@ -1133,5 +1148,26 @@
     "next": "Next image",
     "closeViewer": "Close the image",
     "position": "{{current}} of {{total}}"
+  },
+  "spaces": {
+    "switcher": "Knowledge space",
+    "manage": "Manage spaces",
+    "dialogTitle": "Spaces",
+    "createTitle": "New space",
+    "editTitle": "Space settings",
+    "name": "Name",
+    "namePlaceholder": "For example, Work",
+    "root": "Folder",
+    "rootWholeVault": "Whole knowledge base",
+    "includeTags": "Tags",
+    "includeTagsPlaceholder": "project, reading",
+    "excludeFolders": "Excluded folders",
+    "excludeFoldersPlaceholder": "archive, drafts",
+    "save": "Save",
+    "edit": "Edit space",
+    "delete": "Delete space",
+    "deleteTitle": "Delete the space?",
+    "deleteDescription": "“{{name}}” disappears from the list of spaces. The notes stay in the knowledge base.",
+    "newSpace": "Create a space"
   }
 }

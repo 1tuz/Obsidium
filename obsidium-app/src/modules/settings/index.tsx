@@ -8,6 +8,7 @@ import { setFilesFolder } from '../docs/vaultFiles';
 import { pxToRem } from '../scaling';
 import { fontStack, IA_WRITER_QUATTRO, knownFont, type FontFamily } from '../../fonts/catalog';
 import type { GraphPreferences, GraphPresets } from '../../components/Graph/graphDisplay';
+import type { Space } from '../spaces';
 
 export interface FontSettings {
   fontFamily: FontFamily;
@@ -181,6 +182,7 @@ export interface AppConfig {
     preferences: GraphPreferences | null;
     presets: GraphPresets | null;
   };
+  spaces?: { spaces: Space[] };
 }
 
 interface SettingsContextValue {

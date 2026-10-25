@@ -92,6 +92,34 @@ describe('tabsReducer', () => {
     expect(next.activeTabId).toBe('result-tab');
   });
 
+  it('keeps one tab per path and mode while switching a base file to text mode', () => {
+    const state: TabsState = {
+      tabs: [{ tabId: 'one', documentId: null, kind: 'document', paneId: 'main', path: 'board.base' }],
+      activeTabId: 'one', layout: pane('main', 'one'),
+    };
+
+    const asText = tabsReducer(state, {
+      type: 'open-file', path: 'board.base', tabId: 'unused', textMode: true,
+    });
+    expect(asText.tabs).toHaveLength(1);
+    expect(asText.tabs[0]).toEqual(expect.objectContaining({
+      tabId: 'one', path: 'board.base', textMode: true,
+    }));
+    expect(asText.activeTabId).toBe('one');
+
+    const repeated = tabsReducer(asText, {
+      type: 'open-file', path: 'board.base', tabId: 'other', textMode: true,
+    });
+    expect(repeated.tabs).toHaveLength(1);
+    expect(repeated.tabs[0]).toBe(asText.tabs[0]);
+    expect(repeated.activeTabId).toBe('one');
+
+    const plain = tabsReducer(repeated, { type: 'open-file', path: 'board.base', tabId: 'third' });
+    expect(plain.tabs).toHaveLength(1);
+    expect(plain.tabs[0].tabId).toBe('one');
+    expect(plain.tabs[0].textMode).toBeUndefined();
+  });
+
   it('keeps the identity source when a pending document is renamed', () => {
     const state: TabsState = {
       tabs: [{ tabId: 'one', documentId: null, kind: 'document', paneId: 'main', path: 'old.md' }],

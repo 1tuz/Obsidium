@@ -7,7 +7,9 @@ import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom'
 const state = vi.hoisted(() => ({
   savedView: 0,
   loadDeferred: null as Promise<number> | null,
-  rows: [] as { path: string; fields: Record<string, string> }[],
+  rows: [] as { path: string; fields: Record<string, string | number> }[],
+  errors: [] as { formula: string; path: string; message: string }[],
+  columns: [] as string[],
   baseContent: null as string | null,
   journalDates: [] as string[],
 }));
@@ -48,8 +50,9 @@ vi.mock('../../modules/bases/gateway', () => ({
   queryBase: vi.fn(async () => ({
     rows: state.rows,
     groups: [{ label: null, start: 0, end: state.rows.length }],
-    columns: ['file.name'],
+    columns: state.columns.length > 0 ? state.columns : ['file.name'],
     unsupported: false,
+    errors: state.errors,
   })),
 }));
 
@@ -108,6 +111,8 @@ describe('BaseView view selection', () => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
     state.rows = [];
+    state.errors = [];
+    state.columns = [];
     state.baseContent = null;
     state.journalDates = [];
   });
@@ -214,11 +219,40 @@ describe('BaseView view selection', () => {
 
     expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
       '/vault/Project.base',
-      expect.stringContaining('type: "calendar"'),
+      expect.stringContaining('type: calendar'),
       'hash',
     );
-    expect(vi.mocked(writeFileAtomic).mock.calls[0][1]).toContain('dateField: "due"');
+    const written = vi.mocked(writeFileAtomic).mock.calls[0][1];
+    expect(written.split('type: calendar')).toHaveLength(3);
+    expect(written.split('dateField: due')).toHaveLength(3);
+    expect(written.split('- type: ')).toHaveLength(6);
     expect(renderer!.container.querySelector('.q-base-calendar')).not.toBeNull();
+  });
+
+  it('renders a formula column and reports a broken formula', async () => {
+    state.baseContent = [
+      'formulas:',
+      '  risk: "priority"',
+      'views:',
+      '  - type: table',
+      '    name: Overview',
+      '    order: [file.name, "formula.risk"]',
+    ].join('\n');
+    state.rows = [{ path: '/vault/A.md', fields: { 'formula.risk': 1 } }];
+    state.columns = ['file.name', 'formula.risk'];
+    state.errors = [{ formula: 'risk', path: '/vault/A.md', message: 'Нет функции «nosuchfunction»' }];
+    const props = {
+      path: '/vault/Project.base', workspacePath: '/vault', indexReady: true, indexRevision: 0,
+      onOpenNote: vi.fn(),
+    };
+    act(() => { renderer = mountDom(<BaseView {...props} />); });
+    await actAndSettle();
+
+    expect([...renderer!.container.querySelectorAll('th button')].map((button) => button.textContent))
+      .toEqual(['Name', 'risk']);
+    expect([...renderer!.container.querySelectorAll('tbody td')][1]?.textContent).toBe('1');
+    expect(renderer!.container.querySelector('[role="alert"]')?.textContent)
+      .toBe('formula.risk: Нет функции «nosuchfunction»');
   });
 
   it('moves a kanban note to another value and saves that value', async () => {

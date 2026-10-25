@@ -43,20 +43,16 @@ export function noteEmbedOffset(content: string, heading: string | null): number
     lineStart += line.length + 1;
   }
   const expected = normalizeHeading(heading);
-  let fence: { marker: string; length: number } | null = null;
+  let fence: Fence | null = null;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]!;
-    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
-    if (fence) {
-      if (marker?.[1]?.[0] === fence.marker && marker[1].length >= fence.length) fence = null;
+    const step = fenceStep(fence, line);
+    if (step !== undefined) {
+      fence = step;
       continue;
     }
-    if (marker) {
-      fence = { marker: marker[1]![0]!, length: marker[1]!.length };
-      continue;
-    }
-    const match = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
-    if (match && normalizeHeading(match[2]!) === expected) return lineOffsets[index]!;
+    const parsed = parseHeadingLine(line);
+    if (parsed && normalizeHeading(parsed.title) === expected) return lineOffsets[index]!;
   }
   return null;
 }
@@ -66,34 +62,47 @@ export function noteEmbedSection(content: string, heading: string | null, blockI
   if (blockId) return noteEmbedBlock(lines, blockId);
   if (!heading) return content;
   const expected = normalizeHeading(heading);
-  const start = lines.findIndex((line) => {
-    const match = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
-    return match && normalizeHeading(match[2]!) === expected;
-  });
+  let fence: Fence | null = null;
+  let start = -1;
+  let depth = 0;
+  for (let index = 0; index < lines.length && start < 0; index += 1) {
+    const step = fenceStep(fence, lines[index]!);
+    if (step !== undefined) {
+      fence = step;
+      continue;
+    }
+    const parsed = parseHeadingLine(lines[index]!);
+    if (parsed && normalizeHeading(parsed.title) === expected) {
+      start = index;
+      depth = parsed.depth;
+    }
+  }
   if (start < 0) return '';
-  const depth = lines[start]!.match(/^\s{0,3}(#+)/)![1]!.length;
   let end = start + 1;
+  fence = null;
   while (end < lines.length) {
-    const nextDepth = lines[end]!.match(/^\s{0,3}(#{1,6})\s/)?.[1]?.length;
-    if (nextDepth && nextDepth <= depth) break;
+    const step = fenceStep(fence, lines[end]!);
+    if (step !== undefined) {
+      fence = step;
+      end += 1;
+      continue;
+    }
+    const parsed = parseHeadingLine(lines[end]!);
+    if (parsed && parsed.depth <= depth) break;
     end += 1;
   }
   return lines.slice(start, end).join('\n');
 }
 
 function noteEmbedBlock(lines: string[], blockId: string): string {
-  let fence: { marker: string; length: number } | null = null;
+  let fence: Fence | null = null;
   let found = -1;
   let standalone = false;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]!;
-    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
-    if (fence) {
-      if (marker?.[1]?.[0] === fence.marker && marker[1].length >= fence.length) fence = null;
-      continue;
-    }
-    if (marker) {
-      fence = { marker: marker[1]![0]!, length: marker[1]!.length };
+    const step = fenceStep(fence, line);
+    if (step !== undefined) {
+      fence = step;
       continue;
     }
     if (new RegExp(`^\\s{0,3}\\^${escapeRegex(blockId)}\\s*$`).test(line)) {
@@ -122,6 +131,24 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function normalizeHeading(value: string): string {
+export interface Fence {
+  marker: string;
+  length: number;
+}
+
+export function fenceStep(fence: Fence | null, line: string): Fence | null | undefined {
+  const marker = line.match(/^ {0,3}(`{3,}|~{3,})/)?.[1];
+  if (!fence) return marker ? { marker: marker[0]!, length: marker.length } : undefined;
+  if (marker && marker[0] === fence.marker && marker.length >= fence.length) return null;
+  return fence;
+}
+
+export function parseHeadingLine(line: string): { depth: number; title: string } | null {
+  const match = line.match(/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+  if (!match) return null;
+  return { depth: match[1]!.length, title: match[2]! };
+}
+
+export function normalizeHeading(value: string): string {
   return value.replace(/[*_`~\[\]]/g, '').trim().toLocaleLowerCase();
 }

@@ -8,6 +8,7 @@ export const FM_BOOK_FILE = 'Путь к файлу';
 export const FM_READER_POSITION = 'reader_position';
 export const FM_READ_PERCENT = 'read_percent';
 export const FM_PAGE_COVER_POSITION = 'page_cover_position';
+export const FM_BOOKMARKS = 'bookmarks';
 
 const LEGACY_ALIASES: Record<string, readonly string[]> = {
   [FM_BOOK_COVER]: ['cover_url'],
@@ -32,6 +33,7 @@ export interface BookMetadata {
   [FM_PAGE_COVER_POSITION]?: string;
   [FM_READER_POSITION]?: string;
   [FM_READ_PERCENT]?: string;
+  [FM_BOOKMARKS]?: string | string[];
   [key: string]: string | string[] | undefined;
 }
 
@@ -94,7 +96,9 @@ export function parseFrontmatter(doc: string): { raw: string; body: string; data
   for (const line of body.split('\n')) {
     const { key, value: val } = splitFieldLine(line);
     if (!key || val === null) continue;
-    if (val.startsWith('[') && val.endsWith(']')) {
+    if (val.startsWith('[{')) {
+      data[key] = val;
+    } else if (val.startsWith('[') && val.endsWith(']')) {
       data[key] = val.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
     } else {
       let cleanVal = val;

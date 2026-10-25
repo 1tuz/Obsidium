@@ -14,9 +14,11 @@ Obsidium читает EPUB/MOBI/AZW3/FB2 из vault (`Files/…`), хранит 
 
 ```text
 obsidium-app/src/components/Reader/
-├── BookReader.tsx      overlay UI, selection → цитата
-├── BookReader.css      оверлей, панель, навигация, поповер настроек
+├── BookReader.tsx      overlay UI, selection → цитата, панель содержания
+├── BookReader.css      оверлей, панель содержания, навигация, поповер настроек
+├── ReaderPanel.tsx     выдвижная панель: оглавление и закладки
 ├── ReaderSettingsPopover.tsx  поповер «Настройки чтения» в шапке
+├── readerToc.ts        плоский список TOC из дерева foliate
 └── ReaderEngine.ts     обёртка foliate-js (vendor submodule)
 
 obsidium-app/src/components/Editor/hooks/
@@ -27,9 +29,10 @@ obsidium-app/src/modules/docs/
 ├── books.ts            import EPUB → Files/, pick dialog
 ├── bookProgress.ts     synthetic pages N/M (bytes / 1024)
 ├── bookQuotes.ts       obsidium-reader: ссылки и blockquote-цитаты; прежняя схема читается
+├── bookBookmarks.ts    закладки: разбор и запись FM bookmarks
 ├── readerState.ts      CFI в SQLite (debounce 400 ms)
 ├── bookPageRuntime.ts  in-memory bus для UI
-├── persistBookReaderMeta.ts  bus + FM pages / reader_position / read_percent
+├── persistBookReaderMeta.ts  bus + FM pages / reader_position / read_percent / bookmarks
 ├── vaultAssets.ts      Files/… → convertFileSrc / absolute path
 ├── frontmatter.ts      ключи FM, bookPageTemplate, resolveBookFields
 ├── docPath.ts          нормализация путей вкладка ↔ wiki
@@ -56,6 +59,7 @@ src-tauri/src/ui_state/reader.rs  SQLite reader_state
 | `Путь к файлу` (`book_file`) | ebook в `Files/` |
 | `reader_position` | CFI для кросс-ридер sync |
 | `read_percent` | 0–100 |
+| `bookmarks` | закладки: одна строка YAML-flow-массива объектов |
 
 Шаблон новой книги: `bookPageTemplate()` в `frontmatter.ts`.
 
@@ -120,15 +124,95 @@ highlight, **без** записи прогресса (`highlightCfi` → не �
 
 Подсветка цитат в книге и метки `[N]` строятся из текущего текста заметки (`bookQuotes.ts`): заметка — единственный источник правды о цитатах. Удалил цитату из заметки — исчезла и подсветка; отдельного хранилища цитат нет, чтобы ему не с чем было расходиться.
 
+## Оглавление
+
+Дерево глав берётся у самого foliate, а не разбирается заново из архива: `EPUB` заполняет
+`book.toc` из `nav` (EPUB 3) или `NCX` (EPUB 2), `MOBI` — из оглавления в разделе `landmarks`,
+`FB2` — из секций. Во время `view.open` foliate прогоняет это дерево через `TOCProgress`, и
+каждый пункт получает числовой `id`; тот же `id` приходит в `relocate` как `tocItem.id`.
+Отсюда две вещи, на которых держится подсветка текущей главы:
+
+- `ReaderEngine` после `view.open` кладёт `flattenToc(view.book.toc)` в `engine.toc` — плоский
+  список `{ id, label, href, depth }` в порядке обхода, с сохранением id foliate;
+- `relocate` отдаёт `tocId`, и `BookReader` подсвечивает пункт с этим id.
+
+Свой парсер навигации был бы третьей копией разбора EPUB и разошёлся бы с foliate в id, а id —
+единственное, что связывает пункт списка с текущей позицией.
+
+Пункт без `href` (разделитель, часть, иногда контейнер без файла) рисуется, но не кликается:
+`disabled` в списке и ранний выход в `goToToc`. Пункт с пустой подписью не показывается, его
+дети — показываются: подпись-разделитель без текста бесполезна, а вложенные главы терять нельзя.
+
+Панель (`ReaderPanel`) выдвигается справа поверх текста, открывается кнопкой в шапке, `Escape`
+закрывает её раньше поповера настроек и читалки. Клик по главе и по закладке закрывает панель и
+уходит на `engine.goToToc` / `engine.goTo`: держать панель открытой после перехода незачем, она
+закрывает собой страницу.
+
+## Закладки
+
+Закладка — это CFI позиции, подпись главы (label из TOC на момент постановки), необязательная
+заметка и время создания. Хранятся в frontmatter страницы книги одной строкой:
+
+```yaml
+bookmarks: [{"cfi":"epubcfi(/6/4!/4)","chapter":"Глава 1","createdAt":"2026-10-25T09:00:00.000Z"}]
+```
+
+Формат — YAML-flow-массив flow-объектов, потому что он остаётся валидным YAML для Obsidian и
+других редакторов, читается одной строкой штатным `parseFrontmatter` и не требует многометочного
+блока, который пришлось бы писать отдельным путём мимо `setFrontmatterField`. `parseFrontmatter`
+поэтому оставляет значение, начинающееся с `[{`, сырой строкой, а не режет его по запятым, как
+остальные `[a, b]`-списки.
+
+Правила, за которые отвечает `bookBookmarks.ts`:
+
+- `note` пишется только непустой; пустая заметка не занимает строку в объекте;
+- ключ один — `cfi`: повторная закладка на ту же позицию заменяет прежнюю, а не добавляет вторую;
+- битая запись не ломает список: невалидный JSON, не-массив, не-объект, отсутствующий или
+  не-`epubcfi(...)` CFI отбрасываются по одному, остальные закладки остаются;
+- удаление последней закладки убирает ключ из frontmatter целиком (`serializeBookmarks([]) === ''`,
+  а `setFrontmatterField` с пустым значением удаляет строку).
+
+Кнопка в шапке (иконка `bookmark`, горячая клавиша `Mod+B`) ставит закладку на текущую позицию и
+снимает её, если закладка на этой позиции уже есть; `aria-pressed` показывает состояние. Кнопка
+есть только когда у сессии есть `progressPagePath`: в режиме quote peek (клик по цитате) закладку
+некуда записать, и кнопка-пустышка там не нужна.
+
+Закладки пишутся тем же единственным путём, что и прогресс, — `persistBookReaderMeta` с полем
+`bookmarks`; отдельного хранилища закладок нет. Читалка читает их при открытии через
+`readBookmarks(progressPagePath)`, то есть с диска, а не из Yjs-снимка редактора: заметка может быть
+изменена другим устройством или агентом.
+
+## Прогресс
+
+Процент чтения — из тех же synthetic pages: `read_percent` в frontmatter и `reader_state` в SQLite
+уже существовали, новых полей прогресс не получил. В подвале читалки рядом с полосой показывается
+округлённый процент; позиция по-прежнему сохраняется через `resolveReaderOpenTarget` и
+`setReaderState`.
+
 ## CFI vs FM pages
 
 | Данные | Где | Зачем |
 |---|---|---|
 | `pages: N/M` | FM страницы книги | git, виджеты, человек |
 | CFI + current | SQLite `reader_state` | точная позиция при reopen |
+| `bookmarks` | FM страницы книги | git, другие устройства, Obsidian |
 | runtime `pages` | RAM `bookPageRuntime` | live UI без I/O |
 
 Не дублировать `pages` в теле callout и не хранить CFI в markdown.
+
+## Ограничения закладок и оглавления
+
+- **Закладка привязана к редакции файла.** CFI считается по структуре EPUB; если файл книги заменили
+  другой редакцией, закладка может указывать в пустоту. `engine.goTo` глушит такую ошибку
+  (`console.warn`), список остаётся на месте — закладка не исчезает и не роняет панель.
+- **Книга без навигации.** Если у файла нет ни `nav`, ни `NCX`, ни `landmarks` (часть самодельных
+  EPUB и часть MOBI), `book.toc` пуст: панель показывает «В книге нет оглавления», подсветка главы
+  не работает, закладки продолжают работать — им нужен только CFI.
+- **Подпись главы — снимок.** `chapter` записывается label'ом на момент постановки. Переименование
+  главы в новой редакции книги подпись не обновляет: обновление потребовало бы открывать книгу ради
+  правки frontmatter.
+- **Заметка к закладке только читается.** Формат и разбор её поддерживают, ввод в UI не сделан.
+- **Закладки в quote peek не ставятся** — у сессии нет `progressPagePath`, кнопка скрыта.
 
 ## Submodule foliate-js
 
@@ -159,12 +243,16 @@ CFI из другой редакции книги) и сбой `view.close()` п
 
 ## Инварианты
 
-1. Единственный write-path для FM `pages` / `reader_position` / `read_percent` — `persistBookReaderMeta`.
+1. Единственный write-path для FM `pages` / `reader_position` / `read_percent` / `bookmarks` —
+   `persistBookReaderMeta`.
 2. Чтение из callout на чужой заметке пишет прогресс на **страницу книги**, не в callout.
 3. Пути к открытым документам — через `comparablePath` из `modules/paths.ts` (slash + case на Windows).
 4. Hydrate виджета не должен затирать live `pages` и не считается полным без `book_file`
    (см. [[book-reader-sync]]).
-5. Quote peek не мутирует прогресс.
+5. Quote peek не мутирует прогресс и не пишет закладки.
+6. Оглавление и id глав берутся только у foliate (`book.toc`); свой разбор навигации запрещён —
+   иначе id разойдутся с `relocate` и подсветка главы перестанет попадать в пункт.
+7. Битая запись в `bookmarks` отбрасывается по одной; список закладок не может упасть целиком.
 
 ## Связанные документы
 

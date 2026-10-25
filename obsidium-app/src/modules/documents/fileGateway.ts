@@ -55,7 +55,7 @@ export function isBasePath(path: string): boolean {
 }
 
 const TEXT_EXTENSIONS = new Set([
-  'canvas', 'css', 'csv', 'html', 'ini', 'js', 'json', 'log', 'md', 'ps1', 'py', 'rs',
+  'base', 'canvas', 'css', 'csv', 'html', 'ini', 'js', 'json', 'log', 'md', 'ps1', 'py', 'rs',
   'sh', 'sql', 'toml', 'ts', 'txt', 'xml', 'yaml', 'yml',
 ]);
 

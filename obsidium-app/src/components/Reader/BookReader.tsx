@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { matchesShortcut, SHORTCUTS } from '../../config/shortcuts';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Settings2, X } from 'lucide';
+import { Bookmark, ChevronLeft, ChevronRight, List, Settings2, X } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Button } from '../Common/Button';
 import { IconButton } from '../Common/IconButton';
@@ -10,9 +10,20 @@ import { useThemeMode } from '../../hooks/useThemeMode';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { FoliateReaderEngine, prefetchFoliate } from './ReaderEngine';
 import { ReaderSettingsPopover } from './ReaderSettingsPopover';
+import { ReaderPanel } from './ReaderPanel';
+import { tocItemLabel, type ReaderTocItem } from './readerToc';
 import { DEFAULT_READER_SETTINGS } from '../../modules/settings';
 import { loadBookFile } from '../../modules/docs/books';
 import type { BookQuoteRef } from '../../modules/docs/bookQuotes';
+import {
+  type BookBookmark,
+  withBookmark,
+  withoutBookmark,
+} from '../../modules/docs/bookBookmarks';
+import {
+  persistBookReaderMeta,
+  readBookmarks,
+} from '../../modules/docs/persistBookReaderMeta';
 import {
   currentFromFraction,
   formatPages,
@@ -36,6 +47,7 @@ interface BookReaderProps {
   initialCfi?: string;
   peek?: boolean;
   quotes?: BookQuoteRef[];
+  progressPagePath?: string;
   onClose: () => void;
   onPagesChange?: (pages: string, extra?: { cfi: string; readPercent: number }) => void;
   onQuote?: (text: string, cfi: string) => void;
@@ -54,6 +66,7 @@ export function BookReader({
   initialCfi,
   peek,
   quotes,
+  progressPagePath,
   onClose,
   onPagesChange,
   onQuote,
@@ -63,6 +76,11 @@ export function BookReader({
   const themeMode = useThemeMode();
   const readerSettings = config?.reader ?? DEFAULT_READER_SETTINGS;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [toc, setToc] = useState<ReaderTocItem[]>([]);
+  const [activeTocId, setActiveTocId] = useState<number | null>(null);
+  const [bookmarks, setBookmarks] = useState<BookBookmark[]>([]);
+  const [currentCfi, setCurrentCfi] = useState<string | undefined>(undefined);
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<FoliateReaderEngine | null>(null);
@@ -93,15 +111,57 @@ export function BookReader({
   const readOpenInputs = useStableCallback(() => ({ pagesFm, quoteMarks, readerSettings, themeMode }));
   const openQuoteRef = useStableCallback((cfi: string) => onQuoteRefClick?.(cfi));
 
+  const writeBookmarks = useStableCallback((next: BookBookmark[]) => {
+    setBookmarks(next);
+    if (!progressPagePath) return;
+    void persistBookReaderMeta(progressPagePath, { bookmarks: next }).catch((error) => {
+      console.error('Failed to persist the book bookmarks', error);
+    });
+  });
+
+  const toggleBookmark = useStableCallback(() => {
+    const cfi = currentCfi;
+    if (!cfi || !progressPagePath) return;
+    if (bookmarks.some((bookmark) => bookmark.cfi === cfi)) {
+      writeBookmarks(withoutBookmark(bookmarks, cfi));
+      return;
+    }
+    writeBookmarks(withBookmark(bookmarks, {
+      cfi,
+      chapter: tocItemLabel(toc, activeTocId) || title || t('reader.book'),
+      createdAt: new Date().toISOString(),
+    }));
+  });
+
+  const openTocItem = useStableCallback((item: ReaderTocItem) => {
+    setPanelOpen(false);
+    void engineRef.current?.goToToc(item.id);
+  });
+
+  const openBookmark = useStableCallback((bookmark: BookBookmark) => {
+    setPanelOpen(false);
+    void engineRef.current?.goTo(bookmark.cfi);
+  });
+
+  const removeBookmark = useStableCallback((bookmark: BookBookmark) => {
+    writeBookmarks(withoutBookmark(bookmarks, bookmark.cfi));
+  });
+
   const handleKeyDown = useStableCallback((event: KeyboardEvent) => {
     const engine = engineRef.current;
     if (event.key === 'Escape') {
       event.preventDefault();
-      if (settingsOpen) setSettingsOpen(false);
+      if (panelOpen) setPanelOpen(false);
+      else if (settingsOpen) setSettingsOpen(false);
       else onClose();
       return;
     }
     if (settingsOpen || !engine) return;
+    if (matchesShortcut(event, SHORTCUTS.READER_BOOKMARK)) {
+      event.preventDefault();
+      toggleBookmark();
+      return;
+    }
     if (matchesShortcut(event, SHORTCUTS.READER_NEXT_PAGE) || event.key === 'PageDown' || event.key === ' ') {
       event.preventDefault();
       void engine.next();
@@ -120,7 +180,9 @@ export function BookReader({
     engine.applyStyle(readOpenInputs().readerSettings, readOpenInputs().themeMode);
     engineRef.current = engine;
 
-    const unsubscribe = engine.onRelocate(({ fraction, cfi }) => {
+    const unsubscribe = engine.onRelocate(({ fraction, cfi, tocId }) => {
+      setCurrentCfi(cfi);
+      setActiveTocId(typeof tocId === 'number' ? tocId : null);
       if (typeof fraction !== 'number' || !Number.isFinite(fraction)) return;
       const total = totalRef.current;
       const current = currentFromFraction(fraction, total);
@@ -136,15 +198,21 @@ export function BookReader({
     setLoading(true);
     setError(null);
     setSelection(null);
+    setToc([]);
+    setActiveTocId(null);
+    setBookmarks([]);
+    setCurrentCfi(undefined);
 
     void (async () => {
       try {
-        const [, loaded] = await Promise.all([
+        const [, loaded, , storedBookmarks] = await Promise.all([
           prefetchFoliate(),
           loadBookFile(workspacePath, bookFile),
           hydrateReaderState(workspacePath, bookFile),
+          progressPagePath ? readBookmarks(progressPagePath) : Promise.resolve([]),
         ]);
         if (cancelled) return;
+        setBookmarks(storedBookmarks);
 
         const latestPagesFm = readOpenInputs().pagesFm;
         const { pages: initial, formatted } = formatSyntheticPages(latestPagesFm, loaded.byteLength);
@@ -156,6 +224,8 @@ export function BookReader({
         await engine.open(loaded.file, {
           lastLocation: resolveReaderOpenTarget(bookFile, initial, initialCfi),
         });
+        if (cancelled) return;
+        setToc([...engine.toc]);
         await engine.setQuotes(readOpenInputs().quoteMarks);
       } catch (err) {
         if (cancelled) return;
@@ -178,7 +248,7 @@ export function BookReader({
       engineRef.current = null;
       void flushReaderState();
     };
-  }, [bookFile, workspacePath, initialCfi, peek, handleKeyDown, openQuoteRef, readOpenInputs, writePages]);
+  }, [bookFile, workspacePath, initialCfi, peek, progressPagePath, handleKeyDown, openQuoteRef, readOpenInputs, writePages]);
 
   useEffect(() => {
     void engineRef.current?.setQuotes(quoteMarks);
@@ -211,6 +281,24 @@ export function BookReader({
           </div>
         </div>
         <div className="q-book-reader-actions">
+          {progressPagePath ? (
+            <IconButton
+              size="medium"
+              label={t('reader.addBookmark')}
+              aria-pressed={bookmarks.some((bookmark) => bookmark.cfi === currentCfi)}
+              onClick={toggleBookmark}
+            >
+              <Icon icon={Bookmark} />
+            </IconButton>
+          ) : null}
+          <IconButton
+            size="medium"
+            label={t('reader.contents')}
+            aria-expanded={panelOpen}
+            onClick={() => setPanelOpen((open) => !open)}
+          >
+            <Icon icon={List} />
+          </IconButton>
           <IconButton
             size="medium"
             label={t('reader.settings')}
@@ -273,6 +361,17 @@ export function BookReader({
             </Button>
           </div>
         ) : null}
+
+        <ReaderPanel
+          open={panelOpen}
+          toc={toc}
+          activeTocId={activeTocId}
+          bookmarks={bookmarks}
+          onSelectToc={openTocItem}
+          onSelectBookmark={openBookmark}
+          onRemoveBookmark={removeBookmark}
+          onClose={() => setPanelOpen(false)}
+        />
       </div>
 
       <footer className="q-book-reader-footer">
@@ -286,6 +385,7 @@ export function BookReader({
         >
           <div className="q-book-reader-progress-fill" style={{ width: `${progressPct}%` }} />
         </div>
+        <div className="q-book-reader-pages q-book-reader-percent">{Math.round(progressPct)}%</div>
       </footer>
     </div>
   );

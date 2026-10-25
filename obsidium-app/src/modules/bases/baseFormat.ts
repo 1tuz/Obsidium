@@ -4,17 +4,38 @@ import type {
   BaseGroupBy,
   BaseScalar,
   BaseSort,
+  BaseSummary,
   BaseViewDefinition,
+  BaseYamlValue,
 } from './types';
 
-type YamlValue = BaseScalar | YamlValue[] | { [key: string]: YamlValue };
+type YamlValue = BaseYamlValue;
 
 type ParsedLine = {
   indent: number;
   text: string;
 };
 
-const SUPPORTED_TOP_LEVEL = new Set(['filters', 'views', 'properties', 'formulas', 'summaries']);
+const SUPPORTED_TOP_LEVEL: Record<string, true> = {
+  filters: true,
+  views: true,
+  properties: true,
+  formulas: true,
+  summaries: true,
+};
+const VIEW_KEYS: Record<string, true> = {
+  type: true,
+  name: true,
+  limit: true,
+  dateField: true,
+  order: true,
+  filters: true,
+  groupBy: true,
+  sort: true,
+  groupOrder: true,
+};
+const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+const PLAIN_START = '-?:,[]{}#&*!|>\'"%@`';
 
 function indentation(line: string): number {
   let count = 0;
@@ -56,6 +77,21 @@ function splitKeyValue(text: string): [string, string] | null {
   return null;
 }
 
+function decodeKey(key: string): string {
+  const trimmed = key.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      return JSON.parse(trimmed) as string;
+    } catch {
+      return trimmed.slice(1, -1);
+    }
+  }
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    return trimmed.slice(1, -1).replace(/''/g, "'");
+  }
+  return trimmed;
+}
+
 function inlineParts(value: string): string[] {
   const parts: string[] = [];
   let current = '';
@@ -85,6 +121,7 @@ function inlineParts(value: string): string[] {
 function scalar(value: string): YamlValue {
   const trimmed = value.trim();
   if (!trimmed) return null;
+  if (trimmed === '{}') return {};
   if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
     return inlineParts(trimmed.slice(1, -1)).map(scalar);
   }
@@ -100,7 +137,7 @@ function scalar(value: string): YamlValue {
   }
   if (trimmed === 'null' || trimmed === '~') return null;
   if (/^(true|false)$/i.test(trimmed)) return trimmed.toLowerCase() === 'true';
-  if (/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) return Number(trimmed);
+  if (NUMBER.test(trimmed)) return Number(trimmed);
   return trimmed;
 }
 
@@ -121,19 +158,20 @@ function parseMap(lines: ParsedLine[], start: number, indent: number): [YamlValu
       continue;
     }
     const [key, rest] = pair;
+    const decoded = decodeKey(key);
     if (rest) {
-      value[key] = scalar(rest);
+      value[decoded] = scalar(rest);
       index += 1;
       continue;
     }
     const next = lines[index + 1];
     if (!next || next.indent <= indent) {
-      value[key] = null;
+      value[decoded] = null;
       index += 1;
       continue;
     }
     const [child, after] = parseBlock(lines, index + 1, next.indent);
-    value[key] = child;
+    value[decoded] = child;
     index = after;
   }
   return [value, index];
@@ -169,14 +207,15 @@ function parseSequence(lines: ParsedLine[], start: number, indent: number): [Yam
 
     const item: Record<string, YamlValue> = {};
     const [key, tail] = pair;
-    item[key] = tail ? scalar(tail) : null;
+    const decoded = decodeKey(key);
+    item[decoded] = tail ? scalar(tail) : null;
     index += 1;
 
     if (!tail) {
       const next = lines[index];
       if (next && next.indent > indent) {
         const [child, after] = parseBlock(lines, index, next.indent);
-        item[key] = child;
+        item[decoded] = child;
         index = after;
       }
     }
@@ -211,13 +250,13 @@ function text(value: YamlValue | undefined, fallback = ''): string {
 function filter(value: YamlValue | undefined): BaseFilter | undefined {
   if (value === undefined) return undefined;
   if (typeof value === 'string') return value;
-  if (!isObject(value)) return { unsupported: true };
+  if (!isObject(value)) return { unsupported: true, raw: value };
   const operators = Object.keys(value);
-  if (operators.length !== 1) return { unsupported: true };
+  if (operators.length !== 1) return { unsupported: true, raw: value };
   const operator = operators[0];
   if (operator === 'and' || operator === 'or') {
     const operands = value[operator];
-    if (!Array.isArray(operands)) return { unsupported: true };
+    if (!Array.isArray(operands)) return { unsupported: true, raw: value };
     const filters = operands.map((operand) => filter(operand) ?? { unsupported: true as const });
     return operator === 'and' ? { and: filters } : { or: filters };
   }
@@ -227,7 +266,7 @@ function filter(value: YamlValue | undefined): BaseFilter | undefined {
       ? { not: operand.map((item) => filter(item) ?? { unsupported: true }) }
       : { not: filter(operand) ?? { unsupported: true } };
   }
-  return { unsupported: true };
+  return { unsupported: true, raw: value };
 }
 
 function groupBy(value: YamlValue | undefined): BaseGroupBy | undefined {
@@ -255,6 +294,20 @@ function sort(value: YamlValue | undefined): BaseSort[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+function summary(value: YamlValue): BaseSummary | null {
+  if (!isObject(value)) return null;
+  const name = text(value.name);
+  const source = text(value.source);
+  if (!name || !source) return null;
+  return {
+    name,
+    source,
+    property: text(value.property),
+    formula: text(value.formula).toLowerCase(),
+    filter: filter(value.filter),
+  };
+}
+
 function view(value: YamlValue, index: number): BaseViewDefinition | null {
   if (!isObject(value)) return null;
   const type = text(value.type, 'table').toLowerCase();
@@ -268,7 +321,7 @@ function view(value: YamlValue, index: number): BaseViewDefinition | null {
     ? Math.max(1, Math.floor(value.limit))
     : undefined;
   const dateField = text(value.dateField) || undefined;
-  return {
+  const definition: BaseViewDefinition = {
     type,
     name: text(value.name, `${type || 'view'} ${index + 1}`),
     order,
@@ -279,6 +332,13 @@ function view(value: YamlValue, index: number): BaseViewDefinition | null {
     groupOrder,
     sort: sort(value.sort),
   };
+  const extra: Record<string, BaseYamlValue> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (VIEW_KEYS[key] === true) continue;
+    extra[key] = entry;
+  }
+  if (Object.keys(extra).length > 0) definition.extra = extra;
+  return definition;
 }
 
 export function parseBase(raw: string): BaseDefinition {
@@ -295,60 +355,220 @@ export function parseBase(raw: string): BaseDefinition {
   const views = Array.isArray(root.views)
     ? root.views.map(view).filter((item): item is BaseViewDefinition => item !== null)
     : [];
+  const extra: Record<string, BaseYamlValue> = {};
+  for (const [key, entry] of Object.entries(root)) {
+    if (key === 'filters' || key === 'views') continue;
+    extra[key] = entry;
+  }
+  const formulas: Record<string, string> = {};
+  if (isObject(root.formulas)) {
+    for (const [key, expression] of Object.entries(root.formulas)) {
+      const source = text(expression).trim();
+      if (source) formulas[key] = source;
+    }
+  }
+  const summaries = Array.isArray(root.summaries)
+    ? root.summaries.flatMap((entry) => {
+      const item = summary(entry);
+      return item ? [item] : [];
+    })
+    : [];
   return {
     raw,
     filters: filter(root.filters),
     views: views.length > 0 ? views : [{ type: 'table', name: 'Table', order: ['file.name'] }],
+    summaries,
     propertyLabels,
-    unsupportedKeys: Object.keys(root).filter((key) => !SUPPORTED_TOP_LEVEL.has(key)),
+    formulas,
+    unsupportedKeys: Object.keys(root)
+      .filter((key) => SUPPORTED_TOP_LEVEL[key] !== true)
+      .sort(),
+    extra,
   };
 }
 
-export function serializeBase(definition: BaseDefinition): string {
-  return definition.raw;
+function isYamlObject(value: BaseYamlValue | undefined): value is Record<string, BaseYamlValue> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function appendBaseView(
-  raw: string,
-  view: { type: string; name: string; dateField?: string },
-): string {
-  const separator = raw.includes('\r\n') ? '\r\n' : '\n';
-  const lines = raw.split(/\r\n|\n/u);
-  const viewsIndex = lines.findIndex((line) => /^views\s*:/u.test(line));
-  const fields = [
-    `type: ${JSON.stringify(view.type)}`,
-    `name: ${JSON.stringify(view.name)}`,
-    ...(view.dateField ? [`dateField: ${JSON.stringify(view.dateField)}`] : []),
-  ];
-  if (viewsIndex < 0) {
-    const block = ['views:', `  - ${fields[0]}`, ...fields.slice(1).map((field) => `    ${field}`)];
-    const trimmed = raw.replace(/\s+$/u, '');
-    return `${trimmed ? `${trimmed}${separator}` : ''}${block.join(separator)}${separator}`;
-  }
+function plainText(value: string): string {
+  if (!value) return JSON.stringify(value);
+  if (value !== value.trim()) return JSON.stringify(value);
+  if (/[\u0000-\u001f\u007f]/.test(value)) return JSON.stringify(value);
+  if (/["']/.test(value)) return JSON.stringify(value);
+  if (PLAIN_START.includes(value[0])) return JSON.stringify(value);
+  if (/[,{}\[\]#]/.test(value)) return JSON.stringify(value);
+  if (value.includes(': ') || value.endsWith(':')) return JSON.stringify(value);
+  if (/^(?:true|false|null|~)$/i.test(value)) return JSON.stringify(value);
+  if (NUMBER.test(value)) return JSON.stringify(value);
+  return value;
+}
 
-  let end = lines.length;
-  for (let index = viewsIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!line.trim()) continue;
-    if (indentation(line) === 0) {
-      end = index;
-      break;
-    }
+function keyText(key: string): string {
+  if (!key) return JSON.stringify(key);
+  if (key !== key.trim()) return JSON.stringify(key);
+  if (/[\u0000-\u001f\u007f]/.test(key)) return JSON.stringify(key);
+  if (PLAIN_START.includes(key[0])) return JSON.stringify(key);
+  if (key.includes(':') || key.includes('#') || /["'\\]/.test(key)) return JSON.stringify(key);
+  return key;
+}
+
+function scalarText(value: BaseScalar): string {
+  if (value === null) return 'null';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : JSON.stringify(String(value));
+  return plainText(value);
+}
+
+function isScalar(value: BaseYamlValue): value is BaseScalar {
+  return value === null || ['string', 'number', 'boolean'].includes(typeof value);
+}
+
+function inlineValue(value: BaseYamlValue): string | null {
+  if (isScalar(value)) return scalarText(value);
+  if (Array.isArray(value)) {
+    if (value.every(isScalar)) return `[${value.map(scalarText).join(', ')}]`;
+    return null;
   }
-  const sequenceIndent = lines
-    .slice(viewsIndex + 1, end)
-    .map((line) => (/^(\s*)-/u.exec(line)?.[1].length ?? null))
-    .find((indent) => indent !== null) ?? 2;
-  const itemIndent = ' '.repeat(sequenceIndent);
-  const fieldIndent = ' '.repeat(sequenceIndent + 2);
-  const inserted = [
-    `${itemIndent}- ${fields[0]}`,
-    ...fields.slice(1).map((field) => `${fieldIndent}${field}`),
-  ];
-  let insertAt = end;
-  while (insertAt > viewsIndex + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
-  lines.splice(insertAt, 0, ...inserted);
-  return lines.join(separator);
+  return Object.keys(value).length === 0 ? '{}' : null;
+}
+
+function renderMap(value: Record<string, BaseYamlValue>, indent: number): string[] {
+  const lines: string[] = [];
+  for (const [key, entry] of Object.entries(value)) {
+    const inline = inlineValue(entry);
+    if (inline !== null) {
+      lines.push(`${' '.repeat(indent)}${keyText(key)}: ${inline}`);
+      continue;
+    }
+    lines.push(`${' '.repeat(indent)}${keyText(key)}:`);
+    lines.push(...renderBlock(entry, indent + 2));
+  }
+  return lines;
+}
+
+function renderSequence(value: BaseYamlValue[], indent: number): string[] {
+  const lines: string[] = [];
+  for (const item of value) {
+    const inline = inlineValue(item);
+    if (inline !== null) {
+      lines.push(`${' '.repeat(indent)}- ${inline}`);
+      continue;
+    }
+    if (isYamlObject(item)) {
+      const entries = Object.entries(item);
+      const [firstKey, firstValue] = entries[0];
+      const firstInline = inlineValue(firstValue);
+      if (firstInline !== null) {
+        lines.push(`${' '.repeat(indent)}- ${keyText(firstKey)}: ${firstInline}`);
+      } else if (Array.isArray(firstValue) || isYamlObject(firstValue)) {
+        lines.push(`${' '.repeat(indent)}- ${keyText(firstKey)}:`);
+        lines.push(...renderBlock(firstValue, indent + 4));
+      }
+      const rest: Record<string, BaseYamlValue> = {};
+      for (const [key, entry] of entries.slice(1)) rest[key] = entry;
+      if (Object.keys(rest).length > 0) lines.push(...renderMap(rest, indent + 2));
+      continue;
+    }
+    lines.push(`${' '.repeat(indent)}-`);
+    lines.push(...renderBlock(item, indent + 2));
+  }
+  return lines;
+}
+
+function renderBlock(value: BaseYamlValue, indent: number): string[] {
+  const inline = inlineValue(value);
+  if (inline !== null) return [`${' '.repeat(indent)}${inline}`];
+  if (Array.isArray(value)) return renderSequence(value, indent);
+  if (isYamlObject(value)) return renderMap(value, indent);
+  return [`${' '.repeat(indent)}${scalarText(value)}`];
+}
+
+function filterValue(value: BaseFilter): BaseYamlValue {
+  if (typeof value === 'string') return value;
+  if (value.unsupported) return value.raw === undefined ? null : value.raw;
+  if (value.and) return { and: value.and.map(filterValue) };
+  if (value.or) return { or: value.or.map(filterValue) };
+  if (value.not !== undefined) {
+    return {
+      not: Array.isArray(value.not) ? value.not.map(filterValue) : filterValue(value.not),
+    };
+  }
+  return null;
+}
+
+function propertiesValue(definition: BaseDefinition): BaseYamlValue | undefined {
+  const raw = definition.extra.properties;
+  const labels = definition.propertyLabels;
+  const labelKeys = Object.keys(labels);
+  if (isYamlObject(raw)) {
+    const keys = new Set([...Object.keys(raw), ...labelKeys]);
+    const merged: Record<string, BaseYamlValue> = {};
+    for (const key of [...keys].sort()) {
+      const entry = raw[key];
+      const label = labels[key];
+      if (isYamlObject(entry)) {
+        merged[key] = label ? { ...entry, displayName: label } : { ...entry };
+      } else {
+        merged[key] = label ? { displayName: label } : entry;
+      }
+    }
+    return merged;
+  }
+  if (raw !== undefined) {
+    if (labelKeys.length === 0) return raw;
+    const merged: Record<string, BaseYamlValue> = {};
+    for (const key of labelKeys.sort()) merged[key] = { displayName: labels[key] };
+    return merged;
+  }
+  if (labelKeys.length === 0) return undefined;
+  const merged: Record<string, BaseYamlValue> = {};
+  for (const key of labelKeys.sort()) merged[key] = { displayName: labels[key] };
+  return merged;
+}
+
+function viewValue(view: BaseViewDefinition): BaseYamlValue {
+  const result: Record<string, BaseYamlValue> = {};
+  result.type = view.type;
+  result.name = view.name;
+  if (view.dateField) result.dateField = view.dateField;
+  if (view.limit !== undefined) result.limit = view.limit;
+  if (view.order.length > 0) result.order = [...view.order];
+  if (view.filters !== undefined) result.filters = filterValue(view.filters);
+  if (view.groupBy) {
+    result.groupBy = {
+      property: view.groupBy.property,
+      direction: view.groupBy.direction ?? 'ASC',
+    };
+  }
+  if (view.sort !== undefined) {
+    result.sort = view.sort.map((entry) => ({
+      property: entry.property,
+      direction: entry.direction ?? 'ASC',
+    }));
+  }
+  if (view.groupOrder !== undefined) result.groupOrder = [...view.groupOrder];
+  const extra = view.extra ?? {};
+  for (const key of Object.keys(extra).sort()) {
+    if (VIEW_KEYS[key] === true) continue;
+    result[key] = extra[key];
+  }
+  return result;
+}
+
+export function serializeBase(definition: BaseDefinition): string {
+  const root: Record<string, BaseYamlValue> = {};
+  if (definition.filters !== undefined) root.filters = filterValue(definition.filters);
+  const properties = propertiesValue(definition);
+  if (properties !== undefined) root.properties = properties;
+  if (Object.keys(definition.formulas).length > 0) root.formulas = definition.formulas;
+  if ('summaries' in definition.extra) root.summaries = definition.extra.summaries;
+  root.views = definition.views.map(viewValue);
+  for (const key of Object.keys(definition.extra).sort()) {
+    if (SUPPORTED_TOP_LEVEL[key] === true) continue;
+    root[key] = definition.extra[key];
+  }
+  return `${renderMap(root, 0).join('\n')}\n`;
 }
 
 export function renameFirstKanbanView(raw: string, name: string): string {

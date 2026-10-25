@@ -40,6 +40,8 @@
     "embeddedBlockUnavailable": "Блок «{{blockId}}» не найден",
     "embeddedNoteEmpty": "Заметка пуста",
     "embeddedNoteCycle": "Заметка не может включать саму себя",
+    "embeddedEditHint": "Нажмите, чтобы править раздел",
+    "embeddedRangeChanged": "Текст вокруг раздела изменился снаружи — правка из вложения отключена",
     "focusMode": "Режим фокуса",
     "noteActions": "Действия с заметкой",
     "formatting": {
@@ -131,7 +133,10 @@
     "open": "открыть",
     "newPane": "новая панель",
     "create": "создать",
-    "matchedTag": "Совпавший тег",
+    "addTermHint": "Добавить это слово в запрос",
+    "addTagHint": "Добавить этот тег в запрос",
+    "addTermToQuery": "Добавить в запрос: {{term}}",
+    "addTagToQuery": "Отфильтровать по тегу: {{tag}}",
     "matches": {
       "one": "{{count}} совпадение",
       "few": "{{count}} совпадения",
@@ -218,6 +223,7 @@
     "settings": "Настройки",
     "rename": "Переименовать",
     "duplicate": "Дублировать",
+    "openAsText": "Открыть как текст",
     "openFolder": "Открыть папку",
     "copy": "Копировать",
     "paste": "Вставить",
@@ -542,7 +548,8 @@
       "pageSearchWindow": "Поиск по заметке",
       "reader": "Читалка",
       "nextPage": "Следующая страница",
-      "previousPage": "Предыдущая страница"
+      "previousPage": "Предыдущая страница",
+      "bookmark": "Поставить закладку"
     },
     "numberValue": "Числовое значение"
   },
@@ -749,7 +756,15 @@
     "fontSize": "Размер шрифта",
     "lineHeight": "Межстрочный интервал",
     "columnWidth": "Ширина колонки, символов",
-    "columnWidthAria": "Ширина колонки"
+    "columnWidthAria": "Ширина колонки",
+    "contents": "Содержание",
+    "toc": "Оглавление",
+    "noContents": "В книге нет оглавления",
+    "bookmarks": "Закладки",
+    "noBookmarks": "Закладок пока нет",
+    "addBookmark": "Поставить закладку",
+    "removeBookmark": "Удалить закладку",
+    "panelClose": "Закрыть панель содержания"
   },
   "graph": {
     "settings": "Настройки графа",
@@ -1143,5 +1158,26 @@
     "next": "Следующее изображение",
     "closeViewer": "Закрыть изображение",
     "position": "{{current}} из {{total}}"
+  },
+  "spaces": {
+    "switcher": "Пространство знаний",
+    "manage": "Управление пространствами",
+    "dialogTitle": "Пространства",
+    "createTitle": "Новое пространство",
+    "editTitle": "Параметры пространства",
+    "name": "Название",
+    "namePlaceholder": "Например, Работа",
+    "root": "Папка",
+    "rootWholeVault": "Вся база знаний",
+    "includeTags": "Теги",
+    "includeTagsPlaceholder": "проект, чтение",
+    "excludeFolders": "Исключённые папки",
+    "excludeFoldersPlaceholder": "архив, черновики",
+    "save": "Сохранить",
+    "edit": "Изменить пространство",
+    "delete": "Удалить пространство",
+    "deleteTitle": "Удалить пространство?",
+    "deleteDescription": "«{{name}}» исчезнет из списка пространств. Заметки останутся в базе знаний.",
+    "newSpace": "Создать пространство"
   }
 }

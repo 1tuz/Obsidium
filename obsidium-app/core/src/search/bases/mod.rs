@@ -1,13 +1,17 @@
+mod rollups;
 pub mod service;
 
 #[cfg(test)]
 mod tests;
 
+mod formulas;
+
 use crate::search::paths::{slash_path, strip_root};
+use formulas::Formulas;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 const MAX_SAMPLE_ROWS: usize = 50;
@@ -17,8 +21,20 @@ const MAX_DISCOVERED_COLUMNS: usize = 7;
 #[serde(rename_all = "camelCase", default)]
 pub struct BaseDefinition {
     pub filters: Option<Value>,
+    pub formulas: BTreeMap<String, String>,
     pub views: Vec<BaseView>,
+    pub summaries: Vec<BaseSummary>,
     pub unsupported_keys: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct BaseSummary {
+    pub name: String,
+    pub source: String,
+    pub property: String,
+    pub formula: String,
+    pub filter: Option<Value>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -66,6 +82,15 @@ pub struct BaseEvaluation {
     pub groups: Vec<BaseGroup>,
     pub columns: Vec<String>,
     pub unsupported: bool,
+    pub errors: Vec<BaseFormulaError>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BaseFormulaError {
+    pub formula: String,
+    pub path: String,
+    pub message: String,
 }
 
 impl BaseEvaluation {
@@ -75,6 +100,7 @@ impl BaseEvaluation {
             groups: Vec::new(),
             columns: Vec::new(),
             unsupported: false,
+            errors: Vec::new(),
         }
     }
 }
@@ -98,19 +124,32 @@ pub fn evaluate(
     root: &Path,
     rows: Vec<(String, Map<String, Value>)>,
     query: &BaseQuery,
+    connection: Option<&rusqlite::Connection>,
 ) -> BaseEvaluation {
     if query.definition.views.is_empty() {
         return BaseEvaluation::empty();
     }
     let index = query.view_index.min(query.definition.views.len() - 1);
     let view = &query.definition.views[index];
-    let mut unsupported = !query.definition.unsupported_keys.is_empty()
-        || view
-            .order
-            .iter()
-            .any(|property| property.starts_with("formula."));
+    let mut errors = Vec::new();
+    let formulas = Formulas::compile(&query.definition.formulas, &mut errors);
+    let mut unsupported = !query.definition.unsupported_keys.is_empty();
+    let mut rows = rows;
+    if !query.definition.summaries.is_empty() {
+        let (computed, rollup_unsupported) =
+            rollups::summaries(root, &rows, &query.definition.summaries, connection);
+        unsupported |= rollup_unsupported;
+        for ((_, fields), values) in rows.iter_mut().zip(computed) {
+            fields.extend(values);
+        }
+    }
     let mut kept = Vec::new();
     for (path, fields) in rows {
+        let mut fields = fields;
+        if !formulas.is_empty() {
+            let computed = formulas.values(root, &path, &fields, &mut errors);
+            fields.extend(computed);
+        }
         let global = evaluate_filter(query.definition.filters.as_ref(), &path, &fields, root);
         let local = evaluate_filter(view.filters.as_ref(), &path, &fields, root);
         unsupported |= global.unsupported || local.unsupported;
@@ -142,6 +181,7 @@ pub fn evaluate(
         groups,
         columns,
         unsupported,
+        errors,
     }
 }
 
@@ -488,9 +528,6 @@ fn evaluate_expression(
     }
     match comparison(expression) {
         Some((property_name, operator, raw)) => {
-            if property_name.starts_with("formula.") {
-                return FilterOutcome::unsupported();
-            }
             let left = property(path, fields, property_name, root);
             FilterOutcome::supported(scalar_compare(left.as_ref(), &literal(raw), operator))
         }

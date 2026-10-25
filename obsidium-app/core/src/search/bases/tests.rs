@@ -40,7 +40,15 @@ fn evaluation(
         "viewIndex": 0,
         "sort": sort,
     }));
-    evaluate(Path::new(ROOT), rows, &query)
+    evaluate(Path::new(ROOT), rows, &query, None)
+}
+
+fn formulas_query(formulas: Value, view: Value, sort: Value) -> BaseQuery {
+    query(json!({
+        "definition": { "formulas": formulas, "views": [view] },
+        "viewIndex": 0,
+        "sort": sort,
+    }))
 }
 
 fn paths(evaluation: &BaseEvaluation) -> Vec<&str> {
@@ -68,7 +76,7 @@ fn recursive_filters_and_file_helpers_match_the_typescript_cases() {
 
 #[test]
 fn unknown_expressions_keep_rows_visible_and_report_them() {
-    let result = evaluation(json!("formula.score > 5"), json!([]), rows());
+    let result = evaluation(json!("file.hasLink(\"Note\")"), json!([]), rows());
     assert_eq!(result.rows.len(), 2);
     assert!(result.unsupported);
 }
@@ -165,14 +173,18 @@ fn unknown_operators_keep_rows_and_report_unsupported() {
 #[test]
 fn unsupported_nested_operand_still_keeps_the_row_visible() {
     let result = evaluation(
-        json!({ "or": ["status == \"doing\"", "formula.score > 1"] }),
+        json!({ "or": ["status == \"doing\"", "file.hasLink(\"Note\")"] }),
         json!([]),
         rows(),
     );
     assert_eq!(result.rows.len(), 2);
     assert!(result.unsupported);
 
-    let negated = evaluation(json!({ "not": "formula.score > 1" }), json!([]), rows());
+    let negated = evaluation(
+        json!({ "not": "file.hasLink(\"Note\")" }),
+        json!([]),
+        rows(),
+    );
     assert_eq!(negated.rows.len(), 2);
     assert!(negated.unsupported);
 }
@@ -217,7 +229,7 @@ fn view_filters_combine_with_global_filters() {
         },
         "viewIndex": 0,
     }));
-    let result = evaluate(Path::new(ROOT), rows(), &query);
+    let result = evaluate(Path::new(ROOT), rows(), &query, None);
     assert_eq!(paths(&result), vec!["/vault/Projects/A.md"]);
 }
 
@@ -230,7 +242,7 @@ fn unsupported_definition_keys_and_formula_columns_flag_the_result() {
         },
         "viewIndex": 0,
     }));
-    assert!(evaluate(Path::new(ROOT), rows(), &keys).unsupported);
+    assert!(evaluate(Path::new(ROOT), rows(), &keys, None).unsupported);
 
     let formula = query(json!({
         "definition": {
@@ -238,7 +250,9 @@ fn unsupported_definition_keys_and_formula_columns_flag_the_result() {
         },
         "viewIndex": 0,
     }));
-    assert!(evaluate(Path::new(ROOT), rows(), &formula).unsupported);
+    let result = evaluate(Path::new(ROOT), rows(), &formula, None);
+    assert!(!result.unsupported);
+    assert!(result.columns.contains(&"formula.total".to_owned()));
 }
 
 #[test]
@@ -250,7 +264,7 @@ fn columns_follow_the_view_order_or_the_first_discovered_properties() {
         "viewIndex": 0,
     }));
     assert_eq!(
-        evaluate(Path::new(ROOT), rows(), &ordered).columns,
+        evaluate(Path::new(ROOT), rows(), &ordered, None).columns,
         vec!["file.name", "status"]
     );
 
@@ -260,7 +274,7 @@ fn columns_follow_the_view_order_or_the_first_discovered_properties() {
         },
         "viewIndex": 0,
     }));
-    let columns = evaluate(Path::new(ROOT), rows(), &discovered).columns;
+    let columns = evaluate(Path::new(ROOT), rows(), &discovered, None).columns;
     assert_eq!(columns.first().map(String::as_str), Some("file.name"));
     let mut rest = columns[1..].to_vec();
     rest.sort();
@@ -275,7 +289,7 @@ fn limit_applies_after_sorting() {
         },
         "viewIndex": 0,
     }));
-    let result = evaluate(Path::new(ROOT), rows(), &query);
+    let result = evaluate(Path::new(ROOT), rows(), &query, None);
     assert_eq!(paths(&result), vec!["/vault/Projects/A.md"]);
 }
 
@@ -344,7 +358,7 @@ fn groups_follow_the_configured_order_then_the_label() {
         },
         "viewIndex": 0,
     }));
-    let result = evaluate(Path::new(ROOT), data, &query);
+    let result = evaluate(Path::new(ROOT), data, &query, None);
     assert_eq!(
         paths(&result),
         vec!["/vault/B.md", "/vault/D.md", "/vault/C.md", "/vault/A.md",]
@@ -384,7 +398,7 @@ fn descending_groups_reverse_only_the_observed_labels() {
         },
         "viewIndex": 0,
     }));
-    let labels = evaluate(Path::new(ROOT), data, &query)
+    let labels = evaluate(Path::new(ROOT), data, &query, None)
         .groups
         .iter()
         .map(|group| group.label.clone().unwrap_or_default())
@@ -404,7 +418,7 @@ fn a_view_without_grouping_returns_a_single_range() {
 #[test]
 fn empty_definitions_and_out_of_range_views_stay_safe() {
     let empty = query(json!({ "definition": { "views": [] }, "viewIndex": 0 }));
-    let result = evaluate(Path::new(ROOT), rows(), &empty);
+    let result = evaluate(Path::new(ROOT), rows(), &empty, None);
     assert!(result.rows.is_empty());
     assert!(result.groups.is_empty());
     assert!(result.columns.is_empty());
@@ -418,7 +432,7 @@ fn empty_definitions_and_out_of_range_views_stay_safe() {
         },
         "viewIndex": 9,
     }));
-    let result = evaluate(Path::new(ROOT), rows(), &clamped);
+    let result = evaluate(Path::new(ROOT), rows(), &clamped, None);
     assert_eq!(paths(&result), vec!["/vault/Projects/A.md"]);
     assert_eq!(result.columns, vec!["status"]);
 }
@@ -432,4 +446,462 @@ fn numeric_literals_accept_decimals_but_not_exponents() {
     let exponent = evaluation(json!("score == 1e5"), json!([]), data);
     assert!(exponent.rows.is_empty());
     assert!(!exponent.unsupported);
+}
+
+#[test]
+fn formulas_compute_arithmetic_for_every_row() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "total": "priority * 2" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.total"],
+            }),
+            json!([]),
+        ),
+        None,
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty());
+    let totals = result
+        .rows
+        .iter()
+        .map(|row| row.fields.get("formula.total").and_then(Value::as_f64))
+        .collect::<Vec<_>>();
+    assert_eq!(totals, vec![Some(4.0), Some(20.0)]);
+}
+
+#[test]
+fn formulas_pick_the_if_branch_and_evaluate_it_lazily() {
+    let data = vec![
+        row("/vault/A.md", json!({ "priority": "2" })),
+        row("/vault/B.md", json!({ "priority": "high" })),
+    ];
+    let result = evaluate(
+        Path::new(ROOT),
+        data,
+        &formulas_query(
+            json!({ "risk": "if(priority == \"high\", 1, 0)" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.risk"],
+            }),
+            json!([]),
+        ),
+        None,
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let risks = result
+        .rows
+        .iter()
+        .map(|row| row.fields.get("formula.risk").and_then(Value::as_f64))
+        .collect::<Vec<_>>();
+    assert_eq!(risks, vec![Some(0.0), Some(1.0)]);
+
+    let lazy = evaluate(
+        Path::new(ROOT),
+        vec![row("/vault/A.md", json!({ "priority": "2" }))],
+        &formulas_query(
+            json!({ "value": "if(true, 1, nosuchfunction(1))" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.value"],
+            }),
+            json!([]),
+        ),
+        None,
+    );
+    assert!(!lazy.unsupported);
+    assert!(lazy.errors.is_empty());
+    assert_eq!(
+        lazy.rows[0]
+            .fields
+            .get("formula.value")
+            .and_then(Value::as_f64),
+        Some(1.0)
+    );
+}
+
+#[test]
+fn formulas_call_string_functions() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "label": "upper(status)" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.label"],
+            }),
+            json!([]),
+        ),
+        None,
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty());
+    let labels = result
+        .rows
+        .iter()
+        .map(|row| row.fields.get("formula.label").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    assert_eq!(labels, vec![Some("DOING"), Some("DONE")]);
+}
+
+#[test]
+fn formulas_treat_missing_properties_as_null() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "double": "missing_prop * 2" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.double"],
+            }),
+            json!([]),
+        ),
+        None,
+    );
+    assert!(!result.unsupported);
+    assert!(result.errors.is_empty());
+    for row in &result.rows {
+        assert_eq!(row.fields.get("formula.double"), Some(&Value::Null));
+    }
+}
+
+#[test]
+fn broken_formulas_become_null_and_report_one_error_each() {
+    let result = evaluate(
+        Path::new(ROOT),
+        rows(),
+        &formulas_query(
+            json!({ "bad": "nosuchfunction(1)", "broken": "1 +" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name", "formula.bad", "formula.broken"],
+            }),
+            json!([]),
+        ),
+        None,
+    );
+    assert!(!result.unsupported);
+    assert_eq!(result.rows.len(), 2);
+    for row in &result.rows {
+        assert_eq!(row.fields.get("formula.bad"), Some(&Value::Null));
+        assert_eq!(row.fields.get("formula.broken"), Some(&Value::Null));
+    }
+    assert_eq!(result.errors.len(), 2);
+    assert!(result.errors.iter().any(|error| error.formula == "bad"));
+    assert!(result
+        .errors
+        .iter()
+        .any(|error| error.formula == "broken" && error.path.is_empty()));
+}
+
+#[test]
+fn sorting_by_a_formula_property_orders_computed_values() {
+    let data = vec![
+        row("/vault/A.md", json!({ "priority": "2" })),
+        row("/vault/B.md", json!({ "priority": "high" })),
+    ];
+    let result = evaluate(
+        Path::new(ROOT),
+        data,
+        &formulas_query(
+            json!({ "risk": "if(priority == \"high\", 1, 0)" }),
+            json!({ "type": "table", "name": "Overview", "order": ["file.name"] }),
+            json!([{ "property": "formula.risk", "direction": "DESC" }]),
+        ),
+        None,
+    );
+    assert!(!result.unsupported);
+    assert_eq!(paths(&result), vec!["/vault/B.md", "/vault/A.md"]);
+}
+
+#[test]
+fn filtering_by_a_formula_property_uses_the_computed_value() {
+    let data = vec![
+        row("/vault/A.md", json!({ "priority": "2" })),
+        row("/vault/B.md", json!({ "priority": "high" })),
+    ];
+    let result = evaluate(
+        Path::new(ROOT),
+        data,
+        &formulas_query(
+            json!({ "risk": "if(priority == \"high\", 1, 0)" }),
+            json!({
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name"],
+                "filters": "formula.risk == 1",
+            }),
+            json!([]),
+        ),
+        None,
+    );
+    assert!(!result.unsupported);
+    assert_eq!(paths(&result), vec!["/vault/B.md"]);
+}
+fn wiki_connection(documents: &[(&str, &str)]) -> rusqlite::Connection {
+    let mut connection = rusqlite::Connection::open_in_memory().unwrap();
+    crate::search::wiki::open_schema(&connection).unwrap();
+    let transaction = connection.transaction().unwrap();
+    for (path, body) in documents {
+        crate::search::wiki::index_document(&transaction, Path::new(ROOT), Path::new(path), body)
+            .unwrap();
+    }
+    transaction.commit().unwrap();
+    connection
+}
+
+fn summary_query(summaries: Value) -> BaseQuery {
+    query(json!({
+        "definition": {
+            "views": [{ "type": "table", "name": "Overview", "order": ["file.name"] }],
+            "summaries": summaries,
+        },
+        "viewIndex": 0,
+    }))
+}
+
+fn summary<'a>(evaluation: &'a BaseEvaluation, path: &str, name: &str) -> &'a Value {
+    evaluation
+        .rows
+        .iter()
+        .find(|row| row.path == path)
+        .unwrap()
+        .fields
+        .get(&format!("summary.{name}"))
+        .unwrap()
+}
+
+const LIST: &str = "/vault/List.md";
+const BOOK_A: &str = "/vault/Books/A.md";
+const BOOK_B: &str = "/vault/Books/B.md";
+const BOOK_C: &str = "/vault/Books/C.md";
+
+fn book_rows() -> Vec<(String, Map<String, Value>)> {
+    vec![
+        row(LIST, json!({})),
+        row(BOOK_A, json!({ "price": 10 })),
+        row(BOOK_B, json!({ "price": 20 })),
+        row(BOOK_C, json!({ "price": 30 })),
+    ]
+}
+
+fn book_connection() -> rusqlite::Connection {
+    wiki_connection(&[
+        (LIST, "[[Books/A]] [[Books/B]] [[Books/C]]"),
+        (BOOK_A, "a"),
+        (BOOK_B, "b"),
+        (BOOK_C, "c"),
+    ])
+}
+
+#[test]
+fn summaries_aggregate_all_formulas_over_links() {
+    let connection = book_connection();
+    let query = summary_query(json!([
+        { "name": "total", "source": "file.links", "property": "price", "formula": "sum" },
+        { "name": "mean", "source": "file.links", "property": "price", "formula": "avg" },
+        { "name": "low", "source": "file.links", "property": "price", "formula": "min" },
+        { "name": "high", "source": "file.links", "property": "price", "formula": "max" },
+        { "name": "amount", "source": "file.links", "property": "price", "formula": "count" },
+        { "name": "prices", "source": "file.links", "property": "price", "formula": "list" },
+    ]));
+    let result = evaluate(Path::new(ROOT), book_rows(), &query, Some(&connection));
+    assert!(!result.unsupported);
+    assert_eq!(summary(&result, LIST, "total"), &json!(60.0));
+    assert_eq!(summary(&result, LIST, "mean"), &json!(20.0));
+    assert_eq!(summary(&result, LIST, "low"), &json!(10.0));
+    assert_eq!(summary(&result, LIST, "high"), &json!(30.0));
+    assert_eq!(summary(&result, LIST, "amount"), &json!(3.0));
+    assert_eq!(summary(&result, LIST, "prices"), &json!([10, 20, 30]));
+}
+
+#[test]
+fn property_sources_resolve_wiki_links_and_plain_names() {
+    let connection = wiki_connection(&[(BOOK_A, "a"), (BOOK_B, "b")]);
+    let rows = vec![
+        row(
+            "/vault/Note.md",
+            json!({ "related": ["[[Books/A]]", "Books/B"] }),
+        ),
+        row(BOOK_A, json!({ "price": 10 })),
+        row(BOOK_B, json!({ "price": 20 })),
+    ];
+    let query = summary_query(json!([
+        { "name": "total", "source": "related", "property": "price", "formula": "sum" },
+    ]));
+    let result = evaluate(Path::new(ROOT), rows, &query, Some(&connection));
+    assert_eq!(summary(&result, "/vault/Note.md", "total"), &json!(30.0));
+    assert!(!result.unsupported);
+}
+
+#[test]
+fn backlinks_source_aggregates_incoming_notes() {
+    let connection = wiki_connection(&[
+        ("/vault/Hub.md", "hub"),
+        ("/vault/X.md", "[[Hub]]"),
+        ("/vault/Y.md", "[[Hub]]"),
+    ]);
+    let rows = vec![
+        row("/vault/Hub.md", json!({})),
+        row("/vault/X.md", json!({ "price": 5 })),
+        row("/vault/Y.md", json!({ "price": 7 })),
+    ];
+    let query = summary_query(json!([
+        { "name": "total", "source": "file.backlinks", "property": "price", "formula": "sum" },
+    ]));
+    let result = evaluate(Path::new(ROOT), rows, &query, Some(&connection));
+    assert_eq!(summary(&result, "/vault/Hub.md", "total"), &json!(12.0));
+    assert!(!result.unsupported);
+}
+
+#[test]
+fn empty_related_sets_return_neutral_values() {
+    let connection = wiki_connection(&[("/vault/Empty.md", "no links")]);
+    let rows = vec![row("/vault/Empty.md", json!({}))];
+    let query = summary_query(json!([
+        { "name": "total", "source": "file.links", "property": "price", "formula": "sum" },
+        { "name": "mean", "source": "file.links", "property": "price", "formula": "avg" },
+        { "name": "low", "source": "file.links", "property": "price", "formula": "min" },
+        { "name": "high", "source": "file.links", "property": "price", "formula": "max" },
+        { "name": "amount", "source": "file.links", "property": "price", "formula": "count" },
+        { "name": "prices", "source": "file.links", "property": "price", "formula": "list" },
+    ]));
+    let result = evaluate(Path::new(ROOT), rows, &query, Some(&connection));
+    assert_eq!(summary(&result, "/vault/Empty.md", "total"), &Value::Null);
+    assert_eq!(summary(&result, "/vault/Empty.md", "mean"), &Value::Null);
+    assert_eq!(summary(&result, "/vault/Empty.md", "low"), &Value::Null);
+    assert_eq!(summary(&result, "/vault/Empty.md", "high"), &Value::Null);
+    assert_eq!(summary(&result, "/vault/Empty.md", "amount"), &json!(0.0));
+    assert_eq!(summary(&result, "/vault/Empty.md", "prices"), &json!([]));
+    assert!(!result.unsupported);
+}
+
+#[test]
+fn broken_links_are_skipped_without_flagging_unsupported() {
+    let connection = wiki_connection(&[(LIST, "[[Missing]] [[Books/A]]"), (BOOK_A, "a")]);
+    let rows = vec![row(LIST, json!({})), row(BOOK_A, json!({ "price": 10 }))];
+    let query = summary_query(json!([
+        { "name": "total", "source": "file.links", "property": "price", "formula": "sum" },
+        { "name": "amount", "source": "file.links", "property": "price", "formula": "count" },
+    ]));
+    let result = evaluate(Path::new(ROOT), rows, &query, Some(&connection));
+    assert_eq!(summary(&result, LIST, "total"), &json!(10.0));
+    assert_eq!(summary(&result, LIST, "amount"), &json!(1.0));
+    assert!(!result.unsupported);
+}
+
+#[test]
+fn missing_properties_aggregate_to_null() {
+    let connection = wiki_connection(&[(LIST, "[[Books/A]]"), (BOOK_A, "a")]);
+    let rows = vec![row(LIST, json!({})), row(BOOK_A, json!({ "title": "A" }))];
+    let query = summary_query(json!([
+        { "name": "total", "source": "file.links", "property": "price", "formula": "sum" },
+        { "name": "prices", "source": "file.links", "property": "price", "formula": "list" },
+    ]));
+    let result = evaluate(Path::new(ROOT), rows, &query, Some(&connection));
+    assert_eq!(summary(&result, LIST, "total"), &Value::Null);
+    assert_eq!(summary(&result, LIST, "prices"), &json!([]));
+    assert!(!result.unsupported);
+}
+
+#[test]
+fn unknown_formulas_flag_the_evaluation() {
+    let connection = book_connection();
+    let query = summary_query(json!([
+        { "name": "median", "source": "file.links", "property": "price", "formula": "median" },
+    ]));
+    let result = evaluate(Path::new(ROOT), book_rows(), &query, Some(&connection));
+    assert_eq!(summary(&result, LIST, "median"), &Value::Null);
+    assert!(result.unsupported);
+}
+
+#[test]
+fn summary_filters_narrow_related_notes() {
+    let connection = wiki_connection(&[
+        (LIST, "[[Books/A]] [[Books/B]]"),
+        (BOOK_A, "a"),
+        (BOOK_B, "b"),
+    ]);
+    let rows = vec![
+        row(LIST, json!({})),
+        row(BOOK_A, json!({ "price": 10, "genre": "sci" })),
+        row(BOOK_B, json!({ "price": 20, "genre": "history" })),
+    ];
+    let query = summary_query(json!([
+        {
+            "name": "total",
+            "source": "file.links",
+            "property": "price",
+            "formula": "sum",
+            "filter": "genre == \"sci\"",
+        },
+        { "name": "amount", "source": "file.links", "property": "price", "formula": "count", "filter": "genre == \"sci\"" },
+    ]));
+    let result = evaluate(Path::new(ROOT), rows, &query, Some(&connection));
+    assert_eq!(summary(&result, LIST, "total"), &json!(10.0));
+    assert_eq!(summary(&result, LIST, "amount"), &json!(1.0));
+    assert!(!result.unsupported);
+}
+
+#[test]
+fn repeated_evaluations_share_consistent_summaries() {
+    let connection = book_connection();
+    let query = summary_query(json!([
+        { "name": "total", "source": "file.links", "property": "price", "formula": "sum" },
+        { "name": "amount", "source": "file.links", "property": "price", "formula": "count" },
+        { "name": "prices", "source": "file.links", "property": "price", "formula": "list" },
+    ]));
+    let first = evaluate(Path::new(ROOT), book_rows(), &query, Some(&connection));
+    let second = evaluate(Path::new(ROOT), book_rows(), &query, Some(&connection));
+    assert_eq!(summary(&first, LIST, "total"), &json!(60.0));
+    assert_eq!(summary(&first, LIST, "prices"), &json!([10, 20, 30]));
+    assert_eq!(summary(&first, LIST, "amount"), &json!(3.0));
+    assert_eq!(
+        summary(&second, LIST, "total"),
+        summary(&first, LIST, "total")
+    );
+    assert_eq!(first.rows.len(), second.rows.len());
+    for (left, right) in first.rows.iter().zip(&second.rows) {
+        assert_eq!(left.path, right.path);
+        assert_eq!(left.fields, right.fields);
+    }
+}
+
+#[test]
+fn summaries_feed_filters_and_sorting() {
+    let connection = book_connection();
+    let query = query(json!({
+        "definition": {
+            "filters": "summary.total >= 60",
+            "views": [{
+                "type": "table",
+                "name": "Overview",
+                "order": ["file.name"],
+                "sort": [{ "property": "summary.total", "direction": "DESC" }],
+            }],
+            "summaries": [{
+                "name": "total",
+                "source": "file.links",
+                "property": "price",
+                "formula": "sum",
+            }],
+        },
+        "viewIndex": 0,
+    }));
+    let result = evaluate(Path::new(ROOT), book_rows(), &query, Some(&connection));
+    assert_eq!(paths(&result), vec![LIST]);
+    assert!(!result.unsupported);
 }

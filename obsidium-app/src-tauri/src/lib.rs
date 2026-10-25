@@ -56,6 +56,10 @@ mod settings {
     pub use obsidium_core::settings::*;
     pub mod commands;
 }
+mod spaces {
+    pub use obsidium_core::spaces::*;
+    pub mod commands;
+}
 mod ui_state {
     pub use obsidium_core::ui_state::*;
     pub mod commands;
@@ -149,6 +153,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             settings::commands::get_settings,
             settings::commands::update_settings,
+            spaces::commands::get_spaces,
+            spaces::commands::save_space,
+            spaces::commands::delete_space,
+            spaces::commands::list_space_files,
             schema::commands::get_schema,
             schema::commands::save_schema,
             schema::commands::validate_note,

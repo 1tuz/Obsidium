@@ -87,6 +87,7 @@ pub(in crate::search::dataview) fn available() -> String {
     [
         "link",
         "default",
+        "if",
         "choice",
         "object",
         "typeof",

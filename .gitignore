@@ -46,3 +46,5 @@ obsidium-app/tmp-fm.*
 
 # Рабочая копия публичного репозитория релизов
 /release-repo-update/
+.dual-graph/
+.dual-graph-context/

@@ -7,7 +7,7 @@ import { Menu } from '../Common/Menu';
 import { t } from '../../i18n';
 import { titleWhenClipped } from '../Common/titleWhenClipped';
 import { useContextMenu } from '../Common/useContextMenu';
-import { isMarkdownPath } from '../../modules/documents/fileGateway';
+import { isBasePath, isMarkdownPath } from '../../modules/documents/fileGateway';
 import { fileStem } from '../../modules/paths';
 import { GRAPH_TAB_PATH, isEmptyTabPath } from '../../modules/ui-state';
 import { runViewTransition } from '../../modules/motion';
@@ -45,7 +45,7 @@ export const TitlebarTab = memo(function TitlebarTab({
   onClose,
 }: TitlebarTabProps) {
   const title = getTitle(path);
-  const canFileActions = Boolean(actions) && isMarkdownPath(path);
+  const canFileActions = Boolean(actions) && (isMarkdownPath(path) || isBasePath(path));
   const menu = useContextMenu();
 
   const select = () => {

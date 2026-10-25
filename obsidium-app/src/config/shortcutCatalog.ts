@@ -61,6 +61,7 @@ export function shortcutCatalog(): ShortcutCatalogGroup[] {
       items: [
         { label: t('settings.shortcuts.nextPage'), shortcut: SHORTCUTS.READER_NEXT_PAGE },
         { label: t('settings.shortcuts.previousPage'), shortcut: SHORTCUTS.READER_PREVIOUS_PAGE },
+        { label: t('settings.shortcuts.bookmark'), shortcut: SHORTCUTS.READER_BOOKMARK },
       ],
     },
   ];

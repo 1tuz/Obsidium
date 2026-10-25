@@ -6,7 +6,7 @@ interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   selected?: boolean;
 }
 
-export function Chip({ label, selected = false, className = '', ...props }: ChipProps) {
+export function Chip({ label, selected, className = '', ...props }: ChipProps) {
   return (
     <button
       {...props}
