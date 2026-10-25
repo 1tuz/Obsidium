@@ -199,6 +199,36 @@
       "wixiv": "Wiki"
     }
   },
+  "insights": {
+    "title": "Knowledge insights",
+    "refresh": "Rebuild the report",
+    "staleDays": "Stale after, days",
+    "filter": "Filter entries",
+    "filterEmpty": "No entries match the filter",
+    "loading": "Reading the index…",
+    "failed": "Could not build the report",
+    "indexing": "The index is still updating, counts may be incomplete",
+    "empty": "Nothing to fix: no broken links, isolated or stale notes",
+    "days": {
+      "one": "{{count}} day",
+      "other": "{{count}} days"
+    },
+    "brokenLinks": {
+      "title": "Broken links",
+      "hint": "Links whose target note does not exist",
+      "empty": "No broken links"
+    },
+    "isolatedNotes": {
+      "title": "Isolated notes",
+      "hint": "Notes without a single resolved link in or out",
+      "empty": "No isolated notes"
+    },
+    "staleNotes": {
+      "title": "Unmodified notes",
+      "hint": "Not changed for longer than the chosen period",
+      "empty": "No stale notes"
+    }
+  },
   "wikixiv": {
     "heading": "Wikipedia",
     "empty": "No matching sources",
@@ -564,6 +594,7 @@
     "graph": "Open the link graph",
     "boards": "Open boards and calendars",
     "fileManager": "Open file manager",
+    "insights": "Open knowledge insights",
     "canvas": "New Canvas"
   },
   "titlebar": {
@@ -649,6 +680,24 @@
     "editorGroupDirection": "Group direction",
     "editorAscending": "Ascending",
     "editorDescending": "Descending",
+    "editorFilters": "Filters",
+    "editorFiltersEmpty": "No filter conditions",
+    "editorFiltersAdvanced": "This view uses nested filter groups. They are kept as they are; edit them in the .base file.",
+    "editorFilterAdd": "Add condition",
+    "editorFilterProperty": "Filter property {{index}}",
+    "editorFilterOperatorLabel": "Filter operator {{index}}",
+    "editorFilterOperator": { "is": "is", "isNot": "is not", "greater": "greater than", "greaterOrEqual": "greater than or equal", "less": "less than", "lessOrEqual": "less than or equal", "contains": "contains", "hasTag": "has tag", "inFolder": "in folder" },
+    "editorFilterValue": "Filter value {{index}}",
+    "editorFilterRemove": "Remove filter condition {{index}}",
+    "editorFilterMatch": "Match conditions",
+    "editorFilterMatchAll": "All conditions",
+    "editorFilterMatchAny": "Any condition",
+    "editorFilterValueRequired": "Enter a value for every filter condition.",
+    "editorFilterPropertyRequired": "Choose a property for every filter condition.",
+    "editorColumns": "Column order",
+    "editorColumnsEmpty": "No columns to order",
+    "editorColumnUp": "Move {{property}} up",
+    "editorColumnDown": "Move {{property}} down",
     "editorSort": "Sort",
     "editorSortEmpty": "No sort fields",
     "editorSortAdd": "Add sort field",
@@ -1206,5 +1255,25 @@
     "deleteTitle": "Delete the space?",
     "deleteDescription": "“{{name}}” disappears from the list of spaces. The notes stay in the knowledge base.",
     "newSpace": "Create a space"
+  },
+  "stats": {
+    "activity": {
+      "title": "Note activity",
+      "created": "Created",
+      "modified": "Modified",
+      "gridLabel": "Note activity by day over the last 12 months",
+      "dayAria": "{{date}}: {{notes}}",
+      "notes": {
+        "one": "{{count}} note",
+        "other": "{{count}} notes"
+      },
+      "hint": "Point at a day to see how many notes it holds",
+      "total": "Notes in 12 months: {{count}}",
+      "empty": "No notes in these 12 months",
+      "loading": "Loading activity…",
+      "failed": "Could not load activity: {{reason}}",
+      "less": "Fewer",
+      "more": "More"
+    }
   }
 }

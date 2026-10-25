@@ -201,6 +201,38 @@
       "wixiv": "Wiki"
     }
   },
+  "insights": {
+    "title": "Аналитика базы",
+    "refresh": "Построить отчёт заново",
+    "staleDays": "Устаревание, дней",
+    "filter": "Фильтр записей",
+    "filterEmpty": "Ни одна запись не подходит под фильтр",
+    "loading": "Читаю индекс…",
+    "failed": "Не удалось построить отчёт",
+    "indexing": "Индекс ещё обновляется, счётчики могут быть неполными",
+    "empty": "Исправлять нечего: битых ссылок, изолированных и устаревших заметок нет",
+    "days": {
+      "one": "{{count}} день",
+      "few": "{{count}} дня",
+      "many": "{{count}} дней",
+      "other": "{{count}} дня"
+    },
+    "brokenLinks": {
+      "title": "Битые ссылки",
+      "hint": "Ссылки, цель которых не найдена",
+      "empty": "Битых ссылок нет"
+    },
+    "isolatedNotes": {
+      "title": "Изолированные заметки",
+      "hint": "Заметки без единой разрешённой связи в обе стороны",
+      "empty": "Изолированных заметок нет"
+    },
+    "staleNotes": {
+      "title": "Давно не изменялись",
+      "hint": "Не менялись дольше выбранного срока",
+      "empty": "Устаревших заметок нет"
+    }
+  },
   "wikixiv": {
     "heading": "Wikipedia",
     "empty": "Нет подходящих источников",
@@ -568,6 +600,7 @@
     "graph": "Открыть граф связей",
     "boards": "Открыть доски и календари",
     "fileManager": "Открыть файловый менеджер",
+    "insights": "Открыть аналитику базы",
     "canvas": "Новый Canvas"
   },
   "titlebar": {
@@ -653,6 +686,24 @@
     "editorGroupDirection": "Порядок групп",
     "editorAscending": "По возрастанию",
     "editorDescending": "По убыванию",
+    "editorFilters": "Фильтры",
+    "editorFiltersEmpty": "Нет условий фильтра",
+    "editorFiltersAdvanced": "В этом представлении вложенные группы фильтров. Они сохраняются как есть; измените их в файле .base.",
+    "editorFilterAdd": "Добавить условие",
+    "editorFilterProperty": "Свойство фильтра {{index}}",
+    "editorFilterOperatorLabel": "Оператор фильтра {{index}}",
+    "editorFilterOperator": { "is": "равно", "isNot": "не равно", "greater": "больше", "greaterOrEqual": "больше или равно", "less": "меньше", "lessOrEqual": "меньше или равно", "contains": "содержит", "hasTag": "есть тег", "inFolder": "в папке" },
+    "editorFilterValue": "Значение фильтра {{index}}",
+    "editorFilterRemove": "Удалить условие фильтра {{index}}",
+    "editorFilterMatch": "Совпадение условий",
+    "editorFilterMatchAll": "Все условия",
+    "editorFilterMatchAny": "Любое условие",
+    "editorFilterValueRequired": "Укажите значение для каждого условия фильтра.",
+    "editorFilterPropertyRequired": "Выберите свойство для каждого условия фильтра.",
+    "editorColumns": "Порядок колонок",
+    "editorColumnsEmpty": "Нет колонок для упорядочивания",
+    "editorColumnUp": "Переместить {{property}} выше",
+    "editorColumnDown": "Переместить {{property}} ниже",
     "editorSort": "Сортировка",
     "editorSortEmpty": "Нет полей сортировки",
     "editorSortAdd": "Добавить поле сортировки",
@@ -1216,5 +1267,27 @@
     "deleteTitle": "Удалить пространство?",
     "deleteDescription": "«{{name}}» исчезнет из списка пространств. Заметки останутся в базе знаний.",
     "newSpace": "Создать пространство"
+  },
+  "stats": {
+    "activity": {
+      "title": "Активность заметок",
+      "created": "Создано",
+      "modified": "Изменено",
+      "gridLabel": "Активность заметок по дням за последние 12 месяцев",
+      "dayAria": "{{date}}: {{notes}}",
+      "notes": {
+        "one": "{{count}} заметка",
+        "few": "{{count}} заметки",
+        "many": "{{count}} заметок",
+        "other": "{{count}} заметки"
+      },
+      "hint": "Наведите на день, чтобы увидеть число заметок",
+      "total": "Заметок за 12 месяцев: {{count}}",
+      "empty": "За эти 12 месяцев заметок нет",
+      "loading": "Загружаем активность…",
+      "failed": "Не удалось загрузить активность: {{reason}}",
+      "less": "Меньше",
+      "more": "Больше"
+    }
   }
 }

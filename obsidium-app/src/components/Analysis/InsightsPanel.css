@@ -1,0 +1,33 @@
+.q-insights-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--q-space-8);
+}
+
+.q-insights-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-8);
+}
+
+.q-insights-panel__header h2 {
+  margin: 0;
+  color: var(--q-text-primary);
+  font-size: var(--q-font-size-ui-base);
+  font-weight: var(--q-font-weight-ui-strong);
+}
+
+.q-insights-panel__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--q-space-12);
+}
+
+.q-insights-panel__activity {
+  flex: none;
+}
