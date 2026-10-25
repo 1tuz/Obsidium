@@ -542,7 +542,8 @@
       "pageSearchWindow": "Поиск по заметке",
       "reader": "Читалка",
       "nextPage": "Следующая страница",
-      "previousPage": "Предыдущая страница"
+      "previousPage": "Предыдущая страница",
+      "bookmark": "Поставить закладку"
     },
     "numberValue": "Числовое значение"
   },
@@ -746,7 +747,15 @@
     "fontSize": "Размер шрифта",
     "lineHeight": "Межстрочный интервал",
     "columnWidth": "Ширина колонки, символов",
-    "columnWidthAria": "Ширина колонки"
+    "columnWidthAria": "Ширина колонки",
+    "contents": "Содержание",
+    "toc": "Оглавление",
+    "noContents": "В книге нет оглавления",
+    "bookmarks": "Закладки",
+    "noBookmarks": "Закладок пока нет",
+    "addBookmark": "Поставить закладку",
+    "removeBookmark": "Удалить закладку",
+    "panelClose": "Закрыть панель содержания"
   },
   "graph": {
     "settings": "Настройки графа",

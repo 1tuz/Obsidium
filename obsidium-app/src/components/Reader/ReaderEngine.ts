@@ -1,5 +1,6 @@
 import { Overlayer } from 'foliate-js/overlayer.js';
 import { readerColumnWidthPx, readerPalette, readerStyleCss } from './readerStyle';
+import { flattenToc, type RawTocItem, type ReaderTocItem } from './readerToc';
 import type { ReadingMode } from '../../modules/theme/reading';
 import type { ReaderSettings } from '../../modules/settings';
 import { clamp } from '../../modules/math';
@@ -9,6 +10,7 @@ type ReaderTarget = string | number | { fraction: number };
 type ReaderLocation = {
   cfi?: string;
   fraction?: number;
+  tocId?: number | null;
 };
 
 type ReaderOpenOptions = {
@@ -117,11 +119,13 @@ type FoliateView = HTMLElement & {
   prev: (distance?: number) => Promise<void>;
   getCFI: (index: number, range?: Range) => string;
   addAnnotation: (annotation: { value: string }, remove?: boolean) => Promise<void>;
+  goTo: (target: string) => Promise<unknown>;
   renderer?: FoliateRenderer;
-  book?: { destroy?: () => void };
+  book?: { destroy?: () => void; toc?: readonly RawTocItem[] };
   lastLocation?: {
     cfi?: string;
     fraction?: number;
+    tocItem?: { id?: number } | null;
   };
 };
 
@@ -184,6 +188,7 @@ export class FoliateReaderEngine {
   private settings: ReaderSettings | null = null;
   private colorMode: ReadingMode = 'light';
   private appliedSettingsKey: string | null = null;
+  private tocItems: ReaderTocItem[] = [];
 
   private onQuoteDrawAnnotation = (event: Event) => {
     const detail = (event as CustomEvent).detail as DrawAnnotationDetail;
@@ -269,9 +274,11 @@ export class FoliateReaderEngine {
   private onViewRelocate = (event: Event) => {
     const detail = (event as CustomEvent).detail as FoliateView['lastLocation'];
     if (!detail) return;
+    const tocId = typeof detail.tocItem?.id === 'number' ? detail.tocItem.id : null;
     const location: ReaderLocation = {
       cfi: detail.cfi,
       fraction: detail.fraction,
+      tocId,
     };
     for (const listener of this.relocateListeners) listener(location);
   };
@@ -519,6 +526,7 @@ export class FoliateReaderEngine {
     this.view = view;
 
     await view.open(file);
+    this.tocItems = flattenToc(view.book?.toc);
     const renderer = view.renderer;
     if (renderer) {
       renderer.addEventListener('scroll', this.onRendererScroll);
@@ -551,6 +559,7 @@ export class FoliateReaderEngine {
     this.pageForward = null;
     this.pageBack = null;
     this.appliedSettingsKey = null;
+    this.tocItems = [];
 
     const view = this.view;
     if (!view) {
@@ -585,6 +594,24 @@ export class FoliateReaderEngine {
 
   async prev(): Promise<void> {
     await this.view?.prev();
+  }
+
+  get toc(): readonly ReaderTocItem[] {
+    return this.tocItems;
+  }
+
+  async goTo(target: string): Promise<void> {
+    try {
+      await this.view?.goTo(target);
+    } catch (error) {
+      console.warn('Failed to navigate to', target, error);
+    }
+  }
+
+  async goToToc(id: number): Promise<void> {
+    const item = this.tocItems.find((entry) => entry.id === id);
+    if (!item?.href) return;
+    await this.goTo(item.href);
   }
 
   onRelocate(listener: (location: ReaderLocation) => void): () => void {

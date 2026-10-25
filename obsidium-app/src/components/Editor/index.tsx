@@ -284,6 +284,7 @@ export function Editor({
           pagesFm={reader.readerSession.pagesFm}
           initialCfi={reader.readerSession.initialCfi}
           peek={reader.readerSession.peek}
+          progressPagePath={reader.readerSession.progressPagePath}
           onClose={reader.handleCloseReader}
           onPagesChange={
             reader.readerSession.progressPagePath
