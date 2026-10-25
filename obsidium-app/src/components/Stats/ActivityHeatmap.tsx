@@ -4,15 +4,21 @@ import { SegmentedControl } from '../Common/SegmentedControl';
 import {
   activityLevel,
   buildActivityGrid,
+  dayIsoDate,
+  formatClock,
   formatDayNumber,
+  loadDayNotes,
   loadNoteTimestamps,
   mondayIndex,
   monthLabel,
   weekdayLabel,
   type ActivityDay,
   type ActivityMeasure,
+  type ActivityNote,
   type NoteTimestamp,
 } from '../../modules/stats';
+import { ActivityNoteRow } from './ActivityNoteRow';
+import { RecentChangesPanel } from './RecentChangesPanel';
 import './ActivityHeatmap.css';
 
 type LoadState =
@@ -20,10 +26,17 @@ type LoadState =
   | { status: 'ready'; timestamps: NoteTimestamp[] }
   | { status: 'failed'; reason: string };
 
+type DayNotesState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; notes: ActivityNote[] }
+  | { status: 'failed'; reason: string };
+
 export interface ActivityHeatmapProps {
   workspacePath: string | null;
   measure?: ActivityMeasure;
   onMeasureChange?: (measure: ActivityMeasure) => void;
+  onOpenNote?: (path: string) => void;
   className?: string;
 }
 
@@ -36,12 +49,14 @@ export function ActivityHeatmap({
   workspacePath,
   measure: controlledMeasure,
   onMeasureChange,
+  onOpenNote,
   className = '',
 }: ActivityHeatmapProps) {
   const [ownMeasure, setOwnMeasure] = useState<ActivityMeasure>('created');
   const measure = controlledMeasure ?? ownMeasure;
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [dayNotes, setDayNotes] = useState<DayNotesState>({ status: 'idle' });
 
   useEffect(() => {
     if (!workspacePath) {
@@ -66,6 +81,29 @@ export function ActivityHeatmap({
     };
   }, [workspacePath]);
 
+  useEffect(() => {
+    if (!workspacePath || selectedDay === null) {
+      setDayNotes({ status: 'idle' });
+      return;
+    }
+    let active = true;
+    setDayNotes({ status: 'loading' });
+    loadDayNotes(workspacePath, dayIsoDate(selectedDay), measure)
+      .then((notes) => {
+        if (active) setDayNotes({ status: 'ready', notes });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setDayNotes({
+          status: 'failed',
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspacePath, selectedDay, measure]);
+
   const timestamps = state.status === 'ready' ? state.timestamps : NO_TIMESTAMPS;
   const grid = useMemo(
     () => buildActivityGrid(timestamps, measure, new Date()),
@@ -78,12 +116,7 @@ export function ActivityHeatmap({
     notes: plural('stats.activity.notes', cell.count),
   });
 
-  const selected = selectedDay === null
-    ? null
-    : grid.weeks.flat().find((cell) => cell.day === selectedDay) ?? null;
-
   if (!workspacePath) return null;
-
   return (
     <section className={`q-activity-heatmap ${className}`.trim()} aria-label={t('stats.activity.title')}>
       <header className="q-activity-heatmap__header">
@@ -106,7 +139,7 @@ export function ActivityHeatmap({
           {t('stats.activity.failed', { reason: state.reason })}
         </p>
       )}
-      {state.status === 'ready' && (
+      {state.status === 'ready' && (selectedDay === null ? (
         <>
           <div
             className="q-activity-heatmap__plot"
@@ -155,7 +188,6 @@ export function ActivityHeatmap({
                   className="q-activity-heatmap__day"
                   style={{ gridRow: row, gridColumn: column }}
                   data-level={activityLevel(cell.count, grid.maxCount)}
-                  aria-pressed={selectedDay === cell.day}
                   aria-label={label}
                   title={label}
                   onClick={() => setSelectedDay(cell.day)}
@@ -163,9 +195,7 @@ export function ActivityHeatmap({
               );
             }))}
           </div>
-          <p className="q-activity-heatmap__readout" aria-live="polite">
-            {selected ? labelFor(selected) : t('stats.activity.hint')}
-          </p>
+          <p className="q-activity-heatmap__readout">{t('stats.activity.hint')}</p>
           <footer className="q-activity-heatmap__footer">
             <span className="q-activity-heatmap__total">
               {grid.totalCount === 0
@@ -181,7 +211,51 @@ export function ActivityHeatmap({
             </span>
           </footer>
         </>
-      )}
+      ) : (
+        <div className="q-activity-heatmap__day-panel" aria-live="polite">
+          <header className="q-activity-heatmap__day-header">
+            <button
+              type="button"
+              className="q-activity-heatmap__back"
+              onClick={() => setSelectedDay(null)}
+            >
+              {t('stats.activity.back')}
+            </button>
+            <h3 className="q-activity-heatmap__day-title">
+              {formatDayNumber(selectedDay, locale, true)}
+            </h3>
+            <span className="q-activity-heatmap__day-count">
+              {dayNotes.status === 'ready'
+                ? plural('stats.activity.notes', dayNotes.notes.length)
+                : ''}
+            </span>
+          </header>
+          {dayNotes.status === 'loading' && (
+            <p className="q-activity-heatmap__status">{t('stats.activity.dayNotesLoading')}</p>
+          )}
+          {dayNotes.status === 'failed' && (
+            <p className="q-activity-heatmap__status" role="alert">
+              {t('stats.activity.dayNotesFailed', { reason: dayNotes.reason })}
+            </p>
+          )}
+          {dayNotes.status === 'ready' && (dayNotes.notes.length === 0 ? (
+            <p className="q-activity-heatmap__status">{t('stats.activity.dayNotesEmpty')}</p>
+          ) : (
+            <ul className="q-activity-heatmap__notes">
+              {dayNotes.notes.map((note) => (
+                <ActivityNoteRow
+                  key={note.path}
+                  path={note.path}
+                  detail={formatClock(note.timestampNs, locale)}
+                  workspacePath={workspacePath}
+                  onOpenNote={onOpenNote}
+                />
+              ))}
+            </ul>
+          ))}
+        </div>
+      ))}
+      <RecentChangesPanel workspacePath={workspacePath} onOpenNote={onOpenNote} />
     </section>
   );
 }

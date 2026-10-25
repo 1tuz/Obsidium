@@ -63,6 +63,7 @@ function edgeTypes() {
     { value: 'related', label: t('graph.edgeTypeRelated') },
     { value: 'depends_on', label: t('graph.edgeTypeDependsOn') },
     { value: 'blocks', label: t('graph.edgeTypeBlocks') },
+    { value: 'similar', label: t('graph.edgeTypeSimilar') },
   ];
 }
 
@@ -355,6 +356,16 @@ export const GraphSettings = memo(function GraphSettings({
               onChange={(value) => onChange({ edgeStyle: value as EdgeStyle })}
             />
           </div>
+
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.similarEdges')}</span>
+            <Switch
+              checked={controls.similarEdges}
+              onChange={(similarEdges) => onChange({ similarEdges })}
+            />
+          </label>
+
+          {controls.similarEdges && <span>{t('graph.similarEdgesHint')}</span>}
 
           <div className="q-graph-settings-choice">
             <span>{t('graph.edgeType')}</span>

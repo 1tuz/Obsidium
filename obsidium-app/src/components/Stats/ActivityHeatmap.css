@@ -83,13 +83,72 @@
   cursor: default;
 }
 
-.q-activity-heatmap__day[aria-pressed="true"] {
-  border-color: var(--q-border-focus);
-}
-
 .q-activity-heatmap__day:focus-visible {
   outline: var(--q-border-2) solid var(--q-border-focus);
   outline-offset: var(--q-space-1);
+}
+
+.q-activity-heatmap__day-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-4);
+  min-width: 0;
+}
+
+.q-activity-heatmap__day-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--q-space-8);
+}
+
+.q-activity-heatmap__back {
+  padding: var(--q-space-2) var(--q-space-4);
+  border: var(--q-border-1) solid var(--q-border-subtle);
+  border-radius: var(--q-radius-sm);
+  background: none;
+  color: var(--q-text-secondary);
+  font: inherit;
+  font-size: var(--q-font-size-ui-sm);
+  cursor: pointer;
+}
+
+.q-activity-heatmap__back:hover {
+  background-color: var(--q-bg-surface-subtle);
+}
+
+.q-activity-heatmap__back:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-1);
+}
+
+.q-activity-heatmap__day-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--q-text-primary);
+  font-size: var(--q-font-size-ui-base);
+  font-weight: var(--q-font-weight-ui-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-activity-heatmap__day-count {
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+  white-space: nowrap;
+}
+
+.q-activity-heatmap__notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-space-1);
+  margin: 0;
+  padding: 0;
+  max-height: 36vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .q-activity-heatmap__readout,

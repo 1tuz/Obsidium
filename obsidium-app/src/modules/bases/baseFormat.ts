@@ -33,8 +33,10 @@ const VIEW_KEYS: Record<string, true> = {
   order: true,
   filters: true,
   groupBy: true,
+  laneBy: true,
   sort: true,
   groupOrder: true,
+  laneOrder: true,
   cardOrder: true,
   wipLimits: true,
 };
@@ -336,15 +338,20 @@ function summary(value: YamlValue): BaseSummary | null {
   };
 }
 
+function scalarList(value: YamlValue | undefined): BaseScalar[] | undefined {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is BaseScalar => (
+      entry === null || ['string', 'number', 'boolean'].includes(typeof entry)
+    ))
+    : undefined;
+}
+
 function view(value: YamlValue, index: number): BaseViewDefinition | null {
   if (!isObject(value)) return null;
   const type = text(value.type, 'table').toLowerCase();
   const order = Array.isArray(value.order) ? value.order.map((entry) => text(entry)).filter(Boolean) : [];
-  const groupOrder = Array.isArray(value.groupOrder)
-    ? value.groupOrder.filter((entry): entry is BaseScalar => (
-      entry === null || ['string', 'number', 'boolean'].includes(typeof entry)
-    ))
-    : undefined;
+  const groupOrder = scalarList(value.groupOrder);
+  const laneOrder = scalarList(value.laneOrder);
   const limit = typeof value.limit === 'number' && Number.isFinite(value.limit)
     ? Math.max(1, Math.floor(value.limit))
     : undefined;
@@ -361,7 +368,9 @@ function view(value: YamlValue, index: number): BaseViewDefinition | null {
     endField,
     filters: filter(value.filters),
     groupBy: groupBy(value.groupBy),
+    laneBy: groupBy(value.laneBy),
     groupOrder,
+    laneOrder,
     sort: sort(value.sort),
   };
   const extra: Record<string, BaseYamlValue> = {};
@@ -610,6 +619,12 @@ function viewValue(view: BaseViewDefinition): BaseYamlValue {
       direction: view.groupBy.direction ?? 'ASC',
     };
   }
+  if (view.laneBy) {
+    result.laneBy = {
+      property: view.laneBy.property,
+      direction: view.laneBy.direction ?? 'ASC',
+    };
+  }
   if (view.sort !== undefined) {
     result.sort = view.sort.map((entry) => ({
       property: entry.property,
@@ -617,6 +632,7 @@ function viewValue(view: BaseViewDefinition): BaseYamlValue {
     }));
   }
   if (view.groupOrder !== undefined) result.groupOrder = [...view.groupOrder];
+  if (view.laneOrder !== undefined) result.laneOrder = [...view.laneOrder];
   if (view.cardOrder !== undefined) {
     const order: Record<string, BaseYamlValue> = {};
     for (const key of Object.keys(view.cardOrder).sort()) {

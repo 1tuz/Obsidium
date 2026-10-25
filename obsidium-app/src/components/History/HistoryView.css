@@ -74,3 +74,32 @@
 .q-history-view .q-history-view__scroller .cm-editor .cm-deletedChunk .cm-deletedText {
   background: var(--q-bg-danger-subtle);
 }
+
+.q-history-view .q-history-view__scroller .cm-editor .cm-deletedChunk .cm-chunkButtons {
+  display: flex;
+  gap: var(--q-space-2);
+  align-items: center;
+}
+
+.q-history-view .q-history-view__scroller .cm-editor .q-history-chunk-button {
+  height: var(--q-size-20);
+  padding: 0 var(--q-space-6);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-radius-md);
+  background-color: var(--q-bg-surface);
+  color: var(--q-text-secondary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-sm);
+  font-weight: var(--q-font-weight-ui-base);
+  line-height: var(--q-size-20);
+  cursor: pointer;
+}
+
+.q-history-view .q-history-view__scroller .cm-editor .q-history-chunk-button:hover {
+  background-color: var(--q-bg-surface-hover);
+  color: var(--q-text-primary);
+}
+
+.q-history-view .q-history-view__scroller .cm-editor .q-history-chunk-button--reject:hover {
+  background-color: var(--q-bg-danger-subtle);
+}

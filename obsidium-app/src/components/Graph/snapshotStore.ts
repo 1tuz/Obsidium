@@ -1243,6 +1243,7 @@ function edgeTypeMask(edgeType: GraphEdgeType): number {
     related: 8,
     depends_on: 16,
     blocks: 32,
+    similar: 64,
   }[edgeType];
 }
 

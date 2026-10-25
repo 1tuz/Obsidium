@@ -1,6 +1,7 @@
 use super::cluster::louvain;
 use super::encode::encode;
 use super::layout::Options;
+use super::minhash;
 use super::model::{modified_date_only, GraphModel, GraphModelDiff};
 use super::snapshot::{paths_at, RenderSnapshot};
 use super::timeline::{self, TimelineEvent, TimelineRange};
@@ -11,7 +12,7 @@ use crate::search::paths::{identity, same_workspace};
 use crate::search::service::{CachedRenderGraph, SearchService};
 use rusqlite::Connection;
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
@@ -21,6 +22,7 @@ struct GraphSource {
     generation: u64,
     revision: u64,
     metadata: Arc<Mutex<Connection>>,
+    index: Arc<crate::search::index::SearchIndex>,
 }
 
 #[derive(Default)]
@@ -109,6 +111,15 @@ fn layout_key(options: Options) -> String {
         options.attraction.to_bits(),
         options.repulsion.to_bits()
     )
+}
+
+fn graph_cache_key(options: Options, similar_edges: bool) -> String {
+    let key = layout_key(options);
+    if similar_edges {
+        format!("{key}:similar")
+    } else {
+        key
+    }
 }
 
 fn validate_layout_options(options: Options) -> Result<(), SearchError> {
@@ -208,9 +219,18 @@ impl SearchService {
         workspace: &str,
         options: Options,
     ) -> Result<Arc<Vec<u8>>, SearchError> {
+        self.render_graph_with_similarity(workspace, options, false)
+    }
+
+    pub fn render_graph_with_similarity(
+        &self,
+        workspace: &str,
+        options: Options,
+        similar_edges: bool,
+    ) -> Result<Arc<Vec<u8>>, SearchError> {
         validate_layout_options(options)?;
         let source = self.graph_source(workspace)?;
-        let layout_key = layout_key(options);
+        let layout_key = graph_cache_key(options, similar_edges);
         if let Some(ready) = self.cached_render_graph(&source, &layout_key)? {
             return Ok(ready);
         }
@@ -254,19 +274,22 @@ impl SearchService {
                         cached.analysis_stale = false;
                         return Ok(Arc::clone(&cached.bytes));
                     }
+                    self.apply_similar_edges(&source, model, similar_edges)?;
                     let snapshot =
                         RenderSnapshot::build_from_model(model, &cached_positions, options)?;
                     (snapshot, None, cursor)
                 }
                 None => {
-                    let (model, cursor) = full_graph_model(&connection, &source.root)?;
+                    let (mut model, cursor) = full_graph_model(&connection, &source.root)?;
+                    self.apply_similar_edges(&source, &mut model, similar_edges)?;
                     let snapshot =
                         RenderSnapshot::build_from_model(&model, &cached_positions, options)?;
                     (snapshot, Some(model), cursor)
                 }
             }
         } else {
-            let (model, cursor) = full_graph_model(&connection, &source.root)?;
+            let (mut model, cursor) = full_graph_model(&connection, &source.root)?;
+            self.apply_similar_edges(&source, &mut model, similar_edges)?;
             let snapshot = RenderSnapshot::build_from_model(&model, &cached_positions, options)?;
             (snapshot, Some(model), cursor)
         };
@@ -948,6 +971,22 @@ impl SearchService {
         ))
     }
 
+    fn apply_similar_edges(
+        &self,
+        source: &GraphSource,
+        model: &mut GraphModel,
+        similar_edges: bool,
+    ) -> Result<(), SearchError> {
+        if !similar_edges {
+            model.set_similar_edges(std::iter::empty());
+            return Ok(());
+        }
+        let allowed = model.notes.keys().cloned().collect::<BTreeSet<_>>();
+        let pairs = minhash::similar_note_pairs(&source.index, &allowed)?;
+        model.set_similar_edges(pairs);
+        Ok(())
+    }
+
     fn graph_source(&self, workspace: &str) -> Result<GraphSource, SearchError> {
         let active = self.active.read().map_err(SearchError::task)?;
         let active = active.as_ref().ok_or_else(|| SearchError::Unavailable {
@@ -976,6 +1015,7 @@ impl SearchService {
             generation: active.generation,
             revision: status.revision,
             metadata: Arc::clone(&active.metadata),
+            index: Arc::clone(&active.index),
         })
     }
 
@@ -1458,9 +1498,11 @@ mod tests {
         validate_position_updates, GraphModifiedDateDeltaRevision, GraphModifiedDateUpdate,
         GraphNodeFilter, GraphTopologyDeltaRevision, GraphTopologyEdgeUpdate,
         GraphTopologyNodeUpdate, MAX_DATE_DELTA_REVISIONS, MAX_TOPOLOGY_DELTA_REVISIONS,
+        SNAPSHOT_HEADER_BYTES,
     };
     use crate::search::fields::{index_document, open_schema};
     use crate::search::graph::layout::{Mode, Options};
+    use crate::search::graph::model::SIMILAR_TYPE;
     use crate::search::graph::snapshot::RenderSnapshot;
     use crate::search::models::SearchIndexState;
     use rusqlite::Connection;
@@ -1792,13 +1834,26 @@ mod tests {
         crate::search::service::SearchService,
         Arc<crate::search::progress::IndexProgress>,
     ) {
+        open_live_graph_with_notes(&[
+            ("First.md", "[[Second]] initial"),
+            ("Second.md", "second note"),
+        ])
+    }
+
+    fn open_live_graph_with_notes(
+        notes: &[(&str, &str)],
+    ) -> (
+        tempfile::TempDir,
+        std::path::PathBuf,
+        crate::search::service::SearchService,
+        Arc<crate::search::progress::IndexProgress>,
+    ) {
         let directory = tempfile::tempdir().unwrap();
         let root = directory.path().join("vault");
         std::fs::create_dir_all(&root).unwrap();
-        let first = root.join("First.md");
-        let second = root.join("Second.md");
-        std::fs::write(&first, "[[Second]] initial").unwrap();
-        std::fs::write(&second, "second note").unwrap();
+        for (name, body) in notes {
+            std::fs::write(root.join(name), body).unwrap();
+        }
         let root = root.canonicalize().unwrap();
         let service = crate::search::service::SearchService::new(
             directory.path().join("indexes"),
@@ -1894,6 +1949,41 @@ mod tests {
         let modified = SystemTime::now() - Duration::from_secs(seconds);
         file.set_times(std::fs::FileTimes::new().set_modified(modified))
             .unwrap();
+    }
+
+    #[test]
+    fn similar_setting_adds_text_similarity_edges_to_the_snapshot() {
+        let (_directory, root, service, _progress) = open_live_graph_with_notes(&[
+            ("First.md", "minhash bands rows similarity"),
+            ("Second.md", "minhash bands rows similarity graph"),
+            ("Third.md", "flour sugar oven dough baking"),
+        ]);
+        let root_text = root.to_string_lossy().into_owned();
+        let options = Options::default();
+
+        let without = service.render_graph(&root_text, options).unwrap();
+        assert_eq!(similar_edge_count(&without), 0);
+
+        let with = service
+            .render_graph_with_similarity(&root_text, options, true)
+            .unwrap();
+        assert_eq!(similar_edge_count(&with), 1);
+
+        let again = service.render_graph(&root_text, options).unwrap();
+        assert_eq!(similar_edge_count(&again), 0);
+    }
+
+    fn similar_edge_count(bytes: &[u8]) -> usize {
+        let nodes = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+        let edges = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+        let types_start = SNAPSHOT_HEADER_BYTES + nodes * 32 + edges * 12;
+        (0..edges)
+            .filter(|slot| {
+                let offset = types_start + slot * 4;
+                u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) & SIMILAR_TYPE
+                    != 0
+            })
+            .count()
     }
 
     #[test]

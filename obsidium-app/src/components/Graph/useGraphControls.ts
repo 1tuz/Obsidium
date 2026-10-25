@@ -8,6 +8,7 @@ import { loadGraphClusterIds, loadGraphFilterNodes } from '../../modules/graph';
 import type { GraphEpoch } from '../../modules/graph';
 import { useSettingsStore } from '../../modules/settings';
 import { customGroupIds } from './customGroupIds';
+import { readSimilarEdges } from './similarEdges';
 
 type GroupRuleFilter = Pick<GraphPreferences['groupRules'][number], 'field' | 'key' | 'value'>;
 
@@ -52,6 +53,10 @@ export function useGraphControls(
     setPreferences({
       ...DEFAULT_PREFERENCES,
       ...(config.graph?.preferences ?? legacyPreferences),
+      similarEdges: readSimilarEdges(config)
+        ?? config.graph?.preferences?.similarEdges
+        ?? legacyPreferences.similarEdges
+        ?? DEFAULT_PREFERENCES.similarEdges,
     });
     setPresets(config.graph?.presets ?? legacyPresets);
     setGraphSettingsLoaded(true);
@@ -59,7 +64,12 @@ export function useGraphControls(
 
   useEffect(() => {
     if (!config || !graphSettingsLoaded) return;
-    const nextGraph = { preferences, presets };
+    const nextGraph = {
+      ...config.graph,
+      preferences,
+      presets,
+      similarEdges: preferences.similarEdges,
+    };
     if (JSON.stringify(config.graph) === JSON.stringify(nextGraph)) return;
     const timer = window.setTimeout(() => {
       void updateConfig({ ...config, graph: nextGraph }).catch((error) => {

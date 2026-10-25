@@ -56,6 +56,7 @@ function ControlsHarness() {
         collapsedCommunities: { '21:34': true },
       })}>change</button>
       <button onClick={() => controls.savePreset('Research')}>save</button>
+      <button onClick={() => controls.patchControls({ similarEdges: true })}>similar</button>
     </div>
   );
 }
@@ -186,6 +187,21 @@ describe('useGraphControls persistence', () => {
       modifiedBeforeShare: 0.8,
       groupRules: [expect.objectContaining({ customColor: '#e46a2a' })],
     });
+  });
+
+  it('persists the text similarity switch in the graph settings', () => {
+    graphMocks.config = {
+      graph: { preferences: { ...DEFAULT_PREFERENCES, similarEdges: true }, presets: {} },
+    };
+
+    act(() => { renderer = mountDom(<ControlsHarness />); });
+    act(() => { vi.advanceTimersByTime(351); });
+
+    const saved = graphMocks.updateConfig.mock.calls[0]?.[0] as {
+      graph: { similarEdges: boolean; preferences: { similarEdges: boolean } };
+    };
+    expect(saved.graph.similarEdges).toBe(true);
+    expect(saved.graph.preferences.similarEdges).toBe(true);
   });
 
   it('migrates existing graph settings and presets into app settings', () => {

@@ -26,6 +26,10 @@ export interface GraphLayoutOptions {
   repulsion: number;
 }
 
+export interface GraphSnapshotOptions extends GraphLayoutOptions {
+  similarEdges?: boolean;
+}
+
 export interface GraphTimelineRange {
   baselineEvent: number;
   baselineAtNs: number;
@@ -48,7 +52,7 @@ const MAX_GRAPH_DAY = 110_000;
 
 export async function loadGraphSnapshot(
   workspacePath: string,
-  options: GraphLayoutOptions = DEFAULT_LAYOUT_OPTIONS,
+  options: GraphSnapshotOptions = DEFAULT_LAYOUT_OPTIONS,
 ): Promise<GraphSnapshot> {
   const response = await invoke<ArrayBuffer | Uint8Array>('get_graph_snapshot', {
     workspacePath,

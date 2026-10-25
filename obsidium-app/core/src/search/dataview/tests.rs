@@ -1,4 +1,5 @@
 use super::execute::{self, Cell, CellPart, QueryOutput};
+use super::inline::{self, InlineRequest};
 use super::parser::parse;
 use super::rows::Row;
 use crate::search::fields::Field;
@@ -37,6 +38,13 @@ fn list(key: &str, items: &[&str]) -> Field {
         key.to_owned(),
         items.iter().map(|item| (*item).to_owned()).collect(),
     )
+}
+
+fn inline_request(id: &str, expr: &str) -> InlineRequest {
+    InlineRequest {
+        id: id.to_owned(),
+        expr: expr.to_owned(),
+    }
 }
 
 fn run(query: &str, rows: Vec<Row>) -> QueryOutput {
@@ -1040,4 +1048,105 @@ fn situation_22_home_stats_table_all_five_rows() {
     assert_eq!(plain(&output.rows[12]), "За всё время");
     assert_eq!(plain(&output.rows[13]), "7");
     assert_eq!(plain(&output.rows[14]), "\u{2014}");
+}
+
+#[test]
+fn an_inline_expression_reads_frontmatter_and_file_fields() {
+    let created = crate::search::note_date::parse("2024-10-07").expect("дата разобрана");
+    let row = note(
+        "Книги/Пороки.md",
+        created,
+        vec![
+            scalar("price", "250"),
+            scalar("count", "3"),
+            list("tags", &["книги", "неру"]),
+        ],
+    );
+    let values = inline::evaluate_requests(
+        &row,
+        &[
+            inline_request("price", "= price * count"),
+            inline_request("sum", "= price + 1"),
+            inline_request("name", "= file.name"),
+            inline_request("folder", "= file.folder"),
+            inline_request("path", "= file.path"),
+            inline_request("year", "= dateformat(file.ctime, \"yyyy\")"),
+            inline_request("file-tags", "= file.tags"),
+            inline_request("tags", "= tags"),
+            inline_request("size", "= file.size"),
+        ],
+    );
+
+    let texts: Vec<&str> = values.iter().map(|value| value.value.as_str()).collect();
+    assert_eq!(
+        texts,
+        vec![
+            "750",
+            "251",
+            "Пороки",
+            "Книги",
+            "Книги/Пороки.md",
+            "2024",
+            "книги, неру",
+            "книги, неру",
+            "100",
+        ]
+    );
+    assert!(values.iter().all(|value| value.error.is_none()));
+}
+
+#[test]
+fn an_inline_expression_over_a_missing_field_is_empty_rather_than_broken() {
+    let row = note("Заметка.md", DAY, Vec::new());
+    let values = inline::evaluate_requests(&row, &[inline_request("due", "= due")]);
+
+    assert_eq!(values[0].value, "");
+    assert_eq!(values[0].error, None);
+}
+
+#[test]
+fn a_broken_inline_expression_reports_its_error_and_leaves_the_value_empty() {
+    let row = note("Заметка.md", DAY, vec![scalar("price", "250")]);
+    let values = inline::evaluate_requests(
+        &row,
+        &[
+            inline_request("broken", "= price +"),
+            inline_request("empty", "="),
+            inline_request("literal", "= 2 + 2"),
+        ],
+    );
+
+    assert_eq!(values[0].value, "");
+    assert!(
+        values[0]
+            .error
+            .as_deref()
+            .is_some_and(|error| !error.is_empty()),
+        "сломанное выражение объясняет себя словами"
+    );
+    assert!(values[1].error.is_some(), "пустое выражение — ошибка");
+    assert_eq!(values[2].value, "4");
+    assert_eq!(values[2].error, None);
+}
+
+#[test]
+fn an_inline_expression_answers_with_the_note_it_was_given() {
+    let row = note(
+        "Дневник/Май.md",
+        DAY,
+        vec![scalar("Оценка", "8"), scalar("title", "Май")],
+    );
+    let values = inline::evaluate_requests(
+        &row,
+        &[
+            inline_request("score", "= Оценка * 2"),
+            inline_request("title", "= title"),
+            inline_request("link", "= file.link"),
+        ],
+    );
+
+    assert_eq!(values[0].value, "16");
+    assert_eq!(values[1].value, "Май");
+    assert_eq!(values[2].value, "Май");
+    assert!(values.iter().all(|value| value.error.is_none()));
 }

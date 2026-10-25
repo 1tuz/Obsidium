@@ -27,6 +27,11 @@ export interface ActivityGrid {
   totalCount: number;
 }
 
+export interface ActivityNote {
+  path: string;
+  timestampNs: number;
+}
+
 export const DAY_MS = 86_400_000;
 export const NANOS_PER_MILLI = 1_000_000;
 export const WEEK_LENGTH = 7;
@@ -157,4 +162,24 @@ export function monthLabel(month: number, locale: string): string {
     month: 'short',
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(2024, month, 1)));
+}
+
+export function dayIsoDate(day: number): string {
+  return dayToUtcDate(day).toISOString().slice(0, 10);
+}
+
+export function formatClock(nanos: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(Math.floor(nanos / NANOS_PER_MILLI)));
+}
+
+export function formatNoteMoment(nanos: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(Math.floor(nanos / NANOS_PER_MILLI)));
 }

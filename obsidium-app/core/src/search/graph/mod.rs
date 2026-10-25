@@ -3,6 +3,7 @@ pub mod cluster;
 pub mod encode;
 pub mod force;
 pub mod layout;
+pub mod minhash;
 pub mod model;
 pub mod neighborhood;
 pub mod rank;

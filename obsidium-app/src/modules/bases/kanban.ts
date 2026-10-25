@@ -2,13 +2,29 @@ import { relativePath } from '../paths';
 import { baseProperty } from './properties';
 import type { BaseFieldValue, BaseRow, BaseViewDefinition } from './types';
 
-export interface KanbanColumn {
+export interface KanbanCell {
   key: string;
-  value: string;
+  laneValue: string;
+  columnValue: string;
   rows: BaseRow[];
   limit?: number;
   overLimit: boolean;
 }
+
+export interface KanbanLane {
+  key: string;
+  value: string;
+  cells: KanbanCell[];
+}
+
+export interface KanbanBoardLayout {
+  laneProperty: string | null;
+  laneValues: string[];
+  columnValues: string[];
+  lanes: KanbanLane[];
+}
+
+const ORDER_SEPARATOR = ' / ';
 
 function display(value: BaseFieldValue | undefined): string {
   if (Array.isArray(value)) return value.join(', ');
@@ -17,6 +33,10 @@ function display(value: BaseFieldValue | undefined): string {
 
 export function kanbanProperty(view: BaseViewDefinition): string {
   return view.groupBy?.property || 'status';
+}
+
+export function kanbanLaneProperty(view: BaseViewDefinition): string | null {
+  return view.laneBy?.property || null;
 }
 
 export function kanbanWritableProperty(property: string): boolean {
@@ -29,6 +49,10 @@ export function kanbanRowKey(row: BaseRow, workspacePath: string): string {
   } catch {
     return row.path;
   }
+}
+
+export function kanbanOrderKey(lane: string, column: string): string {
+  return lane ? `${lane}${ORDER_SEPARATOR}${column}` : column;
 }
 
 function orderedRows(
@@ -51,67 +75,121 @@ function orderedRows(
     .map((entry) => entry.row);
 }
 
-export function buildKanbanColumns(
+function orderedValues(
+  observed: Iterable<string>,
+  configured: readonly string[],
+  direction: 'ASC' | 'DESC' | undefined,
+): string[] {
+  const configuredSet = new Set(configured);
+  const extra = [...observed]
+    .filter((value) => !configuredSet.has(value))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  if (direction === 'DESC') extra.reverse();
+  return [...configured, ...extra];
+}
+
+export function buildKanbanBoard(
   rows: readonly BaseRow[],
   view: BaseViewDefinition,
   workspacePath: string,
-): KanbanColumn[] {
-  const property = kanbanProperty(view);
+): KanbanBoardLayout {
+  const columnProperty = kanbanProperty(view);
+  const laneProperty = kanbanLaneProperty(view);
+  const observedColumns = new Set<string>();
+  const observedLanes = new Set<string>();
   const buckets = new Map<string, BaseRow[]>();
+
   for (const row of rows) {
-    const value = display(baseProperty(row, property, workspacePath));
-    const bucket = buckets.get(value) ?? [];
+    const columnValue = display(baseProperty(row, columnProperty, workspacePath));
+    const laneValue = laneProperty === null
+      ? ''
+      : display(baseProperty(row, laneProperty, workspacePath));
+    observedColumns.add(columnValue);
+    observedLanes.add(laneValue);
+    const key = kanbanOrderKey(laneValue, columnValue);
+    const bucket = buckets.get(key) ?? [];
     bucket.push(row);
-    buckets.set(value, bucket);
+    buckets.set(key, bucket);
   }
 
-  const configured = (view.groupOrder ?? []).map((value) => String(value ?? ''));
-  const configuredSet = new Set(configured);
-  const observed = [...buckets.keys()]
-    .filter((value) => !configuredSet.has(value))
-    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
-  if (view.groupBy?.direction === 'DESC') observed.reverse();
+  const columnValues = orderedValues(
+    observedColumns,
+    (view.groupOrder ?? []).map((value) => String(value ?? '')),
+    view.groupBy?.direction,
+  );
+  if (columnValues.length === 0) columnValues.push('');
 
-  const values = [...configured, ...observed];
-  if (values.length === 0) values.push('');
-  return values.map((value) => {
-    const columnRows = orderedRows(
-      buckets.get(value) ?? [],
-      view.cardOrder?.[value],
-      workspacePath,
+  const laneValues = laneProperty === null
+    ? ['']
+    : orderedValues(
+      observedLanes,
+      (view.laneOrder ?? []).map((value) => String(value ?? '')),
+      view.laneBy?.direction,
     );
-    const limit = view.wipLimits?.[value];
-    return {
-      key: value || '__empty__',
-      value,
-      rows: columnRows,
-      limit,
-      overLimit: limit !== undefined && columnRows.length > limit,
-    };
-  });
+  if (laneValues.length === 0) laneValues.push('');
+
+  const lanes = laneValues.map((laneValue) => ({
+    key: laneValue || '__empty__',
+    value: laneValue,
+    cells: columnValues.map((columnValue) => {
+      const key = kanbanOrderKey(laneValue, columnValue);
+      const cellRows = orderedRows(
+        buckets.get(key) ?? [],
+        view.cardOrder?.[key] ?? (laneValue ? view.cardOrder?.[columnValue] : undefined),
+        workspacePath,
+      );
+      const limit = view.wipLimits?.[key]
+        ?? (laneValue ? view.wipLimits?.[columnValue] : undefined);
+      return {
+        key,
+        laneValue,
+        columnValue,
+        rows: cellRows,
+        limit,
+        overLimit: limit !== undefined && cellRows.length > limit,
+      };
+    }),
+  }));
+
+  return { laneProperty, laneValues, columnValues, lanes };
+}
+
+export function kanbanCells(board: KanbanBoardLayout): KanbanCell[] {
+  return board.lanes.flatMap((lane) => lane.cells);
+}
+
+export function kanbanCell(
+  board: KanbanBoardLayout,
+  laneValue: string,
+  columnValue: string,
+): KanbanCell | undefined {
+  return board.lanes
+    .find((lane) => lane.value === laneValue)
+    ?.cells.find((cell) => cell.columnValue === columnValue);
 }
 
 export function kanbanOrderWithCard(
-  columns: readonly KanbanColumn[],
+  cells: readonly KanbanCell[],
   row: BaseRow,
-  value: string,
+  target: KanbanCell,
   index: number,
   workspacePath: string,
 ): Record<string, string[]> {
   const order: Record<string, string[]> = {};
-  for (const column of columns) {
-    const paths = column.rows
+  for (const cell of cells) {
+    const paths = cell.rows
       .filter((entry) => entry.path !== row.path)
       .map((entry) => kanbanRowKey(entry, workspacePath));
-    if (paths.length > 0) order[column.value] = paths;
+    if (paths.length > 0) order[cell.key] = paths;
   }
-  const target = [...(order[value] ?? [])];
-  const source = columns.find((column) => column.value === value);
-  const currentIndex = source
-    ? source.rows.findIndex((entry) => entry.path === row.path)
-    : -1;
+  const ordered = [...(order[target.key] ?? [])];
+  const currentIndex = target.rows.findIndex((entry) => entry.path === row.path);
   const insertion = currentIndex !== -1 && currentIndex < index ? index - 1 : index;
-  target.splice(Math.max(0, Math.min(insertion, target.length)), 0, kanbanRowKey(row, workspacePath));
-  order[value] = target;
+  ordered.splice(
+    Math.max(0, Math.min(insertion, ordered.length)),
+    0,
+    kanbanRowKey(row, workspacePath),
+  );
+  order[target.key] = ordered;
   return order;
 }

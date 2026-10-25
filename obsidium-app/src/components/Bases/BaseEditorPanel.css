@@ -29,6 +29,7 @@
 .q-base-editor__limit,
 .q-base-editor__value,
 .q-base-editor__wip,
+.q-base-editor__field > select,
 .q-base-editor__row select {
   min-height: var(--q-size-32);
   min-width: 0;
@@ -45,10 +46,12 @@
 .q-base-editor__limit:focus-visible,
 .q-base-editor__value:focus-visible,
 .q-base-editor__wip:focus-visible,
+.q-base-editor__field > select:focus-visible,
 .q-base-editor__row select:focus-visible {
   outline: var(--q-border-2) solid var(--q-border-focus);
 }
 
+.q-base-editor__field > select:disabled,
 .q-base-editor__row select:disabled {
   cursor: default;
   opacity: .55;

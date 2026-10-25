@@ -1,6 +1,9 @@
 #[cfg(all(desktop, not(debug_assertions)))]
 mod autostart;
 mod blocking;
+mod dataview {
+    pub mod commands;
+}
 mod export;
 mod updater;
 mod window_state;
@@ -212,9 +215,12 @@ pub fn run() {
             search::commands::get_note_fields,
             search::commands::get_base_rows,
             search::commands::get_note_activity,
+            search::commands::get_note_day_notes,
+            search::commands::get_recent_changes,
             search::commands::get_calendar_events,
             search::commands::query_base,
             search::commands::run_dataview_query,
+            dataview::commands::evaluate_inline_expressions,
             search::commands::update_task_status,
             search::analysis::commands::analyze_document,
             search::analysis::commands::get_knowledge_report,

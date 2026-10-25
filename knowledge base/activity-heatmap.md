@@ -12,6 +12,8 @@
 - [[graph-view]] — вторая ось `modified_ns` там же, но в графе: цвет узла по дате.
 - [[calendar-events]] — соседняя временная поверхность: события читаются из `note_events`.
 - [[design-tokens]] — почему цвет клетки — токен `--q-blue-alpha-*`, а не значение.
+- [[recent-changes]] — соседняя панель в том же блоке `insights`: последние изменённые заметки
+  и список заметок дня читаются тем же ядром.
 
 ## Источник данных
 
@@ -27,7 +29,7 @@
 frontmatter (`created`, `created_at`, `date-created`) → время рождения файла → `mtime`.
 Поэтому дата создания в карте совпадает с той, что видит Dataview в `file.ctime`.
 
-IPC — одна тонкая команда:
+IPC — три тонкие команды поверх одного и того же чтения:
 
 ```rust
 #[tauri::command]
@@ -35,13 +37,30 @@ pub async fn get_note_activity(
     core: State<'_, Arc<Core>>,
     workspace_path: String,
 ) -> Result<Vec<obsidium_core::search::activity::NoteTimestamp>, SearchError>
+
+#[tauri::command]
+pub async fn get_note_day_notes(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    day: String,
+    measure: ActivityMeasure,
+    tz_offset_minutes: i64,
+) -> Result<Vec<ActivityNote>, SearchError>
+
+#[tauri::command]
+pub async fn get_recent_changes(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    limit: Option<usize>,
+) -> Result<Vec<ActivityNote>, SearchError>
 ```
 
-Она вызывает `SearchService::note_timestamps` (`core/src/search/activity.rs`), который читает
-`SELECT path, created_ns, modified_ns FROM documents ORDER BY path` через `with_metadata`, то есть
-через уже открытый индекс рабочей области. Заметки с `created_ns <= 0` и нечисловыми значениями
-отбрасываются на стороне TypeScript (`countByDay`), а не в SQL: одна и та же выборка обслуживает
-обе меры.
+`get_note_activity` вызывает `SearchService::note_timestamps` (`core/src/search/activity.rs`),
+который читает `SELECT path, created_ns, modified_ns FROM documents ORDER BY path` через
+`with_metadata`, то есть через уже открытый индекс рабочей области. Заметки с `created_ns <= 0` и
+нечисловыми значениями отбрасываются на стороне TypeScript (`countByDay`), а не в SQL: одна и та
+же выборка обслуживает обе меры. Две другие команды фильтруют ту же выборку в памяти —
+подробности в [[recent-changes]].
 
 ## Гранулярность
 
@@ -71,6 +90,11 @@ pub async fn get_note_activity(
 Следствие, о котором стоит знать: смена часового пояса машины пересчитывает дни при следующем
 открытии панели. Это осознанный выбор — карта отвечает на вопрос «когда это было для меня».
 
+Границы суток в списке заметок дня считает уже ядро — `note_date::civil_date` +
+`note_date::from_civil` по смещению, которое прислал фронтенд. Это тот же локальный календарь,
+только посчитанный там, где лежат метки времени: `dayIsoDate` превращает номер дня обратно в
+`YYYY-MM-DD`, поэтому список и счётчик клетки не могут разойтись.
+
 ## Нового индекса нет
 
 Запрос — полное чтение `documents` (`WITHOUT ROWID`, первичный ключ `path`). SQLite всё равно
@@ -83,35 +107,59 @@ pub async fn get_note_activity(
 карта показывает то же состояние, что поиск и граф. Если индекс ещё не готов, команда вернёт
 ошибку `SearchError`, а панель покажет текст ошибки вместо пустой сетки.
 
-## Клик по дню
+## Клик по дню: заметки дня
 
-Клик только выделяет день (`aria-pressed`) и повторяет его подпись в строке-чтении с
-`aria-live="polite"`. Открытия поиска с фильтром по дате нет: существующий поиск не принимает
-диапазон дат, а Dataview-запрос, собранный из строки, был бы новым языком запросов — его здесь
-сознательно не изобретают. Если такой фильтр появится, клетка уже несёт номер дня, из которого
-получается граница суток.
+Клик по клетке открывает список заметок этого дня в текущей мере — «Создано» показывает заметки,
+созданные в этот день, «Изменено» — заметки, которые в этот день правили. Сетка при этом
+уступает место списку: заголовок с датой (`formatDayNumber`), счётчик (`plural` по
+`stats.activity.notes`), кнопка «К календарю» и строки заметок.
+
+Фильтрация — на стороне ядра (`SearchService::notes_on_day`), а не в браузере: панель не держит
+второй экземпляр списка и не пересчитывает локальные сутки. Границы дня считает `day_bounds` из
+`note_date::civil_date` + `note_date::from_civil` — тот же разбор дат, что у Dataview, поэтому
+день в клетке и день в списке — один и тот же день, включая смену месяца, года и високосный
+февраль. Часовой пояс приходит из фронтенда (`-new Date().getTimezoneOffset()`), ядро переводит
+его в секунды и выставляет в `note_date::set_local_offset` до разбора.
+
+Список приходит в порядке возрастания метки времени, поэтому читается как хроника дня. Пустой
+день — это не ошибка: панель пишет «в этот день заметок нет», а не рисует пустой список.
+
+Строка заметки — общий `ActivityNoteRow` (заголовок, папка относительно рабочей области, время)
+и `onOpenNote` — тот же колбэк, которым панель `insights` открывает заметки отчёта. Возврат —
+кнопкой «К календарю», состояние выбранного дня живёт в компоненте и не пишется в UI-состояние:
+переоткрытие панели начинается с календаря.
+
+## Лента последних изменений
+
+Под сеткой стоит отдельная панель [[recent-changes]] — последние изменённые заметки рабочей
+области. Она живёт в том же блоке активности, что и карта, но это самостоятельный компонент со
+своей командой и своим лимитом.
 
 ## Файлы
 
 - `src/modules/stats/activity.ts` — чистая агрегация: `localDayNumber`, `countByDay`,
-  `buildActivityGrid`, `activityLevel`, подписи месяцев и дней. Часовой пояс, диапазон и
-  выравнивание недель — только здесь.
+  `buildActivityGrid`, `activityLevel`, подписи месяцев и дней, `dayIsoDate`, `formatClock`,
+  `formatNoteMoment`. Часовой пояс, диапазон и выравнивание недель — только здесь.
 - `src/modules/stats/activity.test.ts` — тесты агрегации: локальные сутки и переходы на летнее
-  время, пустые дни, раздельные меры, границы 12 месяцев, подписи месяцев.
-- `src/modules/stats/gateway.ts` — `loadNoteTimestamps(workspacePath)`, один `invoke`.
-- `src/components/Stats/ActivityHeatmap.tsx` — сетка, переключатель меры, подпись дня,
-  строка-чтение, легенда.
+  время, пустые дни, раздельные меры, границы 12 месяцев, подписи месяцев и моментов.
+- `src/modules/stats/gateway.ts` — `loadNoteTimestamps`, `loadDayNotes`, `loadRecentChanges`
+  и `RECENT_CHANGES_LIMIT`; каждый — один `invoke`.
+- `src/components/Stats/ActivityHeatmap.tsx` — сетка, переключатель меры, подпись дня, строка
+  чтения, легенда и список заметок выбранного дня.
 - `src/components/Stats/ActivityHeatmap.css` — размеры и уровни цвета на токенах
   (`--q-blue-alpha-15/32/60/90`), без литеральных цветов.
-- `core/src/search/activity.rs` — `NoteTimestamp`, `read_note_timestamps`,
-  `SearchService::note_timestamps` и юнит-тест на чтение.
+- `src/components/Stats/ActivityNoteRow.tsx` — строка заметки (заголовок, папка, время), общая
+  для списка дня и для ленты изменений.
+- `src/components/Stats/RecentChangesPanel.tsx` — панель последних изменений.
+- `core/src/search/activity.rs` — `NoteTimestamp`, `ActivityNote`, `ActivityMeasure`,
+  `read_note_timestamps`, `notes_on_day`, `recent_changes`, `day_bounds` и юнит-тесты.
 
 ## Монтирование
 
 Компонент ничего не знает о панели: он получает путь рабочей области и сам грузит данные.
 
 ```tsx
-<ActivityHeatmap workspacePath={workspacePath} />
+<ActivityHeatmap workspacePath={workspacePath} onOpenNote={onFileSelect} />
 ```
 
 | Проп | Тип | По умолчанию | Смысл |
@@ -119,16 +167,16 @@ pub async fn get_note_activity(
 | `workspacePath` | `string \| null` | — | корень базы знаний; `null` — компонент не рендерится |
 | `measure` | `'created' \| 'modified'` | внутреннее состояние `'created'` | контролируемая мера |
 | `onMeasureChange` | `(measure) => void` | — | вызывается при переключении; если задан `measure`, компонент ждёт нового значения сверху |
+| `onOpenNote` | `(path) => void` | — | открывает заметку из списка дня и из ленты изменений |
 | `className` | `string` | `''` | дополнительный класс на корневой `<section>` |
 
-Место в интерфейсе (панель `insights` и её регистрация в `Sidebar`/`SidebarRail`/`App`) в этой
-работе не занималось: панель собирает архитектор, компонент к ней готов.
+Компонент смонтирован в блоке `activity` панели `insights` (`Sidebar.tsx`), туда же он получает
+`onOpenNote` — тот же `onFileSelect`, которым открываются заметки из отчёта аналитики.
 
 ## Проверки
 
 ```bash
-cd obsidium-app && npx vitest run src/modules/stats src/components/Stats
-cd obsidium-app && npx tsc --noEmit
-cd obsidium-app && node scripts/audit-design-tokens.mjs | head -5
-cd obsidium-app/core && cargo test --offline activity
+cd obsidium-app && rtk npx vitest run src/components/Stats src/modules/stats
+cd obsidium-app && rtk npx tsc --noEmit
+cd obsidium-app/src-tauri && rtk cargo test --locked -p obsidium-core activity
 ```

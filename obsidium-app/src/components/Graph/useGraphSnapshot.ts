@@ -37,6 +37,7 @@ interface GraphSnapshotInput {
   inactive: boolean;
   rendererError: string | null;
   layoutOptions?: GraphLayoutOptions;
+  similarEdges?: boolean;
   timelineEventId?: number | null;
 }
 
@@ -68,6 +69,7 @@ interface AppliedSnapshot {
   layoutMode: GraphLayoutOptions['layoutMode'];
   attraction: number;
   repulsion: number;
+  similarEdges: boolean;
   attempt: number;
   reload: number;
   live: boolean;
@@ -92,6 +94,7 @@ export function useGraphSnapshot({
   inactive,
   rendererError,
   layoutOptions = DEFAULT_LAYOUT_OPTIONS,
+  similarEdges = false,
   timelineEventId = null,
 }: GraphSnapshotInput) {
   const [counts, setCounts] = useState<GraphCounts | null>(null);
@@ -118,7 +121,7 @@ export function useGraphSnapshot({
   const snapshotRevision = timelineEventId === null ? indexRevision : `event-${timelineEventId}`;
   const requestEnabled = activated && !inactive && workspacePath !== null && rendererError === null;
   const snapshotKey = requestEnabled
-    ? `${attempt} ${reload} ${workspacePath} ${snapshotRevision} ${layoutOptions.layoutMode} ${layoutOptions.attraction} ${layoutOptions.repulsion}`
+    ? `${attempt} ${reload} ${workspacePath} ${snapshotRevision} ${layoutOptions.layoutMode} ${layoutOptions.attraction} ${layoutOptions.repulsion} ${similarEdges ? 'similar' : 'plain'}`
     : null;
   latestRequestKeyRef.current = snapshotKey;
 
@@ -150,10 +153,10 @@ export function useGraphSnapshot({
           kind: 'snapshot',
           snapshot: historicalEventId !== null
             ? await loadGraphTimelineSnapshot(workspacePath, historicalEventId, layoutOptions)
-            : await loadGraphSnapshot(workspacePath, layoutOptions),
+            : await loadGraphSnapshot(workspacePath, { ...layoutOptions, similarEdges }),
           revision: indexRevision,
         });
-        if (historicalEventId !== null) return fullSnapshot();
+        if (historicalEventId !== null || similarEdges) return fullSnapshot();
         const baseSnapshot = snapshotRef.current;
         const applied = appliedSnapshotRef.current;
         if (!baseSnapshot || !applied
@@ -161,6 +164,7 @@ export function useGraphSnapshot({
           || applied.layoutMode !== layoutOptions.layoutMode
           || applied.attraction !== layoutOptions.attraction
           || applied.repulsion !== layoutOptions.repulsion
+          || applied.similarEdges !== similarEdges
           || applied.attempt !== attempt
           || applied.reload !== reload
           || !applied.live
@@ -202,6 +206,7 @@ export function useGraphSnapshot({
             layoutMode: layoutOptions.layoutMode,
             attraction: layoutOptions.attraction,
             repulsion: layoutOptions.repulsion,
+            similarEdges,
             attempt,
             reload,
             live: historicalEventId === null,
@@ -321,6 +326,7 @@ export function useGraphSnapshot({
     layoutOptions,
     labels,
     rendererRef,
+    similarEdges,
     snapshotKey,
     snapshotRevision,
     timelineEventId,

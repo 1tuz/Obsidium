@@ -9,6 +9,7 @@ use super::CalendarEvent;
 use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::files::error::FileCommandError;
+use obsidium_core::search::activity::{ActivityMeasure, ActivityNote};
 use std::path::Path;
 use std::sync::Arc;
 use tauri::State;
@@ -135,6 +136,29 @@ pub async fn get_note_activity(
 ) -> Result<Vec<obsidium_core::search::activity::NoteTimestamp>, SearchError> {
     let service = core.search.clone();
     run_blocking(move || service.note_timestamps(&workspace_path)).await
+}
+
+#[tauri::command]
+pub async fn get_note_day_notes(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    day: String,
+    measure: ActivityMeasure,
+    tz_offset_minutes: i64,
+) -> Result<Vec<ActivityNote>, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.notes_on_day(&workspace_path, &day, measure, tz_offset_minutes))
+        .await
+}
+
+#[tauri::command]
+pub async fn get_recent_changes(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    limit: Option<usize>,
+) -> Result<Vec<ActivityNote>, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.recent_changes(&workspace_path, limit)).await
 }
 
 #[tauri::command]

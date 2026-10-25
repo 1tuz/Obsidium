@@ -34,6 +34,30 @@ export function runDataviewQuery(
   });
 }
 
+export interface DataviewInlineExpression {
+  id: string;
+  expr: string;
+}
+
+export interface DataviewInlineValue {
+  id: string;
+  value: string;
+  error: string | null;
+}
+
+export function evaluateInlineExpressions(
+  workspacePath: string,
+  notePath: string,
+  expressions: DataviewInlineExpression[],
+): Promise<DataviewInlineValue[]> {
+  return invoke<DataviewInlineValue[]>('evaluate_inline_expressions', {
+    workspacePath,
+    notePath,
+    expressions,
+    tzOffsetMinutes: -new Date().getTimezoneOffset(),
+  });
+}
+
 export function dataviewErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error;
   const message = (error as { details?: { message?: string } } | null)?.details?.message;

@@ -11,6 +11,9 @@ export interface BaseViewEdit {
   name: string;
   limit: number | null;
   groupBy: BaseGroupBy | null;
+  laneBy: BaseGroupBy | null;
+  startField: string | null;
+  endField: string | null;
   sort: BaseSort[];
   relations: string[];
   order: string[];
@@ -288,6 +291,12 @@ export function BaseEditorPanel({
   const [groupDirection, setGroupDirection] = useState<'ASC' | 'DESC'>(
     view.groupBy?.direction === 'DESC' ? 'DESC' : 'ASC',
   );
+  const [laneProperty, setLaneProperty] = useState(view.laneBy?.property ?? '');
+  const [laneDirection, setLaneDirection] = useState<'ASC' | 'DESC'>(
+    view.laneBy?.direction === 'DESC' ? 'DESC' : 'ASC',
+  );
+  const [startField, setStartField] = useState(view.startField ?? '');
+  const [endField, setEndField] = useState(view.endField ?? '');
   const [sort, setSort] = useState<BaseSort[]>(view.sort ?? []);
   const [relationKeys, setRelationKeys] = useState<string[]>(relations);
   const initialFilters = readFilters(view.filters);
@@ -312,6 +321,14 @@ export function BaseEditorPanel({
   const groupOptions = groupProperty && !columns.includes(groupProperty)
     ? [groupProperty, ...columns]
     : columns;
+  const laneOptions = laneProperty && !columns.includes(laneProperty)
+    ? [laneProperty, ...columns]
+    : columns;
+  const dateOptions = [...new Set([
+    ...columns,
+    ...(startField ? [startField] : []),
+    ...(endField ? [endField] : []),
+  ])];
   const relationOptions = [...new Set([...columns, ...relationKeys])]
     .filter((property) => !/^(?:file|formula|summary)\./u.test(property));
   const wipColumns = [...new Set([...groupValues, ...Object.keys(view.wipLimits ?? {})])];
@@ -362,6 +379,9 @@ export function BaseEditorPanel({
         name: trimmed,
         limit: nextLimit,
         groupBy: groupProperty ? { property: groupProperty, direction: groupDirection } : null,
+        laneBy: laneProperty ? { property: laneProperty, direction: laneDirection } : null,
+        startField: startField || null,
+        endField: endField || null,
         sort,
         relations: relationKeys,
         order: order.length > 0 ? order : view.order,
@@ -484,6 +504,62 @@ export function BaseEditorPanel({
             </select>
           </div>
         </div>
+        {view.type === 'kanban' && (
+          <div className="q-base-editor__field">
+            <span>{t('bases.editorLaneBy')}</span>
+            <div className="q-base-editor__row">
+              <select
+                aria-label={t('bases.editorLaneBy')}
+                value={laneProperty}
+                onChange={(event) => setLaneProperty(event.currentTarget.value)}
+              >
+                <option value="">{t('bases.editorLaneNone')}</option>
+                {laneOptions.map((property) => (
+                  <option key={property} value={property}>{property}</option>
+                ))}
+              </select>
+              <select
+                aria-label={t('bases.editorLaneDirection')}
+                value={laneDirection}
+                disabled={!laneProperty}
+                onChange={(event) => setLaneDirection(event.currentTarget.value === 'DESC' ? 'DESC' : 'ASC')}
+              >
+                <option value="ASC">{t('bases.editorAscending')}</option>
+                <option value="DESC">{t('bases.editorDescending')}</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {view.type === 'timeline' && (
+          <>
+            <label className="q-base-editor__field">
+              <span>{t('bases.editorTimelineStart')}</span>
+              <select
+                aria-label={t('bases.editorTimelineStart')}
+                value={startField}
+                onChange={(event) => setStartField(event.currentTarget.value)}
+              >
+                <option value="">{t('bases.editorTimelineStartDefault')}</option>
+                {dateOptions.map((property) => (
+                  <option key={property} value={property}>{property}</option>
+                ))}
+              </select>
+            </label>
+            <label className="q-base-editor__field">
+              <span>{t('bases.editorTimelineEnd')}</span>
+              <select
+                aria-label={t('bases.editorTimelineEnd')}
+                value={endField}
+                onChange={(event) => setEndField(event.currentTarget.value)}
+              >
+                <option value="">{t('bases.editorTimelineEndDefault')}</option>
+                {dateOptions.map((property) => (
+                  <option key={property} value={property}>{property}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
         <FilterSection
           advanced={advancedFilters}
           busy={busy}

@@ -20,6 +20,8 @@ import { analyzeDocument, type AnalysisResult } from '../../modules/analysis';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { GraphTimeline } from './GraphTimeline';
 import { suggestionNodeIndices, writeSuggestedLink } from './suggestedLinks';
+import { readSimilarEdges } from './similarEdges';
+import { useSettingsStore } from '../../modules/settings';
 import './GraphView.css';
 
 interface GraphViewProps {
@@ -72,6 +74,8 @@ export function GraphView({
   const timelineBaselineRef = useRef<number | null>(null);
   const layoutOptionsRef = useRef(layoutOptions);
   const graphEpochRef = useRef<GraphEpoch | null>(null);
+  const { config } = useSettingsStore();
+  const similarEdges = readSimilarEdges(config) ?? false;
 
   useEffect(() => {
     if (!inactive) setActivated(true);
@@ -151,6 +155,7 @@ export function GraphView({
     inactive,
     rendererError,
     layoutOptions,
+    similarEdges,
     timelineEventId,
   });
   graphEpochRef.current = snapshot?.epoch ?? null;

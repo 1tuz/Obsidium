@@ -178,7 +178,11 @@
       "revert": "Changes undone"
     },
     "renameAria": "Version name",
-    "versionActions": "Version actions"
+    "versionActions": "Version actions",
+    "chunkRevert": "Undo",
+    "chunkKeep": "Keep",
+    "chunkRevertTitle": "Undo this part of the note",
+    "chunkKeepTitle": "Keep this part as it is"
   },
   "analysis": {
     "tab": "Graph analysis",
@@ -746,13 +750,24 @@
     "kanbanExcluded": "This destination is excluded by the board filter.",
     "fenceNoViews": "This .base file has no views.",
     "fenceViewMissing": "This .base file has no view named {{view}}.",
-    "fenceError": "Could not render the base block: {{reason}}"
+    "fenceError": "Could not render the base block: {{reason}}",
+    "kanbanAddToLane": "Add card to {{lane}}, {{column}}",
+    "kanbanMoveToLane": "Move {{title}} to lane",
+    "editorLaneBy": "Swimlanes by",
+    "editorLaneNone": "No swimlanes",
+    "editorLaneDirection": "Lane direction",
+    "editorTimelineStart": "Start date property",
+    "editorTimelineStartDefault": "Default (start)",
+    "editorTimelineEnd": "End date property",
+    "editorTimelineEndDefault": "Default (end)"
   },
   "dataview": {
     "calendarPrevious": "Previous month",
     "calendarNext": "Next month",
     "calendarToday": "Today",
-    "calendarUndated": "No date: {{count}}"
+    "calendarUndated": "No date: {{count}}",
+    "inlineEmpty": "—",
+    "inlineFailed": "Expression error"
   },
   "boards": {
     "title": "Boards",
@@ -974,6 +989,9 @@
     "edgeTypeRelated": "Related",
     "edgeTypeDependsOn": "Depends on",
     "edgeTypeBlocks": "Blocks",
+    "edgeTypeSimilar": "Similar text",
+    "similarEdges": "Similar notes",
+    "similarEdgesHint": "MinHash links between notes with overlapping text; applied after the graph refreshes",
     "edgeDirection": "Direction from selected note",
     "edgeDirectionAll": "All",
     "edgeDirectionIncoming": "Incoming",
@@ -1286,13 +1304,22 @@
         "one": "{{count}} note",
         "other": "{{count}} notes"
       },
-      "hint": "Point at a day to see how many notes it holds",
+      "hint": "Click a day to see its notes",
       "total": "Notes in 12 months: {{count}}",
       "empty": "No notes in these 12 months",
       "loading": "Loading activity…",
       "failed": "Could not load activity: {{reason}}",
       "less": "Fewer",
-      "more": "More"
+      "more": "More",
+      "back": "Back to the calendar",
+      "dayNotesLoading": "Loading the notes of the day…",
+      "dayNotesFailed": "Could not load the notes of the day: {{reason}}",
+      "dayNotesEmpty": "No notes on this day",
+      "openNote": "Open the note {{name}}",
+      "recentTitle": "Recent changes",
+      "recentLoading": "Loading recent changes…",
+      "recentFailed": "Could not load recent changes: {{reason}}",
+      "recentEmpty": "No changes yet"
     }
   }
 }
