@@ -1,9 +1,7 @@
 use super::analyzer::{indexing_tokenizer, TOKENIZER_NAME};
 use super::error::SearchError;
 use super::index::SearchFields;
-use std::collections::HashMap;
 use tantivy::schema::{IndexRecordOption, Schema, TextFieldIndexing, TextOptions, STORED, STRING};
-use tantivy::tokenizer::TokenStream;
 use tantivy::{Index, IndexReader, ReloadPolicy};
 
 pub fn build() -> Schema {
@@ -14,6 +12,7 @@ pub fn build() -> Schema {
     builder.add_text_field("tags", text_options(Store::Always));
     builder.add_text_field("body", text_options(Store::Never));
     builder.add_text_field("headings", text_options(Store::Never));
+    builder.add_text_field("block_ids", text_options(Store::Never));
     builder.build()
 }
 
@@ -21,27 +20,6 @@ pub fn register_tokenizer(index: &Index) {
     index
         .tokenizers()
         .register(TOKENIZER_NAME, indexing_tokenizer());
-}
-
-pub fn term_frequencies(text: &str) -> HashMap<String, u32> {
-    token_statistics(text).frequencies
-}
-
-pub struct TokenStatistics {
-    pub frequencies: HashMap<String, u32>,
-}
-
-pub fn token_statistics(text: &str) -> TokenStatistics {
-    let mut frequencies = HashMap::new();
-    indexing_tokenizer()
-        .token_stream(text)
-        .process(&mut |token| {
-            if token.text.chars().count() >= 2 {
-                let frequency = frequencies.entry(token.text.clone()).or_insert(0u32);
-                *frequency = frequency.saturating_add(1);
-            }
-        });
-    TokenStatistics { frequencies }
 }
 
 pub fn fields(schema: &Schema) -> Result<SearchFields, SearchError> {
@@ -52,6 +30,7 @@ pub fn fields(schema: &Schema) -> Result<SearchFields, SearchError> {
         tags: field(schema, "tags")?,
         body: field(schema, "body")?,
         headings: field(schema, "headings")?,
+        block_ids: field(schema, "block_ids")?,
     })
 }
 

@@ -1,6 +1,5 @@
 use super::stopwords::is_stop_term;
-use crate::search::analyzer::stem_surface_labels;
-use crate::search::schema;
+use crate::search::analyzer::{term_count, text_terms, TermPart, TextTerms};
 use std::path::Path;
 
 const MIN_SIGNIFICANT_WORDS: usize = 15;
@@ -23,10 +22,23 @@ pub fn extract_queries(text: &str, document_path: Option<&str>) -> ExtractedQuer
         .filter(|value| is_usable_filename(value));
     let embedded_titles = embedded_titles(text, title.as_deref());
     let body = strip_leading_heading(text);
-    let labels = stem_surface_labels(title.as_deref().unwrap_or(""), &body);
+    let TextTerms {
+        frequencies,
+        labels,
+    } = text_terms(&[
+        TermPart {
+            text: title.as_deref().unwrap_or(""),
+            frequency_weight: 0,
+            label_weight: 1,
+        },
+        TermPart {
+            text: &body,
+            frequency_weight: 1,
+            label_weight: 1,
+        },
+    ]);
 
-    let mut ranked: Vec<(String, u32)> = schema::token_statistics(&body)
-        .frequencies
+    let mut ranked: Vec<(String, u32)> = frequencies
         .into_iter()
         .map(|(stem, frequency)| {
             let label = labels.get(&stem).cloned().unwrap_or_else(|| stem.clone());
@@ -66,7 +78,7 @@ pub fn extract_queries(text: &str, document_path: Option<&str>) -> ExtractedQuer
         title,
         embedded_titles,
         body_terms,
-        word_count: significant_word_count(text),
+        word_count: term_count(text),
     }
 }
 
@@ -213,14 +225,6 @@ fn looks_like_date_or_time(value: &str) -> bool {
         }
     }
     (has_digit && !has_alpha && separators > 0) || (value.contains(':') && has_digit)
-}
-
-fn significant_word_count(text: &str) -> usize {
-    schema::token_statistics(text)
-        .frequencies
-        .values()
-        .map(|&count| count as usize)
-        .sum()
 }
 
 pub fn is_cyrillic(ch: char) -> bool {

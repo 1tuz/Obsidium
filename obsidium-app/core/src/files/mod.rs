@@ -3,6 +3,7 @@ pub mod canvas_refs;
 pub mod deletions;
 pub mod document;
 pub mod error;
+pub mod gallery;
 pub mod gate;
 pub mod models;
 pub mod relocate;

@@ -63,6 +63,29 @@ struct Entry {
     moving: bool,
 }
 
+const SHARDS: usize = 16;
+const FXHASH_SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
+
+type Shard = Mutex<HashMap<String, Entry>>;
+
+fn fxhash64(bytes: &[u8]) -> u64 {
+    let mut hash = 0u64;
+    let mut rest = bytes;
+    while let Some((chunk, tail)) = rest.split_first_chunk::<8>() {
+        hash = (hash.rotate_left(5) ^ u64::from_le_bytes(*chunk)).wrapping_mul(FXHASH_SEED);
+        rest = tail;
+    }
+    for byte in rest {
+        hash = (hash.rotate_left(5) ^ u64::from(*byte)).wrapping_mul(FXHASH_SEED);
+    }
+    hash
+}
+
+fn shard_of(key: &str) -> usize {
+    let hash = fxhash64(key.as_bytes());
+    ((hash ^ (hash >> 32)) % SHARDS as u64) as usize
+}
+
 fn inside(key: &str, folder_key: &str) -> bool {
     key == folder_key
         || key
@@ -70,9 +93,17 @@ fn inside(key: &str, folder_key: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('/'))
 }
 
+fn move_entry(sessions: &mut HashMap<String, Entry>, from_key: &str, to_key: &str, to: &str) {
+    if let Some(mut entry) = sessions.remove(from_key) {
+        entry.path = PathBuf::from(to);
+        entry.moving = false;
+        sessions.insert(to_key.to_owned(), entry);
+    }
+}
+
 pub struct DocumentHub {
     store: Mutex<Option<DocumentStore>>,
-    sessions: Mutex<HashMap<String, Entry>>,
+    shards: [Shard; SHARDS],
     writes: Mutex<Option<Sender<(String, Instant)>>>,
     offset_seconds: AtomicI64,
 }
@@ -86,10 +117,14 @@ impl DocumentHub {
             .ok();
         Self {
             store: Mutex::new(store),
-            sessions: Mutex::new(HashMap::new()),
+            shards: std::array::from_fn(|_| Mutex::new(HashMap::new())),
             writes: Mutex::new(None),
             offset_seconds: AtomicI64::new(0),
         }
+    }
+
+    fn shard(&self, key: &str) -> &Shard {
+        &self.shards[shard_of(key)]
     }
 
     pub fn start(&self, core: Weak<Core>) {
@@ -130,7 +165,7 @@ impl DocumentHub {
         self.offset_seconds
             .store(offset_minutes * 60, Ordering::Relaxed);
         let key = identity(path);
-        let mut sessions = self.sessions.lock().expect("document sessions");
+        let mut sessions = self.shard(&key).lock().expect("document sessions");
         if let Some(entry) = sessions.get_mut(&key) {
             entry.holders += 1;
             let path = entry.path.clone();
@@ -171,7 +206,7 @@ impl DocumentHub {
         changes: &[Value],
     ) -> Result<bool, HubError> {
         let key = identity(path);
-        let mut sessions = self.sessions.lock().expect("document sessions");
+        let mut sessions = self.shard(&key).lock().expect("document sessions");
         let entry = sessions.get_mut(&key).ok_or(HubError::NotOpen)?;
         let entry_path = entry.path.clone();
         let accepted =
@@ -186,8 +221,9 @@ impl DocumentHub {
     }
 
     pub fn pull(&self, path: &Path, version: u64) -> Result<PullResult, HubError> {
-        let sessions = self.sessions.lock().expect("document sessions");
-        let entry = sessions.get(&identity(path)).ok_or(HubError::NotOpen)?;
+        let key = identity(path);
+        let sessions = self.shard(&key).lock().expect("document sessions");
+        let entry = sessions.get(&key).ok_or(HubError::NotOpen)?;
         Ok(match entry.session.pull(version) {
             Pull::Changes(changes) => PullResult::Changes { changes },
             Pull::Resync => PullResult::Resync {
@@ -198,8 +234,9 @@ impl DocumentHub {
     }
 
     pub fn encode_positions(&self, path: &Path, indices: &[usize]) -> Option<Vec<Option<Vec<u8>>>> {
-        let sessions = self.sessions.lock().expect("document sessions");
-        let entry = sessions.get(&identity(path))?;
+        let key = identity(path);
+        let sessions = self.shard(&key).lock().expect("document sessions");
+        let entry = sessions.get(&key)?;
         Some(
             indices
                 .iter()
@@ -213,8 +250,9 @@ impl DocumentHub {
         path: &Path,
         positions: &[Vec<u8>],
     ) -> Result<Vec<Option<usize>>, HubError> {
-        let sessions = self.sessions.lock().expect("document sessions");
-        let entry = sessions.get(&identity(path)).ok_or(HubError::NotOpen)?;
+        let key = identity(path);
+        let sessions = self.shard(&key).lock().expect("document sessions");
+        let entry = sessions.get(&key).ok_or(HubError::NotOpen)?;
         Ok(positions
             .iter()
             .map(|encoded| entry.session.resolve_position(encoded))
@@ -292,7 +330,7 @@ impl DocumentHub {
         }
         let key = identity(path);
         let result = {
-            let mut sessions = self.sessions.lock().expect("document sessions");
+            let mut sessions = self.shard(&key).lock().expect("document sessions");
             match sessions.get_mut(&key) {
                 Some(entry) => operation(&key, entry),
                 None => Err(HubError::NotOpen),
@@ -317,7 +355,7 @@ impl DocumentHub {
 
     pub fn release(&self, core: &Core, path: &Path) {
         let key = identity(path);
-        let mut sessions = self.sessions.lock().expect("document sessions");
+        let mut sessions = self.shard(&key).lock().expect("document sessions");
         let Some(entry) = sessions.get_mut(&key) else {
             return;
         };
@@ -330,17 +368,36 @@ impl DocumentHub {
         self.compact(&key, &entry.session);
     }
 
+    pub fn list(&self) -> Vec<String> {
+        let mut paths: Vec<String> = self
+            .shards
+            .iter()
+            .flat_map(|shard| {
+                shard
+                    .lock()
+                    .expect("document sessions")
+                    .values()
+                    .map(|entry| entry.path.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        paths.sort();
+        paths
+    }
+
     pub fn flush_all(&self, core: &Core) {
-        let mut sessions = self.sessions.lock().expect("document sessions");
-        for (key, entry) in sessions.iter_mut() {
-            self.write_entry(core, key, entry);
+        for shard in &self.shards {
+            let mut sessions = shard.lock().expect("document sessions");
+            for (key, entry) in sessions.iter_mut() {
+                self.write_entry(core, key, entry);
+            }
         }
     }
 
     pub fn reconcile_paths(&self, core: &Core, paths: &[PathBuf]) {
-        let mut sessions = self.sessions.lock().expect("document sessions");
         for path in paths {
             let key = identity(path);
+            let mut sessions = self.shard(&key).lock().expect("document sessions");
             if let Some(entry) = sessions.get_mut(&key) {
                 let entry_path = entry.path.clone();
                 self.reconcile_entry(core, &key, &entry_path, entry);
@@ -349,33 +406,44 @@ impl DocumentHub {
     }
 
     pub fn reconcile_all(&self, core: &Core) {
-        let mut sessions = self.sessions.lock().expect("document sessions");
-        for (key, entry) in sessions.iter_mut() {
-            let entry_path = entry.path.clone();
-            self.reconcile_entry(core, key, &entry_path, entry);
+        for shard in &self.shards {
+            let mut sessions = shard.lock().expect("document sessions");
+            for (key, entry) in sessions.iter_mut() {
+                let entry_path = entry.path.clone();
+                self.reconcile_entry(core, key, &entry_path, entry);
+            }
         }
     }
 
     pub fn relocated(&self, moves: &[(String, String)], removed: &[String]) {
-        let mut sessions = self.sessions.lock().expect("document sessions");
-        let mut store = self.store.lock().expect("document store");
         for (from, to) in moves {
             let (from_key, to_key) = (identity(Path::new(from)), identity(Path::new(to)));
-            if let Some(mut entry) = sessions.remove(&from_key) {
-                entry.path = PathBuf::from(to);
-                entry.moving = false;
-                sessions.insert(to_key.clone(), entry);
-            }
-            if let Some(Err(error)) = store
-                .as_mut()
-                .map(|store| store.relocate(&from_key, &to_key))
-            {
-                eprintln!("[obsidium:documents] локальная копия не перенесена: {error}");
+            let (from_index, to_index) = (shard_of(&from_key), shard_of(&to_key));
+            if from_index == to_index {
+                let mut sessions = self.shards[from_index].lock().expect("document sessions");
+                move_entry(&mut sessions, &from_key, &to_key, to);
+                self.relocate_store(&from_key, &to_key);
+            } else {
+                let (first, second) = if from_index < to_index {
+                    (from_index, to_index)
+                } else {
+                    (to_index, from_index)
+                };
+                let mut lower = self.shards[first].lock().expect("document sessions");
+                let mut upper = self.shards[second].lock().expect("document sessions");
+                if from_index < to_index {
+                    move_entry(&mut lower, &from_key, &to_key, to);
+                } else {
+                    move_entry(&mut upper, &from_key, &to_key, to);
+                }
+                self.relocate_store(&from_key, &to_key);
             }
         }
         for path in removed {
             let key = identity(Path::new(path));
+            let mut sessions = self.shard(&key).lock().expect("document sessions");
             sessions.remove(&key);
+            let mut store = self.store.lock().expect("document store");
             if let Some(Err(error)) = store.as_mut().map(|store| store.forget(&key)) {
                 eprintln!(
                     "[obsidium:documents] локальная копия удалённой заметки не стёрта: {error}"
@@ -384,10 +452,17 @@ impl DocumentHub {
         }
     }
 
+    fn relocate_store(&self, from_key: &str, to_key: &str) {
+        let mut store = self.store.lock().expect("document store");
+        if let Some(Err(error)) = store.as_mut().map(|store| store.relocate(from_key, to_key)) {
+            eprintln!("[obsidium:documents] локальная копия не перенесена: {error}");
+        }
+    }
+
     pub fn moving<T>(&self, core: &Core, from: &Path, operation: impl FnOnce() -> T) -> T {
         let folder_key = identity(from);
-        {
-            let mut sessions = self.sessions.lock().expect("document sessions");
+        for shard in &self.shards {
+            let mut sessions = shard.lock().expect("document sessions");
             for (key, entry) in sessions
                 .iter_mut()
                 .filter(|(key, _)| inside(key, &folder_key))
@@ -397,28 +472,31 @@ impl DocumentHub {
             }
         }
         let result = operation();
-        let mut sessions = self.sessions.lock().expect("document sessions");
-        for (key, entry) in sessions.iter_mut().filter(|(_, entry)| entry.moving) {
-            entry.moving = false;
-            if entry.session.dirty() {
-                self.schedule(key, Duration::ZERO);
+        for shard in &self.shards {
+            let mut sessions = shard.lock().expect("document sessions");
+            for (key, entry) in sessions.iter_mut().filter(|(_, entry)| entry.moving) {
+                entry.moving = false;
+                if entry.session.dirty() {
+                    self.schedule(key, Duration::ZERO);
+                }
             }
         }
         result
     }
 
     fn write_due(&self, core: &Core, key: &str) {
-        let mut sessions = self.sessions.lock().expect("document sessions");
+        let mut sessions = self.shard(key).lock().expect("document sessions");
         if let Some(entry) = sessions.get_mut(key) {
             self.write_entry(core, key, entry);
         }
     }
 
     fn is_open(&self, path: &Path) -> bool {
-        self.sessions
+        let key = identity(path);
+        self.shard(&key)
             .lock()
             .expect("document sessions")
-            .contains_key(&identity(path))
+            .contains_key(&key)
     }
 
     fn reconcile_entry(&self, core: &Core, key: &str, path: &Path, entry: &mut Entry) {

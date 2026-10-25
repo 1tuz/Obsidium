@@ -1,3 +1,5 @@
+pub mod fragment;
+
 use crate::app_core::Core;
 use crate::files::document::{read_file_snapshot_impl, read_text};
 use crate::files::error::FileCommandError;

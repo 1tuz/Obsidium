@@ -17,6 +17,9 @@ mod files {
     pub use obsidium_core::files::*;
     pub mod commands;
 }
+mod gallery {
+    pub mod commands;
+}
 mod history {
     pub use obsidium_core::history::*;
     pub mod commands;
@@ -176,6 +179,7 @@ pub fn run() {
             journal::commands::journal_note,
             files::commands::copy_file,
             files::commands::rename_file,
+            gallery::commands::list_workspace_images,
             documents::commands::document_open,
             documents::commands::document_push,
             documents::commands::document_pull,

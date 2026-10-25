@@ -1,7 +1,6 @@
-use crate::search::analyzer::stem_surface_labels;
+use crate::search::analyzer::{text_terms, TermPart, TextTerms};
 use crate::search::error::SearchError;
 use crate::search::index::SearchIndex;
-use crate::search::schema;
 use crate::settings::models::Bm25fParams;
 use std::cmp::Ordering;
 use tantivy::query::{BooleanQuery, BoostQuery, Occur, Query, TermQuery};
@@ -10,6 +9,7 @@ use tantivy::{Searcher, Term};
 
 const IDF_PREFILTER_MULT: usize = 4;
 const IDF_PREFILTER_FLOOR: usize = 256;
+const TITLE_TERM_WEIGHT: u32 = 3;
 
 pub struct QueryTerm {
     pub text: String,
@@ -27,12 +27,21 @@ pub fn select_terms(
     max_query_terms: usize,
 ) -> Result<Vec<QueryTerm>, SearchError> {
     let max_query_terms = max_query_terms.clamp(8, 128);
-    let labels = stem_surface_labels(title, body);
-    let mut frequencies = schema::token_statistics(body).frequencies;
-    for (term, frequency) in schema::term_frequencies(title) {
-        let value = frequencies.entry(term).or_insert(0);
-        *value = value.saturating_add(frequency.saturating_mul(3));
-    }
+    let TextTerms {
+        frequencies,
+        labels,
+    } = text_terms(&[
+        TermPart {
+            text: title,
+            frequency_weight: TITLE_TERM_WEIGHT,
+            label_weight: 1,
+        },
+        TermPart {
+            text: body,
+            frequency_weight: 1,
+            label_weight: 1,
+        },
+    ]);
 
     let mut local: Vec<(String, u32, f64)> = frequencies
         .into_iter()

@@ -1,16 +1,24 @@
 use tantivy::tokenizer::{
-    AsciiFoldingFilter, LowerCaser, RemoveLongFilter, TextAnalyzer, Token, TokenFilter,
-    TokenStream, Tokenizer,
+    AsciiFoldingFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer, TextAnalyzer, Token,
+    TokenFilter, TokenStream, Tokenizer,
 };
 
 use super::filters::{ExclusionFilter, SanitizingTokenizer};
 use super::morphology::StemFilter;
 
 pub const TOKENIZER_NAME: &str = "obsidium_text";
-pub const ANALYZER_VERSION: u32 = 16;
+pub const ANALYZER_VERSION: u32 = 17;
 
 pub fn indexing_tokenizer() -> TextAnalyzer {
-    TextAnalyzer::builder(SanitizingTokenizer::default())
+    analyzed(SanitizingTokenizer::default())
+}
+
+pub fn sanitized_text_tokenizer() -> TextAnalyzer {
+    analyzed(SimpleTokenizer::default())
+}
+
+fn analyzed<T: Tokenizer + 'static>(tokenizer: T) -> TextAnalyzer {
+    TextAnalyzer::builder(tokenizer)
         .filter(RemoveLongFilter::limit(120))
         .filter(LowerCaser)
         .filter(AsciiFoldingFilter)

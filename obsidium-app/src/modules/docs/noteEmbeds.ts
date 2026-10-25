@@ -33,26 +33,15 @@ export function parseNoteEmbed(line: string): NoteEmbed | null {
   };
 }
 
-export function noteEmbedOffset(content: string, heading: string | null, blockId: string | null = null): number | null {
-  const text = content.replace(/\r\n?/g, '\n');
-  const lines: string[] = [];
+export function noteEmbedOffset(content: string, heading: string | null): number | null {
+  const lines = content.replace(/\r\n?/g, '\n').split('\n');
+  if (!heading) return 0;
   const lineOffsets: number[] = [];
   let lineStart = 0;
-  while (lineStart <= text.length) {
-    const breakAt = text.indexOf('\n', lineStart);
-    const lineEnd = breakAt < 0 ? text.length : breakAt;
-    lines.push(text.slice(lineStart, lineEnd));
+  for (const line of lines) {
     lineOffsets.push(lineStart);
-    if (breakAt < 0) break;
-    lineStart = breakAt + 1;
+    lineStart += line.length + 1;
   }
-  if (blockId) {
-    const index = locateBlockLine(lines, blockId);
-    if (index < 0) return null;
-    const marker = lines[index]!.lastIndexOf(`^${blockId}`);
-    return lineOffsets[index]! + Math.max(0, marker);
-  }
-  if (!heading) return 0;
   const expected = normalizeHeading(heading);
   let fence: { marker: string; length: number } | null = null;
   for (let index = 0; index < lines.length; index += 1) {
@@ -70,33 +59,6 @@ export function noteEmbedOffset(content: string, heading: string | null, blockId
     if (match && normalizeHeading(match[2]!) === expected) return lineOffsets[index]!;
   }
   return null;
-}
-
-function blockLinePatterns(blockId: string): [RegExp, RegExp] {
-  const suffix = escapeRegex(blockId);
-  return [
-    new RegExp(`^\\s{0,3}\\^${suffix}(?![\\w-])\\s*$`),
-    new RegExp(`\\s\\^${suffix}(?![\\w-])\\s*$`),
-  ];
-}
-
-function locateBlockLine(lines: string[], blockId: string): number {
-  let fence: { marker: string; length: number } | null = null;
-  const [standalone, trailing] = blockLinePatterns(blockId);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]!;
-    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
-    if (fence) {
-      if (marker?.[1]?.[0] === fence.marker && marker[1].length >= fence.length) fence = null;
-      continue;
-    }
-    if (standalone.test(line) || trailing.test(line)) return index;
-    if (marker) {
-      fence = { marker: marker[1]![0]!, length: marker[1]!.length };
-      continue;
-    }
-  }
-  return -1;
 }
 
 export function noteEmbedSection(content: string, heading: string | null, blockId: string | null = null): string {
