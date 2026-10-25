@@ -129,6 +129,15 @@ pub async fn get_base_rows(
 }
 
 #[tauri::command]
+pub async fn get_note_activity(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+) -> Result<Vec<obsidium_core::search::activity::NoteTimestamp>, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.note_timestamps(&workspace_path)).await
+}
+
+#[tauri::command]
 pub async fn get_calendar_events(
     core: State<'_, Arc<Core>>,
     workspace_path: String,
