@@ -2,9 +2,44 @@ use super::super::error::SearchError;
 use super::super::models::OutgoingLink;
 use super::parser::extract;
 use super::resolver::resolve_many;
+use super::target::select_candidate;
 use super::LINK_LIST_LIMIT;
 use rusqlite::Connection;
 use std::path::Path;
+
+pub fn linked_paths(
+    connection: &Connection,
+    root: &Path,
+    document: &Path,
+) -> Result<Vec<String>, SearchError> {
+    let mut statement = connection.prepare(
+        "SELECT links.byte_offset, documents.path FROM wiki_links AS links
+         JOIN wiki_documents AS documents
+           ON (links.target_kind='name' AND documents.title_key=links.target_key)
+           OR (links.target_kind='path' AND documents.relative_key=links.target_key)
+         WHERE links.source_path=?1
+         ORDER BY links.byte_offset, documents.path",
+    )?;
+    let rows = statement
+        .query_map([document.to_string_lossy().as_ref()], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut paths = Vec::new();
+    let mut cursor = 0;
+    while cursor < rows.len() {
+        let offset = rows[cursor].0;
+        let mut candidates = Vec::new();
+        while cursor < rows.len() && rows[cursor].0 == offset {
+            candidates.push(rows[cursor].1.clone());
+            cursor += 1;
+        }
+        if let Some(path) = select_candidate(root, document, &candidates) {
+            paths.push(path.to_string_lossy().into_owned());
+        }
+    }
+    Ok(paths)
+}
 
 pub fn outgoing_links(
     connection: &Connection,

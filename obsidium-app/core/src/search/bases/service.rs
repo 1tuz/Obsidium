@@ -12,10 +12,15 @@ impl SearchService {
     ) -> Result<BaseEvaluation, SearchError> {
         let rows = self.base_rows(workspace)?;
         let root = canonical_workspace(workspace).unwrap_or_else(|_| PathBuf::from(workspace));
-        Ok(evaluate(
-            &root,
-            rows.into_iter().map(|row| (row.path, row.fields)).collect(),
-            query,
-        ))
+        let rows = rows
+            .into_iter()
+            .map(|row| (row.path, row.fields))
+            .collect::<Vec<_>>();
+        if query.definition.summaries.is_empty() {
+            return Ok(evaluate(&root, rows, query, None));
+        }
+        self.with_metadata(workspace, |_open, connection| {
+            Ok(evaluate(&root, rows, query, Some(connection)))
+        })
     }
 }

@@ -1,3 +1,4 @@
+mod rollups;
 pub mod service;
 
 #[cfg(test)]
@@ -22,7 +23,18 @@ pub struct BaseDefinition {
     pub filters: Option<Value>,
     pub formulas: BTreeMap<String, String>,
     pub views: Vec<BaseView>,
+    pub summaries: Vec<BaseSummary>,
     pub unsupported_keys: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct BaseSummary {
+    pub name: String,
+    pub source: String,
+    pub property: String,
+    pub formula: String,
+    pub filter: Option<Value>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -112,6 +124,7 @@ pub fn evaluate(
     root: &Path,
     rows: Vec<(String, Map<String, Value>)>,
     query: &BaseQuery,
+    connection: Option<&rusqlite::Connection>,
 ) -> BaseEvaluation {
     if query.definition.views.is_empty() {
         return BaseEvaluation::empty();
@@ -121,6 +134,15 @@ pub fn evaluate(
     let mut errors = Vec::new();
     let formulas = Formulas::compile(&query.definition.formulas, &mut errors);
     let mut unsupported = !query.definition.unsupported_keys.is_empty();
+    let mut rows = rows;
+    if !query.definition.summaries.is_empty() {
+        let (computed, rollup_unsupported) =
+            rollups::summaries(root, &rows, &query.definition.summaries, connection);
+        unsupported |= rollup_unsupported;
+        for ((_, fields), values) in rows.iter_mut().zip(computed) {
+            fields.extend(values);
+        }
+    }
     let mut kept = Vec::new();
     for (path, fields) in rows {
         let mut fields = fields;

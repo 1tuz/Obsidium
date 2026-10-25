@@ -283,4 +283,45 @@ describe('parseBase', () => {
     expect(base.formulas).toEqual({ risk: 'if(priority == "high", 1, 0)' });
     expect(base.unsupportedKeys).not.toContain('formulas');
   });
+
+  it('parses summaries and keeps unknown formulas lowercased', () => {
+    const source = [
+      'summaries:',
+      '  - name: total',
+      '    source: file.links',
+      '    property: price',
+      '    formula: SUM',
+      '    filter: \'genre == "sci"\'',
+      '  - name: spread',
+      '    source: file.links',
+      '    formula: MEDIAN',
+      '  - name: nameless',
+      '    formula: sum',
+      '',
+    ].join('\n');
+
+    const base = parseBase(source);
+
+    expect(base.summaries).toEqual([
+      {
+        name: 'total',
+        source: 'file.links',
+        property: 'price',
+        formula: 'sum',
+        filter: 'genre == "sci"',
+      },
+      {
+        name: 'spread',
+        source: 'file.links',
+        property: '',
+        formula: 'median',
+        filter: undefined,
+      },
+    ]);
+  });
+
+  it('defaults summaries to an empty list when the key is absent or not a sequence', () => {
+    expect(parseBase('views:\n  - type: table\n').summaries).toEqual([]);
+    expect(parseBase('summaries: nope\n').summaries).toEqual([]);
+  });
 });
