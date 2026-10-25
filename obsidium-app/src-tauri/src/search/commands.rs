@@ -1,3 +1,4 @@
+use super::bases::{BaseEvaluation, BaseQuery};
 use super::dataview::QueryOutput;
 use super::error::SearchError;
 use super::fields::NoteFields;
@@ -122,6 +123,16 @@ pub async fn get_base_rows(
 ) -> Result<Vec<NoteFields>, SearchError> {
     let service = core.search.clone();
     run_blocking(move || service.base_rows(&workspace_path)).await
+}
+
+#[tauri::command]
+pub async fn query_base(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    query: BaseQuery,
+) -> Result<BaseEvaluation, SearchError> {
+    let service = core.search.clone();
+    run_blocking(move || service.query_base(&workspace_path, &query)).await
 }
 
 #[tauri::command]

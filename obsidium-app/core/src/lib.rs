@@ -8,6 +8,7 @@ pub mod app_core;
 pub mod documents;
 pub mod files;
 pub mod history;
+pub mod journal;
 pub mod link_title;
 pub mod links;
 pub mod mcp;

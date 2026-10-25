@@ -44,8 +44,14 @@ pub struct BenchIndex {
 
 pub fn open_bench_index(document_count: usize) -> BenchIndex {
     let directory = tempfile::tempdir().unwrap();
-    let vault = directory.path().join("vault");
-    seed_vault(&vault, document_count);
+    let vault = match std::env::var("OBSIDIUM_BENCH_VAULT") {
+        Ok(path) if !path.trim().is_empty() => PathBuf::from(path),
+        _ => {
+            let generated = directory.path().join("vault");
+            seed_vault(&generated, document_count);
+            generated
+        }
+    };
     index_vault(directory, vault)
 }
 

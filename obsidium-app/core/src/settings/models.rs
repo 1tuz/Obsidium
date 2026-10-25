@@ -334,6 +334,7 @@ pub struct AppConfig {
     pub reader: ReaderSettings,
     pub ui: UiSettings,
     pub templates: TemplateSettings,
+    pub journal: JournalSettings,
     pub files: FilesSettings,
     pub updates: UpdateSettings,
     pub graph: GraphSettings,
@@ -356,6 +357,24 @@ impl Default for TemplateSettings {
     fn default() -> Self {
         Self {
             folder: "Templates".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct JournalSettings {
+    pub folder: String,
+    pub date_format: String,
+    pub template_path: Option<String>,
+}
+
+impl Default for JournalSettings {
+    fn default() -> Self {
+        Self {
+            folder: "journal".to_string(),
+            date_format: "YYYY-MM-DD".to_string(),
+            template_path: None,
         }
     }
 }

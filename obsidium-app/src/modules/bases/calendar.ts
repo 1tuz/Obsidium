@@ -1,5 +1,5 @@
 import { noteDateToIso, parseNoteDate } from '../notedate';
-import { baseProperty } from './filter';
+import { baseProperty } from './properties';
 import type { BaseFieldValue, BaseRow, BaseViewDefinition } from './types';
 
 export interface CalendarDay {
@@ -7,6 +7,7 @@ export interface CalendarDay {
   date: string | null;
   inMonth: boolean;
   rows: BaseRow[];
+  hasJournal: boolean;
 }
 
 export interface CalendarMonth {
@@ -17,6 +18,7 @@ export interface CalendarMonth {
 }
 
 const DAYS_IN_GRID = 42;
+const NO_JOURNAL_DAYS: ReadonlySet<string> = new Set();
 
 export function calendarProperty(view: BaseViewDefinition): string {
   return view.dateField || 'date';
@@ -60,6 +62,7 @@ export function buildCalendarMonth(
   view: BaseViewDefinition,
   workspacePath: string,
   anchor: { year: number; month: number },
+  journalDays: ReadonlySet<string> = NO_JOURNAL_DAYS,
 ): CalendarMonth {
   const property = calendarProperty(view);
   const buckets = new Map<string, BaseRow[]>();
@@ -86,6 +89,7 @@ export function buildCalendarMonth(
       date: iso,
       inMonth: date.getUTCMonth() + 1 === anchor.month && date.getUTCFullYear() === anchor.year,
       rows: buckets.get(iso) ?? [],
+      hasJournal: journalDays.has(iso),
     });
   }
 

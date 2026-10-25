@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   loadDeferred: null as Promise<number> | null,
   rows: [] as { path: string; fields: Record<string, string> }[],
   baseContent: null as string | null,
+  journalDates: [] as string[],
 }));
 
 vi.mock('../../modules/documents/fileGateway', () => ({
@@ -42,14 +43,28 @@ vi.mock('../../modules/documents/renameWorkspaceFile', () => ({
   renameWorkspaceFile: vi.fn(async (_path: string, title: string) => `/vault/${title}.md`),
 }));
 
-vi.mock('../../modules/bases/gateway', () => ({ getBaseRows: vi.fn(async () => state.rows) }));
+vi.mock('../../modules/bases/gateway', () => ({
+  getBaseRows: vi.fn(async () => state.rows),
+  queryBase: vi.fn(async () => ({
+    rows: state.rows,
+    groups: [{ label: null, start: 0, end: state.rows.length }],
+    columns: ['file.name'],
+    unsupported: false,
+  })),
+}));
 
 vi.mock('../../modules/ui-state/gateway', () => ({
   loadBaseView: vi.fn(() => state.loadDeferred ?? Promise.resolve(state.savedView)),
   saveBaseView: vi.fn(async (_workspace: string, _path: string, index: number) => { state.savedView = index; }),
 }));
 
+vi.mock('../../modules/journal', () => ({
+  journalDates: vi.fn(async () => state.journalDates),
+  journalNotePath: vi.fn(async (_workspace: string, date: string) => `/vault/journal/${date}.md`),
+}));
+
 const { BaseView } = await import('./BaseView');
+const { getBaseRows, queryBase } = await import('../../modules/bases/gateway');
 const { saveBaseView } = await import('../../modules/ui-state/gateway');
 const { createFile, writeFileAtomic } = await import('../../modules/documents/fileGateway');
 
@@ -61,6 +76,7 @@ describe('BaseView view selection', () => {
     renderer = null;
     state.rows = [];
     state.baseContent = null;
+    state.journalDates = [];
   });
 
   it('opens the requested view and remembers it for an ordinary reopen', async () => {
@@ -268,6 +284,22 @@ describe('BaseView view selection', () => {
     );
   });
 
+  it('marks calendar days that have a daily note and opens the note on click', async () => {
+    const due = new Date().toISOString().slice(0, 10);
+    state.journalDates = [due];
+    const onOpenNote = vi.fn();
+    act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
+      indexReady indexRevision={0} onOpenNote={onOpenNote}
+      viewRequest={{ path: '/vault/Project.base', index: 3, id: 5 }} />); });
+    await actAndSettle();
+
+    const marker = renderer!.container.querySelector<HTMLButtonElement>('.q-base-calendar__journal');
+    expect(marker?.closest('.q-base-calendar__day')?.getAttribute('aria-label')).toBe(due);
+    act(() => marker!.click());
+    await actAndSettle();
+    expect(onOpenNote).toHaveBeenCalledWith(`/vault/journal/${due}.md`);
+  });
+
   it('moves an unassigned card using the keyboard-accessible column selector', async () => {
     state.rows = [{ path: '/vault/Unsorted.md', fields: {} }];
     act(() => { renderer = mountDom(<BaseView
@@ -298,6 +330,26 @@ describe('BaseView view selection', () => {
     const card = renderer!.container.querySelector<HTMLElement>('.q-base-kanban__card')!;
     act(() => { card.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(onOpenNote).toHaveBeenCalledWith('/vault/Task.md');
+  });
+
+  it('asks the Rust engine for the selected view and the header sort', async () => {
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
+      indexReady indexRevision={0} onOpenNote={vi.fn()}
+      viewRequest={{ path: '/vault/Project.base', index: 0, id: 6 }} />); });
+    await actAndSettle();
+    expect(vi.mocked(queryBase)).toHaveBeenLastCalledWith('/vault', expect.objectContaining({
+      viewIndex: 0,
+      sort: [],
+    }));
+    expect(vi.mocked(getBaseRows)).not.toHaveBeenCalled();
+
+    const header = renderer!.container.querySelector<HTMLButtonElement>('.q-base-table th button')!;
+    act(() => header.click());
+    await actAndSettle();
+    expect(vi.mocked(queryBase)).toHaveBeenLastCalledWith('/vault', expect.objectContaining({
+      sort: [{ property: 'file.name', direction: 'ASC' }],
+    }));
   });
 
   it('uses pointer movement to transfer a card to another Kanban column', async () => {

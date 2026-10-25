@@ -3,7 +3,7 @@ export * from './boards';
 export * from './boardMembership';
 export * from './boardTree';
 export * from './calendar';
-export * from './filter';
+export * from './properties';
 export * from './gateway';
 export * from './kanban';
 export * from './types';

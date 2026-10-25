@@ -478,6 +478,43 @@
   font-size: var(--q-font-size-ui-sm);
 }
 
+.q-base-calendar__day-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--q-space-4);
+}
+
+.q-base-calendar__journal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--q-size-16);
+  height: var(--q-size-16);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.q-base-calendar__journal::after {
+  content: '';
+  width: var(--q-size-8);
+  height: var(--q-size-8);
+  border-radius: 50%;
+  background: var(--q-text-accent);
+}
+
+.q-base-calendar__journal:hover::after {
+  background: var(--q-icon-accent);
+}
+
+.q-base-calendar__journal:hover,
+.q-base-calendar__journal:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-2);
+}
+
 .q-base-calendar__add {
   display: inline-flex;
   align-items: center;

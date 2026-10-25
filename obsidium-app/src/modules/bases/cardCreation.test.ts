@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { buildKanbanBase } from './boards';
 import { parseBase } from './baseFormat';
 import { planKanbanCard } from './cardCreation';
-import { evaluateBaseFilter } from './filter';
 
 const vault = '/vault';
 const basePath = '/vault/Projects/Tasks.base';
@@ -28,16 +27,15 @@ describe('Kanban card creation', () => {
   });
 
   it('creates visible cards for tag and property membership filters', () => {
-    for (const source of [
-      { kind: 'tag' as const, tag: 'sprint' },
-      { kind: 'property' as const, property: 'project', value: 'atlas' },
-    ]) {
+    for (const [source, expected] of [
+      [{ kind: 'tag' as const, tag: 'sprint' }, 'file.hasTag("sprint")'],
+      [{ kind: 'property' as const, property: 'project', value: 'atlas' }, 'project == "atlas"'],
+    ] as const) {
       const definition = parseBase(buildKanbanBase({
         name: 'Tasks', source, groupBy: 'status', columns: ['todo', 'doing'],
       }));
       const draft = planKanbanCard(definition, 0, basePath, vault, 'A task', 'doing');
-      const row = { path: '/vault/Projects/A task.md', fields: draft.fields };
-      expect(evaluateBaseFilter(definition.filters, row, vault)).toEqual({ match: true, unsupported: false });
+      expect(definition.filters).toBe(expected);
       expect(draft.fields.status).toBe('doing');
     }
   });

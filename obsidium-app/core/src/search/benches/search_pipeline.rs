@@ -50,10 +50,11 @@ fn run_case(document_count: usize) {
     let search_settings = crate::settings::models::SearchIndexSettings::default();
     let bm25f_params = crate::settings::models::Bm25fParams::default();
 
+    let source = source_note(&bench.vault);
     let started = Instant::now();
     let analysis_results = bm25f::analyze(
         &bench.search_index,
-        &bench.vault.join("Note 0.md"),
+        &source,
         50,
         &bm25f_params,
         &search_settings,
@@ -64,7 +65,7 @@ fn run_case(document_count: usize) {
     let started = Instant::now();
     let _ = bm25f::analyze(
         &bench.search_index,
-        &bench.vault.join("Note 0.md"),
+        &source,
         50,
         &bm25f_params,
         &search_settings,
@@ -109,4 +110,24 @@ fn assert_budgets(
             "BENCH-SEARCH budget exceeded: {name}={value}ms for {document_count} documents, allowed {allowed}ms (OBSIDIUM_BENCH_BUDGET_MS={per_thousand_ms})"
         );
     }
+}
+
+fn source_note(vault: &std::path::Path) -> std::path::PathBuf {
+    let mut notes = walkdir::WalkDir::new(vault)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension == "md")
+        })
+        .filter_map(|entry| Some((entry.metadata().ok()?.len(), entry.into_path())))
+        .collect::<Vec<_>>();
+    notes.sort();
+    notes
+        .get(notes.len() / 2)
+        .map(|(_, path)| path.clone())
+        .unwrap_or_else(|| vault.join("Note 0.md"))
 }

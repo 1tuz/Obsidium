@@ -21,6 +21,10 @@ mod history {
     pub use obsidium_core::history::*;
     pub mod commands;
 }
+mod journal {
+    pub use obsidium_core::journal::*;
+    pub mod commands;
+}
 mod links;
 mod mcp {
     pub use obsidium_core::mcp::*;
@@ -167,6 +171,9 @@ pub fn run() {
             history::commands::read_note_version,
             history::commands::name_note_version,
             history::commands::cleanup_history,
+            journal::commands::journal_today,
+            journal::commands::journal_dates,
+            journal::commands::journal_note,
             files::commands::copy_file,
             files::commands::rename_file,
             documents::commands::document_open,
@@ -192,6 +199,7 @@ pub fn run() {
             search::commands::suggest_notes,
             search::commands::get_note_fields,
             search::commands::get_base_rows,
+            search::commands::query_base,
             search::commands::run_dataview_query,
             search::analysis::commands::analyze_document,
             search::graph::commands::get_graph_snapshot,

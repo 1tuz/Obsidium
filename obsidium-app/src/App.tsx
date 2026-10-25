@@ -47,6 +47,7 @@ import { flushCanvasDocuments } from "./modules/canvas/persistence";
 import { fileStem } from "./modules/paths";
 import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
 import { readTemplate, type NoteTemplate } from "./modules/templates";
+import { journalToday } from "./modules/journal";
 import { keepVersionsOf } from "./modules/history";
 import { useRetentionCleanup } from "./hooks/useRetentionCleanup";
 import { applyVaultSnippets } from "./modules/docs/vaultSnippets";
@@ -265,6 +266,16 @@ export default function App() {
     if (!workspacePath) return;
     const path = await createCanvasFile(workspacePath);
     if (path) openNote(path);
+  }, [openNote, workspacePath]);
+
+  const openJournalToday = useCallback(async () => {
+    if (!workspacePath) return;
+    try {
+      const note = await journalToday(workspacePath);
+      openNote(note.path);
+    } catch (error) {
+      console.error('Failed to open the daily note', error);
+    }
   }, [openNote, workspacePath]);
 
   const openCanvas = useCallback(() => {
@@ -559,6 +570,14 @@ export default function App() {
       run: templates.show,
     },
     {
+      id: 'journal.today',
+      title: t('commands.journalToday'),
+      keywords: ['journal', 'daily', 'today'],
+      shortcut: SHORTCUTS.JOURNAL_TODAY,
+      enabled: () => Boolean(workspacePath),
+      run: openJournalToday,
+    },
+    {
       id: 'canvas.new',
       title: t('commands.newCanvas'),
       enabled: () => Boolean(workspacePath),
@@ -590,6 +609,7 @@ export default function App() {
     commandPalette.toggle, config, createCanvas, createNewFile, openGraph, search.show, settings.show,
     templates.show, toggleFocusMode, toggleLeftSidebar, toggleRightSidebar, toggleTheme,
     workspaces.show, workspacePath, openBoards, openNewBoard, addCurrentNoteToBoard, activeFile, kanbanEnabled,
+    openJournalToday,
   ]);
 
   useEffect(() => {
@@ -709,6 +729,7 @@ export default function App() {
                       workspacePath={workspacePath}
                       indexReady={linkIndexReady}
                       indexRevision={linkIndexRevision}
+                      journalSettings={config?.journal ?? null}
                       onOpenNote={(path) => openNote(path, { paneId })}
                       onFileRenamed={handleFileRenamed}
                       onFileDeleted={closeTab}
