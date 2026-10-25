@@ -42,3 +42,22 @@ export interface BaseRow {
   path: string;
   fields: Record<string, BaseFieldValue>;
 }
+
+export interface BaseQuery {
+  definition: BaseDefinition;
+  viewIndex: number;
+  sort?: BaseSort[];
+}
+
+export interface BaseGroup {
+  label: string | null;
+  start: number;
+  end: number;
+}
+
+export interface BaseEvaluation {
+  rows: BaseRow[];
+  groups: BaseGroup[];
+  columns: string[];
+  unsupported: boolean;
+}

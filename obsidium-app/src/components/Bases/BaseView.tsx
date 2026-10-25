@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { Dialog, DialogFooter } from '../Common/Dialog';
@@ -16,13 +16,12 @@ import {
   baseProperty,
   boardMembership,
   buildKanbanColumns,
-  evaluateBaseFilter,
-  getBaseRows,
   kanbanProperty,
   kanbanWritableProperty,
   parseBase,
-  sortBaseRows,
+  queryBase,
   type BaseDefinition,
+  type BaseEvaluation,
   type BaseFieldValue,
   type BaseRow,
   type BaseSort,
@@ -50,7 +49,6 @@ interface BaseViewProps {
 interface LoadedBase {
   path: string;
   definition: BaseDefinition;
-  rows: BaseRow[];
 }
 
 function displayValue(value: BaseFieldValue | undefined): string {
@@ -115,15 +113,6 @@ function detectDateProperty(rows: readonly BaseRow[], workspacePath: string): st
   return [...properties][0] ?? 'date';
 }
 
-function viewColumns(view: BaseViewDefinition, rows: readonly BaseRow[]): string[] {
-  if (view.order.length > 0) return view.order;
-  const properties = new Set<string>();
-  for (const row of rows.slice(0, 50)) {
-    for (const key of Object.keys(row.fields)) properties.add(key);
-  }
-  return ['file.name', ...[...properties].slice(0, 7)];
-}
-
 export function BaseView({
   path,
   workspacePath,
@@ -136,6 +125,7 @@ export function BaseView({
   onViewRequestConsumed,
 }: BaseViewProps) {
   const [loaded, setLoaded] = useState<LoadedBase | null>(null);
+  const [evaluation, setEvaluation] = useState<BaseEvaluation | null>(null);
   const [failed, setFailed] = useState(false);
   const [activeView, setActiveView] = useState(0);
   const [sort, setSort] = useState<BaseSort[]>([]);
@@ -144,6 +134,7 @@ export function BaseView({
   const [actionError, setActionError] = useState('');
   const selectedPath = useRef('');
   const selectionRevision = useRef(0);
+  const evaluationPath = useRef('');
   const saveQueue = useRef(Promise.resolve());
 
   const persistView = useCallback((index: number) => {
@@ -155,6 +146,8 @@ export function BaseView({
 
   useEffect(() => {
     setLoaded(null);
+    setEvaluation(null);
+    evaluationPath.current = '';
     setActiveView(0);
     selectedPath.current = '';
     selectionRevision.current += 1;
@@ -188,47 +181,41 @@ export function BaseView({
     if (!indexReady) return;
     let cancelled = false;
     setFailed(false);
-    void Promise.all([readFileSnapshot(path), getBaseRows(workspacePath)])
-      .then(([snapshot, rows]) => {
-        if (!cancelled) setLoaded({ path, definition: parseBase(snapshot.content), rows });
+    void readFileSnapshot(path)
+      .then((snapshot) => {
+        if (!cancelled) setLoaded({ path, definition: parseBase(snapshot.content) });
       })
       .catch((error) => {
         console.error('Failed to load base', error);
         if (!cancelled) setFailed(true);
       });
     return () => { cancelled = true; };
-  }, [indexReady, indexRevision, path, workspacePath]);
+  }, [indexReady, indexRevision, path]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    let cancelled = false;
+    void queryBase(workspacePath, { definition: loaded.definition, viewIndex: activeView, sort })
+      .then((result) => {
+        if (cancelled) return;
+        evaluationPath.current = loaded.path;
+        setEvaluation(result);
+      })
+      .catch((error) => {
+        console.error('Failed to evaluate base', error);
+        if (!cancelled) setFailed(true);
+      });
+    return () => { cancelled = true; };
+  }, [activeView, indexRevision, loaded, sort, workspacePath]);
 
   const view = loaded?.definition.views[Math.min(activeView, (loaded?.definition.views.length ?? 1) - 1)];
-  const materialized = useMemo(() => {
-    if (!loaded || !view) return { rows: [] as BaseRow[], unsupported: false };
-    let unsupported = loaded.definition.unsupportedKeys.length > 0
-      || view.order.some((property) => property.startsWith('formula.'));
-    const rows = loaded.rows.filter((row) => {
-      const global = evaluateBaseFilter(loaded.definition.filters, row, workspacePath);
-      const local = evaluateBaseFilter(view.filters, row, workspacePath);
-      unsupported ||= global.unsupported || local.unsupported;
-      return global.match && local.match;
-    });
-    const sorting = sort.length > 0
-      ? sort
-      : view.sort?.length
-        ? view.sort
-        : [{ property: 'file.name', direction: 'ASC' as const }];
-    const ordered = sortBaseRows(rows, sorting, workspacePath);
-    return {
-      rows: view.limit ? ordered.slice(0, view.limit) : ordered,
-      unsupported,
-    };
-  }, [loaded, sort, view, workspacePath]);
-
-  const columns = useMemo(
-    () => view && loaded ? viewColumns(view, materialized.rows) : [],
-    [loaded, materialized.rows, view],
-  );
+  const rows = evaluation?.rows ?? [];
+  const groups = evaluation?.groups ?? [];
+  const columns = evaluation?.columns ?? [];
+  const unsupported = evaluation?.unsupported ?? false;
 
   if (failed) return <div className="q-base-state">{t('bases.error')}</div>;
-  if (!loaded || !view) return <div className="q-base-state">{t('bases.loading')}</div>;
+  if (!loaded || !view || !evaluation) return <div className="q-base-state">{t('bases.loading')}</div>;
 
   const commitProperty = async (row: BaseRow, property: string, value: string) => {
     const key = editableKey(property);
@@ -238,7 +225,7 @@ export function BaseView({
     const snapshot = await readFileSnapshot(row.path);
     const content = nextFrontmatter(snapshot.content, key, value, array);
     await writeFileAtomic(row.path, content, snapshot.hash);
-    setLoaded((current) => current ? {
+    setEvaluation((current) => current ? {
       ...current,
       rows: current.rows.map((candidate) => candidate.path === row.path ? {
         ...candidate,
@@ -264,7 +251,7 @@ export function BaseView({
       (candidate) => createFile(candidate, draft.content),
     );
     if (!created) throw new Error(t('bases.kanbanNameExhausted'));
-    setLoaded((current) => current && current.path === path ? {
+    setEvaluation((current) => current && evaluationPath.current === path ? {
       ...current,
       rows: [...current.rows.filter((row) => row.path !== created), { path: created, fields: draft.fields }],
     } : current);
@@ -284,7 +271,7 @@ export function BaseView({
       (candidate) => createFile(candidate, draft.content),
     );
     if (!created) throw new Error(t('bases.kanbanNameExhausted'));
-    setLoaded((current) => current && current.path === path ? {
+    setEvaluation((current) => current && evaluationPath.current === path ? {
       ...current,
       rows: [...current.rows.filter((row) => row.path !== created), { path: created, fields: draft.fields }],
     } : current);
@@ -295,7 +282,7 @@ export function BaseView({
     if (!safe || safe !== name.trim()) throw new Error(t('bases.kanbanInvalidTitle'));
     const renamed = await renameWorkspaceFile(row.path, safe);
     if (!renamed) return;
-    setLoaded((current) => current ? {
+    setEvaluation((current) => current ? {
       ...current,
       rows: current.rows.map((entry) => entry.path === row.path ? { ...entry, path: renamed } : entry),
     } : current);
@@ -304,7 +291,7 @@ export function BaseView({
 
   const deleteCard = async (row: BaseRow) => {
     await trashFile(workspacePath, row.path);
-    setLoaded((current) => current ? {
+    setEvaluation((current) => current ? {
       ...current,
       rows: current.rows.filter((entry) => entry.path !== row.path),
     } : current);
@@ -319,7 +306,7 @@ export function BaseView({
 
   const addView = async (type: string) => {
     const snapshot = await readFileSnapshot(path);
-    const dateField = type === 'calendar' ? detectDateProperty(loaded.rows, workspacePath) : undefined;
+    const dateField = type === 'calendar' ? detectDateProperty(rows, workspacePath) : undefined;
     const next = appendBaseView(snapshot.content, {
       type,
       name: t(`bases.viewName.${type}`),
@@ -337,7 +324,6 @@ export function BaseView({
     persistView(index);
   };
 
-  const grouped = groupRows(materialized.rows, view, workspacePath);
   const kind = ['table', 'list', 'cards', 'kanban', 'calendar'].includes(view.type) ? view.type : 'table';
 
   return (
@@ -387,10 +373,10 @@ export function BaseView({
             </div>
           )}
         </div>
-        <span className="q-base-view__count">{materialized.rows.length}</span>
+        <span className="q-base-view__count">{rows.length}</span>
       </header>
 
-      {materialized.unsupported && (
+      {unsupported && (
         <p className="q-base-view__notice">{t('bases.unsupported')}</p>
       )}
 
@@ -399,11 +385,11 @@ export function BaseView({
       )}
 
       <div className="q-base-view__scroll">
-        {materialized.rows.length === 0 && kind !== 'kanban' && kind !== 'calendar' ? (
+        {rows.length === 0 && kind !== 'kanban' && kind !== 'calendar' ? (
           <div className="q-base-state">{t('bases.empty')}</div>
         ) : kind === 'calendar' ? (
           <BaseCalendar
-            rows={materialized.rows}
+            rows={rows}
             view={view}
             workspacePath={workspacePath}
             onOpen={onOpenNote}
@@ -412,7 +398,7 @@ export function BaseView({
           />
         ) : kind === 'kanban' ? (
           <BaseKanban
-            rows={materialized.rows}
+            rows={rows}
             columns={columns}
             definition={loaded.definition}
             view={view}
@@ -424,12 +410,12 @@ export function BaseView({
             onRename={renameCard}
             onDelete={deleteCard}
           />
-        ) : grouped.map((group) => (
-          <section className="q-base-group" key={group.key}>
+        ) : groups.map((group, index) => (
+          <section className="q-base-group" key={`${group.label ?? '__all__'}:${index}`}>
             {group.label !== null && <h2>{group.label || t('bases.groupEmpty')}</h2>}
             {kind === 'table' && (
               <BaseTable
-                rows={group.rows}
+                rows={rows.slice(group.start, group.end)}
                 columns={columns}
                 definition={loaded.definition}
                 workspacePath={workspacePath}
@@ -442,11 +428,11 @@ export function BaseView({
               />
             )}
             {kind === 'list' && (
-              <BaseList rows={group.rows} workspacePath={workspacePath} onOpen={onOpenNote} />
+              <BaseList rows={rows.slice(group.start, group.end)} workspacePath={workspacePath} onOpen={onOpenNote} />
             )}
             {kind === 'cards' && (
               <BaseCards
-                rows={group.rows}
+                rows={rows.slice(group.start, group.end)}
                 columns={columns.filter((property) => property !== 'file.name')}
                 definition={loaded.definition}
                 workspacePath={workspacePath}
@@ -458,27 +444,6 @@ export function BaseView({
       </div>
     </section>
   );
-}
-
-function groupRows(rows: BaseRow[], view: BaseViewDefinition, workspacePath: string) {
-  if (!view.groupBy) return [{ key: '__all__', label: null as string | null, rows }];
-  const buckets = new Map<string, BaseRow[]>();
-  for (const row of rows) {
-    const value = displayValue(baseProperty(row, view.groupBy.property, workspacePath));
-    const bucket = buckets.get(value) ?? [];
-    bucket.push(row);
-    buckets.set(value, bucket);
-  }
-  const groups = [...buckets.entries()].map(([label, items]) => ({ key: label || '__empty__', label, rows: items }));
-  const direction = view.groupBy.direction === 'DESC' ? -1 : 1;
-  const configured = new Map((view.groupOrder ?? []).map((value, index) => [String(value ?? ''), index]));
-  groups.sort((left, right) => {
-    const a = configured.get(left.label);
-    const b = configured.get(right.label);
-    if (a !== undefined || b !== undefined) return (a ?? Number.MAX_SAFE_INTEGER) - (b ?? Number.MAX_SAFE_INTEGER);
-    return left.label.localeCompare(right.label, undefined, { numeric: true }) * direction;
-  });
-  return groups;
 }
 
 interface BaseTableProps {

@@ -192,6 +192,7 @@ pub fn run() {
             search::commands::suggest_notes,
             search::commands::get_note_fields,
             search::commands::get_base_rows,
+            search::commands::query_base,
             search::commands::run_dataview_query,
             search::analysis::commands::analyze_document,
             search::graph::commands::get_graph_snapshot,

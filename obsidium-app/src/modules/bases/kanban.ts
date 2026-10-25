@@ -1,4 +1,4 @@
-import { baseProperty } from './filter';
+import { baseProperty } from './properties';
 import type { BaseFieldValue, BaseRow, BaseViewDefinition } from './types';
 
 export interface KanbanColumn {

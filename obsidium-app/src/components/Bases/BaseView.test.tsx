@@ -42,7 +42,15 @@ vi.mock('../../modules/documents/renameWorkspaceFile', () => ({
   renameWorkspaceFile: vi.fn(async (_path: string, title: string) => `/vault/${title}.md`),
 }));
 
-vi.mock('../../modules/bases/gateway', () => ({ getBaseRows: vi.fn(async () => state.rows) }));
+vi.mock('../../modules/bases/gateway', () => ({
+  getBaseRows: vi.fn(async () => state.rows),
+  queryBase: vi.fn(async () => ({
+    rows: state.rows,
+    groups: [{ label: null, start: 0, end: state.rows.length }],
+    columns: ['file.name'],
+    unsupported: false,
+  })),
+}));
 
 vi.mock('../../modules/ui-state/gateway', () => ({
   loadBaseView: vi.fn(() => state.loadDeferred ?? Promise.resolve(state.savedView)),
@@ -50,6 +58,7 @@ vi.mock('../../modules/ui-state/gateway', () => ({
 }));
 
 const { BaseView } = await import('./BaseView');
+const { getBaseRows, queryBase } = await import('../../modules/bases/gateway');
 const { saveBaseView } = await import('../../modules/ui-state/gateway');
 const { createFile, writeFileAtomic } = await import('../../modules/documents/fileGateway');
 
@@ -298,6 +307,26 @@ describe('BaseView view selection', () => {
     const card = renderer!.container.querySelector<HTMLElement>('.q-base-kanban__card')!;
     act(() => { card.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(onOpenNote).toHaveBeenCalledWith('/vault/Task.md');
+  });
+
+  it('asks the Rust engine for the selected view and the header sort', async () => {
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    act(() => { renderer = mountDom(<BaseView path="/vault/Project.base" workspacePath="/vault"
+      indexReady indexRevision={0} onOpenNote={vi.fn()}
+      viewRequest={{ path: '/vault/Project.base', index: 0, id: 6 }} />); });
+    await actAndSettle();
+    expect(vi.mocked(queryBase)).toHaveBeenLastCalledWith('/vault', expect.objectContaining({
+      viewIndex: 0,
+      sort: [],
+    }));
+    expect(vi.mocked(getBaseRows)).not.toHaveBeenCalled();
+
+    const header = renderer!.container.querySelector<HTMLButtonElement>('.q-base-table th button')!;
+    act(() => header.click());
+    await actAndSettle();
+    expect(vi.mocked(queryBase)).toHaveBeenLastCalledWith('/vault', expect.objectContaining({
+      sort: [{ property: 'file.name', direction: 'ASC' }],
+    }));
   });
 
   it('uses pointer movement to transfer a card to another Kanban column', async () => {
