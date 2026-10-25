@@ -5,6 +5,7 @@ use crate::history::HistoryService;
 use crate::mcp::active::ActiveNote;
 use crate::mcp::bridge::Navigation;
 use crate::mcp::{McpServer, McpStatus};
+use crate::schema::SchemaStore;
 use crate::search::{ChangeNotifier, IndexNotifier, IndexRevision, SearchService};
 use crate::settings::SettingsManager;
 use crate::ui_state::UiStateService;
@@ -70,6 +71,7 @@ impl std::fmt::Display for TaskFailed {
 /// Every service of the app, wired together, with no knowledge of the UI that hosts it.
 pub struct Core {
     pub settings: SettingsManager,
+    pub schema: SchemaStore,
     pub ui_state: UiStateService,
     pub search: SearchService,
     pub history: HistoryService,
@@ -103,6 +105,7 @@ impl Core {
             });
             Core {
                 settings: SettingsManager::new(app_data_dir),
+                schema: SchemaStore::new(),
                 ui_state: UiStateService::open(&app_data_dir.join("ui-state.sqlite3")),
                 search: SearchService::new(
                     app_data_dir.join("search-v2"),

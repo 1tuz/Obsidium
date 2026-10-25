@@ -30,6 +30,10 @@ mod link_title {
     pub use obsidium_core::link_title::*;
     pub mod commands;
 }
+mod schema {
+    pub use obsidium_core::schema::*;
+    pub mod commands;
+}
 mod search {
     pub use obsidium_core::search::*;
     pub mod commands;
@@ -138,6 +142,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             settings::commands::get_settings,
             settings::commands::update_settings,
+            schema::commands::get_schema,
+            schema::commands::save_schema,
+            schema::commands::validate_note,
             updater::check_for_update,
             updater::install_update,
             files::commands::read_directory,
