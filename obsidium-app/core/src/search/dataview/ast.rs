@@ -106,6 +106,10 @@ pub enum Shape {
     Tasks {
         show_path: bool,
     },
+    Calendar {
+        date: Column,
+        columns: Vec<Column>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]

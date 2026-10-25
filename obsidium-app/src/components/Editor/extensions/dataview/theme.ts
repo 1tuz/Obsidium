@@ -94,6 +94,79 @@ export const dataviewTheme = EditorView.baseTheme({
     borderRadius: 'inherit',
     backgroundColor: 'var(--q-bg-accent)',
   },
+  '.q-md-dataview-calendar': {
+    marginTop: 'var(--q-gap-sm)',
+  },
+  '.q-md-dataview-calendar-toolbar': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--q-gap-sm)',
+    paddingBottom: 'var(--q-gap-sm)',
+  },
+  '.q-md-dataview-calendar-toolbar button': {
+    padding: 'var(--q-gap-xs) var(--q-gap-sm)',
+    border: 'var(--q-border-1) solid var(--q-block-border)',
+    borderRadius: 'var(--q-radius-sm)',
+    backgroundColor: 'transparent',
+    color: 'inherit',
+    cursor: 'pointer',
+    font: 'inherit',
+    lineHeight: '1',
+  },
+  '.q-md-dataview-calendar-month': {
+    fontWeight: 'var(--q-font-weight-bold)',
+  },
+  '.q-md-dataview-calendar-undated': {
+    marginInlineStart: 'auto',
+    color: 'var(--q-text-secondary)',
+  },
+  '.q-md-dataview-calendar-weekdays': {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+    color: 'var(--q-text-secondary)',
+    fontSize: '0.85em',
+  },
+  '.q-md-dataview-calendar-weekdays span': {
+    padding: 'var(--q-gap-xs)',
+    textAlign: 'center',
+  },
+  '.q-md-dataview-calendar-grid': {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+    borderTop: 'var(--q-border-1) solid var(--q-block-divider)',
+    borderLeft: 'var(--q-border-1) solid var(--q-block-divider)',
+  },
+  '.q-md-dataview-calendar-day': {
+    minHeight: '64px',
+    padding: 'var(--q-gap-xs)',
+    borderRight: 'var(--q-border-1) solid var(--q-block-divider)',
+    borderBottom: 'var(--q-border-1) solid var(--q-block-divider)',
+  },
+  '.q-md-dataview-calendar-day--outside': {
+    color: 'var(--q-text-secondary)',
+    opacity: '0.6',
+  },
+  '.q-md-dataview-calendar-day--today': {
+    backgroundColor: 'var(--q-bg-accent-subtle)',
+  },
+  '.q-md-dataview-calendar-day-head': {
+    fontWeight: 'var(--q-font-weight-bold)',
+  },
+  '.q-md-dataview-calendar-entries': {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--q-gap-xs)',
+    marginTop: 'var(--q-gap-xs)',
+  },
+  '.q-md-dataview-calendar-entry': {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  '.q-md-dataview-calendar-meta': {
+    marginInlineStart: 'var(--q-gap-xs)',
+    color: 'var(--q-text-secondary)',
+  },
   '.q-md-dataview-message': {
     marginTop: 'var(--q-gap-sm)',
     color: 'var(--q-text-secondary)',

@@ -11,7 +11,7 @@ export interface DataviewCell {
 }
 
 export interface DataviewOutput {
-  shape: 'table' | 'list' | 'tasks';
+  shape: 'table' | 'list' | 'tasks' | 'calendar';
   refreshSeconds: number | null;
   title: string | null;
   columns: string[];

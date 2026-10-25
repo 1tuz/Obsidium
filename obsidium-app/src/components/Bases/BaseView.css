@@ -267,6 +267,11 @@
   font-weight: var(--q-font-weight-ui-base);
 }
 
+.q-base-kanban__count--over {
+  color: var(--q-text-danger);
+  font-weight: var(--q-font-weight-ui-medium);
+}
+
 .q-base-kanban__cards {
   display: flex;
   min-height: var(--q-size-48);

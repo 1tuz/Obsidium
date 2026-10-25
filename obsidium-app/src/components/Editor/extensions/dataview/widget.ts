@@ -55,6 +55,7 @@ export class DataviewWidget extends WidgetType {
     });
 
     root.addEventListener('mousedown', (event) => {
+      if ((event.target as HTMLElement | null)?.closest?.(DATAVIEW_SELECTORS.calendarToolbar)) return;
       if (!(event.target as HTMLElement | null)?.closest?.(DATAVIEW_SELECTORS.card)) return;
       const config = view.state.facet(livePreviewConfigFacet);
       const task = dataviewTaskAt(event.target);

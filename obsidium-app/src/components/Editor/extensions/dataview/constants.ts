@@ -27,10 +27,24 @@ export const DATAVIEW_CLASSES = {
   bar: 'q-md-dataview-bar',
   barFill: 'q-md-dataview-bar-fill',
   message: 'q-md-dataview-message',
+  calendar: 'q-md-dataview-calendar',
+  calendarToolbar: 'q-md-dataview-calendar-toolbar',
+  calendarMonth: 'q-md-dataview-calendar-month',
+  calendarUndated: 'q-md-dataview-calendar-undated',
+  calendarWeekdays: 'q-md-dataview-calendar-weekdays',
+  calendarGrid: 'q-md-dataview-calendar-grid',
+  calendarDay: 'q-md-dataview-calendar-day',
+  calendarOutside: 'q-md-dataview-calendar-day--outside',
+  calendarToday: 'q-md-dataview-calendar-day--today',
+  calendarDayHead: 'q-md-dataview-calendar-day-head',
+  calendarEntries: 'q-md-dataview-calendar-entries',
+  calendarEntry: 'q-md-dataview-calendar-entry',
+  calendarMeta: 'q-md-dataview-calendar-meta',
 } as const;
 
 export const DATAVIEW_SELECTORS = {
   card: `.${DATAVIEW_CLASSES.card}`,
+  calendarToolbar: `.${DATAVIEW_CLASSES.calendarToolbar}`,
 } as const;
 
 export const DATAVIEW_MESSAGES = {

@@ -29,6 +29,8 @@ export interface BaseViewDefinition {
   filters?: BaseFilter;
   groupBy?: BaseGroupBy;
   groupOrder?: BaseScalar[];
+  cardOrder?: Record<string, string[]>;
+  wipLimits?: Record<string, number>;
   sort?: BaseSort[];
   extra?: Record<string, BaseYamlValue>;
 }

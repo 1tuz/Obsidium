@@ -208,7 +208,7 @@
     "loading": "Reading the index…",
     "failed": "Could not build the report",
     "indexing": "The index is still updating, counts may be incomplete",
-    "empty": "Nothing to fix: no broken links, isolated or stale notes",
+    "empty": "Nothing to fix: no broken links, isolated or stale notes, no single-use tags",
     "days": {
       "one": "{{count}} day",
       "other": "{{count}} days"
@@ -227,6 +227,12 @@
       "title": "Unmodified notes",
       "hint": "Not changed for longer than the chosen period",
       "empty": "No stale notes"
+    },
+    "unusedTags": {
+      "title": "Tags used once",
+      "hint": "Tags that occur in a single note; tags in no note are unknowable without a registry",
+      "empty": "No tags used only once",
+      "truncated": "Showing only the first {{count}} tags"
     }
   },
   "wikixiv": {
@@ -667,6 +673,8 @@
     "kanbanDeleteTitle": "Delete card?",
     "kanbanDeleteDescription": "Move {{title}} to Trash? The Markdown page will be recoverable.",
     "kanbanDeleteError": "Could not delete card: {{reason}}",
+    "kanbanOrderError": "Could not save the card order.",
+    "kanbanWipWarning": "Over the column limit of {{limit}}. The drop is still allowed.",
     "addView": "Add view",
     "editorOpen": "Edit view",
     "editorTitle": "View settings",
@@ -698,6 +706,11 @@
     "editorColumnsEmpty": "No columns to order",
     "editorColumnUp": "Move {{property}} up",
     "editorColumnDown": "Move {{property}} down",
+    "editorWipLimits": "WIP limits",
+    "editorWipLimitsHint": "A soft cap per column: the board shows n / limit and warns when a column is over, but never blocks a drop.",
+    "editorWipLimit": "WIP limit for {{column}}",
+    "editorWipLimitNone": "No limit",
+    "editorWipLimitInvalid": "Enter a whole number of cards per column or leave the field empty.",
     "editorSort": "Sort",
     "editorSortEmpty": "No sort fields",
     "editorSortAdd": "Add sort field",
@@ -734,6 +747,12 @@
     "fenceNoViews": "This .base file has no views.",
     "fenceViewMissing": "This .base file has no view named {{view}}.",
     "fenceError": "Could not render the base block: {{reason}}"
+  },
+  "dataview": {
+    "calendarPrevious": "Previous month",
+    "calendarNext": "Next month",
+    "calendarToday": "Today",
+    "calendarUndated": "No date: {{count}}"
   },
   "boards": {
     "title": "Boards",

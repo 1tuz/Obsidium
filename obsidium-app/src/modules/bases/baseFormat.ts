@@ -35,6 +35,8 @@ const VIEW_KEYS: Record<string, true> = {
   groupBy: true,
   sort: true,
   groupOrder: true,
+  cardOrder: true,
+  wipLimits: true,
 };
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 const PLAIN_START = '-?:,[]{}#&*!|>\'"%@`';
@@ -296,6 +298,30 @@ function sort(value: YamlValue | undefined): BaseSort[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+function cardOrder(value: YamlValue | undefined): Record<string, string[]> | undefined {
+  if (!isObject(value)) return undefined;
+  const result: Record<string, string[]> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (!Array.isArray(entry)) continue;
+    const paths = entry.flatMap((item) => {
+      const path = text(item);
+      return path ? [path] : [];
+    });
+    if (paths.length > 0) result[key] = paths;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function wipLimits(value: YamlValue | undefined): Record<string, number> | undefined {
+  if (!isObject(value)) return undefined;
+  const result: Record<string, number> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry !== 'number' || !Number.isFinite(entry)) continue;
+    result[key] = Math.max(1, Math.floor(entry));
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 function summary(value: YamlValue): BaseSummary | null {
   if (!isObject(value)) return null;
   const name = text(value.name);
@@ -344,6 +370,10 @@ function view(value: YamlValue, index: number): BaseViewDefinition | null {
     extra[key] = entry;
   }
   if (Object.keys(extra).length > 0) definition.extra = extra;
+  const storedOrder = cardOrder(value.cardOrder);
+  if (storedOrder) definition.cardOrder = storedOrder;
+  const limits = wipLimits(value.wipLimits);
+  if (limits) definition.wipLimits = limits;
   return definition;
 }
 
@@ -587,6 +617,20 @@ function viewValue(view: BaseViewDefinition): BaseYamlValue {
     }));
   }
   if (view.groupOrder !== undefined) result.groupOrder = [...view.groupOrder];
+  if (view.cardOrder !== undefined) {
+    const order: Record<string, BaseYamlValue> = {};
+    for (const key of Object.keys(view.cardOrder).sort()) {
+      order[key] = [...view.cardOrder[key]];
+    }
+    if (Object.keys(order).length > 0) result.cardOrder = order;
+  }
+  if (view.wipLimits !== undefined) {
+    const limits: Record<string, BaseYamlValue> = {};
+    for (const key of Object.keys(view.wipLimits).sort()) {
+      limits[key] = view.wipLimits[key];
+    }
+    if (Object.keys(limits).length > 0) result.wipLimits = limits;
+  }
   const extra = view.extra ?? {};
   for (const key of Object.keys(extra).sort()) {
     if (VIEW_KEYS[key] === true) continue;

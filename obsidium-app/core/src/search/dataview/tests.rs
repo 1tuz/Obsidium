@@ -530,6 +530,63 @@ fn a_period_boundary_belongs_to_one_side_only() {
     );
 }
 
+#[test]
+fn a_calendar_keeps_the_resolved_date_the_link_and_the_requested_columns() {
+    let rows = vec![
+        note(
+            "День.md",
+            DAY,
+            vec![scalar("due", "2024-10-07"), scalar("status", "read")],
+        ),
+        note(
+            "Без даты.md",
+            DAY,
+            vec![scalar("due", "когда-нибудь"), scalar("status", "draft")],
+        ),
+    ];
+    let output = run("CALENDAR due, status SORT due", rows);
+
+    assert_eq!(output.shape, "calendar");
+    assert_eq!(
+        output.columns,
+        vec!["due".to_owned(), "Заметка".to_owned(), "status".to_owned()]
+    );
+    assert_eq!(output.width, 3);
+    assert_eq!(output.total, 2);
+    assert!(!output.truncated);
+    assert_eq!(output.rows.len(), 6);
+
+    assert_eq!(plain(&output.rows[0]), "2024-10-07");
+    assert_eq!(targets(&output.rows[1]), vec!["День.md".to_owned()]);
+    assert_eq!(plain(&output.rows[2]), "read");
+
+    assert_eq!(
+        plain(&output.rows[3]),
+        "когда-нибудь",
+        "неразобранная дата остаётся видимой строкой"
+    );
+    assert_eq!(targets(&output.rows[4]), vec!["Без даты.md".to_owned()]);
+    assert_eq!(plain(&output.rows[5]), "draft");
+}
+
+#[test]
+fn a_calendar_drops_the_time_of_a_moment_and_keeps_one_column_without_extras() {
+    let rows = vec![note(
+        "Встреча.md",
+        DAY,
+        vec![scalar("when", "2024-10-07 14:30")],
+    )];
+    let output = run("CALENDAR when", rows);
+
+    assert_eq!(
+        output.columns,
+        vec!["when".to_owned(), "Заметка".to_owned()]
+    );
+    assert_eq!(output.width, 2);
+    assert_eq!(plain(&output.rows[0]), "2024-10-07");
+    assert_eq!(targets(&output.rows[1]), vec!["Встреча.md".to_owned()]);
+}
+
 fn with_tasks(relative: &str, tasks: &[(bool, &str)]) -> Row {
     let mut row = note(relative, DAY, Vec::new());
     row.tasks = tasks

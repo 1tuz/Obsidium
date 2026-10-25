@@ -75,6 +75,32 @@ describe('parseBase', () => {
     expect(parsed.views[1].groupOrder).toEqual([null, true, 3, 'нет']);
   });
 
+  it('round-trips per-column card order and WIP limits', () => {
+    const parsed = expectRoundTrip([
+      'views:',
+      '  - type: kanban',
+      '    name: Board',
+      '    groupBy:',
+      '      property: status',
+      '    groupOrder: [todo, doing]',
+      '    cardOrder:',
+      '      todo: [Alpha.md, "Sub/Beta.md"]',
+      '      "": [Loose.md]',
+      '      doing: []',
+      '    wipLimits:',
+      '      doing: 3',
+      '',
+    ].join('\n'));
+
+    expect(parsed.views[0].cardOrder).toEqual({
+      todo: ['Alpha.md', 'Sub/Beta.md'],
+      '': ['Loose.md'],
+    });
+    expect(parsed.views[0].wipLimits).toEqual({ doing: 3 });
+    expect(serializeBase(parsed)).toContain('todo: [Alpha.md, Sub/Beta.md]');
+    expect(serializeBase(parsed)).toContain('doing: 3');
+  });
+
   it('keeps the timeline start and end properties as view fields', () => {
     const parsed = expectRoundTrip([
       'views:',

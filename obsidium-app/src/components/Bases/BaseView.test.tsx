@@ -106,6 +106,12 @@ function dragEvent(type: string, dataTransfer: KanbanDataTransfer): Event {
   return event;
 }
 
+function dragEventAt(type: string, dataTransfer: KanbanDataTransfer, clientY: number): Event {
+  const event = dragEvent(type, dataTransfer);
+  Object.defineProperty(event, 'clientY', { value: clientY });
+  return event;
+}
+
 function kanbanCards(container: HTMLElement, column: string): HTMLElement[] {
   const section = [...container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
     .find((item) => item.dataset.kanbanColumn === column);
@@ -519,6 +525,270 @@ describe('BaseView view selection', () => {
     expect(kanbanCards(renderer!.container, 'done')).toHaveLength(0);
     expect(renderer!.container.querySelector('[role="alert"]')?.textContent)
       .toBe(t('bases.kanbanMoveError', { reason: 'Error: disk full' }));
+  });
+});
+
+describe('BaseView kanban card order and WIP limits', () => {
+  let renderer: MountedDom | null = null;
+
+  const kanbanBase = [
+    'views:',
+    '  - type: kanban',
+    '    name: Board',
+    '    groupBy:',
+    '      property: status',
+    '    groupOrder: [todo, doing, done]',
+  ].join('\n');
+
+  beforeEach(() => {
+    state.savedView = 0;
+    state.loadDeferred = null;
+    vi.mocked(writeFileAtomic).mockReset();
+    vi.mocked(writeFileAtomic).mockImplementation(async (path: string, content: string) => {
+      if (path === '/vault/Project.base') state.baseContent = content;
+      return { hash: 'saved' };
+    });
+  });
+
+  afterEach(() => {
+    if (renderer) act(() => renderer?.unmount());
+    renderer = null;
+    state.rows = [];
+    state.errors = [];
+    state.columns = [];
+    state.baseContent = null;
+    state.journalDates = [];
+    state.resolved = {};
+  });
+
+  function mountKanban(index = 0) {
+    act(() => {
+      renderer = mountDom(<BaseView
+        path="/vault/Project.base" workspacePath="/vault" indexReady indexRevision={0}
+        onOpenNote={vi.fn()}
+        viewRequest={{ path: '/vault/Project.base', index, id: 1 }}
+      />);
+    });
+  }
+
+  function columnElement(container: HTMLElement, value: string): HTMLElement {
+    return [...container.querySelectorAll<HTMLElement>('[data-kanban-column]')]
+      .find((item) => item.dataset.kanbanColumn === value)!;
+  }
+
+  function titles(container: HTMLElement, value: string): string[] {
+    return kanbanCards(container, value).map(
+      (card) => card.querySelector('.q-base-card__title')?.textContent ?? '',
+    );
+  }
+
+  function dragBefore(
+    container: HTMLElement,
+    source: HTMLElement,
+    target: HTMLElement,
+    column: string,
+  ) {
+    const transfer = kanbanDataTransfer();
+    act(() => { source.dispatchEvent(dragEvent('dragstart', transfer)); });
+    act(() => { target.dispatchEvent(dragEventAt('dragover', transfer, 0)); });
+    act(() => {
+      columnElement(container, column).dispatchEvent(dragEvent('drop', transfer));
+    });
+  }
+
+  function baseWrite(): string {
+    const call = vi.mocked(writeFileAtomic).mock.calls.find(([path]) => path === '/vault/Project.base');
+    return call ? call[1] : '';
+  }
+
+  it('writes both the group value and the card index when a card is dropped before another', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [
+      { path: '/vault/Task.md', fields: { status: 'todo' } },
+      { path: '/vault/Alpha.md', fields: { status: 'todo' } },
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    expect(titles(container, 'done')).toEqual(['Done1']);
+    dragBefore(container, kanbanCards(container, 'todo')[0], kanbanCards(container, 'done')[0], 'done');
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('status: done'), 'hash',
+    );
+    expect(baseWrite()).toContain('cardOrder:');
+    expect(baseWrite()).toContain('done: [Task.md, Done1.md]');
+    expect(baseWrite()).toContain('todo: [Alpha.md]');
+    expect(titles(container, 'done')).toEqual(['Task', 'Done1']);
+  });
+
+  it('keeps the stored order after a reload and appends new cards at the end', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+      { path: '/vault/Done2.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    dragBefore(container, kanbanCards(container, 'done')[1], kanbanCards(container, 'done')[0], 'done');
+    await actAndSettle();
+    expect(titles(container, 'done')).toEqual(['Done2', 'Done1']);
+
+    act(() => renderer!.unmount());
+    state.rows = [
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+      { path: '/vault/Done2.md', fields: { status: 'done' } },
+      { path: '/vault/Done3.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    expect(titles(renderer!.container, 'done')).toEqual(['Done2', 'Done1', 'Done3']);
+  });
+
+  it('drops a card from the order when its note is deleted', async () => {
+    state.baseContent = [
+      kanbanBase,
+      '    cardOrder:',
+      '      done: [Gone.md, Done1.md]',
+    ].join('\n');
+    state.rows = [{ path: '/vault/Done1.md', fields: { status: 'done' } }];
+    mountKanban();
+    await actAndSettle();
+
+    expect(titles(renderer!.container, 'done')).toEqual(['Done1']);
+  });
+
+  it('shows n / limit and warns past the limit but still accepts the drop', async () => {
+    state.baseContent = [
+      kanbanBase,
+      '    wipLimits:',
+      '      doing: 1',
+    ].join('\n');
+    state.rows = [
+      { path: '/vault/Doing1.md', fields: { status: 'doing' } },
+      { path: '/vault/Doing2.md', fields: { status: 'doing' } },
+      { path: '/vault/Task.md', fields: { status: 'todo' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    const doing = columnElement(container, 'doing');
+    expect(doing.querySelector('.q-base-kanban__header strong')?.textContent).toBe('2 / 1');
+    expect(doing.querySelector('.q-base-kanban__count--over')).not.toBeNull();
+    expect(columnElement(container, 'todo').querySelector('.q-base-kanban__count--over')).toBeNull();
+
+    const transfer = kanbanDataTransfer();
+    act(() => { kanbanCards(container, 'todo')[0].dispatchEvent(dragEvent('dragstart', transfer)); });
+    act(() => { doing.dispatchEvent(dragEvent('dragover', transfer)); });
+    act(() => { doing.dispatchEvent(dragEvent('drop', transfer)); });
+    await actAndSettle();
+
+    expect(vi.mocked(writeFileAtomic)).toHaveBeenCalledWith(
+      '/vault/Task.md', expect.stringContaining('status: doing'), 'hash',
+    );
+    expect(titles(container, 'doing')).toEqual(['Doing1', 'Doing2', 'Task']);
+    expect(columnElement(container, 'doing').querySelector('.q-base-kanban__header strong')?.textContent)
+      .toBe('3 / 1');
+  });
+
+  it('keeps summaries, relations and unknown view keys when a drag writes the order', async () => {
+    state.baseContent = [
+      'properties:',
+      '  mentor:',
+      '    type: relation',
+      'summaries:',
+      '  - name: total',
+      '    source: file.name',
+      '    property: total',
+      '    formula: count',
+      'views:',
+      '  - type: kanban',
+      '    name: Board',
+      '    groupBy:',
+      '      property: status',
+      '    groupOrder: [todo, done]',
+      '    customFlag: yes',
+    ].join('\n');
+    state.rows = [
+      { path: '/vault/Task.md', fields: { status: 'todo' } },
+      { path: '/vault/Done1.md', fields: { status: 'done' } },
+    ];
+    mountKanban();
+    await actAndSettle();
+
+    const container = renderer!.container;
+    dragBefore(container, kanbanCards(container, 'todo')[0], kanbanCards(container, 'done')[0], 'done');
+    await actAndSettle();
+
+    const written = baseWrite();
+    expect(written).toContain('summaries:');
+    expect(written).toContain('type: relation');
+    expect(written).toContain('customFlag: yes');
+    expect(written).toContain('cardOrder:');
+  });
+
+  it('writes WIP limits from the editor panel and reads them back', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    mountKanban();
+    await actAndSettle();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const input = panel.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('bases.editorWipLimit', { column: 'doing' })}"]`,
+    )!;
+    input.value = '2';
+    act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    expect(baseWrite()).toContain('wipLimits:');
+    expect(baseWrite()).toContain('doing: 2');
+    expect(renderer!.container.querySelector('.q-base-editor')).toBeNull();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    expect(renderer!.container.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('bases.editorWipLimit', { column: 'doing' })}"]`,
+    )!.value).toBe('2');
+  });
+
+  it('rejects a non-positive WIP limit without writing the file', async () => {
+    state.baseContent = kanbanBase;
+    state.rows = [{ path: '/vault/Task.md', fields: { status: 'todo' } }];
+    mountKanban();
+    await actAndSettle();
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-base-view__edit')!.click());
+    await actAndSettle();
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-base-editor')!;
+    const input = panel.querySelector<HTMLInputElement>(
+      `input[aria-label="${t('bases.editorWipLimit', { column: 'todo' })}"]`,
+    )!;
+    input.value = '0';
+    act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+    await actAndSettle();
+    act(() => [...panel.querySelectorAll<HTMLButtonElement>('button')]
+      .find((candidate) => candidate.textContent?.trim() === t('bases.editorSave'))!
+      .click());
+    await actAndSettle();
+
+    expect(renderer!.container.querySelector('.q-base-editor')).not.toBeNull();
+    expect(panel.querySelector('[role="alert"]')?.textContent)
+      .toBe(t('bases.editorWipLimitInvalid'));
+    expect(vi.mocked(writeFileAtomic)).not.toHaveBeenCalled();
   });
 });
 

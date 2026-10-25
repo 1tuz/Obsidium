@@ -14,6 +14,7 @@ export interface BaseViewEdit {
   sort: BaseSort[];
   relations: string[];
   order: string[];
+  wipLimits: Record<string, number>;
   filters?: BaseFilter | null;
 }
 
@@ -21,6 +22,7 @@ interface BaseEditorPanelProps {
   view: BaseViewDefinition;
   columns: string[];
   relations: string[];
+  groupValues: string[];
   onClose: () => void;
   onSave: (edit: BaseViewEdit) => Promise<boolean>;
 }
@@ -272,7 +274,14 @@ function ColumnOrderSection({ busy, columns, onMove }: ColumnOrderSectionProps) 
   );
 }
 
-export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: BaseEditorPanelProps) {
+export function BaseEditorPanel({
+  view,
+  columns,
+  relations,
+  groupValues,
+  onClose,
+  onSave,
+}: BaseEditorPanelProps) {
   const [name, setName] = useState(view.name);
   const [limit, setLimit] = useState(view.limit === undefined ? '' : String(view.limit));
   const [groupProperty, setGroupProperty] = useState(view.groupBy?.property ?? '');
@@ -285,6 +294,11 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
   const [filterMode, setFilterMode] = useState<FilterMode>(initialFilters?.mode ?? 'and');
   const [conditions, setConditions] = useState<FilterCondition[]>(initialFilters?.conditions ?? []);
   const [order, setOrder] = useState<string[]>(view.order);
+  const [wipLimits, setWipLimits] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const [key, value] of Object.entries(view.wipLimits ?? {})) initial[key] = String(value);
+    return initial;
+  });
   const [sortProperty, setSortProperty] = useState(
     columns.find((property) => !(view.sort ?? []).some((entry) => entry.property === property)) ?? '',
   );
@@ -300,6 +314,7 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
     : columns;
   const relationOptions = [...new Set([...columns, ...relationKeys])]
     .filter((property) => !/^(?:file|formula|summary)\./u.test(property));
+  const wipColumns = [...new Set([...groupValues, ...Object.keys(view.wipLimits ?? {})])];
 
   const submit = async () => {
     if (busy) return;
@@ -330,6 +345,16 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
         }
       }
     }
+    const nextWipLimits: Record<string, number> = {};
+    for (const [column, raw] of Object.entries(wipLimits)) {
+      if (!raw.trim()) continue;
+      const parsed = Number(raw);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        setError(t('bases.editorWipLimitInvalid'));
+        return;
+      }
+      nextWipLimits[column] = parsed;
+    }
     setBusy(true);
     setError('');
     try {
@@ -340,6 +365,7 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
         sort,
         relations: relationKeys,
         order: order.length > 0 ? order : view.order,
+        wipLimits: nextWipLimits,
         filters: advancedFilters ? undefined : buildFilters(conditions, filterMode),
       });
       if (saved) onClose();
@@ -470,6 +496,32 @@ export function BaseEditorPanel({ view, columns, relations, onClose, onSave }: B
           onRemove={removeCondition}
         />
         <ColumnOrderSection busy={busy} columns={orderColumns} onMove={moveColumn} />
+        {wipColumns.length > 0 && (
+          <div className="q-base-editor__field">
+            <span>{t('bases.editorWipLimits')}</span>
+            <p className="q-base-editor__empty">{t('bases.editorWipLimitsHint')}</p>
+            <div className="q-base-editor__sort">
+              {wipColumns.map((column) => (
+                <div className="q-base-editor__row" key={column}>
+                  <span title={column}>{column || t('bases.kanbanUnassigned')}</span>
+                  <input
+                    className="q-base-editor__wip"
+                    type="number"
+                    min={1}
+                    step={1}
+                    aria-label={t('bases.editorWipLimit', { column: column || t('bases.kanbanUnassigned') })}
+                    placeholder={t('bases.editorWipLimitNone')}
+                    value={wipLimits[column] ?? ''}
+                    onChange={(event) => {
+                      const next = event.currentTarget.value;
+                      setWipLimits((current) => ({ ...current, [column]: next }));
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="q-base-editor__field">
           <span>{t('bases.editorSort')}</span>
           {sort.length === 0 ? (
