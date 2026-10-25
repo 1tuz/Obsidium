@@ -9,6 +9,7 @@ use super::progress::IndexProgress;
 use super::worker::WorkerHandle;
 use super::{ChangeNotifier, IndexNotifier};
 use rusqlite::Connection;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -19,6 +20,36 @@ const DEFAULT_LIMIT: usize = 50;
 const MAX_LIMIT: usize = crate::search::query::MAX_WINDOW;
 const INDEX_CACHE_LIMIT_BYTES: u64 = 1024 * 1024 * 1024;
 const INDEX_CACHE_MAX_AGE: Duration = Duration::from_secs(60 * 24 * 60 * 60);
+const WATCH_BUFFER_CAPACITY: usize = 8_192;
+
+#[derive(Default)]
+pub struct PendingWatch {
+    paths: HashSet<PathBuf>,
+    rescan: bool,
+}
+
+impl PendingWatch {
+    pub fn push(&mut self, paths: &[PathBuf], rescan: bool) {
+        self.rescan |= rescan;
+        for path in paths {
+            if self.paths.len() >= WATCH_BUFFER_CAPACITY && !self.paths.contains(path) {
+                self.rescan = true;
+                continue;
+            }
+            self.paths.insert(path.clone());
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.paths.is_empty() && !self.rescan
+    }
+
+    pub fn take(&mut self) -> (Vec<PathBuf>, bool) {
+        let paths = self.paths.drain().collect();
+        let rescan = std::mem::take(&mut self.rescan);
+        (paths, rescan)
+    }
+}
 
 #[derive(Clone)]
 pub struct SearchService {
@@ -28,6 +59,7 @@ pub struct SearchService {
     pub prepare_lock: Arc<Mutex<()>>,
     notifier: ChangeNotifier,
     index_notifier: IndexNotifier,
+    pending_watch: Arc<Mutex<PendingWatch>>,
     pub analysis_graph: Arc<RwLock<Option<CachedGraph>>>,
     pub render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
     pub historical_render_graph: Arc<RwLock<Option<CachedRenderGraph>>>,
@@ -119,6 +151,7 @@ impl SearchService {
             prepare_lock: Arc::new(Mutex::new(())),
             notifier,
             index_notifier,
+            pending_watch: Arc::new(Mutex::new(PendingWatch::default())),
             analysis_graph: Arc::new(RwLock::new(None)),
             render_graph: Arc::new(RwLock::new(None)),
             historical_render_graph: Arc::new(RwLock::new(None)),
@@ -148,6 +181,7 @@ impl SearchService {
             .write()
             .map_err(SearchError::task)?
             .replace(opened);
+        self.flush_pending_watch();
         if let Some(previous) = previous {
             self.mark_storage_used(&previous.root);
             previous.stop();
@@ -369,6 +403,7 @@ impl SearchService {
         let status = opened.progress.snapshot();
         let generation = opened.generation;
         *self.active.write().map_err(SearchError::task)? = Some(opened);
+        self.flush_pending_watch();
         clear_if(&self.analysis_graph, |_| true);
         clear_if(&self.render_graph, |_| true);
         clear_if(&self.historical_render_graph, |_| true);
@@ -471,8 +506,31 @@ impl SearchService {
         if let Ok(active) = self.active.read() {
             if let Some(active) = active.as_ref() {
                 active.queue(&paths, rescan);
+                return;
             }
         }
+        if let Ok(mut pending) = self.pending_watch.lock() {
+            pending.push(&paths, rescan);
+        }
+        self.flush_pending_watch();
+    }
+
+    fn flush_pending_watch(&self) {
+        let Ok(active) = self.active.read() else {
+            return;
+        };
+        let Some(active) = active.as_ref() else {
+            return;
+        };
+        let Ok(mut pending) = self.pending_watch.lock() else {
+            return;
+        };
+        if pending.is_empty() {
+            return;
+        }
+        let (paths, rescan) = pending.take();
+        drop(pending);
+        active.queue(&paths, rescan);
     }
 
     fn queue_paths(&self, paths: Vec<PathBuf>, notify_sidebar: bool) {
@@ -629,8 +687,11 @@ pub fn workspace_root(workspace: &str) -> Result<PathBuf, SearchError> {
 
 #[cfg(test)]
 mod tests {
-    use super::remove_stale_indexes;
+    use super::{remove_stale_indexes, SearchService, WATCH_BUFFER_CAPACITY};
+    use crate::search::models::IndexRevision;
     use std::fs;
+    use std::path::PathBuf;
+    use std::sync::Arc;
 
     #[test]
     fn only_the_current_index_version_stays_on_disk() {
@@ -654,7 +715,7 @@ mod tests {
 
 #[cfg(test)]
 mod cache_tests {
-    use super::SearchService;
+    use super::{SearchService, WATCH_BUFFER_CAPACITY};
     use crate::search::models::IndexRevision;
     use std::fs;
     use std::path::PathBuf;
@@ -742,5 +803,57 @@ mod cache_tests {
         assert!(!inactive.join("documents.sqlite3").exists());
         assert_eq!(fs::read_to_string(unrelated).unwrap(), "user settings");
         service.active.write().unwrap().take().unwrap().stop();
+    }
+
+    fn watch_service(directory: &std::path::Path) -> SearchService {
+        SearchService::new(
+            directory.join("indexes"),
+            Arc::new(|_: Vec<PathBuf>| {}),
+            Arc::new(|_: IndexRevision| {}),
+        )
+    }
+
+    #[test]
+    fn watch_events_before_the_index_are_buffered_and_flushed() {
+        let directory = tempfile::tempdir().unwrap();
+        let vault = directory.path().join("vault");
+        fs::create_dir_all(&vault).unwrap();
+        let note = vault.join("Заметка.md");
+        fs::write(&note, "первое слово").unwrap();
+        let service = watch_service(directory.path());
+
+        service.ingest_watch(vec![note.clone()], false);
+        assert!(
+            !service.pending_watch.lock().unwrap().is_empty(),
+            "событие до готовности индекса не теряется"
+        );
+
+        service.prepare(vault.to_string_lossy().as_ref()).unwrap();
+        assert!(
+            service.pending_watch.lock().unwrap().is_empty(),
+            "появление активного индекса сбрасывает буфер"
+        );
+
+        service.active.write().unwrap().take().unwrap().stop();
+    }
+
+    #[test]
+    fn full_watch_buffer_keeps_the_rescan_flag() {
+        let directory = tempfile::tempdir().unwrap();
+        let service = watch_service(directory.path());
+        let paths = (0..WATCH_BUFFER_CAPACITY + 16)
+            .map(|index| PathBuf::from(format!("/vault/{index}.md")))
+            .collect::<Vec<_>>();
+
+        service.ingest_watch(paths, false);
+        let (buffered, rescan) = service.pending_watch.lock().unwrap().take();
+
+        assert_eq!(buffered.len(), WATCH_BUFFER_CAPACITY);
+        assert!(rescan, "переполнение буфера превращается в полный rescan");
+
+        service.ingest_watch(Vec::new(), true);
+        let (buffered, rescan) = service.pending_watch.lock().unwrap().take();
+        assert!(buffered.is_empty());
+        assert!(rescan, "признак rescan переживает пустой список путей");
     }
 }

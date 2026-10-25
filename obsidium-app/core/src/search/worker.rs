@@ -2,7 +2,7 @@ use super::error::SearchError;
 use super::index::SearchIndex;
 use super::models::IndexRevision;
 use super::progress::IndexProgress;
-use super::sync::IndexSynchronizer;
+use super::sync::{IndexSynchronizer, ScanPlan};
 use super::IndexNotifier;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -117,13 +117,39 @@ fn run(
         &context.metadata_path,
         Arc::clone(&context.progress),
     )?;
-    synchronizer.full_scan(&context.cancelled)?;
-    notify_index(context);
+    let plan = synchronizer.plan()?;
+    synchronizer.mark_unclean()?;
+    synchronizer.begin_scan()?;
+    let mut max_mtime_ns = match plan {
+        ScanPlan::Ready => {
+            context.progress.completed(context.index.document_count());
+            notify_index(context);
+            let summary = synchronizer.verify(&context.cancelled)?;
+            if summary.changed {
+                notify_index(context);
+            }
+            summary.max_mtime_ns
+        }
+        ScanPlan::Verify => {
+            let summary = synchronizer.verify(&context.cancelled)?;
+            if !context.cancelled.load(Ordering::Relaxed) {
+                context.progress.completed(context.index.document_count());
+            }
+            notify_index(context);
+            summary.max_mtime_ns
+        }
+        ScanPlan::Full => {
+            let summary = synchronizer.full_scan(&context.cancelled)?;
+            notify_index(context);
+            summary.max_mtime_ns
+        }
+    };
+    synchronizer.finish_scan(max_mtime_ns)?;
     let mut last_write = Instant::now();
 
     while !context.cancelled.load(Ordering::Relaxed) {
         if context.dirty.swap(false, Ordering::Relaxed) {
-            synchronizer.full_scan(&context.cancelled)?;
+            max_mtime_ns = run_full_scan(&mut synchronizer, context, max_mtime_ns)?;
             notify_index(context);
             last_write = Instant::now();
             continue;
@@ -132,10 +158,15 @@ fn run(
             Ok(message) => {
                 let (paths, rescan) = collect_batch(message, &receiver);
                 if rescan {
-                    synchronizer.full_scan(&context.cancelled)?;
+                    max_mtime_ns = run_full_scan(&mut synchronizer, context, max_mtime_ns)?;
                     notify_index(context);
-                } else if synchronizer.apply_paths(paths)? {
-                    notify_index(context);
+                } else {
+                    synchronizer.mark_unclean()?;
+                    let changed = synchronizer.apply_paths(paths)?;
+                    synchronizer.finish_scan(max_mtime_ns)?;
+                    if changed {
+                        notify_index(context);
+                    }
                 }
                 last_write = Instant::now();
             }
@@ -144,10 +175,26 @@ fn run(
                     synchronizer.release_writer()?;
                 }
             }
-            Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                synchronizer.finish_scan(max_mtime_ns)?;
+                return Ok(());
+            }
         }
     }
+    synchronizer.finish_scan(max_mtime_ns)?;
     Ok(())
+}
+
+fn run_full_scan(
+    synchronizer: &mut IndexSynchronizer,
+    context: &WorkerContext,
+    max_mtime_ns: i64,
+) -> Result<i64, SearchError> {
+    synchronizer.mark_unclean()?;
+    let summary = synchronizer.full_scan(&context.cancelled)?;
+    let max_mtime_ns = max_mtime_ns.max(summary.max_mtime_ns);
+    synchronizer.finish_scan(max_mtime_ns)?;
+    Ok(max_mtime_ns)
 }
 
 fn notify_index(context: &WorkerContext) {

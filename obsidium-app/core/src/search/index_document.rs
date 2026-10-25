@@ -27,23 +27,32 @@ pub struct Probe {
     pub created: CreatedAt,
 }
 
+pub struct ProbedFile {
+    pub key: String,
+    pub fingerprint: Fingerprint,
+    pub probe: Option<Probe>,
+}
+
 pub fn probe(
     path: &Path,
     known: &mut HashMap<PathKey, FileState>,
     force: bool,
-) -> Option<(String, Probe)> {
+) -> Option<ProbedFile> {
     let key = path.to_string_lossy().into_owned();
-    let Ok(file_metadata) = path.metadata() else {
-        return None;
-    };
+    let file_metadata = path.metadata().ok()?;
+    let fingerprint = metadata::fingerprint(&file_metadata);
     let previous = known.remove(&metadata::key(&key));
-    classify(
+    let probe = classify(
         previous,
-        metadata::fingerprint(&file_metadata),
+        fingerprint,
         created::from_file_metadata(&file_metadata),
         force,
-    )
-    .map(|probe| (key, probe))
+    );
+    Some(ProbedFile {
+        key,
+        fingerprint,
+        probe,
+    })
 }
 
 pub fn prepare_file(path: PathBuf, fingerprint: Fingerprint) -> Option<PreparedFile> {
