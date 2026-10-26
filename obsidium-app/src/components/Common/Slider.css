@@ -9,15 +9,20 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--q-space-8);
+  min-width: 0;
 }
 
 .q-slider-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--q-text-secondary);
 }
 
 .q-slider-hint {
+  flex: 0 0 auto;
   color: var(--q-text-tertiary);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .q-slider-input {

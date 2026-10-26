@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { useStableCallback } from '../../hooks/useStableCallback';
+import { motionEnabled } from '../../modules/theme';
 import { reorderLayout, restingOffset, type TabBox } from './tabReorderModel';
 
 const DRAG_THRESHOLD = 4;
@@ -13,12 +14,6 @@ function boxesOf(tabs: HTMLElement[]): TabBox[] {
 
 function transitionMs(element: HTMLElement): number {
   return parseFloat(getComputedStyle(element).transitionDuration) * 1000 || 0;
-}
-
-function prefersReducedMotion(): boolean {
-  if (document.documentElement.dataset.motion === 'on') return false;
-  if (document.documentElement.dataset.motion === 'off') return true;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 export function useTabStrip(
@@ -133,7 +128,7 @@ export function useTabStrip(
         clear();
       };
 
-      if (prefersReducedMotion()) {
+      if (!motionEnabled()) {
         finish();
         return;
       }

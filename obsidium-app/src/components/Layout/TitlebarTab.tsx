@@ -1,5 +1,4 @@
 import { memo, MouseEvent, KeyboardEvent } from 'react';
-import { Network, X } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { InlineRenameField } from '../Common/InlineRenameField';
@@ -81,7 +80,7 @@ export const TitlebarTab = memo(function TitlebarTab({
     >
       {path === GRAPH_TAB_PATH && (
         <span className="q-titlebar-tab-icon" aria-hidden="true">
-          <Icon icon={Network} />
+          <Icon icon="graph" />
         </span>
       )}
       <div className="q-titlebar-tab-content">
@@ -115,7 +114,7 @@ export const TitlebarTab = memo(function TitlebarTab({
             onClose?.(path);
           }}
         >
-          <Icon icon={X} />
+          <Icon icon="x" />
         </IconButton>
       )}
       {canFileActions && actions && menu.open && (

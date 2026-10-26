@@ -20,6 +20,28 @@
   flex: 1 1 auto;
 }
 
+.q-local-graph__status {
+  display: flex;
+  align-items: center;
+  gap: var(--q-space-6);
+  margin: var(--q-space-6);
+  color: var(--q-text-tertiary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-base);
+  line-height: var(--q-size-20);
+}
+
+.q-local-graph__spinner {
+  flex: 0 0 auto;
+  animation: q-local-graph-spin var(--q-duration-slower) linear infinite;
+}
+
+@keyframes q-local-graph-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .q-local-graph__canvas {
   display: grid;
   flex: 1 1 auto;

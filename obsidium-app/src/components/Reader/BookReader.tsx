@@ -383,7 +383,7 @@ export function BookReader({
           aria-valuenow={Math.round(progressPct)}
           aria-label={t('reader.progress')}
         >
-          <div className="q-book-reader-progress-fill" style={{ width: `${progressPct}%` }} />
+          <div className="q-book-reader-progress-fill" style={{ transform: `scaleX(${progressPct / 100})` }} />
         </div>
         <div className="q-book-reader-pages q-book-reader-percent">{Math.round(progressPct)}%</div>
       </footer>

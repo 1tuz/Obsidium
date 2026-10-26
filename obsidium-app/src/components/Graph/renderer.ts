@@ -2,7 +2,7 @@ import type { GraphSnapshot } from '../../modules/graph';
 import type { GraphTopologyDelta } from '../../modules/graph';
 import type { GraphCameraState } from '../../modules/ui-state';
 import { motionEnabled } from '../../modules/theme';
-import { Camera } from './camera';
+import { Camera, isDegenerateViewport, isUsableCamera, visibleGraphPixels } from './camera';
 import { CanvasSizer } from './canvasSize';
 import { shortestPath } from './adjacency';
 import { localGraphMask } from './localGraph';
@@ -49,11 +49,13 @@ export class GraphRenderer {
   private labelsAnimating = false;
   private highlightAnimating = false;
   private visibleNodes = 0;
+  private drawnEdges = 0;
   private metricsStale = false;
   private ratio = 1;
   private cssWidth = 1;
   private cssHeight = 1;
   private cameraSaveTimer = 0;
+  private cameraReady = false;
   private pathMode = false;
   private pathStart = -1;
   private pathNodes: number[] | null = null;
@@ -72,6 +74,8 @@ export class GraphRenderer {
   onPositionChange: ((node: number, x: number, y: number) => void) | null = null;
   onCameraSettled: ((camera: GraphCameraState) => void) | null = null;
   onVisibleNodes: ((count: number) => void) | null = null;
+  onMeasured: (() => void) | null = null;
+  onDrawnEdges: ((count: number) => void) | null = null;
   onContextLost: (() => void) | null = null;
   onPathState: ((state: GraphPathState) => void) | null = null;
 
@@ -181,7 +185,7 @@ export class GraphRenderer {
     this.uploadEdges();
     this.refreshSuggestedEdges();
     this.reportVisible();
-    if (keepCamera && settled) this.invalidate();
+    if (keepCamera && settled && this.cameraReady) this.invalidate();
     else this.jumpToFit();
   }
 
@@ -367,10 +371,15 @@ export class GraphRenderer {
   }
 
   fit(): void {
-    if (!this.store.snapshot) return;
+    if (!this.store.snapshot || !this.isMeasured()) return;
     this.camera.glideTo(this.store.bounds(this.display.spread), this.cssWidth, this.cssHeight);
+    this.cameraReady = true;
     this.markCameraMoved();
     this.invalidate();
+  }
+
+  isMeasured(): boolean {
+    return this.cssWidth > 1 && this.cssHeight > 1;
   }
 
   cameraState(): GraphCameraState {
@@ -381,13 +390,26 @@ export class GraphRenderer {
     };
   }
 
-  applyCamera(camera: GraphCameraState): void {
+  applyCamera(camera: GraphCameraState): boolean {
+    if (!this.isMeasured() || !this.store.snapshot || !isUsableCamera(camera)) return false;
     this.camera.moveTo(
       camera.centerX * this.display.spread,
       camera.centerY * this.display.spread,
       camera.scale,
     );
+    this.cameraReady = true;
     this.invalidate();
+    const bounds = this.store.bounds(this.display.spread);
+    const viewport = visibleGraphPixels(bounds, {
+      centerX: this.camera.centerX,
+      centerY: this.camera.centerY,
+      scale: this.camera.scale,
+    }, this.cssWidth, this.cssHeight);
+    if (this.store.nodeCount > 0 && isDegenerateViewport(viewport, this.store.nodeCount)) {
+      this.fit();
+      return false;
+    }
+    return true;
   }
 
   setPathMode(enabled: boolean): void {
@@ -523,9 +545,14 @@ export class GraphRenderer {
   }
 
   resize(): void {
+    const wasMeasured = this.isMeasured();
     const { metrics, resized } = this.sizer.read();
     this.cssWidth = metrics.cssWidth;
     this.cssHeight = metrics.cssHeight;
+    if (!wasMeasured && this.isMeasured()) {
+      if (!this.cameraReady) this.jumpToFit();
+      this.onMeasured?.();
+    }
     if (!resized) return;
     this.ratio = metrics.ratio;
     this.scene.setViewport(metrics.deviceWidth, metrics.deviceHeight, metrics.ratio);
@@ -566,22 +593,26 @@ export class GraphRenderer {
   }
 
   private markCameraMoved(): void {
+    if (!this.cameraReady) return;
     if (this.cameraSaveTimer) window.clearTimeout(this.cameraSaveTimer);
     this.cameraSaveTimer = window.setTimeout(() => {
       this.cameraSaveTimer = 0;
-      this.onCameraSettled?.(this.cameraState());
+      if (this.cameraReady) this.onCameraSettled?.(this.cameraState());
     }, CAMERA_SETTLE_MS);
   }
 
   private saveCameraNow(): void {
     window.clearTimeout(this.cameraSaveTimer);
     this.cameraSaveTimer = 0;
-    if (this.store.snapshot) this.onCameraSettled?.(this.cameraState());
+    if (this.cameraReady && this.store.snapshot) this.onCameraSettled?.(this.cameraState());
   }
 
   private jumpToFit(): void {
     if (!this.store.snapshot) return;
-    this.camera.jumpTo(this.store.bounds(this.display.spread), this.cssWidth, this.cssHeight);
+    if (this.isMeasured()) {
+      this.cameraReady = true;
+      this.camera.jumpTo(this.store.bounds(this.display.spread), this.cssWidth, this.cssHeight);
+    }
     this.invalidate();
   }
 
@@ -691,6 +722,12 @@ export class GraphRenderer {
     this.onVisibleNodes?.(this.visibleNodes);
   }
 
+  private reportDrawnEdges(count: number): void {
+    if (count === this.drawnEdges) return;
+    this.drawnEdges = count;
+    this.onDrawnEdges?.(count);
+  }
+
   private invalidate(): void {
     this.clock.request(this.step);
   }
@@ -775,6 +812,7 @@ export class GraphRenderer {
     if (this.store.nodeCount === 0) {
       this.labelsAnimating = false;
       this.highlightAnimating = false;
+      this.reportDrawnEdges(0);
       return;
     }
     const display = this.display;
@@ -815,6 +853,7 @@ export class GraphRenderer {
       }, this.palette, this.store.transitionProgress);
     }
     this.scene.drawSuggestedEdges(view, this.suggestedEdgeCount, this.palette);
+    this.reportDrawnEdges(Math.min(edgeCount, MAX_EDGES_PER_FRAME));
     const heat = display.heatmapAxis === 'created' ? this.store.created : this.store.freshness;
     this.scene.drawNodes(view, {
       nodeCount: this.store.renderNodeCount,

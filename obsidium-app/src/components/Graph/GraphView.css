@@ -9,8 +9,11 @@
   background-color: var(--q-graph-backdrop);
 }
 
-.q-graph--hidden {
-  display: none;
+.q-graph--inactive {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .q-graph-canvas {

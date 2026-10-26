@@ -1,39 +1,36 @@
-import { Columns3, FilePlus2, FolderTree, House, Network, PanelLeft, Settings } from 'lucide';
+import type { IconId } from '../Common/iconCatalog';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
 import './SidebarRail.css';
 
+export type RailSectionId = 'home' | 'files' | 'boards' | 'calendar' | 'canvas' | 'graph';
+
 interface SidebarRailProps {
   isSidebarOpen: boolean;
   onToggleSidebar?: () => void;
-  onOpenGraph?: () => void;
-  onOpenHome?: () => void;
+  sections: readonly RailSectionId[];
+  activeSection: RailSectionId | null;
+  onSelect: (id: RailSectionId) => void;
   onOpenSettings?: () => void;
-  onOpenBoards?: () => void;
-  onOpenFiles?: () => void;
-  onOpenInsights?: () => void;
-  onOpenCanvas?: () => void;
-  boardsActive?: boolean;
-  filesActive?: boolean;
-  insightsActive?: boolean;
-  canvasActive?: boolean;
 }
+
+const SECTION_CONTROLS: Record<RailSectionId, { icon: IconId; label: string; action: boolean }> = {
+  home: { icon: 'house', label: 'rail.home', action: true },
+  files: { icon: 'files', label: 'rail.fileManager', action: false },
+  boards: { icon: 'kanban', label: 'rail.boards', action: false },
+  calendar: { icon: 'calendar', label: 'rail.calendar', action: false },
+  canvas: { icon: 'canvas', label: 'rail.canvas', action: false },
+  graph: { icon: 'graph', label: 'rail.graph', action: true },
+};
 
 export function SidebarRail({
   isSidebarOpen,
   onToggleSidebar,
-  onOpenGraph,
-  onOpenHome,
+  sections,
+  activeSection,
+  onSelect,
   onOpenSettings,
-  onOpenBoards,
-  onOpenFiles,
-  onOpenInsights,
-  onOpenCanvas,
-  boardsActive = false,
-  filesActive = false,
-  insightsActive = false,
-  canvasActive = false,
 }: SidebarRailProps) {
   return (
     <aside className="q-sidebar-rail" aria-label={t('rail.toolbar')}>
@@ -45,69 +42,25 @@ export function SidebarRail({
             aria-expanded={isSidebarOpen}
             onClick={onToggleSidebar}
           >
-            <Icon icon={PanelLeft} />
+            <Icon icon="panel-left" />
           </IconButton>
         )}
       </div>
       <div className="q-sidebar-rail-tools">
-        {onOpenHome && (
-          <IconButton
-            label={t('rail.home')}
-            size="medium"
-            onClick={onOpenHome}
-          >
-            <Icon icon={House} />
-          </IconButton>
-        )}
-        {onOpenGraph && (
-          <IconButton
-            label={t('rail.graph')}
-            size="medium"
-            onClick={onOpenGraph}
-          >
-            <Icon icon={Network} />
-          </IconButton>
-        )}
-        {onOpenBoards && (
-          <IconButton
-            label={t('rail.boards')}
-            size="medium"
-            aria-pressed={boardsActive}
-            onClick={onOpenBoards}
-          >
-            <Icon icon={Columns3} />
-          </IconButton>
-        )}
-        {onOpenFiles && (
-          <IconButton
-            label={t('rail.fileManager')}
-            size="medium"
-            aria-pressed={filesActive}
-            onClick={onOpenFiles}
-          >
-            <Icon icon={FolderTree} />
-          </IconButton>
-        )}
-        {onOpenInsights && (
-          <IconButton
-            label={t('rail.insights')}
-            size="medium"
-            aria-pressed={insightsActive}
-            onClick={onOpenInsights}
-          >
-            <Icon icon="timeline" />
-          </IconButton>
-        )}
-        {onOpenCanvas && (
-          <IconButton
-            label={t('rail.canvas')}
-            size="medium"
-            aria-pressed={canvasActive}
-            onClick={onOpenCanvas}
-          >
-            <Icon icon={FilePlus2} />
-          </IconButton>
-        )}
+        {sections.map((id) => {
+          const control = SECTION_CONTROLS[id];
+          return (
+            <IconButton
+              key={id}
+              label={t(control.label)}
+              size="medium"
+              {...(control.action ? {} : { 'aria-pressed': activeSection === id })}
+              onClick={() => onSelect(id)}
+            >
+              <Icon icon={control.icon} />
+            </IconButton>
+          );
+        })}
         {onOpenSettings && (
           <IconButton
             className="q-sidebar-rail-settings"
@@ -115,7 +68,7 @@ export function SidebarRail({
             size="medium"
             onClick={onOpenSettings}
           >
-            <Icon icon={Settings} />
+            <Icon icon="settings" />
           </IconButton>
         )}
       </div>

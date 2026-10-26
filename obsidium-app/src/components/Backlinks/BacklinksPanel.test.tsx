@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
-import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { invoke } from '@tauri-apps/api/core';
+import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
 import { BacklinksPanel } from './BacklinksPanel';
 
 const linkMocks = vi.hoisted(() => ({
@@ -15,15 +16,24 @@ const linkMocks = vi.hoisted(() => ({
     title: 'Target',
     path: 'C:\\notes\\Target.md',
   },
-  analysis: {
-    path: 'C:\\notes\\Related.md',
-    title: 'Related',
-    rawScore: 0.255,
-    reasons: ['related'],
-  },
 }));
 
-vi.mock('../../i18n', () => ({ t: (key: string) => key }));
+const linkState = vi.hoisted(() => ({
+  backlinks: null as unknown[] | null,
+  outgoing: null as unknown[] | null,
+  loading: false,
+}));
+
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => []) }));
+vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => {}) }));
+vi.mock('../../i18n', () => ({
+  t: (key: string, params?: Record<string, string | number>) => (
+    params && 'name' in params ? `${key}|${params.name}` : key
+  ),
+  getLocale: () => 'en',
+  plural: (key: string) => key,
+  formatNumber: (value: number) => String(value),
+}));
 vi.mock('../../modules/settings', () => ({
   useSettingsStore: () => ({
     config: {
@@ -44,19 +54,8 @@ vi.mock('../../modules/settings', () => ({
 }));
 vi.mock('../../modules/links', () => ({
   useDocumentLinks: (mode: 'backlinks' | 'outgoing') => ({
-    result: mode === 'backlinks'
-      ? { mode, items: [linkMocks.backlink] }
-      : { mode, items: [linkMocks.outgoing] },
-    loading: false,
-  }),
-}));
-vi.mock('../../modules/analysis', () => ({
-  enabledSidebarMethods: () => ['bm25f', 'adamicAdar', 'wixiv'],
-  isGraphAnalysisMethod: (method: string) => method !== 'wixiv',
-  useDocumentAnalysis: () => ({
-    items: [linkMocks.analysis],
-    failed: false,
-    loading: false,
+    result: linkState[mode] === null ? null : { mode, items: linkState[mode] },
+    loading: linkState.loading,
   }),
 }));
 vi.mock('../../modules/wikixiv', () => ({
@@ -74,51 +73,115 @@ vi.mock('../../modules/openExternalUrl', () => ({
   openExternalUrl: vi.fn(),
 }));
 
+interface PanelOverrides {
+  documentPath?: string | null;
+}
+
+function mountPanel({ documentPath = 'C:\\notes\\Current.md' }: PanelOverrides = {}) {
+  const onOpenBacklink = vi.fn();
+  const onOpenOutgoing = vi.fn();
+  const renderer = mountDom(
+    <BacklinksPanel
+      workspacePath="C:\\notes"
+      documentPath={documentPath}
+      activeTabId={null}
+      indexReady
+      indexRevision={1}
+      isOpen
+      onOpenBacklink={onOpenBacklink}
+      onOpenOutgoing={onOpenOutgoing}
+      onOpenAnalysis={vi.fn()}
+      onOpenLocalGraph={vi.fn()}
+    />,
+  );
+  const panel = renderer.container;
+  const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('.q-backlinks__mode-button')];
+  const pressed = () => modeButtons.map((button) => button.getAttribute('aria-pressed'));
+  return { renderer, panel, modeButtons, pressed, onOpenBacklink, onOpenOutgoing };
+}
+
+function emptyReport() {
+  return {
+    brokenLinks: [],
+    isolatedNotes: [],
+    staleNotes: [],
+    unusedTags: { tags: [], total: 0, truncated: false },
+    staleAfterDays: 90,
+    indexedDocuments: 2,
+    indexing: false,
+  };
+}
+
 describe('BacklinksPanel', () => {
   let renderer: MountedDom | null = null;
+  const storage = new Map<string, string>();
 
   beforeEach(() => {
-    try {
-      localStorage.clear();
-    } catch {}
+    storage.clear();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+      clear: () => storage.clear(),
+    });
+    linkState.backlinks = [linkMocks.backlink];
+    linkState.outgoing = [linkMocks.outgoing];
+    linkState.loading = false;
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === 'get_knowledge_report') return emptyReport();
+      return [];
+    });
   });
 
   afterEach(() => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
+    vi.unstubAllGlobals();
   });
 
-  it('switches the pressed mode and renders document-name rows', () => {
-    const onOpenBacklink = vi.fn();
-    const onOpenOutgoing = vi.fn();
-    const onOpenAnalysis = vi.fn();
-    act(() => {
-      renderer = mountDom(
-        <BacklinksPanel
-          workspacePath="C:\\notes"
-          documentPath="C:\\notes\\Current.md"
-          activeTabId={null}
-          indexReady
-          indexRevision={1}
-          isOpen
-          onOpenBacklink={onOpenBacklink}
-          onOpenOutgoing={onOpenOutgoing}
-          onOpenAnalysis={onOpenAnalysis}
-          onOpenLocalGraph={vi.fn()}
-        />,
-      );
-    });
+  it('opens on vault analytics without an open note', async () => {
+    const mounted = mountPanel({ documentPath: null });
+    renderer = mounted.renderer;
+    await actAndSettle();
 
-    const panel = renderer!.container;
-    const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('.q-backlinks__mode-button')];
-    const pressed = () => modeButtons.map((button) => button.getAttribute('aria-pressed'));
-    expect(pressed()).toEqual(['true', 'false', 'false', 'false', 'false']);
+    expect(mounted.pressed()).toEqual(['true', 'false', 'false', 'false', 'false', 'false']);
+    expect(mounted.panel.querySelector('.q-knowledge-report')).not.toBeNull();
+    expect(mounted.panel.querySelector('.q-activity-heatmap')).not.toBeNull();
+    expect(mounted.panel.querySelector('.q-recent-changes')).not.toBeNull();
+    expect(mounted.panel.querySelector('.q-backlinks__scope-name')?.textContent)
+      .toBe('backlinks.vaultTitle');
+  });
+
+  it('migrates an unknown stored mode to vault', async () => {
+    localStorage.setItem('obsidium_backlinks_mode', JSON.stringify('nonsense'));
+    const mounted = mountPanel({ documentPath: null });
+    renderer = mounted.renderer;
+    await actAndSettle();
+
+    expect(mounted.pressed()).toEqual(['true', 'false', 'false', 'false', 'false', 'false']);
+    expect(mounted.panel.querySelector('.q-knowledge-report')).not.toBeNull();
+    expect(JSON.parse(localStorage.getItem('obsidium_backlinks_mode') ?? 'null')).toBe('vault');
+  });
+
+  it('switches the pressed mode, names the note and renders document-name rows', () => {
+    localStorage.setItem('obsidium_backlinks_mode', JSON.stringify('backlinks'));
+    const mounted = mountPanel();
+    renderer = mounted.renderer;
+    const { panel, modeButtons, pressed } = mounted;
+
+    expect(pressed()).toEqual(['false', 'true', 'false', 'false', 'false', 'false']);
     expect(panel.querySelector('h2')?.textContent).toBe('backlinks.mentionsTitle');
+    expect(panel.querySelector('.q-backlinks__scope-name')?.textContent)
+      .toBe('backlinks.noteTitle|Current');
     expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Source');
 
-    act(() => modeButtons[1].click());
+    act(() => modeButtons[2].click());
 
-    expect(pressed()).toEqual(['false', 'true', 'false', 'false', 'false']);
+    expect(pressed()).toEqual(['false', 'false', 'true', 'false', 'false', 'false']);
     expect(panel.querySelector('h2')?.textContent).toBe('backlinks.outgoingTitle');
     const outgoingButton = panel.querySelector<HTMLElement>('.q-sidebar-document-item')!;
     expect(panel.querySelector('.q-sidebar-document-item__title')?.textContent).toBe('Target');
@@ -126,7 +189,33 @@ describe('BacklinksPanel', () => {
     act(() => {
       outgoingButton.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
     });
-    expect(onOpenOutgoing).toHaveBeenCalledWith(linkMocks.outgoing, 'new-tab');
-    expect(onOpenBacklink).not.toHaveBeenCalled();
+    expect(mounted.onOpenOutgoing).toHaveBeenCalledWith(linkMocks.outgoing, 'new-tab');
+    expect(mounted.onOpenBacklink).not.toHaveBeenCalled();
+  });
+
+  it('shows a loading indicator instead of an empty panel', () => {
+    localStorage.setItem('obsidium_backlinks_mode', JSON.stringify('backlinks'));
+    linkState.backlinks = null;
+    linkState.loading = true;
+    const mounted = mountPanel();
+    renderer = mounted.renderer;
+
+    const status = mounted.panel.querySelector('.q-backlinks__status');
+    expect(status).not.toBeNull();
+    expect(status?.getAttribute('aria-busy')).toBe('true');
+    expect(status?.querySelector('.q-backlinks__spinner')).not.toBeNull();
+    expect(status?.textContent).toBe('backlinks.loading');
+    expect(mounted.panel.querySelector('.q-panel-empty')).toBeNull();
+  });
+
+  it('shows the empty state when the settled link result has no rows', () => {
+    localStorage.setItem('obsidium_backlinks_mode', JSON.stringify('backlinks'));
+    linkState.backlinks = [];
+    linkState.loading = false;
+    const mounted = mountPanel();
+    renderer = mounted.renderer;
+
+    expect(mounted.panel.querySelector('.q-panel-empty')?.textContent).toBe('backlinks.empty');
+    expect(mounted.panel.querySelector('.q-sidebar-document-item')).toBeNull();
   });
 });

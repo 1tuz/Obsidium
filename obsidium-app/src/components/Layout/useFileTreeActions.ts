@@ -7,6 +7,9 @@ import {
 } from '../../modules/documents/renameWorkspaceFile';
 import { claimNumberedPath, fileStem } from '../../modules/paths';
 import { useStableCallback } from '../../hooks/useStableCallback';
+import { t } from '../../i18n';
+import { createUniqueFile } from '../../modules/documents/documentFactory';
+import { createUniqueFolder } from '../../modules/documents/folderFactory';
 
 interface FileTreeActionsInput {
   workspacePath: string | null;
@@ -14,6 +17,8 @@ interface FileTreeActionsInput {
   clearSelection?: () => void;
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
   onPathMoved?: (from: string, to: string) => void;
+  onDirectoryChanged?: (path: string) => void;
+  onOpenCreated?: (path: string) => void;
 }
 
 export function useFileTreeActions({
@@ -22,10 +27,13 @@ export function useFileTreeActions({
   clearSelection,
   onPatchFileInTree,
   onPathMoved,
+  onDirectoryChanged,
+  onOpenCreated,
 }: FileTreeActionsInput) {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [deleteTargets, setDeleteTargets] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const actionPendingRef = useRef(false);
 
   const startRename = useStableCallback((path: string) => {
@@ -111,13 +119,56 @@ export function useFileTreeActions({
     }
   });
 
+  const createNoteIn = useStableCallback(async (folder: string) => {
+    if (actionPendingRef.current) return;
+    actionPendingRef.current = true;
+    setCreateError(null);
+    try {
+      const created = await createUniqueFile(folder);
+      if (!created) {
+        setCreateError(t('fileTree.createFailed', { reason: folder }));
+        return;
+      }
+      onDirectoryChanged?.(folder);
+      onOpenCreated?.(created);
+    } finally {
+      actionPendingRef.current = false;
+    }
+  });
+
+  const createFolderIn = useStableCallback(async (folder: string) => {
+    if (actionPendingRef.current) return;
+    actionPendingRef.current = true;
+    setCreateError(null);
+    try {
+      const created = await createUniqueFolder(folder);
+      if (!created) {
+        setCreateError(t('fileTree.createFailed', { reason: folder }));
+        return;
+      }
+      onDirectoryChanged?.(folder);
+    } finally {
+      actionPendingRef.current = false;
+    }
+  });
+
   const rowActions = useMemo(() => ({
     startRename,
     commitRename,
     cancelRename,
     requestDelete,
     duplicateFile,
-  }), [cancelRename, commitRename, duplicateFile, requestDelete, startRename]);
+    createNoteIn,
+    createFolderIn,
+  }), [cancelRename, commitRename, createFolderIn, createNoteIn, duplicateFile, requestDelete, startRename]);
 
-  return { renamingPath, deleteTargets, isDeleting, rowActions, confirmDelete, dismissDelete };
+  return {
+    renamingPath,
+    deleteTargets,
+    isDeleting,
+    rowActions,
+    confirmDelete,
+    dismissDelete,
+    createError,
+  };
 }

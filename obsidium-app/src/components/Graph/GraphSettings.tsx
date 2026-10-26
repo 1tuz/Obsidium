@@ -1,6 +1,6 @@
 import { getLocale, plural, t } from '../../i18n';
 import { memo, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, PanelRightClose, PanelRightOpen, RotateCcw, Trash2 } from 'lucide';
+import { ChevronDown, ChevronRight, Crop, PanelRightClose, PanelRightOpen, RefreshCw, Trash2 } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Slider } from '../Common/Slider';
@@ -15,6 +15,7 @@ import { COMMUNITY_PAGE_SIZE, clampCommunityPage, type CommunityLabel } from './
 import type { AnalysisResult } from '../../modules/analysis';
 import { renameCommunity, setCommunityCollapsed } from './communityNames';
 import { colorInputValue, readPalette, type Palette } from './palette';
+import { useLocalState } from '../../modules/workspace/uiPersist';
 import './GraphSettings.css';
 
 export interface GraphControls extends GraphPreferences {
@@ -99,23 +100,26 @@ function layoutModes() {
   ];
 }
 
-function SettingsSection({
-  title,
-  defaultOpen = false,
-  children,
-}: {
+interface SettingsSectionProps {
+  id: string;
   title: string;
-  defaultOpen?: boolean;
+  open: boolean;
+  onToggle: (id: string) => void;
   children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+}
+
+const DEFAULT_OPEN_SECTIONS: Record<string, boolean> = { layout: true, nodes: true };
+
+const SETTINGS_SECTIONS_KEY = 'obsidium_graph_settings_sections';
+
+function SettingsSection({ id, title, open, onToggle, children }: SettingsSectionProps) {
   return (
-    <section className="q-graph-settings-section">
+    <section className="q-graph-settings-section" data-section={id}>
       <button
         type="button"
         className="q-graph-settings-section__head"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open ? 'true' : 'false'}
+        onClick={() => onToggle(id)}
       >
         <Icon icon={open ? ChevronDown : ChevronRight} size={16} />
         <span>{title}</span>
@@ -130,6 +134,7 @@ interface GraphSettingsProps {
   range: GraphDateRange;
   onChange: (patch: Partial<GraphControls>) => void;
   onRefresh: () => void;
+  onFitView: () => void;
   presets: GraphPresets;
   onSavePreset: (name: string) => void;
   onApplyPreset: (name: string) => void;
@@ -153,6 +158,7 @@ export const GraphSettings = memo(function GraphSettings({
   range,
   onChange,
   onRefresh,
+  onFitView,
   presets,
   onSavePreset,
   onApplyPreset,
@@ -188,6 +194,15 @@ export const GraphSettings = memo(function GraphSettings({
   const modifiedThreshold = range.modifiedOldest
     + (range.modifiedNewest - range.modifiedOldest) * controls.modifiedShare;
   const pathStatusMessage = pathMessage(pathState);
+  const [storedSections, setStoredSections] = useLocalState<Record<string, boolean>>(
+    SETTINGS_SECTIONS_KEY,
+    DEFAULT_OPEN_SECTIONS,
+  );
+  const sections = {
+    ...DEFAULT_OPEN_SECTIONS,
+    ...(storedSections && typeof storedSections === 'object' ? storedSections : {}),
+  };
+  const toggleSection = (id: string) => setStoredSections({ ...sections, [id]: !sections[id] });
 
   return (
     <aside
@@ -197,9 +212,14 @@ export const GraphSettings = memo(function GraphSettings({
       <div className="q-graph-settings-head">
         {!collapsed && <span className="q-graph-settings-title">{t('graph.title')}</span>}
         {!collapsed && (
-          <IconButton label={t('graph.refresh')} size="small" onClick={onRefresh}>
-            <Icon icon={RotateCcw} />
-          </IconButton>
+          <div className="q-graph-settings-actions">
+            <IconButton label={t('graph.fitView')} size="small" onClick={onFitView}>
+              <Icon icon={Crop} />
+            </IconButton>
+            <IconButton label={t('graph.reload')} size="small" onClick={onRefresh}>
+              <Icon icon={RefreshCw} />
+            </IconButton>
+          </div>
         )}
         <IconButton
           label={t(collapsed ? 'graph.expandSettings' : 'graph.collapseSettings')}
@@ -213,7 +233,12 @@ export const GraphSettings = memo(function GraphSettings({
 
       {!collapsed && (
         <>
-          <SettingsSection title={t('graph.sections.layout')} defaultOpen>
+          <SettingsSection
+            id="layout"
+            title={t('graph.sections.layout')}
+            open={sections.layout}
+            onToggle={toggleSection}
+          >
           <Dropdown
             ariaLabel={t('graph.layoutMode')}
             options={layoutModes()}
@@ -246,6 +271,37 @@ export const GraphSettings = memo(function GraphSettings({
           )}
 
           <Slider
+            label={t('graph.spread')}
+            min={MIN_SPREAD}
+            max={2.5}
+            step={0.05}
+            value={controls.spread}
+            hint={`${controls.spread.toFixed(2)}×`}
+            onChange={(spread) => onChange({ spread })}
+          />
+
+          <div className="q-graph-settings-choice">
+            <Slider
+              label={t('graph.localDepth')}
+              min={0}
+              max={4}
+              step={1}
+              value={controls.localGraphDepth}
+              hint={controls.localGraphDepth === 0 ? t('graph.globalGraph') : depthLabel(controls.localGraphDepth)}
+              onChange={(localGraphDepth) => onChange({ localGraphDepth })}
+            />
+            <span>{t('graph.localGraphHelp')}</span>
+          </div>
+
+          </SettingsSection>
+
+          <SettingsSection
+            id="nodes"
+            title={t('graph.sections.nodes')}
+            open={sections.nodes}
+            onToggle={toggleSection}
+          >
+          <Slider
             label={t('graph.nodeSize')}
             min={0.4}
             max={2.5}
@@ -266,16 +322,6 @@ export const GraphSettings = memo(function GraphSettings({
           />
 
           <Slider
-            label={t('graph.spread')}
-            min={MIN_SPREAD}
-            max={2.5}
-            step={0.05}
-            value={controls.spread}
-            hint={`${controls.spread.toFixed(2)}×`}
-            onChange={(spread) => onChange({ spread })}
-          />
-
-          <Slider
             label={t('graph.depth')}
             min={1}
             max={3}
@@ -284,19 +330,6 @@ export const GraphSettings = memo(function GraphSettings({
             hint={depthHints()[controls.highlightDepth - 1]}
             onChange={(highlightDepth) => onChange({ highlightDepth })}
           />
-
-          <div className="q-graph-settings-choice">
-            <Slider
-              label={t('graph.localDepth')}
-              min={0}
-              max={4}
-              step={1}
-              value={controls.localGraphDepth}
-              hint={controls.localGraphDepth === 0 ? t('graph.globalGraph') : depthLabel(controls.localGraphDepth)}
-              onChange={(localGraphDepth) => onChange({ localGraphDepth })}
-            />
-            <span>{t('graph.localGraphHelp')}</span>
-          </div>
 
           <label className="q-graph-settings-toggle">
             <span>{t('graph.labels')}</span>
@@ -317,16 +350,37 @@ export const GraphSettings = memo(function GraphSettings({
           </div>
 
           <label className="q-graph-settings-toggle">
-            <span>{t('graph.arrows')}</span>
+            <span>{t('graph.orphans')}</span>
             <Switch
-              checked={controls.arrows}
-              onChange={(arrows) => onChange({ arrows })}
+              checked={controls.orphanHighlight}
+              onChange={(orphanHighlight) => onChange({ orphanHighlight })}
+            />
+          </label>
+
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.islands')}</span>
+            <Switch
+              checked={controls.islandHighlight}
+              onChange={(islandHighlight) => onChange({ islandHighlight })}
+            />
+          </label>
+
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.importantNodes')}</span>
+            <Switch
+              checked={controls.importantNodes}
+              onChange={(importantNodes) => onChange({ importantNodes })}
             />
           </label>
 
           </SettingsSection>
 
-          <SettingsSection title={t('graph.sections.edges')}>
+          <SettingsSection
+            id="edges"
+            title={t('graph.sections.edges')}
+            open={sections.edges}
+            onToggle={toggleSection}
+          >
           <Slider
             label={t('graph.edgeWidth')}
             min={0.5}
@@ -411,9 +465,58 @@ export const GraphSettings = memo(function GraphSettings({
             )}
           </div>
 
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.arrows')}</span>
+            <Switch
+              checked={controls.arrows}
+              onChange={(arrows) => onChange({ arrows })}
+            />
+          </label>
+
+          <label className="q-graph-settings-toggle">
+            <span>{t('graph.suggestedLinks')}</span>
+            <Switch
+              checked={controls.suggestionsEnabled}
+              onChange={(suggestionsEnabled) => onChange({ suggestionsEnabled })}
+            />
+          </label>
+
+          {controls.suggestionsEnabled && (
+            <div className="q-graph-settings-suggestions">
+              <Dropdown
+                ariaLabel={t('graph.suggestionMethod')}
+                options={[
+                  { value: 'adamicAdar', label: 'Adamic-Adar' },
+                  { value: 'bm25f', label: t('analysis.methods.bm25f') },
+                ]}
+                value={controls.suggestionMethod}
+                onChange={(suggestionMethod) => onChange({
+                  suggestionMethod: suggestionMethod as GraphControls['suggestionMethod'],
+                })}
+              />
+              {suggestionsLoading && <span role="status">{t('graph.suggestionsLoading')}</span>}
+              {!suggestionsLoading && suggestions.length === 0 && (
+                <span>{t('graph.suggestionsEmpty')}</span>
+              )}
+              {suggestions.map((suggestion) => (
+                <div className="q-graph-settings-suggestion" key={suggestion.path}>
+                  <span title={suggestion.reasons.join(', ')}>{suggestion.title}</span>
+                  <Button size="xs" variant="ghost" onClick={() => onCreateSuggestedLink?.(suggestion)}>
+                    {t('graph.createSuggestedLink')}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
           </SettingsSection>
 
-          <SettingsSection title={t('graph.sections.filters')}>
+          <SettingsSection
+            id="filters"
+            title={t('graph.sections.filters')}
+            open={sections.filters}
+            onToggle={toggleSection}
+          >
           <Slider
             label={t('graph.createdAfter')}
             min={0}
@@ -515,7 +618,12 @@ export const GraphSettings = memo(function GraphSettings({
 
           </SettingsSection>
 
-          <SettingsSection title={t('graph.sections.communities')}>
+          <SettingsSection
+            id="communities"
+            title={t('graph.sections.communities')}
+            open={sections.communities}
+            onToggle={toggleSection}
+          >
           <label className="q-graph-settings-toggle">
             <span>{t('graph.communityColors')}</span>
             <Switch
@@ -680,72 +788,12 @@ export const GraphSettings = memo(function GraphSettings({
 
           </SettingsSection>
 
-          <SettingsSection title={t('graph.sections.highlights')}>
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.orphans')}</span>
-            <Switch
-              checked={controls.orphanHighlight}
-              onChange={(orphanHighlight) => onChange({ orphanHighlight })}
-            />
-          </label>
-
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.islands')}</span>
-            <Switch
-              checked={controls.islandHighlight}
-              onChange={(islandHighlight) => onChange({ islandHighlight })}
-            />
-          </label>
-
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.importantNodes')}</span>
-            <Switch
-              checked={controls.importantNodes}
-              onChange={(importantNodes) => onChange({ importantNodes })}
-            />
-          </label>
-
-          </SettingsSection>
-
-          <SettingsSection title={t('graph.sections.suggestions')}>
-          <label className="q-graph-settings-toggle">
-            <span>{t('graph.suggestedLinks')}</span>
-            <Switch
-              checked={controls.suggestionsEnabled}
-              onChange={(suggestionsEnabled) => onChange({ suggestionsEnabled })}
-            />
-          </label>
-          {controls.suggestionsEnabled && (
-            <div className="q-graph-settings-suggestions">
-              <Dropdown
-                ariaLabel={t('graph.suggestionMethod')}
-                options={[
-                  { value: 'adamicAdar', label: 'Adamic-Adar' },
-                  { value: 'bm25f', label: t('analysis.methods.bm25f') },
-                ]}
-                value={controls.suggestionMethod}
-                onChange={(suggestionMethod) => onChange({
-                  suggestionMethod: suggestionMethod as GraphControls['suggestionMethod'],
-                })}
-              />
-              {suggestionsLoading && <span role="status">{t('graph.suggestionsLoading')}</span>}
-              {!suggestionsLoading && suggestions.length === 0 && (
-                <span>{t('graph.suggestionsEmpty')}</span>
-              )}
-              {suggestions.map((suggestion) => (
-                <div className="q-graph-settings-suggestion" key={suggestion.path}>
-                  <span title={suggestion.reasons.join(', ')}>{suggestion.title}</span>
-                  <Button size="xs" variant="ghost" onClick={() => onCreateSuggestedLink?.(suggestion)}>
-                    {t('graph.createSuggestedLink')}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          </SettingsSection>
-
-          <SettingsSection title={t('graph.sections.presets')}>
+          <SettingsSection
+            id="presets"
+            title={t('graph.sections.presets')}
+            open={sections.presets}
+            onToggle={toggleSection}
+          >
           <div className="q-graph-settings-presets">
             <form
               className="q-graph-settings-preset-form"

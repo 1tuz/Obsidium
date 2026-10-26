@@ -1,9 +1,31 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { X } from 'lucide';
 import { Icon } from './Icon';
 import { IconButton } from './IconButton';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import './Dialog.css';
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'area[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'iframe',
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function focusableWithin(panel: HTMLElement): HTMLElement[] {
+  return [...panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)]
+    .filter((element) => (
+      element.tabIndex >= 0
+      && !element.hasAttribute('hidden')
+      && !element.closest('[inert]')
+      && !element.closest('[aria-hidden="true"]')
+    ));
+}
 
 function DialogHeader({ id, title, closeLabel, onClose }: {
   id: string;
@@ -61,17 +83,57 @@ export function Dialog({
   children,
 }: DialogProps) {
   const panelRef = useRef<HTMLElement>(null);
+  const restoreRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const focusInitial = useStableCallback(() => {
-    if (initialFocus) initialFocus();
-    else if (!panelRef.current?.contains(document.activeElement)) panelRef.current?.focus();
+    if (initialFocus) {
+      initialFocus();
+      return;
+    }
+    const panel = panelRef.current;
+    if (!panel || panel.contains(document.activeElement)) return;
+    const [first] = focusableWithin(panel);
+    (first ?? panel).focus();
   });
 
   useEffect(() => {
     if (!open) return;
+    const previous = document.activeElement;
+    restoreRef.current = previous instanceof HTMLElement ? previous : null;
     const frame = requestAnimationFrame(focusInitial);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      const restore = restoreRef.current;
+      restoreRef.current = null;
+      if (restore?.isConnected) restore.focus();
+    };
   }, [open, focusInitial]);
+
+  const trapTab = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Tab' || event.defaultPrevented) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const focusable = focusableWithin(panel);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      panel.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey) {
+      if (active === first || !panel.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+      return;
+    }
+    if (active === last || !panel.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   useEffect(() => {
     if (!open || !dismissible) return;
@@ -109,9 +171,13 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={describedBy}
         onKeyDown={(event) => {
-          if (event.key !== 'Escape' || event.defaultPrevented) return;
-          event.preventDefault();
-          dismiss();
+          if (event.key === 'Escape') {
+            if (event.defaultPrevented) return;
+            event.preventDefault();
+            dismiss();
+            return;
+          }
+          trapTab(event);
         }}
       >
         {headerless ? (

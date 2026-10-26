@@ -116,6 +116,11 @@ export const ICON_IDS = [
   'zoom-in',
   'template',
   'timeline',
+  'analytics',
+  'file-plus',
+  'folder-plus',
+  'split-horizontal',
+  'split-vertical',
 ] as const;
 export const ICON_SETS = ['lucide', 'tabler', 'phosphor'] as const;
 export type IconSet = typeof ICON_SETS[number];

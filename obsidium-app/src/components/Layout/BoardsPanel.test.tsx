@@ -104,7 +104,7 @@ describe('BoardsPanel', () => {
     expect(renderer!.container.textContent).toContain('Releases');
   });
 
-  it('lists a calendar view next to the board views so it can be opened', async () => {
+  it('lists kanban views only and keeps the Base name visible', async () => {
     state.sources['/vault/Work/Bugs.base'] = [
       'filters: "file.hasTag(\\"board/доска\\")"',
       'views:',
@@ -113,6 +113,8 @@ describe('BoardsPanel', () => {
       '  - type: calendar',
       '    name: Календарь',
       '    dateField: date',
+      '  - type: timeline',
+      '    name: Таймлайн',
     ].join('\n');
     const onOpenView = vi.fn();
     act(() => {
@@ -129,11 +131,41 @@ describe('BoardsPanel', () => {
     });
     await actAndSettle();
 
-    const calendar = [...renderer!.container.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('Календарь'));
-    expect(calendar).toBeDefined();
-    act(() => calendar!.click());
-    expect(onOpenView).toHaveBeenCalledWith('/vault/Work/Bugs.base', 1);
+    const heading = renderer!.container.querySelector('.q-boards-tree__heading strong');
+    expect(heading?.textContent).toBe('Bugs');
+    expect(renderer!.container.textContent).toContain('Доска');
+    expect(renderer!.container.textContent).not.toContain('Календарь');
+    expect(renderer!.container.textContent).not.toContain('Таймлайн');
+
+    const board = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-boards-tree__view button')]
+      .find((button) => button.textContent?.includes('Доска'));
+    act(() => board!.click());
+    expect(onOpenView).toHaveBeenCalledWith('/vault/Work/Bugs.base', 0);
+  });
+
+  it('reports an empty kanban list when only other view types exist', async () => {
+    state.sources['/vault/Work/Bugs.base'] = [
+      'views:',
+      '  - type: calendar',
+      '    name: Календарь',
+      '    dateField: date',
+    ].join('\n');
+    act(() => {
+      renderer = mountDom(
+        <BoardsPanel
+          active
+          workspacePath="/vault"
+          onOpenView={vi.fn()}
+          actionRequest={null}
+          onActionRequestComplete={vi.fn()}
+          createRequest={0}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    expect(renderer!.container.textContent).toContain(t('boards.emptyKanban'));
+    expect(renderer!.container.querySelector('.q-boards-tree')).toBeNull();
   });
 
   it('offers board file rename and delete actions', async () => {
@@ -153,9 +185,10 @@ describe('BoardsPanel', () => {
       `[aria-label="${t('boards.actions', { name: 'Bugs' })}"]`,
     );
     expect(menuButton).not.toBeNull();
-    const viewRow = renderer!.container.querySelector('.q-boards-tree__view');
-    expect(viewRow?.contains(menuButton)).toBe(true);
-    expect(viewRow?.querySelector('button[title="/vault/Work/Bugs.base"]')).not.toBeNull();
+    const heading = renderer!.container.querySelector('.q-boards-tree__heading');
+    expect(heading?.contains(menuButton)).toBe(true);
+    expect(heading?.querySelector('strong')?.textContent).toBe('Bugs');
+    expect(renderer!.container.querySelector('.q-boards-tree__view button[title="/vault/Work/Bugs.base"]')).not.toBeNull();
     act(() => menuButton!.click());
     await actAndSettle();
     expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([

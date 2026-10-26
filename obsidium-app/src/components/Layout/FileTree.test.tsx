@@ -4,6 +4,7 @@ import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { describe, expect, it, vi } from 'vitest';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import type { FileTreeActions } from './fileTreeModel';
+import { t } from '../../i18n';
 
 vi.mock('./fileTreeModel', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./fileTreeModel')>();
@@ -20,6 +21,8 @@ const notes: WorkspaceItem[] = Array.from({ length: 40 }, (_, index) => ({
 }));
 
 const noop = () => {};
+const createNoteIn = vi.fn();
+const createFolderIn = vi.fn();
 const rows = buildVisibleFileRows(notes, new Map(), new Set(), new Set());
 const actions: FileTreeActions = {
   selectFile: noop,
@@ -32,6 +35,8 @@ const actions: FileTreeActions = {
   cancelRename: noop,
   requestDelete: noop,
   duplicateFile: noop,
+  createNoteIn,
+  createFolderIn,
 };
 
 function renderTree(activeFile: string | null, selectedFiles: ReadonlySet<string> = new Set<string>()) {
@@ -42,6 +47,7 @@ function renderTree(activeFile: string | null, selectedFiles: ReadonlySet<string
       selectedFiles={selectedFiles}
       renamingPath={null}
       actions={actions}
+      rootPath={'C:\\vault'}
     />
   );
 }
@@ -95,6 +101,95 @@ describe('file tree rendering', () => {
     expect(active).toHaveLength(1);
     expect(active[0].classList).toContain('active');
     expect(active[0].querySelector('.q-file-name')?.textContent).toBe('note-3');
+    act(() => {
+      tree.unmount();
+    });
+  });
+
+  it('opens root creation actions on the empty area below the rows', () => {
+    createNoteIn.mockClear();
+    createFolderIn.mockClear();
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(renderTree(notes[0].id));
+    });
+
+    act(() => {
+      tree.container.querySelector('.q-file-tree')!.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 40,
+        clientY: 60,
+      }));
+    });
+
+    const menu = document.querySelector('.q-menu');
+    expect(menu).not.toBeNull();
+    const items = Array.from(menu!.querySelectorAll('.q-menu__item-label'), (node) => node.textContent);
+    expect(items).toHaveLength(2);
+
+    act(() => {
+      (menu!.querySelectorAll('.q-menu__item')[0] as HTMLButtonElement).click();
+    });
+    expect(createNoteIn).toHaveBeenCalledWith('C:\\vault');
+
+    act(() => {
+      tree.unmount();
+    });
+  });
+
+  it('keeps the row menu out of the root creation actions', () => {
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(renderTree(notes[0].id));
+    });
+
+    act(() => {
+      tree.container.querySelector('.q-file-item')!.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 10,
+        clientY: 10,
+      }));
+    });
+
+    const labels = Array.from(
+      document.querySelectorAll('.q-menu__item-label'),
+      (node) => node.textContent,
+    );
+    expect(labels).toEqual([t('common.rename'), t('common.duplicate'), t('common.delete')]);
+    expect(labels).not.toContain(t('fileTree.newNote'));
+    expect(labels).not.toContain(t('fileTree.newFolder'));
+
+    act(() => {
+      tree.unmount();
+    });
+  });
+
+  it('offers both creation actions in the empty tree state', () => {
+    createNoteIn.mockClear();
+    createFolderIn.mockClear();
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(
+        <FileTree
+          rows={[]}
+          activeFile={null}
+          selectedFiles={new Set<string>()}
+          renamingPath={null}
+          actions={actions}
+          rootPath={'C:\\vault'}
+        />,
+      );
+    });
+
+    const buttons = tree.container.querySelectorAll<HTMLButtonElement>('.q-empty-state__actions button');
+    expect(Array.from(buttons, (button) => button.textContent))
+      .toEqual([t('fileTree.newNote'), t('fileTree.newFolder')]);
+
+    act(() => buttons[1].click());
+    expect(createFolderIn).toHaveBeenCalledWith('C:\\vault');
+
     act(() => {
       tree.unmount();
     });

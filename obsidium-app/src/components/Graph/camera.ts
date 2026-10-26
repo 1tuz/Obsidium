@@ -1,12 +1,58 @@
 import { clamp } from '../../modules/math';
 import type { GraphBounds } from '../../modules/graph';
+import type { GraphCameraState } from '../../modules/ui-state';
 import { approachStep } from './easing';
 
-const MIN_SCALE = 0.02;
-const MAX_SCALE = 400;
+export const MIN_SCALE = 0.02;
+export const MAX_SCALE = 400;
+export const MIN_VISIBLE_GRAPH_PIXELS = 40;
 const RESPONSE_SECONDS = 0.08;
 const SETTLED_ZOOM = 0.0015;
 const SETTLED_PIXELS = 0.05;
+
+export interface GraphViewport {
+  width: number;
+  height: number;
+  intersects: boolean;
+}
+
+export interface CameraPose {
+  centerX: number;
+  centerY: number;
+  scale: number;
+}
+
+export function isUsableCamera(camera: GraphCameraState): boolean {
+  return Number.isFinite(camera.centerX)
+    && Number.isFinite(camera.centerY)
+    && Number.isFinite(camera.scale)
+    && camera.scale >= MIN_SCALE
+    && camera.scale <= MAX_SCALE;
+}
+
+export function visibleGraphPixels(
+  bounds: GraphBounds,
+  camera: CameraPose,
+  width: number,
+  height: number,
+): GraphViewport {
+  const left = width / 2 + (bounds.minX - camera.centerX) * camera.scale;
+  const right = width / 2 + (bounds.maxX - camera.centerX) * camera.scale;
+  const top = height / 2 - (bounds.maxY - camera.centerY) * camera.scale;
+  const bottom = height / 2 - (bounds.minY - camera.centerY) * camera.scale;
+  return {
+    width: Math.max(0, Math.min(width, right) - Math.max(0, left)),
+    height: Math.max(0, Math.min(height, bottom) - Math.max(0, top)),
+    intersects: right >= 0 && left <= width && bottom >= 0 && top <= height,
+  };
+}
+
+export function isDegenerateViewport(viewport: GraphViewport, nodeCount: number): boolean {
+  if (!viewport.intersects) return true;
+  return nodeCount > 1
+    && viewport.width < MIN_VISIBLE_GRAPH_PIXELS
+    && viewport.height < MIN_VISIBLE_GRAPH_PIXELS;
+}
 
 interface ZoomAnchor {
   offsetX: number;

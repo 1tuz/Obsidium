@@ -1,5 +1,4 @@
 import { useRef } from 'react';
-import { PanelRight, Plus } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { useHorizontalWheelScroll } from '../Common/useHorizontalWheelScroll';
@@ -81,12 +80,24 @@ export function Titlebar({
         className="q-titlebar-new-tab"
         onClick={onNewTab}
       >
-        <Icon icon={Plus} />
+        <Icon icon="plus" />
       </IconButton>
 
-      {onSplitHorizontal && <IconButton label={t('titlebar.splitSide')} size="medium" onClick={onSplitHorizontal}>↔</IconButton>}
-      {onSplitVertical && <IconButton label={t('titlebar.splitBelow')} size="medium" onClick={onSplitVertical}>↕</IconButton>}
-      {onClosePane && <IconButton label={t('titlebar.closePane')} size="medium" onClick={onClosePane}>×</IconButton>}
+      {onSplitHorizontal && (
+        <IconButton label={t('titlebar.splitSide')} size="medium" onClick={onSplitHorizontal}>
+          <Icon icon="split-horizontal" />
+        </IconButton>
+      )}
+      {onSplitVertical && (
+        <IconButton label={t('titlebar.splitBelow')} size="medium" onClick={onSplitVertical}>
+          <Icon icon="split-vertical" />
+        </IconButton>
+      )}
+      {onClosePane && (
+        <IconButton label={t('titlebar.closePane')} size="medium" onClick={onClosePane}>
+          <Icon icon="x" />
+        </IconButton>
+      )}
 
       <div className="q-titlebar-menu-wrapper">
         {onToggleRightSidebar && (
@@ -97,7 +108,7 @@ export function Titlebar({
             aria-expanded={rightSidebarOpen}
             onClick={onToggleRightSidebar}
           >
-            <Icon icon={PanelRight} />
+            <Icon icon={rightSidebarOpen ? 'panel-right-close' : 'panel-right-open'} />
           </IconButton>
         )}
       </div>

@@ -20,10 +20,10 @@ import chevronDownPhosphor from '@phosphor-icons/core/regular/caret-down.svg?raw
 import chevronLeftPhosphor from '@phosphor-icons/core/regular/caret-left.svg?raw';
 import chevronRightPhosphor from '@phosphor-icons/core/regular/caret-right.svg?raw';
 import chevronUpPhosphor from '@phosphor-icons/core/regular/caret-up.svg?raw';
-import chevronsUpDownPhosphor from '@phosphor-icons/core/regular/arrows-down-up.svg?raw';
+import chevronsUpDownPhosphor from '@phosphor-icons/core/regular/caret-up-down.svg?raw';
 import circlePhosphor from '@phosphor-icons/core/regular/circle.svg?raw';
 import codePhosphor from '@phosphor-icons/core/regular/code.svg?raw';
-import code2Phosphor from '@phosphor-icons/core/regular/code.svg?raw';
+import code2Phosphor from '@phosphor-icons/core/regular/code-simple.svg?raw';
 import codeXmlPhosphor from '@phosphor-icons/core/regular/code-block.svg?raw';
 import kanbanPhosphor from '@phosphor-icons/core/regular/columns.svg?raw';
 import commandPhosphor from '@phosphor-icons/core/regular/command.svg?raw';
@@ -35,11 +35,11 @@ import duplicatePhosphor from '@phosphor-icons/core/regular/copy.svg?raw';
 import externalLinkPhosphor from '@phosphor-icons/core/regular/arrow-square-out.svg?raw';
 import fileIconPhosphor from '@phosphor-icons/core/regular/file.svg?raw';
 import codeFilePhosphor from '@phosphor-icons/core/regular/file-code.svg?raw';
-import canvasPhosphor from '@phosphor-icons/core/regular/file-plus.svg?raw';
+import canvasPhosphor from '@phosphor-icons/core/regular/frame-corners.svg?raw';
 import filePhosphor from '@phosphor-icons/core/regular/file-text.svg?raw';
 import folderPhosphor from '@phosphor-icons/core/regular/folder.svg?raw';
 import folderOpenPhosphor from '@phosphor-icons/core/regular/folder-open.svg?raw';
-import fileSearchPhosphor from '@phosphor-icons/core/regular/magnifying-glass.svg?raw';
+import fileSearchPhosphor from '@phosphor-icons/core/regular/file-magnifying-glass.svg?raw';
 import filesPhosphor from '@phosphor-icons/core/regular/tree-structure.svg?raw';
 import gitBranchPhosphor from '@phosphor-icons/core/regular/git-branch.svg?raw';
 import groupPhosphor from '@phosphor-icons/core/regular/users-three.svg?raw';
@@ -54,7 +54,7 @@ import highlighterPhosphor from '@phosphor-icons/core/regular/highlighter.svg?ra
 import historyPhosphor from '@phosphor-icons/core/regular/clock-counter-clockwise.svg?raw';
 import housePhosphor from '@phosphor-icons/core/regular/house.svg?raw';
 import imagePhosphor from '@phosphor-icons/core/regular/image.svg?raw';
-import indentDecreasePhosphor from '@phosphor-icons/core/regular/text-indent.svg?raw';
+import indentDecreasePhosphor from '@phosphor-icons/core/regular/text-outdent.svg?raw';
 import indentIncreasePhosphor from '@phosphor-icons/core/regular/text-indent.svg?raw';
 import italicPhosphor from '@phosphor-icons/core/regular/text-italic.svg?raw';
 import keyboardPhosphor from '@phosphor-icons/core/regular/keyboard.svg?raw';
@@ -74,9 +74,6 @@ import music2Phosphor from '@phosphor-icons/core/regular/music-note.svg?raw';
 import graphPhosphor from '@phosphor-icons/core/regular/network.svg?raw';
 import palettePhosphor from '@phosphor-icons/core/regular/palette.svg?raw';
 import panelLeftPhosphor from '@phosphor-icons/core/regular/sidebar-simple.svg?raw';
-import panelRightPhosphor from '@phosphor-icons/core/regular/sidebar-simple.svg?raw';
-import panelRightClosePhosphor from '@phosphor-icons/core/regular/sidebar-simple.svg?raw';
-import panelRightOpenPhosphor from '@phosphor-icons/core/regular/sidebar-simple.svg?raw';
 import attachmentPhosphor from '@phosphor-icons/core/regular/paperclip.svg?raw';
 import pencilPhosphor from '@phosphor-icons/core/regular/pencil.svg?raw';
 import pinPhosphor from '@phosphor-icons/core/regular/push-pin.svg?raw';
@@ -100,24 +97,35 @@ import starPhosphor from '@phosphor-icons/core/regular/star.svg?raw';
 import strikethroughPhosphor from '@phosphor-icons/core/regular/text-strikethrough.svg?raw';
 import sunPhosphor from '@phosphor-icons/core/regular/sun.svg?raw';
 import tablePhosphor from '@phosphor-icons/core/regular/table.svg?raw';
-import tableCellsMergePhosphor from '@phosphor-icons/core/regular/table.svg?raw';
-import tableCellsSplitPhosphor from '@phosphor-icons/core/regular/table.svg?raw';
+import tableCellsMergePhosphor from '@phosphor-icons/core/regular/arrows-merge.svg?raw';
+import tableCellsSplitPhosphor from '@phosphor-icons/core/regular/arrows-split.svg?raw';
 import tagPhosphor from '@phosphor-icons/core/regular/tag.svg?raw';
-import tagsPhosphor from '@phosphor-icons/core/regular/tag.svg?raw';
-import textSelectPhosphor from '@phosphor-icons/core/regular/text-t.svg?raw';
+import tagsPhosphor from '@phosphor-icons/core/regular/tag-simple.svg?raw';
+import textSelectPhosphor from '@phosphor-icons/core/regular/cursor-text.svg?raw';
 import trash2Phosphor from '@phosphor-icons/core/regular/trash.svg?raw';
 import typePhosphor from '@phosphor-icons/core/regular/text-t.svg?raw';
-import undo2Phosphor from '@phosphor-icons/core/regular/arrow-counter-clockwise.svg?raw';
+import undo2Phosphor from '@phosphor-icons/core/regular/arrow-u-up-left.svg?raw';
 import unfoldVerticalPhosphor from '@phosphor-icons/core/regular/arrows-out-line-vertical.svg?raw';
-import ungroupPhosphor from '@phosphor-icons/core/regular/arrows-out-simple.svg?raw';
+import ungroupPhosphor from '@phosphor-icons/core/regular/arrows-out.svg?raw';
 import uploadPhosphor from '@phosphor-icons/core/regular/upload.svg?raw';
 import usersPhosphor from '@phosphor-icons/core/regular/users.svg?raw';
 import xPhosphor from '@phosphor-icons/core/regular/x.svg?raw';
 import zoomInPhosphor from '@phosphor-icons/core/regular/magnifying-glass-plus.svg?raw';
-import templatePhosphor from '@phosphor-icons/core/regular/file-text.svg?raw';
-import timelinePhosphor from '@phosphor-icons/core/regular/chart-bar-horizontal.svg?raw';
+import templatePhosphor from '@phosphor-icons/core/regular/file-dashed.svg?raw';
+import timelinePhosphor from '@phosphor-icons/core/regular/git-commit.svg?raw';
+import analyticsPhosphor from '@phosphor-icons/core/regular/chart-line.svg?raw';
+import filePlusPhosphor from '@phosphor-icons/core/regular/file-plus.svg?raw';
+import folderPlusPhosphor from '@phosphor-icons/core/regular/folder-plus.svg?raw';
+import splitHorizontalPhosphor from '@phosphor-icons/core/regular/square-split-horizontal.svg?raw';
+import splitVerticalPhosphor from '@phosphor-icons/core/regular/square-split-vertical.svg?raw';
 
 const svgBody = (source: string) => source.slice(source.indexOf('>') + 1, source.lastIndexOf('</svg>'));
+
+const mirror = (body: string) => `<g transform="translate(256,0) scale(-1,1)">${body}</g>`;
+
+const panelBadge = (source: string) => `<g transform="translate(120,88) scale(0.3)">${svgBody(source)}</g>`;
+
+const panelRightBody = mirror(svgBody(panelLeftPhosphor));
 
 export const PHOSPHOR_ICONS = {
   'align-center': svgBody(alignCenterPhosphor),
@@ -195,9 +203,9 @@ export const PHOSPHOR_ICONS = {
   'graph': svgBody(graphPhosphor),
   'palette': svgBody(palettePhosphor),
   'panel-left': svgBody(panelLeftPhosphor),
-  'panel-right': svgBody(panelRightPhosphor),
-  'panel-right-close': svgBody(panelRightClosePhosphor),
-  'panel-right-open': svgBody(panelRightOpenPhosphor),
+  'panel-right': panelRightBody,
+  'panel-right-close': panelRightBody + panelBadge(chevronRightPhosphor),
+  'panel-right-open': panelRightBody + panelBadge(chevronLeftPhosphor),
   'attachment': svgBody(attachmentPhosphor),
   'pencil': svgBody(pencilPhosphor),
   'pin': svgBody(pinPhosphor),
@@ -237,4 +245,9 @@ export const PHOSPHOR_ICONS = {
   'zoom-in': svgBody(zoomInPhosphor),
   'template': svgBody(templatePhosphor),
   'timeline': svgBody(timelinePhosphor),
+  'analytics': svgBody(analyticsPhosphor),
+  'file-plus': svgBody(filePlusPhosphor),
+  'folder-plus': svgBody(folderPlusPhosphor),
+  'split-horizontal': svgBody(splitHorizontalPhosphor),
+  'split-vertical': svgBody(splitVerticalPhosphor),
 } satisfies Record<IconId, string>;

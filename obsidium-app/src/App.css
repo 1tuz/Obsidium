@@ -48,14 +48,22 @@
   background-color: var(--q-editor-bg, var(--q-bg-primary));
 }
 
-::view-transition-old(root) {
+::view-transition-old(root),
+::view-transition-new(root) {
   animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
   z-index: 0;
 }
 
 ::view-transition-new(root) {
-  animation: q-theme-reveal var(--q-duration-slower) var(--q-ease-out) both;
   z-index: 1;
+}
+
+:root[data-view-transition="theme"]::view-transition-new(root) {
+  animation: q-theme-reveal var(--q-duration-normal) var(--q-ease-out) both;
 }
 
 @keyframes q-theme-reveal {

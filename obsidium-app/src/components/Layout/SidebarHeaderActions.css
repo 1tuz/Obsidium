@@ -1,0 +1,7 @@
+.q-sidebar-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--q-space-2);
+  padding: var(--q-space-4) var(--q-space-8);
+}

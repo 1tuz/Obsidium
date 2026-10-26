@@ -1,4 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as TargetedKeyboardEvent,
+  type RefObject,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Check, type IconNode } from 'lucide';
 import { Icon } from './Icon';
@@ -34,6 +43,28 @@ interface MenuProps {
 
 const VIEWPORT_MARGIN_PX = 8;
 
+function firstEnabled(items: MenuItem[]): number {
+  return items.findIndex((item) => !item.disabled);
+}
+
+function lastEnabled(items: MenuItem[]): number {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (!items[index]!.disabled) return index;
+  }
+  return -1;
+}
+
+function stepEnabled(items: MenuItem[], from: number, step: number): number {
+  const count = items.length;
+  if (count === 0) return -1;
+  let next = from;
+  for (let attempt = 0; attempt < count; attempt += 1) {
+    next = (next + step + count) % count;
+    if (!items[next]!.disabled) return next;
+  }
+  return from;
+}
+
 export function Menu({
   id,
   open,
@@ -46,12 +77,34 @@ export function Menu({
   excludeRef,
 }: MenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const openedRef = useRef(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const baseId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
-  useEffect(() => {
-    const menu = menuRef.current;
-    if (!open || !position || !menu) return;
-    return animateMenuEntrance(menu);
-  }, [open, position]);
+  const activeIndexSafe = items[activeIndex] && !items[activeIndex]!.disabled
+    ? activeIndex
+    : firstEnabled(items);
+  const activeItem = activeIndexSafe >= 0 ? items[activeIndexSafe] : undefined;
+  const activeId = activeItem ? `${baseId}-option-${activeIndexSafe}` : undefined;
+
+  useLayoutEffect(() => {
+    if (!open || !position) {
+      openedRef.current = false;
+      return;
+    }
+    if (openedRef.current) return;
+    openedRef.current = true;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setActiveIndex(firstEnabled(items));
+  }, [items, open, position]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>('[data-active]')?.focus();
+  }, [activeIndexSafe, open]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -65,6 +118,23 @@ export function Menu({
     }
   }, [open, position]);
 
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!open || !position || !menu) return;
+    return animateMenuEntrance(menu);
+  }, [open, position]);
+
+  const restoreFocus = useCallback(() => {
+    const target = returnFocusRef.current;
+    returnFocusRef.current = null;
+    if (target?.isConnected) target.focus();
+  }, []);
+
+  const closeAndRestore = useCallback(() => {
+    onClose();
+    restoreFocus();
+  }, [onClose, restoreFocus]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -74,10 +144,10 @@ export function Menu({
       onClose();
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.stopPropagation();
-      onClose();
+      closeAndRestore();
     };
 
     const handleReposition = () => onClose();
@@ -97,7 +167,37 @@ export function Menu({
       window.removeEventListener('resize', handleReposition);
       window.removeEventListener('scroll', handleScroll, true);
     };
-  }, [excludeRef, onClose, open]);
+  }, [closeAndRestore, excludeRef, onClose, open]);
+
+  const handleKeyDown = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((current) => stepEnabled(items, current, 1));
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((current) => stepEnabled(items, current, -1));
+      return;
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      setActiveIndex(firstEnabled(items));
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      setActiveIndex(lastEnabled(items));
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      if (!activeItem) return;
+      event.preventDefault();
+      event.stopPropagation();
+      activeItem.onSelect();
+      closeAndRestore();
+    }
+  };
 
   if (!open || !position) return null;
 
@@ -107,25 +207,30 @@ export function Menu({
       id={id}
       role={role}
       aria-label={ariaLabel}
+      aria-activedescendant={activeId}
       className="q-menu"
+      onKeyDown={handleKeyDown}
       style={{
         top: position.top,
         left: position.left,
         width: position.width,
       }}
     >
-      {items.map((item) => (
+      {items.map((item, index) => (
         <button
           key={item.id}
+          id={`${baseId}-option-${index}`}
           type="button"
           role={role === 'listbox' ? 'option' : 'menuitem'}
           aria-selected={role === 'listbox' ? Boolean(item.checked) : undefined}
+          data-active={index === activeIndexSafe ? '' : undefined}
+          tabIndex={index === activeIndexSafe ? 0 : -1}
           disabled={item.disabled}
           className="q-menu__item"
           onClick={() => {
             if (item.disabled) return;
             item.onSelect();
-            onClose();
+            closeAndRestore();
           }}
         >
           {item.icon && (

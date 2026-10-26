@@ -13,7 +13,8 @@
   background: var(--q-border-accent);
 }
 
-:root[data-panel-resizing] .q-collapsible-panel {
+:root[data-panel-resizing] .q-collapsible-panel,
+:root[data-panel-resizing] .q-collapsible-panel > * {
   transition: none;
 }
 

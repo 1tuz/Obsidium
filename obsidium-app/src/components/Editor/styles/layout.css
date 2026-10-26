@@ -46,6 +46,7 @@
     width: 100%;
     max-width: var(--q-editor-max-width);
     margin: 0 auto;
+    opacity: 1;
     transition: opacity var(--q-duration-normal) var(--q-ease-out);
 }
 
@@ -84,13 +85,13 @@
 }
 
 @starting-style {
-    :root:not([data-motion="on"]) .q-editor-content {
+    .q-editor-content {
         opacity: 0;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .q-editor-content {
+    :root:not([data-motion="on"]) .q-editor-content {
         transition: none;
     }
 }

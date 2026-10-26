@@ -22,7 +22,7 @@ export function GraphStatus({
     <div className="q-graph-status">
       <span>{status}</span>
       {edgeCount !== null && <span>{plural('graph.edges', edgeCount)}</span>}
-      {edgeCount !== null && edgeCount > drawnEdges && (
+      {edgeCount !== null && drawnEdges > 0 && edgeCount > drawnEdges && (
         <span>{t('graph.drawnEdges', { count: drawnEdges })}</span>
       )}
       {metricsStale && <span aria-live="polite">{t('graph.metricsUpdating')}</span>}

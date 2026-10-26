@@ -42,6 +42,33 @@ describe('InsightsPanel', () => {
     expect(renderer.container.querySelector('.q-insights-panel__activity .probe')).not.toBeNull();
   });
 
+  it('skips its heading when embedded into the right panel', async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      brokenLinks: [],
+      isolatedNotes: [],
+      staleNotes: [],
+      unusedTags: { tags: [], total: 0, truncated: false },
+      staleAfterDays: 90,
+      indexedDocuments: 3,
+      indexing: false,
+    });
+    renderer = mountDom(
+      <InsightsPanel
+        active
+        workspacePath="/vault"
+        onOpenNote={() => {}}
+        heading={false}
+        activity={<p class="probe">activity</p>}
+      />,
+    );
+    await actAndSettle();
+    await actAndSettle();
+
+    expect(renderer.container.querySelector('h2')).toBeNull();
+    expect(renderer.container.querySelector('.q-knowledge-report')).not.toBeNull();
+    expect(renderer.container.querySelector('.q-insights-panel__activity .probe')).not.toBeNull();
+  });
+
   it('renders no slot container when nothing is passed into it', async () => {
     vi.mocked(invoke).mockResolvedValue({
       brokenLinks: [],

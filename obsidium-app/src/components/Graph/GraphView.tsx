@@ -2,7 +2,6 @@ import { plural, t } from '../../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GraphNotice, GraphStatus } from './GraphOverlay';
 import { GraphSettings } from './GraphSettings';
-import { MAX_EDGES_PER_FRAME } from './nodeMetrics';
 import { NoteLabels } from './noteLabels';
 import { loadGraphPaths, saveGraphPositions } from '../../modules/graph';
 import { loadGraphTimelineEventsThrough, loadGraphTimelineRange } from '../../modules/graph';
@@ -97,7 +96,6 @@ export function GraphView({
     };
   }, [labels]);
 
-  const visible = activated && !inactive;
   const generationRef = useRef(0);
 
   const handleCameraSettled = useStableCallback((camera: GraphCameraState) => {
@@ -116,10 +114,18 @@ export function GraphView({
       .catch((error: unknown) => console.error('Failed to save graph node position', error));
   });
 
-  const { rendererRef, generation, rendererError, visibleNodes, attachScaleReadout } = useGraphRenderer({
+  const {
+    rendererRef,
+    generation,
+    rendererError,
+    visibleNodes,
+    drawnEdges,
+    measured,
+    attachScaleReadout,
+  } = useGraphRenderer({
     canvasRef,
     labels,
-    visible,
+    mounted: activated,
     attempt,
     onOpenNote,
     onGraphNodeSelect: handleGraphNodeSelect,
@@ -382,14 +388,12 @@ export function GraphView({
   }, [workspacePath]);
 
   useEffect(() => {
-    if (cameraGenerationRef.current === generation || !counts || !sessionReady) return;
-    const stored = readStoredCamera();
-    if (!stored) return;
+    if (!measured || cameraGenerationRef.current === generation || !counts || !sessionReady) return;
     cameraGenerationRef.current = generation;
-    rendererRef.current?.applyCamera(stored);
-  }, [counts, generation, readStoredCamera, rendererRef, sessionReady]);
+    const stored = readStoredCamera();
+    if (stored) rendererRef.current?.applyCamera(stored);
+  }, [counts, generation, measured, readStoredCamera, rendererRef, sessionReady]);
 
-  const drawnEdges = counts ? Math.min(counts.edgeCount, MAX_EDGES_PER_FRAME) : 0;
   const hasFilters = Boolean(controls.createdShare > 0
     || controls.modifiedShare > 0
     || controls.createdBeforeShare < 1
@@ -407,8 +411,8 @@ export function GraphView({
   const blocked = !workspacePath || failure !== null;
 
   return (
-    <div className={inactive ? 'q-graph q-graph--hidden' : 'q-graph'}>
-      {visible && <canvas className="q-graph-canvas" key={attempt} ref={canvasRef} />}
+    <div className={inactive ? 'q-graph q-graph--inactive' : 'q-graph'}>
+      {activated && <canvas className="q-graph-canvas" key={attempt} ref={canvasRef} />}
       {!blocked && (
         <GraphStatus
           status={status}
@@ -461,6 +465,7 @@ export function GraphView({
           range={range}
           onChange={patchControls}
           onRefresh={() => setReload((value) => value + 1)}
+          onFitView={() => rendererRef.current?.fit()}
           presets={presets}
           onSavePreset={savePreset}
           onApplyPreset={applyPreset}

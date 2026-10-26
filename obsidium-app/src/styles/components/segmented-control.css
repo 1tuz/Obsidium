@@ -25,14 +25,36 @@
   cursor: pointer;
 }
 
-.q-segmented-control__button:hover {
+.q-segmented-control__button:hover:not(:disabled) {
+  background: var(--q-bg-surface-hover);
   color: var(--q-text-secondary);
 }
 
+.q-segmented-control__button:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-2);
+}
+
+.q-segmented-control__button:active:not(:disabled) {
+  background: var(--q-bg-surface-active);
+}
+
+.q-segmented-control__button:disabled {
+  color: var(--q-text-disabled);
+  background: transparent;
+  cursor: default;
+}
+
 .q-segmented-control__button--active,
-.q-segmented-control__button--active:hover {
+.q-segmented-control__button--active:hover:not(:disabled),
+.q-segmented-control__button--active:active:not(:disabled) {
   background: var(--q-bg-accent);
   color: var(--q-text-on-accent);
+}
+
+.q-segmented-control__button--active:disabled {
+  background: var(--q-bg-surface-active);
+  color: var(--q-text-disabled);
 }
 
 .q-segmented-control--stretch {

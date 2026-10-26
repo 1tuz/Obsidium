@@ -1,12 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { FileText } from 'lucide';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
-import { Button } from '../Common/Button';
 import { DeleteNotesDialog } from '../Common/DeleteNotesDialog';
-import { EmptyState } from '../Common/EmptyState';
 import { FileTree } from './FileTree';
-import { InsightsPanel } from '../Analysis/InsightsPanel';
-import { t } from '../../i18n';
 import { SidebarFooter } from './SidebarFooter';
 import { buildVisibleFileRows, unloadedExpandedFolders, type FileTreeActions } from './fileTreeModel';
 import type { LinkDisposition } from '../../modules/links';
@@ -19,8 +14,10 @@ import { useFileSelection } from './useFileSelection';
 import { useFileTreeActions } from './useFileTreeActions';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import './Sidebar.css';
-import { ActivityHeatmap } from '../Stats/ActivityHeatmap';
 import { BoardsPanel, type BoardActionRequest } from './BoardsPanel';
+import { CalendarPanel } from './CalendarPanel';
+import { CanvasPanel } from './CanvasPanel';
+import { SidebarHeaderActions } from './SidebarHeaderActions';
 import { SpaceSwitcher } from './SpaceSwitcher';
 import { SpacesDialog } from '../Spaces/SpacesDialog';
 import type { Space } from '../../modules/spaces';
@@ -48,8 +45,10 @@ interface SidebarProps {
   onOpenWorkspaces: () => void;
   onToggleTheme: (origin: HTMLElement) => void;
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
-  panel?: 'files' | 'boards' | 'insights';
+  panel?: 'files' | 'boards' | 'calendar' | 'canvas';
   onOpenBaseView: (path: string, viewIndex: number) => void;
+  onOpenCanvas: (path: string) => void;
+  onCreateCanvas: () => void;
   onOpenAsText?: (path: string) => void;
   onBoardRenamed?: (oldPath: string, newPath: string) => void;
   boardActionRequest?: BoardActionRequest | null;
@@ -77,6 +76,8 @@ export const Sidebar = memo(function Sidebar({
   onPatchFileInTree,
   panel = 'files',
   onOpenBaseView,
+  onOpenCanvas,
+  onCreateCanvas,
   onOpenAsText,
   onBoardRenamed,
   boardActionRequest,
@@ -136,6 +137,11 @@ export const Sidebar = memo(function Sidebar({
     targetsFor,
     clearSelection,
     onPatchFileInTree,
+    onDirectoryChanged: (folder) => {
+      setExpandedFolders((current) => (current.has(folder) ? current : new Set(current).add(folder)));
+      void onLoadDirectory(folder);
+    },
+    onOpenCreated: (path) => onFileSelect(path),
     onPathMoved: (from, to) => {
       followFolder(from, to);
       updateIconAssignments((current) => rebaseFileIcons(current, from, to));
@@ -219,6 +225,12 @@ export const Sidebar = memo(function Sidebar({
     <aside className={`q-collapsible-panel q-sidebar ${isOpen ? '' : 'is-collapsed'}`} aria-hidden={!isOpen}>
       <div className="q-panel-header" data-tauri-drag-region aria-hidden="true">
       </div>
+      {panel === 'files' && workspacePath ? (
+        <SidebarHeaderActions
+          onCreateNote={() => void onCreateNote()}
+          onCreateFolder={() => void fileOps.rowActions.createFolderIn?.(workspacePath)}
+        />
+      ) : null}
       {spaces && panel === 'files' ? (
         <SpaceSwitcher
           spaces={spaces.spaces}
@@ -229,19 +241,15 @@ export const Sidebar = memo(function Sidebar({
       ) : null}
       <div ref={contentRef} className="q-sidebar-content">
         <div hidden={panel !== 'files'}>
-        {!treeReady ? null : rows.length === 0 ? (
-          <EmptyState icon={FileText} title={t('fileTree.empty')} compact>
-            <Button size="s" onClick={() => void onCreateNote()}>
-              {t('editor.createNote')}
-            </Button>
-          </EmptyState>
-        ) : (
+        {!treeReady ? null : (
           <FileTree
             rows={rows}
             activeFile={activeFile}
             selectedFiles={selectedFiles}
             renamingPath={fileOps.renamingPath}
             actions={treeActions}
+            rootPath={workspacePath}
+            error={fileOps.createError}
             icons={iconizeEnabled ? iconAssignments : undefined}
             onIconChange={iconizeEnabled ? updateIcon : undefined}
           />
@@ -258,12 +266,19 @@ export const Sidebar = memo(function Sidebar({
             createRequest={createBoardRequest}
           />
         </div>
-        <div hidden={panel !== 'insights'} className="q-sidebar-insights">
-          <InsightsPanel
-            active={isOpen && panel === 'insights'}
+        <div hidden={panel !== 'calendar'} className="q-sidebar-calendar">
+          <CalendarPanel
+            active={isOpen && panel === 'calendar'}
             workspacePath={workspacePath}
-            onOpenNote={onFileSelect}
-            activity={<ActivityHeatmap workspacePath={workspacePath} onOpenNote={onFileSelect} />}
+            onOpenView={onOpenBaseView}
+          />
+        </div>
+        <div hidden={panel !== 'canvas'} className="q-sidebar-canvas">
+          <CanvasPanel
+            active={isOpen && panel === 'canvas'}
+            workspacePath={workspacePath}
+            onOpenCanvas={onOpenCanvas}
+            onCreateCanvas={onCreateCanvas}
           />
         </div>
       </div>
