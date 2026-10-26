@@ -1,4 +1,3 @@
-import { ChevronsUpDown, Moon, Settings, Sun } from 'lucide';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { t } from '../../i18n';
@@ -30,7 +29,7 @@ export function SidebarFooter({
         title={t('workspace.switch')}
       >
         <span className="q-file-icon" aria-hidden="true">
-          <Icon icon={ChevronsUpDown} />
+          <Icon icon="chevrons-up-down" />
         </span>
         <span className="q-sidebar-footer-title" title={workspacePath || ''}>
           {workspaceName}
@@ -40,10 +39,10 @@ export function SidebarFooter({
         label={t(themeMode === 'dark' ? 'titlebar.switchToLightTheme' : 'titlebar.switchToDarkTheme')}
         onClick={(event) => onToggleTheme(event.currentTarget)}
       >
-        <Icon icon={themeMode === 'dark' ? Sun : Moon} />
+        <Icon icon={themeMode === 'dark' ? 'sun' : 'moon'} />
       </IconButton>
       <IconButton label={t('common.settings')} onClick={onOpenSettings}>
-        <Icon icon={Settings} />
+        <Icon icon="settings" />
       </IconButton>
     </div>
   );

@@ -12,9 +12,14 @@
   -webkit-app-region: no-drag;
 }
 
-.q-icon-button:hover {
+.q-icon-button:hover:not(:disabled) {
   background-color: var(--q-icon-button-bg-hover);
   color: var(--q-icon-button-icon-hover);
+}
+
+.q-icon-button:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-2);
 }
 
 .q-icon-button:active,
@@ -26,6 +31,8 @@
 
 .q-icon-button:disabled {
   opacity: 0.35;
+  color: var(--q-icon-disabled);
+  cursor: default;
   pointer-events: none;
 }
 

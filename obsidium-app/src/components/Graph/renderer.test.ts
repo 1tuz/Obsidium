@@ -454,3 +454,110 @@ describe('GraphRenderer motion settling', () => {
     renderer.dispose();
   });
 });
+
+describe('GraphRenderer camera restore', () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.motion;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function sizedCanvas(width: number, height: number): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    Object.defineProperty(canvas, 'clientWidth', { configurable: true, value: width });
+    Object.defineProperty(canvas, 'clientHeight', { configurable: true, value: height });
+    return canvas;
+  }
+
+  function graph(positions: number[]): GraphSnapshot {
+    const nodeCount = positions.length / 2;
+    return {
+      nodeCount,
+      edgeCount: 0,
+      epoch: { low: 1, high: 0 },
+      positions: new Float32Array(positions),
+      createdDays: new Float32Array(nodeCount).fill(1),
+      modifiedDays: new Float32Array(nodeCount).fill(1),
+      degrees: new Uint32Array(nodeCount),
+      nodeIds: new Uint32Array(nodeCount * 2).fill(1),
+      clusterIds: new Uint32Array(nodeCount),
+      edges: new Uint32Array(),
+      edgeDirections: new Uint32Array(),
+      edgeTypes: new Uint32Array(),
+    };
+  }
+
+  function stillMotion(): void {
+    document.documentElement.dataset.motion = 'off';
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList);
+  }
+
+  it('does not restore a camera before the canvas is measured', () => {
+    stillMotion();
+    const renderer = new GraphRenderer(document.createElement('canvas'), {} as NoteLabels);
+    renderer.setSnapshot(graph([0, 0, 100, 100]));
+
+    expect(renderer.isMeasured()).toBe(false);
+    expect(renderer.applyCamera({ centerX: 50, centerY: 50, scale: 4 })).toBe(false);
+    renderer.dispose();
+  });
+
+  it('never saves a camera that came from an unmeasured canvas', () => {
+    stillMotion();
+    const renderer = new GraphRenderer(document.createElement('canvas'), {} as NoteLabels);
+    const settled = vi.fn();
+    renderer.onCameraSettled = settled;
+    renderer.setSnapshot(graph([0, 0, 100, 100]));
+    renderer.fit();
+    renderer.applyCamera({ centerX: 50, centerY: 50, scale: 4 });
+    renderer.dispose();
+
+    expect(settled).not.toHaveBeenCalled();
+  });
+
+  it('keeps a usable saved camera and rejects a degenerate one', () => {
+    stillMotion();
+    const renderer = new GraphRenderer(sizedCanvas(800, 600), {} as NoteLabels);
+    renderer.resize();
+    renderer.setSnapshot(graph([0, 0, 100, 100]));
+
+    expect(renderer.isMeasured()).toBe(true);
+    expect(renderer.applyCamera({ centerX: 50, centerY: 50, scale: 4 })).toBe(true);
+    expect(renderer.cameraState()).toEqual({ centerX: 50, centerY: 50, scale: 4 });
+
+    expect(renderer.applyCamera({ centerX: 50, centerY: 50, scale: 31.6 })).toBe(true);
+
+    const offscreen = { centerX: 1_000_000, centerY: 1_000_000, scale: 31.6 };
+    expect(renderer.applyCamera(offscreen)).toBe(false);
+    const restored = renderer.cameraState();
+    expect(restored.centerX).toBeLessThan(1_000);
+    expect(restored.scale).toBeLessThan(31.6);
+
+    expect(renderer.applyCamera({ centerX: NaN, centerY: 0, scale: 1 })).toBe(false);
+    renderer.dispose();
+  });
+
+  it('keeps saved cameras for visible thin layouts and single-node graphs', () => {
+    stillMotion();
+    const renderer = new GraphRenderer(sizedCanvas(800, 600), {} as NoteLabels);
+    renderer.resize();
+
+    const cases = [
+      { positions: [0, 0, 0, 100], camera: { centerX: 0, centerY: 50, scale: 4 } },
+      { positions: [0, 0, 100, 0], camera: { centerX: 50, centerY: 0, scale: 4 } },
+      { positions: [0, 0], camera: { centerX: 0, centerY: 0, scale: 4 } },
+    ];
+
+    for (const item of cases) {
+      renderer.setSnapshot(graph(item.positions));
+      expect(renderer.applyCamera(item.camera), JSON.stringify(item)).toBe(true);
+      expect(renderer.cameraState()).toEqual(item.camera);
+    }
+
+    renderer.dispose();
+  });
+});

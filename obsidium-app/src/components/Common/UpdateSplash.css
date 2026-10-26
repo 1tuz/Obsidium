@@ -43,7 +43,9 @@
 
 .q-update-splash__value {
   height: 100%;
-  width: 0;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
   background: var(--q-text-primary);
-  transition: width var(--q-duration-fast) var(--q-ease-out);
+  transition: transform var(--q-duration-fast) var(--q-ease-out);
 }

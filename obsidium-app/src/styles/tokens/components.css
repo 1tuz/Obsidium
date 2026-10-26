@@ -223,7 +223,7 @@
   --q-graph-label-halo: var(--q-bg-primary);
   --q-graph-status-bg: var(--q-bg-surface-raised);
   --q-graph-status-fg: var(--q-text-primary);
-  --q-graph-settings-width: 15rem;
+  --q-graph-settings-width: 18rem;
   --q-graph-settings-bg: var(--q-bg-surface-raised);
 
   --q-book-callout-cover-bg: var(--q-gray-150);

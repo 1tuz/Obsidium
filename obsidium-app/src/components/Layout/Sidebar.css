@@ -31,6 +31,29 @@
   min-width: 0;
 }
 
+.q-sidebar-content > div:not([hidden]):has(> .q-file-tree) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.q-file-tree {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.q-file-tree__error {
+  margin: 0;
+  padding: var(--q-space-4) var(--q-space-6);
+  color: var(--q-text-danger);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-base);
+  line-height: var(--q-font-line-height-snug);
+}
+
 .q-file-tree-node {
   position: relative;
   width: 100%;

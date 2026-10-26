@@ -104,9 +104,16 @@
 }
 
 .q-titlebar-tab:hover .q-titlebar-tab-close,
+.q-titlebar-tab:focus-within .q-titlebar-tab-close,
 .q-titlebar-tab.active .q-titlebar-tab-close {
   opacity: 1;
   pointer-events: auto;
+}
+
+.q-titlebar-tab:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: calc(-1 * var(--q-border-2));
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {

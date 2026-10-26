@@ -41,7 +41,8 @@
   }
 }
 
-.q-dialog:focus {
+.q-dialog:focus,
+.q-dialog:focus-visible {
   outline: none;
 }
 

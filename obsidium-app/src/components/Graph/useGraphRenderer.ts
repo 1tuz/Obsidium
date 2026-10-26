@@ -9,7 +9,7 @@ import { t } from '../../i18n';
 interface GraphRendererInput {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   labels: NoteLabels;
-  visible: boolean;
+  mounted: boolean;
   attempt: number;
   onOpenNote: (path: string) => void;
   onGraphNodeSelect: (node: number, path: string) => void;
@@ -21,7 +21,7 @@ interface GraphRendererInput {
 export function useGraphRenderer({
   canvasRef,
   labels,
-  visible,
+  mounted,
   attempt,
   onOpenNote,
   onGraphNodeSelect,
@@ -33,6 +33,8 @@ export function useGraphRenderer({
   const scaleReadoutRef = useRef<HTMLSpanElement | null>(null);
   const [rendererError, setRendererError] = useState<string | null>(null);
   const [visibleNodes, setVisibleNodes] = useState(0);
+  const [drawnEdges, setDrawnEdges] = useState(0);
+  const [measured, setMeasured] = useState(false);
   const [generation, setGeneration] = useState(0);
   const openNote = useStableCallback(onOpenNote);
   const graphNodeSelected = useStableCallback(onGraphNodeSelect);
@@ -47,7 +49,7 @@ export function useGraphRenderer({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !visible) return;
+    if (!canvas || !mounted) return;
     let renderer: GraphRenderer;
     try {
       renderer = new GraphRenderer(canvas, labels);
@@ -57,7 +59,11 @@ export function useGraphRenderer({
     }
     rendererRef.current = renderer;
     setRendererError(null);
+    setMeasured(false);
+    setDrawnEdges(0);
     renderer.onVisibleNodes = setVisibleNodes;
+    renderer.onDrawnEdges = setDrawnEdges;
+    renderer.onMeasured = () => setMeasured(true);
     renderer.onPositionChange = positionChanged;
     renderer.onContextLost = () => setRendererError(t('graph.errors.contextLost'));
     renderer.onCameraSettled = cameraSettled;
@@ -81,7 +87,7 @@ export function useGraphRenderer({
       renderer.dispose();
       rendererRef.current = null;
     };
-  }, [visible, attempt, cameraSettled, canvasRef, labels, openNote, graphNodeSelected, positionChanged, pathStateChanged]);
+  }, [mounted, attempt, cameraSettled, canvasRef, labels, openNote, graphNodeSelected, positionChanged, pathStateChanged]);
 
-  return { rendererRef, generation, rendererError, visibleNodes, attachScaleReadout };
+  return { rendererRef, generation, rendererError, visibleNodes, drawnEdges, measured, attachScaleReadout };
 }

@@ -90,17 +90,21 @@ vi.mock('./components/Layout/WindowControls', () => ({
 vi.mock('./components/Layout/SidebarRail', () => ({
   SidebarRail: ({
     onToggleSidebar,
-    onOpenGraph,
-    onOpenBoards,
+    sections,
+    activeSection,
+    onSelect,
   }: {
     onToggleSidebar: () => void;
-    onOpenGraph: () => void;
-    onOpenBoards?: () => void;
+    sections: readonly string[];
+    activeSection: string | null;
+    onSelect: (id: string) => void;
   }) => (
     <>
       <button id="hide-left-sidebar" onClick={onToggleSidebar} />
-      <button id="open-graph" onClick={onOpenGraph} />
-      {onOpenBoards ? <button id="open-boards" onClick={onOpenBoards} /> : null}
+      <span id="rail-active-section" data-active={activeSection ?? ''} />
+      {sections.includes('home') ? <button id="open-home" onClick={() => onSelect('home')} /> : null}
+      {sections.includes('boards') ? <button id="open-boards" onClick={() => onSelect('boards')} /> : null}
+      {sections.includes('graph') ? <button id="open-graph" onClick={() => onSelect('graph')} /> : null}
     </>
   ),
 }));
@@ -284,6 +288,12 @@ describe('App editor lifecycle', () => {
     });
 
     expect(find('toggle-theme')).toHaveLength(1);
+  });
+
+  it('hides the Home action when no home page resolves', async () => {
+    await renderWithSession();
+
+    expect(find('open-home')).toHaveLength(0);
   });
 
   it('shows the Boards entry only when the Kanban built-in is enabled', async () => {

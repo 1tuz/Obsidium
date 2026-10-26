@@ -8,6 +8,7 @@ interface InsightsPanelProps {
   workspacePath: string | null;
   onOpenNote: (path: string) => void;
   activity?: ReactNode;
+  heading?: boolean;
 }
 
 export function InsightsPanel({
@@ -15,12 +16,15 @@ export function InsightsPanel({
   workspacePath,
   onOpenNote,
   activity,
+  heading = true,
 }: InsightsPanelProps) {
   return (
     <div className="q-insights-panel">
-      <div className="q-insights-panel__header">
-        <h2>{t('insights.title')}</h2>
-      </div>
+      {heading && (
+        <div className="q-insights-panel__header">
+          <h2>{t('insights.title')}</h2>
+        </div>
+      )}
       {activity ? <div className="q-insights-panel__activity">{activity}</div> : null}
       <div className="q-insights-panel__body">
         <KnowledgeReportPanel

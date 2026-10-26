@@ -5,7 +5,7 @@ import { Titlebar } from "./components/Layout/Titlebar";
 import { PaneLayoutView } from "./components/Layout/PaneLayoutView";
 import { WindowControls } from "./components/Layout/WindowControls";
 import { Sidebar, type SpacesControls } from "./components/Layout/Sidebar";
-import { SidebarRail } from "./components/Layout/SidebarRail";
+import { SidebarRail, type RailSectionId } from "./components/Layout/SidebarRail";
 import { PanelResizer } from "./components/Layout/PanelResizer";
 import { UpdateSplash } from "./components/Common/UpdateSplash";
 import { DeleteNotesDialog } from "./components/Common/DeleteNotesDialog";
@@ -118,7 +118,7 @@ export default function App() {
     nonce: string;
   } | null>(null);
   const [homePagePath, setHomePagePath] = useState<string | null>(null);
-  const [sidebarPanel, setSidebarPanel] = useState<'files' | 'boards' | 'insights'>('files');
+  const [sidebarPanel, setSidebarPanel] = useLocalState<'files' | 'boards' | 'calendar' | 'canvas'>('obsidium_sidebar_panel', 'files');
   const [boardActionRequest, setBoardActionRequest] = useState<BoardActionRequest | null>(null);
   const [createBoardRequest, setCreateBoardRequest] = useState(0);
   const [baseViewRequest, setBaseViewRequest] = useState<{ path: string; index: number; id: number; paneId: string } | null>(null);
@@ -319,14 +319,6 @@ export default function App() {
       console.error('Failed to open the daily note', error);
     }
   }, [openNote, workspacePath]);
-
-  const openCanvas = useCallback(() => {
-    if (activeFile && isCanvasPath(activeFile)) {
-      openNote(activeFile);
-      return;
-    }
-    void createNewCanvas();
-  }, [activeFile, createNewCanvas, openNote]);
 
   const handleOpenExternalUrl = useCallback((url: string) => {
     void openExternalUrl(url).catch((error) => {
@@ -540,23 +532,41 @@ export default function App() {
     setLeftSidebarOpen(true);
   }, [setLeftSidebarOpen]);
 
-  const openFileManager = useCallback(() => {
-    setSidebarPanel('files');
-    setLeftSidebarOpen(true);
-  }, [setLeftSidebarOpen]);
-
-  const toggleInsights = useCallback(() => {
-    setSidebarPanel((current) => (
-      leftSidebarVisible && current === 'insights' ? 'files' : 'insights'
-    ));
+  const openSection = useCallback((section: 'files' | 'boards' | 'calendar' | 'canvas') => {
+    setSidebarPanel((current) => (leftSidebarVisible && current === section ? 'files' : section));
     setLeftSidebarOpen(true);
   }, [leftSidebarVisible, setLeftSidebarOpen]);
 
-  const toggleBoards = useCallback(() => {
-    if (!kanbanEnabled) return;
-    setSidebarPanel((current) => leftSidebarVisible && current === 'boards' ? 'files' : 'boards');
-    setLeftSidebarOpen(true);
-  }, [kanbanEnabled, leftSidebarVisible, setLeftSidebarOpen]);
+  const railSections = useMemo<readonly RailSectionId[]>(() => {
+    const sections: RailSectionId[] = focusMode
+      ? ['files', 'canvas', 'graph']
+      : kanbanEnabled
+        ? ['files', 'boards', 'calendar', 'canvas', 'graph']
+        : ['files', 'calendar', 'canvas', 'graph'];
+    return homePagePath ? ['home', ...sections] : sections;
+  }, [focusMode, homePagePath, kanbanEnabled]);
+
+  const handleRailSelect = useCallback((section: RailSectionId) => {
+    switch (section) {
+      case 'home':
+        if (homePagePath) openHomePage();
+        return;
+      case 'graph':
+        void commandRegistry.execute('view.graph');
+        return;
+      case 'boards':
+        openSection('boards');
+        return;
+      case 'calendar':
+        openSection('calendar');
+        return;
+      case 'canvas':
+        openSection('canvas');
+        return;
+      default:
+        openSection('files');
+    }
+  }, [homePagePath, openHomePage, openSection]);
 
   useEffect(() => {
     if (kanbanEnabled) return;
@@ -933,19 +943,12 @@ export default function App() {
         <SidebarRail
           isSidebarOpen={leftSidebarVisible}
           onToggleSidebar={focusMode ? undefined : toggleLeftSidebar}
-          onOpenGraph={focusMode ? undefined : () => { void commandRegistry.execute('view.graph'); }}
-          onOpenHome={homePagePath && !focusMode ? openHomePage : undefined}
+          sections={railSections}
+          activeSection={leftSidebarVisible ? sidebarPanel : null}
+          onSelect={handleRailSelect}
           onOpenSettings={focusMode
             ? () => { void commandRegistry.execute('view.settings'); }
             : undefined}
-          onOpenBoards={focusMode || !kanbanEnabled ? undefined : toggleBoards}
-          onOpenFiles={focusMode ? undefined : openFileManager}
-          onOpenInsights={focusMode ? undefined : toggleInsights}
-          onOpenCanvas={focusMode ? undefined : openCanvas}
-          canvasActive={Boolean(activeFile && isCanvasPath(activeFile))}
-          boardsActive={sidebarPanel === 'boards' && leftSidebarVisible}
-          filesActive={sidebarPanel === 'files' && leftSidebarVisible}
-          insightsActive={sidebarPanel === 'insights' && leftSidebarVisible}
         />
         <Sidebar
           activeFile={activeFile}
@@ -964,6 +967,8 @@ export default function App() {
           onPatchFileInTree={patchFileInTree}
           panel={sidebarPanel}
           onOpenBaseView={openBaseView}
+          onOpenCanvas={(path) => openNote(path)}
+          onCreateCanvas={() => { void createNewCanvas(); }}
           onOpenAsText={openAsText}
           onBoardRenamed={handleFileRenamed}
           boardActionRequest={boardActionRequest}
@@ -1006,6 +1011,7 @@ export default function App() {
           onOpenOutgoing={handleOpenOutgoingLink}
           onOpenAnalysis={handleOpenAnalysisResult}
           onOpenLocalGraph={(path, disposition) => openNote(path, { disposition })}
+          onOpenNote={(path) => openNote(path)}
         />
       </div>
 

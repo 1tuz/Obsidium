@@ -111,7 +111,31 @@
   box-shadow: none;
 }
 
-.q-button--ghost:hover,
+.q-button--ghost:hover:not(:disabled),
 .q-button--ghost[aria-pressed="true"] {
   background-color: var(--q-bg-surface-overlay);
+}
+
+.q-button:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-2);
+}
+
+.q-button:active:not(:disabled) {
+  transform: translateY(var(--q-border-1));
+}
+
+.q-button--ghost:active:not(:disabled) {
+  background-color: var(--q-bg-surface-active);
+}
+
+.q-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.q-button--ghost:disabled {
+  color: var(--q-text-disabled);
+  background-color: transparent;
 }

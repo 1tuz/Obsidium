@@ -6,17 +6,18 @@
   flex-direction: column;
   background-color: var(--q-bg-canvas);
   color: var(--q-text-primary);
+  opacity: 1;
   transition: opacity var(--q-duration-normal) var(--q-ease-out);
 }
 
 @starting-style {
-  :root:not([data-motion="on"]) .q-book-reader {
+  .q-book-reader {
     opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-book-reader {
+  :root:not([data-motion="on"]) .q-book-reader {
     transition: none;
   }
 }
@@ -239,9 +240,12 @@
 
 .q-book-reader-progress-fill {
   height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
   background-color: var(--q-text-primary);
   opacity: 0.45;
-  transition: width var(--q-duration-fast) linear;
+  transition: transform var(--q-duration-fast) var(--q-ease-out);
 }
 
 .q-reader-panel {

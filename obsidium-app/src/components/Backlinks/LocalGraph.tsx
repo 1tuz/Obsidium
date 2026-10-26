@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
-import { ArrowDownLeft, ArrowUpRight } from 'lucide';
 import { Chip } from '../Common/Chip';
 import { Icon } from '../Common/Icon';
 import { t } from '../../i18n';
@@ -23,6 +22,12 @@ interface LocalGraphProps {
 type Depth = LocalGraphOptions['depth'];
 
 type PositionedNode = LocalGraphResult['nodes'][number] & { x: number; y: number };
+
+interface GraphState {
+  key: string;
+  result: LocalGraphResult | null;
+  failed: boolean;
+}
 
 function dispositionFromEvent(event: MouseEvent<Element>): LinkDisposition {
   return event.ctrlKey || event.metaKey ? 'new-tab' : 'current';
@@ -61,14 +66,18 @@ export function LocalGraph({
   const [depth, setDepth] = useState<Depth>(1);
   const [incoming, setIncoming] = useState(true);
   const [outgoing, setOutgoing] = useState(true);
-  const [result, setResult] = useState<LocalGraphResult | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [state, setState] = useState<GraphState | null>(null);
+  const [building, setBuilding] = useState(false);
+
+  const optionsKey = `${workspacePath}\0${documentPath}\0${depth}\0${incoming}\0${outgoing}`;
 
   useEffect(() => {
-    if (!isOpen || !indexReady) return;
+    if (!isOpen || !indexReady) {
+      setBuilding(false);
+      return;
+    }
     let cancelled = false;
-    setFailed(false);
-    setResult(null);
+    setBuilding(true);
     void buildLocalGraph({
       workspacePath,
       documentPath,
@@ -77,16 +86,36 @@ export function LocalGraph({
       outgoing,
       maxNodes: 48,
     }, { backlinks: getBacklinks, outgoing: getOutgoingLinks })
-      .then((next) => { if (!cancelled) setResult(next); })
+      .then((next) => {
+        if (cancelled) return;
+        setState({ key: optionsKey, result: next, failed: false });
+        setBuilding(false);
+      })
       .catch((error) => {
         console.error('Failed to build local graph', error);
-        if (!cancelled) setFailed(true);
+        if (cancelled) return;
+        setState({ key: optionsKey, result: null, failed: true });
+        setBuilding(false);
       });
     return () => { cancelled = true; };
-  }, [depth, documentPath, incoming, indexReady, indexRevision, isOpen, outgoing, workspacePath]);
+  }, [
+    depth,
+    documentPath,
+    incoming,
+    indexReady,
+    indexRevision,
+    isOpen,
+    optionsKey,
+    outgoing,
+    workspacePath,
+  ]);
 
+  const settled = state?.key === optionsKey ? state : null;
+  const result = settled?.result ?? null;
   const nodes = useMemo(() => result ? positions(result) : [], [result]);
   const nodeByPath = useMemo(() => new Map(nodes.map((node) => [node.path, node])), [nodes]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="q-local-graph">
@@ -108,14 +137,22 @@ export function LocalGraph({
         <Chip label="4" selected={depth === 4} onClick={() => setDepth(4)} />
       </div>
 
-      {failed ? (
+      {!indexReady ? (
+        <p className="q-local-graph__status" role="status" aria-busy="true">
+          <Icon icon="loader-circle" size={14} className="q-local-graph__spinner" />
+          <span>{t('search.indexing')}</span>
+        </p>
+      ) : settled?.failed ? (
         <p className="q-panel-empty">{t('localGraph.error')}</p>
       ) : !result ? (
-        <p className="q-panel-empty">{t('localGraph.loading')}</p>
+        <p className="q-local-graph__status" role="status" aria-busy="true">
+          <Icon icon="loader-circle" size={14} className="q-local-graph__spinner" />
+          <span>{t('localGraph.loading')}</span>
+        </p>
       ) : result.nodes.length <= 1 ? (
         <p className="q-panel-empty">{t('localGraph.empty')}</p>
       ) : (
-        <div className="q-local-graph__canvas">
+        <div className="q-local-graph__canvas" aria-busy={building}>
           <svg viewBox="0 0 300 300" role="img" aria-label={t('localGraph.title')}>
             <defs>
               <marker id="q-local-graph-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
@@ -161,8 +198,8 @@ export function LocalGraph({
         </div>
       )}
       <div className="q-local-graph__legend" aria-hidden="true">
-        <span><Icon icon={ArrowDownLeft} />{t('localGraph.incoming')}</span>
-        <span><Icon icon={ArrowUpRight} />{t('localGraph.outgoing')}</span>
+        <span><Icon icon="arrow-down-left" size={12} />{t('localGraph.incoming')}</span>
+        <span><Icon icon="arrow-up-right" size={12} />{t('localGraph.outgoing')}</span>
       </div>
     </div>
   );

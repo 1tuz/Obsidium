@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { JSX, TargetedKeyboardEvent, TargetedPointerEvent } from 'preact';
 import {
   PANEL_LIMITS,
@@ -9,6 +9,12 @@ import {
 import './PanelResizer.css';
 
 const KEYBOARD_STEP = 16;
+const RESIZE_KEYS: Record<string, true> = {
+  ArrowLeft: true,
+  ArrowRight: true,
+  Home: true,
+  End: true,
+};
 
 export function PanelResizer({ side, width, onResize, onReset, label }: {
   side: PanelSide;
@@ -18,7 +24,14 @@ export function PanelResizer({ side, width, onResize, onReset, label }: {
   label: string;
 }): JSX.Element {
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+  const keyboardResizing = useRef(false);
   const { min, max } = PANEL_LIMITS[side];
+
+  const syncResizingFlag = useCallback(() => {
+    const resizing = drag.current !== null || keyboardResizing.current;
+    if (resizing) document.documentElement.dataset.panelResizing = 'true';
+    else delete document.documentElement.dataset.panelResizing;
+  }, []);
 
   useEffect(() => () => {
     delete document.documentElement.dataset.panelResizing;
@@ -27,7 +40,7 @@ export function PanelResizer({ side, width, onResize, onReset, label }: {
   const handlePointerDown = (event: TargetedPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     drag.current = { startX: event.clientX, startWidth: width };
-    document.documentElement.dataset.panelResizing = 'true';
+    syncResizingFlag();
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
@@ -39,29 +52,30 @@ export function PanelResizer({ side, width, onResize, onReset, label }: {
 
   const endDrag = () => {
     drag.current = null;
-    delete document.documentElement.dataset.panelResizing;
+    syncResizingFlag();
   };
 
   const handleKeyDown = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      onResize(clampPanelWidth(side, width - KEYBOARD_STEP));
-      return;
-    }
-    if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      onResize(clampPanelWidth(side, width + KEYBOARD_STEP));
-      return;
-    }
-    if (event.key === 'Home') {
-      event.preventDefault();
-      onResize(min);
-      return;
-    }
-    if (event.key === 'End') {
-      event.preventDefault();
-      onResize(max);
-    }
+    if (!RESIZE_KEYS[event.key]) return;
+    event.preventDefault();
+    keyboardResizing.current = true;
+    syncResizingFlag();
+    if (event.key === 'ArrowLeft') onResize(clampPanelWidth(side, width - KEYBOARD_STEP));
+    else if (event.key === 'ArrowRight') onResize(clampPanelWidth(side, width + KEYBOARD_STEP));
+    else if (event.key === 'Home') onResize(min);
+    else onResize(max);
+  };
+
+  const handleKeyUp = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
+    if (!RESIZE_KEYS[event.key]) return;
+    keyboardResizing.current = false;
+    syncResizingFlag();
+  };
+
+  const handleBlur = () => {
+    if (!keyboardResizing.current) return;
+    keyboardResizing.current = false;
+    syncResizingFlag();
   };
 
   return (
@@ -79,6 +93,8 @@ export function PanelResizer({ side, width, onResize, onReset, label }: {
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
       onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+      onBlur={handleBlur}
       onDblClick={onReset}
     />
   );

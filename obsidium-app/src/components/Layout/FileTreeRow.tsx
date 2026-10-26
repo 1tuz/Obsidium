@@ -131,10 +131,10 @@ export const FileTreeRow = memo(function FileTreeRow({
           open
           position={menu.position}
           items={onIconChange ? [
-            ...fileActionItems(actions, item.id),
+            ...fileActionItems(actions, item.id, item.type),
             { id: 'iconize', label: t('fileTree.iconize'), icon: Palette,
               onSelect: () => setIconPickerOpen(true) },
-          ] : fileActionItems(actions, item.id)}
+          ] : fileActionItems(actions, item.id, item.type)}
           onClose={menu.close}
           ariaLabel={isFolder ? t('fileTree.folderActions') : t('fileTree.fileActions')}
         />

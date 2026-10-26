@@ -28,7 +28,7 @@ export function UpdateSplash() {
         </span>
         {percent !== null && (
           <div className="q-update-splash__track" aria-hidden="true">
-            <div className="q-update-splash__value" style={{ width: `${percent}%` }} />
+            <div className="q-update-splash__value" style={{ transform: `scaleX(${percent / 100})` }} />
           </div>
         )}
       </div>

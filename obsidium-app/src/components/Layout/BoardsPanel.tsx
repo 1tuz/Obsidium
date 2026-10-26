@@ -5,7 +5,7 @@ import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Menu, type MenuItem, type MenuPosition } from '../Common/Menu';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
-import { CalendarDays, Columns3, Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
+import { Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
 import { listen } from '@tauri-apps/api/event';
 import { t } from '../../i18n';
 import {
@@ -53,6 +53,13 @@ interface BoardsPanelProps {
 
 const STATUS_COLUMNS = ['backlog', 'todo', 'doing', 'done'];
 
+function kanbanBoards(boards: readonly KanbanBoard[]): KanbanBoard[] {
+  return boards.flatMap((board) => {
+    const views = board.views.filter((view) => view.type === 'kanban');
+    return views.length > 0 ? [{ ...board, views }] : [];
+  });
+}
+
 function FolderTree({
   folder,
   onOpenView,
@@ -82,24 +89,19 @@ function FolderTree({
       {folder.boards.map((board) => (
         <li className="q-boards-tree__board" key={board.path}>
           <div className="q-boards-tree__heading">
-            <strong>{board.name}</strong>
-            {board.views.length === 0 ? (
-              <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
-            ) : null}
+            <strong title={board.path}>{board.name}</strong>
+            <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
           </div>
-          {board.views.map((view, index) => (
+          {board.views.map((view) => (
             <div className="q-boards-tree__view" key={`${board.path}:${view.index}`}>
               <button
                 type="button"
                 title={board.path}
                 onClick={() => onOpenView(board.path, view.index)}
               >
-                <Icon icon={view.type === 'calendar' ? CalendarDays : view.type === 'timeline' ? 'timeline' : Columns3} />
+                <Icon icon="kanban" />
                 <span>{view.name}</span>
               </button>
-              {index === 0 ? (
-                <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
-              ) : null}
             </div>
           ))}
         </li>
@@ -179,7 +181,7 @@ export function BoardsPanel({
       setFailed(false);
       try {
         const next = await scanKanbanBoards(workspacePath, readDirectory, readFileSnapshot, cache.current);
-        if (revision === scanRevision.current) setBoards(next);
+        if (revision === scanRevision.current) setBoards(kanbanBoards(next));
       } catch (error) {
         console.error('Failed to scan Kanban Bases', error);
         if (revision === scanRevision.current) setFailed(true);
@@ -328,7 +330,7 @@ export function BoardsPanel({
       </header>
       {loading && boards.length === 0 ? <p>{t('boards.loading')}</p> : null}
       {failed ? <p role="alert">{t('boards.loadError')}</p> : null}
-      {!loading && !failed && boards.length === 0 ? <p>{t('boards.empty')}</p> : null}
+      {!loading && !failed && boards.length === 0 ? <p>{t('boards.emptyKanban')}</p> : null}
       {tree && boards.length > 0 ? (
         <FolderTree
           folder={tree}
@@ -553,7 +555,7 @@ function BoardActionDialog({
             ) : null}
           </div>
         )))}
-        {boards.length === 0 ? <p>{t('boards.empty')}</p> : null}
+        {boards.length === 0 ? <p>{t('boards.emptyKanban')}</p> : null}
         {error ? <p className="q-boards-form__error" role="alert">{error}</p> : null}
       </div>
       <DialogFooter><Button variant="ghost" onClick={onClose}>{t('boards.cancel')}</Button></DialogFooter>

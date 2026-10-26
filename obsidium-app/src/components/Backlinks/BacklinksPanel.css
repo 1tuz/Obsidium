@@ -9,9 +9,62 @@
 
 .q-backlinks__mode-tabs {
   display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--q-space-2);
+  -webkit-app-region: no-drag;
+}
+
+.q-backlinks__scope {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--q-space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--q-space-2) var(--q-space-8) var(--q-space-4);
+  color: var(--q-text-tertiary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-sm);
+  line-height: var(--q-font-line-height-tight);
+}
+
+.q-backlinks__scope-icon {
+  flex: 0 0 auto;
+}
+
+.q-backlinks__scope-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-backlinks__status {
+  display: flex;
   align-items: center;
   gap: var(--q-space-6);
-  -webkit-app-region: no-drag;
+  margin: var(--q-space-6);
+  color: var(--q-text-tertiary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-base);
+  line-height: var(--q-size-20);
+}
+
+.q-backlinks__status-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-backlinks__spinner {
+  flex: 0 0 auto;
+  animation: q-backlinks-spin var(--q-duration-slower) linear infinite;
+}
+
+@keyframes q-backlinks-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .q-backlinks__mode-button {

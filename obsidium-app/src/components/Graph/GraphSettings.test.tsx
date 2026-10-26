@@ -9,11 +9,12 @@ import { DEFAULT_PREFERENCES } from './graphDisplay';
 import { GraphSettings } from './GraphSettings';
 import type { GraphPathState } from './renderer';
 
-const PATH_CONTROLS = {
+const PANEL_PROPS = {
   pathMode: false,
   pathState: { status: 'idle' } as GraphPathState,
   onPathModeChange: () => {},
   onClearPath: () => {},
+  onFitView: () => {},
 };
 
 const DEFAULT_CONTROLS = {
@@ -45,7 +46,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={() => {}}
@@ -85,7 +86,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -116,7 +117,7 @@ describe('GraphSettings', () => {
 
     act(() => renderer!.update(
       <GraphSettings
-        {...PATH_CONTROLS}
+        {...PANEL_PROPS}
         controls={{ ...DEFAULT_CONTROLS, layoutMode: 'ring' }}
         range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
         onChange={onChange}
@@ -143,7 +144,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={{ ...DEFAULT_CONTROLS, suggestionsEnabled: true }}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -183,7 +184,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={() => {}}
@@ -223,7 +224,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -253,7 +254,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={{ ...DEFAULT_CONTROLS, collapsedCommunities: {} }}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -280,7 +281,7 @@ describe('GraphSettings', () => {
     const communities = [{ id: 12, count: 1, node: 12, stableId: '12:0', name: 'Cluster 13' }];
     const render = () => (
       <GraphSettings
-        {...PATH_CONTROLS}
+        {...PANEL_PROPS}
         controls={DEFAULT_CONTROLS}
         range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
         onChange={() => {}}
@@ -330,7 +331,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -354,7 +355,7 @@ describe('GraphSettings', () => {
     act(() => next.click());
     act(() => renderer!.update(
       <GraphSettings
-        {...PATH_CONTROLS}
+        {...PANEL_PROPS}
         controls={DEFAULT_CONTROLS}
         range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
         onChange={onChange}
@@ -391,7 +392,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -417,7 +418,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -442,7 +443,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -468,7 +469,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -494,7 +495,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -519,7 +520,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -547,7 +548,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={{ ...DEFAULT_CONTROLS, groupRules: [rule] }}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -571,7 +572,7 @@ describe('GraphSettings', () => {
 
     act(() => renderer!.update(
       <GraphSettings
-        {...PATH_CONTROLS}
+        {...PANEL_PROPS}
         controls={{ ...DEFAULT_CONTROLS, groupRules: [{ ...rule, customColor: '#1471eb' }] }}
         range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
         onChange={onChange}
@@ -597,7 +598,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -624,7 +625,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -651,7 +652,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -672,7 +673,7 @@ describe('GraphSettings', () => {
 
     act(() => renderer!.update(
       <GraphSettings
-        {...PATH_CONTROLS}
+        {...PANEL_PROPS}
         controls={{ ...DEFAULT_CONTROLS, edgeColor: 'custom' }}
         range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
         onChange={onChange}
@@ -695,7 +696,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 100, modifiedNewest: 200 }}
           onChange={onChange}
@@ -722,7 +723,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 10, newest: 30, modifiedOldest: 100, modifiedNewest: 200 }}
           onChange={onChange}
@@ -754,7 +755,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -787,7 +788,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -822,7 +823,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -851,7 +852,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           controls={DEFAULT_CONTROLS}
           range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
           onChange={onChange}
@@ -879,7 +880,7 @@ describe('GraphSettings', () => {
     act(() => {
       renderer = mountDom(
         <GraphSettings
-          {...PATH_CONTROLS}
+          {...PANEL_PROPS}
           pathState={{ status: 'found', nodeCount: 3 }}
           onPathModeChange={onPathModeChange}
           controls={DEFAULT_CONTROLS}
@@ -903,16 +904,95 @@ describe('GraphSettings', () => {
     expect(panel.textContent).toContain(t('graph.pathFound', { count: 3 }));
   });
 
-  it('prevents settings overflow and leaves room for graph history', () => {
+  it('wraps settings text instead of clipping it and leaves room for graph history', () => {
     expect(graphSettingsStyles).toMatch(/\.q-graph-settings\s*\{[^}]*overflow-x:\s*hidden;/s);
     expect(graphSettingsStyles).toMatch(
-      /\.q-graph-settings \.q-segmented-control--stretch\s*\{[^}]*flex-wrap:\s*nowrap;/s,
+      /\.q-graph-settings-toggle > span\s*\{[^}]*overflow-wrap:\s*anywhere;/s,
     );
     expect(graphSettingsStyles).toMatch(
-      /\.q-graph-settings \.q-segmented-control--stretch \.q-segmented-control__button\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis;/s,
+      /\.q-graph-settings \.q-segmented-control--stretch \.q-segmented-control__button\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/s,
     );
+    expect(graphSettingsStyles).not.toMatch(/\.q-graph-settings-suggestion > span\s*\{[^}]*text-overflow:\s*ellipsis;/s);
     expect(graphSettingsStyles).toMatch(
       /\.q-graph:has\(> \.q-graph-settings:not\(\.q-graph-settings--collapsed\)\) \.q-graph-timeline\s*\{[^}]*right:\s*calc\(var\(--q-graph-settings-width\) \+ var\(--q-space-32\)\);/s,
     );
+  });
+
+  it('keeps slider values inside the panel', () => {
+    const sliderStyles = readFileSync(
+      resolve(process.cwd(), 'src/components/Common/Slider.css'),
+      'utf8',
+    );
+    expect(sliderStyles).toMatch(/\.q-slider-head\s*\{[^}]*min-width:\s*0;/s);
+    expect(sliderStyles).toMatch(/\.q-slider-label\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/s);
+  });
+
+  it('keeps every settings parameter while grouping them into collapsible sections', () => {
+    act(() => {
+      renderer = mountDom(
+        <GraphSettings
+          {...PANEL_PROPS}
+          controls={DEFAULT_CONTROLS}
+          range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
+          onChange={() => {}}
+          onRefresh={() => {}}
+          presets={{}}
+          onSavePreset={() => {}}
+          onApplyPreset={() => {}}
+          onDeletePreset={() => {}}
+        />,
+      );
+    });
+
+    const panel = renderer!.container.querySelector('aside')!;
+    const heads = [...panel.querySelectorAll<HTMLButtonElement>('.q-graph-settings-section__head')];
+    expect(heads.map((head) => head.textContent)).toEqual([
+      t('graph.sections.layout'),
+      t('graph.sections.nodes'),
+      t('graph.sections.edges'),
+      t('graph.sections.filters'),
+      t('graph.sections.communities'),
+      t('graph.sections.presets'),
+    ]);
+    expect(heads.map((head) => head.getAttribute('aria-expanded')))
+      .toEqual(['true', 'true', 'false', 'false', 'false', 'false']);
+
+    const layoutHead = heads[0];
+    const layoutBody = panel.querySelector<HTMLElement>('[data-section="layout"] .q-graph-settings-section__body')!;
+    expect(layoutBody.hidden).toBe(false);
+
+    act(() => layoutHead.click());
+
+    expect(layoutHead.getAttribute('aria-expanded')).toBe('false');
+    expect(layoutBody.hidden).toBe(true);
+    expect(panel.querySelectorAll('input[type="range"]')).toHaveLength(14);
+  });
+
+  it('keeps the fit and reload actions apart in the header', () => {
+    const onRefresh = vi.fn();
+    const onFitView = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <GraphSettings
+          {...PANEL_PROPS}
+          controls={DEFAULT_CONTROLS}
+          range={{ oldest: 0, newest: 1, modifiedOldest: 0, modifiedNewest: 1 }}
+          onChange={() => {}}
+          onRefresh={onRefresh}
+          onFitView={onFitView}
+          presets={{}}
+          onSavePreset={() => {}}
+          onApplyPreset={() => {}}
+          onDeletePreset={() => {}}
+        />,
+      );
+    });
+
+    const panel = renderer!.container.querySelector('aside')!;
+    act(() => panel.querySelector<HTMLButtonElement>(`[aria-label="${t('graph.fitView')}"]`)!.click());
+    act(() => panel.querySelector<HTMLButtonElement>(`[aria-label="${t('graph.reload')}"]`)!.click());
+
+    expect(onFitView).toHaveBeenCalledTimes(1);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 });

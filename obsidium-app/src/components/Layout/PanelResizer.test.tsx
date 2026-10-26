@@ -21,6 +21,14 @@ function keydown(target: Element, key: string): KeyboardEvent {
   return event;
 }
 
+function keyup(target: Element, key: string): KeyboardEvent {
+  const event = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, key });
+  act(() => {
+    target.dispatchEvent(event);
+  });
+  return event;
+}
+
 describe('PanelResizer', () => {
   it('exposes separator semantics and panel limits', () => {
     const resizer = mountDom(
@@ -113,6 +121,10 @@ describe('PanelResizer', () => {
 
     expect(keydown(separator, 'End').defaultPrevented).toBe(true);
     expect(onResize).toHaveBeenLastCalledWith(PANEL_LIMITS.left.max);
+    expect(document.documentElement.dataset.panelResizing).toBe('true');
+
+    keyup(separator, 'End');
+    expect(document.documentElement.dataset.panelResizing).toBeUndefined();
 
     expect(keydown(separator, 'Enter').defaultPrevented).toBe(false);
     act(() => resizer.unmount());

@@ -151,7 +151,13 @@
     "outgoingTitle": "Links to other documents",
     "empty": "No linked mentions",
     "outgoingEmpty": "No links to other documents",
-    "historyTab": "History"
+    "historyTab": "History",
+    "vaultTab": "Knowledge base insights",
+    "vaultTitle": "The whole knowledge base",
+    "noteTitle": "Current note: {{name}}",
+    "loading": "Loading…",
+    "historyTitle": "Note history: {{name}}",
+    "noNote": "Open a note to see its links, analysis and history"
   },
   "history": {
     "title": "History",
@@ -602,10 +608,21 @@
     "showSidebar": "Show the left sidebar",
     "home": "Open the home page",
     "graph": "Open the link graph",
-    "boards": "Open boards and calendars",
+    "boards": "Open kanban boards",
+    "calendar": "Open the calendar",
     "fileManager": "Open file manager",
-    "insights": "Open knowledge insights",
-    "canvas": "New Canvas"
+    "canvas": "Open canvases"
+  },
+  "calendarPanel": {
+    "title": "Calendar",
+    "empty": "No calendar views",
+    "loading": "Looking for calendars…"
+  },
+  "canvasPanel": {
+    "title": "Canvases",
+    "empty": "No canvases yet",
+    "loading": "Looking for canvases…",
+    "create": "New canvas"
   },
   "titlebar": {
     "hideRightSidebar": "Hide the right sidebar",
@@ -624,7 +641,6 @@
     "results": "Commands",
     "empty": "No matching commands",
     "newNote": "New note",
-    "newCanvas": "New Canvas",
     "newFromTemplate": "New note from template",
     "journalToday": "Open today's daily note",
     "newCanvas": "New canvas",
@@ -773,6 +789,7 @@
     "title": "Boards",
     "newBoard": "+ New board",
     "empty": "No views found",
+    "emptyKanban": "No kanban boards",
     "loading": "Finding boards…",
     "loadError": "Could not load boards",
     "actions": "Actions for {{name}}",
@@ -820,7 +837,14 @@
     },
     "iconize": "Change icon or color",
     "iconColor": "Icon color",
-    "iconReset": "Reset icon"
+    "iconReset": "Reset icon",
+    "newNote": "New note",
+    "newFolder": "New folder",
+    "newNoteHere": "New note here",
+    "newFolderHere": "New folder here",
+    "newFolderName": "New folder",
+    "rootActions": "Actions in the knowledge base root",
+    "createFailed": "Could not create: {{reason}}"
   },
   "workspace": {
     "switch": "Switch the knowledge base",
@@ -899,6 +923,8 @@
     "attraction": "Attraction",
     "repulsion": "Repulsion",
     "refresh": "Rebuild the graph",
+    "fitView": "Show the whole graph",
+    "reload": "Reload data",
     "collapseSettings": "Collapse graph panel",
     "expandSettings": "Expand graph panel",
     "nodeSize": "Node size",
@@ -945,12 +971,11 @@
     "importantNodes": "Highlight PageRank top 5%",
     "communityColors": "Color Louvain communities",
     "sections": {
-      "layout": "Layout and nodes",
+      "layout": "Layout",
+      "nodes": "Nodes and labels",
       "edges": "Connections",
       "filters": "Filters and path",
       "communities": "Communities and groups",
-      "highlights": "Highlights",
-      "suggestions": "Suggested links",
       "presets": "Presets"
     },
     "customGroupColors": "Color custom groups",

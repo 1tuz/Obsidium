@@ -13,12 +13,31 @@
   cursor: default;
 }
 
-.q-chip:hover {
+.q-chip:hover:not(:disabled) {
   background: var(--q-bg-surface-hover);
 }
 
+.q-chip:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-2);
+}
+
+.q-chip:active:not(:disabled) {
+  background: var(--q-bg-surface-active);
+}
+
+.q-chip:disabled {
+  background: var(--q-bg-surface-subtle);
+  color: var(--q-text-disabled);
+  cursor: default;
+}
+
 .q-chip--active,
-.q-chip--active:hover {
+.q-chip--active:hover:not(:disabled) {
   background: color-mix(in srgb, var(--q-bg-accent) 10%, transparent);
   color: var(--q-text-accent);
+}
+
+.q-chip--active:active:not(:disabled) {
+  background: var(--q-bg-accent-subtle);
 }

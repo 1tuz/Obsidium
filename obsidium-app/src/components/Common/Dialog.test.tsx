@@ -21,6 +21,19 @@ function Harness({ onClose }: { onClose: () => void }) {
   );
 }
 
+function TriggerHarness({ onClose }: { onClose: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button type="button" className="trigger" onClick={() => setOpen(true)}>open</button>
+      <Dialog open={open} title="Harness" closeLabel="Close" onClose={() => { onClose(); setOpen(false); }}>
+        <button type="button">first</button>
+        <button type="button">last</button>
+      </Dialog>
+    </div>
+  );
+}
+
 describe('Dialog', () => {
   let renderer: MountedDom | null = null;
 
@@ -59,5 +72,53 @@ describe('Dialog', () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     });
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('moves focus into the panel when it opens', async () => {
+    const onClose = vi.fn();
+    act(() => { renderer = mountDom(<Harness onClose={onClose} />); });
+    await actAndSettle();
+
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-dialog')!;
+    expect(panel.contains(document.activeElement)).toBe(true);
+  });
+
+  it('cycles Tab from the last focusable element back to the first', async () => {
+    const onClose = vi.fn();
+    act(() => { renderer = mountDom(<TriggerHarness onClose={onClose} />); });
+    await actAndSettle();
+
+    const trigger = renderer!.container.querySelector<HTMLButtonElement>('.trigger')!;
+    trigger.focus();
+    await actAndSettle(() => { trigger.click(); });
+
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-dialog')!;
+    const focusable = [...panel.querySelectorAll<HTMLButtonElement>('button')];
+    const last = focusable[focusable.length - 1];
+    last.focus();
+    await actAndSettle(() => {
+      last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    });
+    expect(document.activeElement).toBe(focusable[0]);
+  });
+
+  it('returns focus to the trigger on close', async () => {
+    const onClose = vi.fn();
+    act(() => { renderer = mountDom(<TriggerHarness onClose={onClose} />); });
+    await actAndSettle();
+
+    const trigger = renderer!.container.querySelector<HTMLButtonElement>('.trigger')!;
+    trigger.focus();
+    await actAndSettle(() => { trigger.click(); });
+
+    const panel = renderer!.container.querySelector<HTMLElement>('.q-dialog')!;
+    expect(panel.contains(document.activeElement)).toBe(true);
+
+    await actAndSettle(() => {
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    });
+
+    expect(renderer!.container.querySelector('.q-dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });

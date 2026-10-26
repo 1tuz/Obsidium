@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Camera } from './camera';
+import { Camera, isDegenerateViewport, isUsableCamera, MAX_SCALE, MIN_SCALE, MIN_VISIBLE_GRAPH_PIXELS, visibleGraphPixels } from './camera';
 import { FrameClock } from './frameClock';
 import {
   DIMMED_STRENGTH,
@@ -327,5 +327,69 @@ describe('dimming a graph around what the pointer found', () => {
     expect(first).toBeLessThan(1);
     expect(second).toBeLessThan(first);
     expect(second).toBeGreaterThan(DIMMED_STRENGTH);
+  });
+});
+
+describe('usability of a restored camera state', () => {
+  const bounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+  const viewport = { width: 800, height: 600 };
+
+  it('rejects non-finite values', () => {
+    expect(isUsableCamera({ centerX: NaN, centerY: 0, scale: 1 })).toBe(false);
+    expect(isUsableCamera({ centerX: 0, centerY: Infinity, scale: 1 })).toBe(false);
+    expect(isUsableCamera({ centerX: 0, centerY: 0, scale: NaN })).toBe(false);
+  });
+
+  it('rejects scales outside the supported range', () => {
+    expect(isUsableCamera({ centerX: 0, centerY: 0, scale: MIN_SCALE / 10 })).toBe(false);
+    expect(isUsableCamera({ centerX: 0, centerY: 0, scale: MAX_SCALE * 10 })).toBe(false);
+    expect(isUsableCamera({ centerX: 0, centerY: 0, scale: MIN_SCALE })).toBe(true);
+    expect(isUsableCamera({ centerX: 0, centerY: 0, scale: MAX_SCALE })).toBe(true);
+  });
+
+  it('flags a zoom that projects the graph to a few pixels', () => {
+    const usable = visibleGraphPixels(bounds, { centerX: 0, centerY: 0, scale: 31.6 }, viewport.width, viewport.height);
+    expect(usable.width).toBeGreaterThan(0);
+    expect(isDegenerateViewport(usable, 2)).toBe(false);
+
+    const degenerate = visibleGraphPixels(
+      bounds,
+      { centerX: 0, centerY: 0, scale: MIN_VISIBLE_GRAPH_PIXELS / 2 / (bounds.maxX - bounds.minX) },
+      viewport.width,
+      viewport.height,
+    );
+    expect(degenerate.width).toBeLessThan(MIN_VISIBLE_GRAPH_PIXELS);
+    expect(isDegenerateViewport(degenerate, 2)).toBe(true);
+  });
+
+  it('flags a camera that left the graph entirely off screen', () => {
+    const offscreen = visibleGraphPixels(
+      bounds,
+      { centerX: 1_000_000, centerY: 1_000_000, scale: 31.6 },
+      viewport.width,
+      viewport.height,
+    );
+    expect(isDegenerateViewport(offscreen, 2)).toBe(true);
+  });
+
+  it('keeps visible one-dimensional and single-node graphs usable', () => {
+    const cases = [
+      { bounds: { minX: 0, maxX: 0, minY: 0, maxY: 100 }, camera: { centerX: 0, centerY: 50, scale: 4 } },
+      { bounds: { minX: 0, maxX: 100, minY: 0, maxY: 0 }, camera: { centerX: 50, centerY: 0, scale: 4 } },
+      { bounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 }, camera: { centerX: 0, centerY: 0, scale: 4 } },
+    ];
+
+    for (const [index, graph] of cases.entries()) {
+      const visible = visibleGraphPixels(graph.bounds, graph.camera, viewport.width, viewport.height);
+      expect(isDegenerateViewport(visible, index === 2 ? 1 : 2)).toBe(false);
+    }
+
+    const offscreenPoint = visibleGraphPixels(
+      cases[2]!.bounds,
+      { centerX: 1_000, centerY: 1_000, scale: 4 },
+      viewport.width,
+      viewport.height,
+    );
+    expect(isDegenerateViewport(offscreenPoint, 1)).toBe(true);
   });
 });

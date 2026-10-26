@@ -1,9 +1,4 @@
-:root[data-motion="on"] {
-  /* Avoid a full-window snapshot: only named surfaces participate. */
-  view-transition-name: none;
-}
-
-:root[data-motion="on"] .q-app-content {
+:root[data-view-transition="view"] .q-app-content {
   view-transition-name: q-app-content;
 }
 
@@ -12,20 +7,41 @@
   animation-timing-function: var(--q-ease-out);
 }
 
-::view-transition-old(q-app-content),
-::view-transition-new(q-app-content) {
+::view-transition-old(q-app-content) {
+  animation: none;
   mix-blend-mode: normal;
 }
 
-[data-motion="off"] .q-app-content {
-  view-transition-name: none;
+::view-transition-new(q-app-content) {
+  animation: q-view-content-reveal var(--q-duration-normal) var(--q-ease-out) both;
+  mix-blend-mode: normal;
 }
 
-[data-motion="off"],
-[data-motion="off"] *,
-[data-motion="off"] *::before,
-[data-motion="off"] *::after {
+@keyframes q-view-content-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+:root[data-motion="off"],
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
   animation: none !important;
   scroll-behavior: auto !important;
   transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="system"],
+  :root[data-motion="system"] *,
+  :root[data-motion="system"] *::before,
+  :root[data-motion="system"] *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
 }
