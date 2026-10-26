@@ -1,6 +1,6 @@
 [package]
 name = "obsidium-app"
-version = "0.5.21"
+version = "0.5.22"
 description = "Fast local-first Markdown knowledge base"
 authors = ["Obsidium contributors"]
 license = "AGPL-3.0-only"
