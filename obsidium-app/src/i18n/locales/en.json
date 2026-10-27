@@ -616,7 +616,11 @@
   "calendarPanel": {
     "title": "Calendar",
     "empty": "No calendar views",
-    "loading": "Looking for calendars…"
+    "loading": "Looking for calendars…",
+    "create": "New calendar",
+    "creating": "Creating calendar…",
+    "nameExhausted": "Could not create calendar: no free names remain.",
+    "createError": "Could not create calendar: {{reason}}"
   },
   "canvasPanel": {
     "title": "Canvases",
