@@ -48,6 +48,24 @@ describe('file tree model', () => {
     expect(rows.map((row) => row.item.id)).toEqual([created.id]);
   });
 
+  it('shows a created item inside a nested empty space root', () => {
+    const created = { id: '/vault/Projects/Notes/New note.md', name: 'New note', type: 'file' as const };
+    const rows = buildVisibleFileRows(
+      [],
+      new Map([['/vault', []]]),
+      new Set(['/vault/Projects/Notes']),
+      new Set(),
+      '/vault',
+      created,
+    );
+
+    expect(rows.map((row) => [row.item.id, row.item.type, row.depth])).toEqual([
+      ['/vault/Projects', 'folder', 0],
+      ['/vault/Projects/Notes', 'folder', 1],
+      [created.id, 'file', 2],
+    ]);
+  });
+
   it('adds a created child to its expanded parent without duplicating refreshed items', () => {
     const parent = { id: '/vault/Projects', name: 'Projects', type: 'folder' as const };
     const created = { id: '/vault/Projects/New folder', name: 'New folder', type: 'folder' as const };

@@ -6,6 +6,7 @@ import { t } from '../../i18n';
 interface DeleteNotesDialogProps {
   targets: readonly string[];
   pending: boolean;
+  error?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -13,6 +14,7 @@ interface DeleteNotesDialogProps {
 export function DeleteNotesDialog({
   targets,
   pending,
+  error,
   onCancel,
   onConfirm,
 }: DeleteNotesDialogProps) {
@@ -31,6 +33,7 @@ export function DeleteNotesDialog({
           : t('confirm.noteDescription', { name: targets[0] ? fileStem(targets[0]) : '' })}
       confirmLabel={many ? t('confirm.deleteMany', { count: targets.length }) : t('common.delete')}
       pending={pending}
+      error={error ?? undefined}
       onCancel={onCancel}
       onConfirm={onConfirm}
     />

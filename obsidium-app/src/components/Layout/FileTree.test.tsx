@@ -36,6 +36,7 @@ const actions: FileTreeActions = {
   cancelRename: noop,
   requestDelete: noop,
   duplicateFile: noop,
+  targetsFor: (path: string) => [path],
   createNoteIn,
   createFolderIn,
 };
@@ -131,7 +132,7 @@ describe('file tree rendering', () => {
     expect(view.state.selection.main.to).toBe('New note'.length);
 
     act(() => { content.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
-    expect(commitRename).toHaveBeenCalledWith(path, 'New note');
+    expect(commitRename).toHaveBeenCalledWith(path, 'New note', false);
     act(() => { content.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
     expect(cancelRename).toHaveBeenCalledTimes(1);
     act(() => tree.unmount());
@@ -292,7 +293,12 @@ describe('file tree rendering', () => {
       document.querySelectorAll('.q-menu__item-label'),
       (node) => node.textContent,
     );
-    expect(labels).toEqual([t('common.rename'), t('common.duplicate'), t('common.delete')]);
+    expect(labels).toEqual([
+      t('fileTree.openInNewTab'),
+      t('common.duplicate'),
+      t('common.rename'),
+      t('common.delete'),
+    ]);
     expect(labels).not.toContain(t('fileTree.newNote'));
     expect(labels).not.toContain(t('fileTree.newFolder'));
 

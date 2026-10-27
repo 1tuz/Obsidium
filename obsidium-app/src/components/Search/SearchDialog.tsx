@@ -18,6 +18,7 @@ import './SearchDialog.css';
 export function SearchDialog({
   open,
   workspacePath,
+  initialQuery,
   onClose,
   onOpenResult,
   onCreate,
@@ -29,8 +30,10 @@ export function SearchDialog({
   const search = useKnowledgeSearch({ open, query, workspacePath });
 
   useEffect(() => {
-    if (open) setSelectedIndex(0);
-  }, [open]);
+    if (!open) return;
+    setSelectedIndex(0);
+    setQuery(initialQuery ?? '');
+  }, [initialQuery, open]);
 
   useEffect(() => setSelectedIndex(0), [query]);
   useEffect(() => {

@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ExternalLink, MoreHorizontal, Pencil, Trash2 } from 'lucide';
 import { Button } from '../Common/Button';
+import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { Icon } from '../Common/Icon';
+import { IconButton } from '../Common/IconButton';
+import { Menu, type MenuItem, type MenuPosition } from '../Common/Menu';
+import { FileTreeRename } from './FileTreeRename';
 import { t } from '../../i18n';
 import { createCalendarBaseFile } from '../../modules/bases/createCalendarBaseFile';
 import { scanKanbanBoards, type KanbanBoard } from '../../modules/bases';
-import { isBasePath, readDirectory, readFileSnapshot } from '../../modules/documents/fileGateway';
+import { isBasePath, readDirectory, readFileSnapshot, trashFile } from '../../modules/documents/fileGateway';
+import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile';
 import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { WORKSPACE_CHANGED_EVENT } from '../../hooks/useWorkspaceEvents';
 import './CalendarPanel.css';
@@ -37,11 +43,16 @@ export function CalendarPanel({ active, workspacePath, onOpenView }: CalendarPan
   const workspaceRevision = useRef(0);
   const mounted = useRef(true);
   const createPending = useRef(false);
+  const actionPendingRef = useRef(false);
   const [groups, setGroups] = useState<CalendarGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [menu, setMenu] = useState<{ group: CalendarGroup; position: MenuPosition } | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CalendarGroup | null>(null);
+  const [actionPending, setActionPending] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!workspacePath) {
@@ -99,6 +110,11 @@ export function CalendarPanel({ active, workspacePath, onOpenView }: CalendarPan
     workspacePathRef.current = workspacePath;
     activeRef.current = active;
     workspaceRevision.current += 1;
+    revision.current += 1;
+    setMenu(null);
+    setRenamingPath(null);
+    setDeleteTarget(null);
+    setActionError('');
   }, [active, workspacePath]);
 
   useLayoutEffect(() => {
@@ -113,6 +129,49 @@ export function CalendarPanel({ active, workspacePath, onOpenView }: CalendarPan
     if (!paths.some(isBasePath)) return;
     void refresh();
   }, active);
+
+  const items: MenuItem[] = menu ? [
+    { id: 'open', label: t('fileTree.open'), icon: ExternalLink, onSelect: () => onOpenView(menu.group.path, menu.group.views[0]!.index) },
+    { id: 'rename', label: t('common.rename'), icon: Pencil, onSelect: () => setRenamingPath(menu.group.path) },
+    { id: 'delete', label: t('common.delete'), icon: Trash2, danger: true, onSelect: () => { setActionError(''); setDeleteTarget(menu.group); } },
+  ] : [];
+
+  const commitRename = async (group: CalendarGroup, name: string) => {
+    setRenamingPath(null);
+    if (!name.trim()) return;
+    const currentRevision = workspaceRevision.current;
+    try {
+      const renamed = await renameWorkspaceFile(group.path, name);
+      if (currentRevision !== workspaceRevision.current) return;
+      if (renamed) await refresh();
+    } catch (cause) {
+      if (currentRevision === workspaceRevision.current) setActionError(t('fileTree.renameFailed', { name }));
+      console.error('Failed to rename calendar Base', cause);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!workspacePath || !deleteTarget || actionPendingRef.current) return;
+    const currentRevision = workspaceRevision.current;
+    const currentWorkspace = workspacePath;
+    actionPendingRef.current = true;
+    setActionPending(true);
+    setActionError('');
+    try {
+      await trashFile(currentWorkspace, deleteTarget.path);
+      if (currentRevision !== workspaceRevision.current) return;
+      setDeleteTarget(null);
+      await refresh();
+    } catch (cause) {
+      if (currentRevision === workspaceRevision.current) {
+        setActionError(t('fileTree.deleteFailed', { reason: deleteTarget.path }));
+      }
+      console.error('Failed to delete calendar Base', cause);
+    } finally {
+      actionPendingRef.current = false;
+      setActionPending(false);
+    }
+  };
 
   return (
     <section className="q-calendar-panel" aria-label={t('calendarPanel.title')}>
@@ -130,7 +189,41 @@ export function CalendarPanel({ active, workspacePath, onOpenView }: CalendarPan
         <ul className="q-calendar-panel__list">
           {groups.map((group) => (
             <li className="q-calendar-panel__base" key={group.path}>
-              <strong className="q-calendar-panel__name" title={group.path}>{group.name}</strong>
+              {renamingPath === group.path ? (
+                <FileTreeRename
+                  name={group.name}
+                  className="q-calendar-panel__name"
+                  active
+                  onCommit={(name) => { void commitRename(group, name); }}
+                  onCancel={() => setRenamingPath(null)}
+                />
+              ) : (
+                <div className="q-calendar-panel__heading">
+                  <strong
+                    className="q-calendar-panel__name"
+                    title={group.path}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setMenu({ group, position: { left: event.clientX, top: event.clientY } });
+                    }}
+                  >
+                    {group.name}
+                  </strong>
+                  <IconButton
+                    label={t('boards.actions', { name: group.name })}
+                    size="small"
+                    aria-haspopup="menu"
+                    aria-expanded={menu?.group.path === group.path}
+                    onClick={(event) => {
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      setMenu({ group, position: { left: rect.right, top: rect.bottom } });
+                    }}
+                  >
+                    <Icon icon={MoreHorizontal} />
+                  </IconButton>
+                </div>
+              )}
               {group.views.map((view) => (
                 <button
                   key={`${group.path}:${view.index}`}
@@ -147,6 +240,17 @@ export function CalendarPanel({ active, workspacePath, onOpenView }: CalendarPan
           ))}
         </ul>
       ) : null}
+      <Menu open={Boolean(menu)} position={menu?.position ?? null} items={items} onClose={() => setMenu(null)} />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={t('common.delete')}
+        description={deleteTarget?.path ?? ''}
+        error={actionError || undefined}
+        confirmLabel={t('common.delete')}
+        pending={actionPending}
+        onCancel={() => { setDeleteTarget(null); setActionError(''); }}
+        onConfirm={() => { void confirmDelete(); }}
+      />
     </section>
   );
 }

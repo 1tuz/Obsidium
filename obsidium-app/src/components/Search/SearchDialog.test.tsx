@@ -71,11 +71,12 @@ async function settleSearch(): Promise<void> {
   await actAndSettle(() => new Promise<void>((resolve) => setTimeout(resolve, 120)));
 }
 
-function mountDialog() {
+function mountDialog(initialQuery?: string) {
   return mountDom(
     <SearchDialog
       open
       workspacePath="/vault"
+      initialQuery={initialQuery}
       onClose={() => {}}
       onOpenResult={() => {}}
       onCreate={() => {}}
@@ -130,6 +131,16 @@ describe('SearchDialog', () => {
       workspacePath: '/vault',
       query: 'машины машин',
     });
+  });
+
+  it('starts with a folder-scoped query supplied by the file tree', async () => {
+    act(() => { renderer = mountDialog('folder:"Projects/Roadmap"'); });
+    await settleSearch();
+
+    expect(editorView(renderer!).state.doc.toString()).toBe('folder:"Projects/Roadmap"');
+    const searches = vi.mocked(invoke).mock.calls
+      .filter(([command]) => command === 'search_knowledge_base');
+    expect(searches[searches.length - 1]?.[1]).toMatchObject({ query: 'folder:"Projects/Roadmap"' });
   });
 
   it('moves the result selection with ArrowDown inside the editor', async () => {

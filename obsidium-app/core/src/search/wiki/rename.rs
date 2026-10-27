@@ -1,9 +1,7 @@
 use super::super::error::SearchError;
 use super::parser::{extract, extract_markdown};
-use super::resolver::LinkResolver;
-use super::target::{
-    markdown_target_key, relative_key, relative_target, select_candidate, target_key, title_key,
-};
+use super::resolver::{select_candidates, LinkResolver};
+use super::target::{relative_key, relative_target, select_candidate, target_key, title_key};
 use crate::files::document::{hash_bytes, normalize_line_endings};
 use crate::search::paths::same_path;
 use rusqlite::Connection;
@@ -25,16 +23,30 @@ pub fn plan_for_rename(
     sources: Vec<PathBuf>,
     fallback_candidates: Option<&[String]>,
 ) -> Result<Vec<LinkRewrite>, SearchError> {
+    let rename = [(old_path.to_path_buf(), new_path.to_path_buf())];
+    let fallback =
+        fallback_candidates.map(|candidates| vec![(old_path.to_path_buf(), candidates.to_vec())]);
+    plan_for_renames(connection, root, &rename, sources, fallback.as_deref())
+}
+
+pub fn plan_for_renames(
+    connection: &Connection,
+    root: &Path,
+    renames: &[(PathBuf, PathBuf)],
+    mut sources: Vec<PathBuf>,
+    fallback_candidates: Option<&[(PathBuf, Vec<String>)]>,
+) -> Result<Vec<LinkRewrite>, SearchError> {
+    sources.sort();
+    sources.dedup();
     let mut rewrites = Vec::new();
     let mut resolver = LinkResolver::new(connection)?;
     for stored_path in sources {
-        let source_path = if same_path(&stored_path, old_path) {
-            new_path
-        } else {
-            &stored_path
-        };
-        let Ok(original) = fs::read_to_string(source_path) else {
-            continue;
+        let source_moved = renamed_path(&stored_path, renames).is_some();
+        let new_source_path = renamed_path(&stored_path, renames).unwrap_or(&stored_path);
+        let original = match fs::read_to_string(&stored_path) {
+            Ok(original) => original,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
         };
         let text = normalize_line_endings(original.clone());
         let mut changes = Vec::new();
@@ -45,38 +57,84 @@ pub fn plan_for_rename(
         links.extend(extract_markdown(&text).into_iter().map(|link| (link, true)));
         links.sort_by_key(|(link, _)| link.target_range.start);
         for (link, markdown) in links {
-            let targets_old_path = if markdown {
-                markdown_target_key(root, source_path, &link.target)
-                    .is_some_and(|key| key == relative_key(root, old_path))
-            } else {
-                targets_path(
+            if markdown {
+                let Some(old_target) = markdown_target_path(root, &stored_path, &link.target)
+                else {
+                    continue;
+                };
+                let Some(new_target) = renamed_path(&old_target, renames)
+                    .or_else(|| source_moved.then_some(old_target.as_path()))
+                else {
+                    continue;
+                };
+                let mut relative = encode_markdown_path(markdown_relative_target(
+                    root,
+                    new_source_path,
+                    new_target,
+                ));
+                if link.target.to_lowercase().contains(".md")
+                    && !relative.to_lowercase().ends_with(".md")
+                {
+                    relative.push_str(".md");
+                }
+                let suffix = link
+                    .target
+                    .find(['#', '?'])
+                    .map_or("", |index| &link.target[index..]);
+                let replacement = format!("{relative}{suffix}");
+                if replacement != link.target {
+                    changes.push((link.target_range, replacement));
+                }
+                continue;
+            }
+            for (old_path, new_path) in renames {
+                let fallback = fallback_candidates.and_then(|candidates| {
+                    candidates
+                        .iter()
+                        .find(|(path, _)| same_path(path, old_path))
+                        .map(|(_, paths)| paths.as_slice())
+                });
+                let targets_old_path = targets_path(
                     &mut resolver,
                     root,
                     &stored_path,
                     &link.target,
                     old_path,
-                    fallback_candidates,
-                )?
-            };
-            if targets_old_path {
+                    fallback,
+                )?;
+                if !targets_old_path {
+                    continue;
+                }
                 let suffix = link
                     .target
                     .find(['#', '?'])
                     .map_or("", |index| &link.target[index..]);
-                let replacement = if markdown {
-                    let mut relative =
-                        encode_markdown_path(markdown_relative_target(root, source_path, new_path));
-                    if link.target.to_lowercase().contains(".md")
-                        && !relative.to_lowercase().ends_with(".md")
-                    {
-                        relative.push_str(".md");
-                    }
-                    relative
+                let path_style = link.target.replace('\\', "/").contains('/');
+                let replacement = if path_style {
+                    relative_target(root, new_path, true)
                 } else {
-                    let path_style = link.target.replace('\\', "/").contains('/');
+                    let (key, _) = target_key(&link.target);
+                    let candidates = match fallback {
+                        Some(candidates) => candidates.to_vec(),
+                        None => select_candidates(connection, &key)?,
+                    };
+                    let candidates = candidates
+                        .iter()
+                        .map(|candidate| {
+                            renamed_path(Path::new(candidate), renames)
+                                .map(|path| path.to_string_lossy().into_owned())
+                                .unwrap_or_else(|| candidate.clone())
+                        })
+                        .collect::<Vec<_>>();
+                    let path_style = select_candidate(root, new_source_path, &candidates)
+                        .is_none_or(|path| !same_path(&path, new_path));
                     relative_target(root, new_path, path_style)
                 };
-                changes.push((link.target_range, format!("{replacement}{suffix}")));
+                let replacement = format!("{replacement}{suffix}");
+                if replacement != link.target {
+                    changes.push((link.target_range, replacement));
+                }
+                break;
             }
         }
         if changes.is_empty() {
@@ -100,6 +158,75 @@ pub fn plan_for_rename(
         });
     }
     Ok(rewrites)
+}
+
+fn markdown_target_path(root: &Path, source: &Path, target: &str) -> Option<PathBuf> {
+    let end = target.find(['#', '?']).unwrap_or(target.len());
+    let path = decode_markdown_path(&target[..end])?.replace('\\', "/");
+    if path.is_empty() || path.starts_with("//") || has_scheme(&path) {
+        return None;
+    }
+    let root_relative = path.starts_with('/');
+    let path = path.strip_prefix('/').unwrap_or(&path);
+    let source_relative = source.strip_prefix(root).ok()?;
+    let mut components = if root_relative {
+        Vec::new()
+    } else {
+        source_relative
+            .parent()?
+            .components()
+            .filter_map(|component| match component {
+                std::path::Component::Normal(value) => Some(value.to_os_string()),
+                _ => None,
+            })
+            .collect()
+    };
+    for component in Path::new(path).components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                components.pop()?;
+            }
+            std::path::Component::Normal(value) => components.push(value.to_os_string()),
+            _ => return None,
+        }
+    }
+    let target = root.join(components.iter().collect::<PathBuf>());
+    target.is_file().then_some(target)
+}
+
+fn decode_markdown_path(path: &str) -> Option<String> {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut cursor = 0;
+    while cursor < bytes.len() {
+        if bytes[cursor] == b'%' {
+            let hex = std::str::from_utf8(bytes.get(cursor + 1..cursor + 3)?).ok()?;
+            decoded.push(u8::from_str_radix(hex, 16).ok()?);
+            cursor += 3;
+        } else {
+            decoded.push(bytes[cursor]);
+            cursor += 1;
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
+fn has_scheme(path: &str) -> bool {
+    path.find(':').is_some_and(|colon| {
+        let mut scheme = path[..colon].chars();
+        scheme
+            .next()
+            .is_some_and(|value| value.is_ascii_alphabetic())
+            && scheme.all(|value| value.is_ascii_alphanumeric() || matches!(value, '+' | '-' | '.'))
+    })
+}
+
+fn renamed_path<'a>(path: &Path, renames: &'a [(PathBuf, PathBuf)]) -> Option<&'a Path> {
+    renames
+        .iter()
+        .find(|(old_path, _)| same_path(path, old_path))
+        .map(|(_, new_path)| new_path.as_path())
 }
 
 fn encode_markdown_path(path: String) -> String {
@@ -170,7 +297,7 @@ fn targets_path(
 
 #[cfg(test)]
 mod tests {
-    use super::plan_for_rename;
+    use super::{plan_for_rename, plan_for_renames};
     use crate::search::wiki::{index_document, open_schema};
     use rusqlite::Connection;
     use std::fs;
@@ -362,5 +489,220 @@ see [[New]]
         .unwrap();
 
         assert_eq!(plan[0].content, "[note](%E6%96%B0%20note.md)");
+    }
+
+    #[test]
+    fn plans_folder_moves_as_one_rewrite_per_source_and_rebases_moved_sources() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let old_folder = root.join("Project");
+        let new_folder = root.join("Archive");
+        let one = old_folder.join("One.md");
+        let two = old_folder.join("Two.md");
+        let moved_source = old_folder.join("Linker.md");
+        let external_source = root.join("Index.md");
+        let moved_one = new_folder.join("One.md");
+        let moved_two = new_folder.join("Two.md");
+        fs::create_dir_all(&old_folder).unwrap();
+        fs::write(&one, "one").unwrap();
+        fs::write(&two, "two").unwrap();
+        fs::write(&moved_source, "[[Project/One]] and [two](Two.md)").unwrap();
+        fs::write(
+            &external_source,
+            "[[Project/One]] and [two](Project/Two.md)",
+        )
+        .unwrap();
+        let mut connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let transaction = connection.transaction().unwrap();
+        index_document(&transaction, root, &one, "one").unwrap();
+        index_document(&transaction, root, &two, "two").unwrap();
+        index_document(
+            &transaction,
+            root,
+            &moved_source,
+            "[[Project/One]] and [two](Two.md)",
+        )
+        .unwrap();
+        index_document(
+            &transaction,
+            root,
+            &external_source,
+            "[[Project/One]] and [two](Project/Two.md)",
+        )
+        .unwrap();
+        transaction.commit().unwrap();
+
+        let plan = plan_for_renames(
+            &connection,
+            root,
+            &[
+                (one, moved_one),
+                (two, moved_two),
+                (moved_source.clone(), new_folder.join("Linker.md")),
+            ],
+            vec![
+                moved_source.clone(),
+                external_source.clone(),
+                moved_source.clone(),
+            ],
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(plan.len(), 2);
+        assert_eq!(
+            plan.iter()
+                .map(|rewrite| rewrite.path.as_path())
+                .collect::<Vec<_>>(),
+            [external_source.as_path(), moved_source.as_path()]
+        );
+        assert_eq!(plan[0].content, "[[Archive/One]] and [two](Archive/Two.md)");
+        assert_eq!(plan[1].content, "[[Archive/One]] and [two](Two.md)");
+    }
+
+    #[test]
+    fn qualifies_a_bare_link_when_a_folder_move_changes_its_resolved_target() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let old_target = root.join("A/Twin.md");
+        let moved_target = root.join("Z/Twin.md");
+        let other_target = root.join("B/Twin.md");
+        let source = root.join("Index.md");
+        fs::create_dir_all(old_target.parent().unwrap()).unwrap();
+        fs::create_dir_all(other_target.parent().unwrap()).unwrap();
+        fs::write(&old_target, "moved").unwrap();
+        fs::write(&other_target, "other").unwrap();
+        fs::write(&source, "[[Twin]]").unwrap();
+        let mut connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let transaction = connection.transaction().unwrap();
+        index_document(&transaction, root, &old_target, "moved").unwrap();
+        index_document(&transaction, root, &other_target, "other").unwrap();
+        index_document(&transaction, root, &source, "[[Twin]]").unwrap();
+        transaction.commit().unwrap();
+
+        let plan = plan_for_renames(
+            &connection,
+            root,
+            &[(old_target, moved_target)],
+            vec![source],
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(plan.len(), 1);
+        assert_eq!(plan[0].content, "[[Z/Twin]]");
+    }
+
+    #[test]
+    fn keeps_a_bare_link_when_the_moved_target_remains_the_winner() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let old_target = root.join("B/Twin.md");
+        let moved_target = root.join("A/Twin.md");
+        let other_target = root.join("C/Twin.md");
+        let source = root.join("Index.md");
+        fs::create_dir_all(old_target.parent().unwrap()).unwrap();
+        fs::create_dir_all(other_target.parent().unwrap()).unwrap();
+        fs::write(&old_target, "moved").unwrap();
+        fs::write(&other_target, "other").unwrap();
+        fs::write(&source, "[[Twin]]").unwrap();
+        let mut connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let transaction = connection.transaction().unwrap();
+        index_document(&transaction, root, &old_target, "moved").unwrap();
+        index_document(&transaction, root, &other_target, "other").unwrap();
+        index_document(&transaction, root, &source, "[[Twin]]").unwrap();
+        transaction.commit().unwrap();
+
+        let plan = plan_for_renames(
+            &connection,
+            root,
+            &[(old_target, moved_target)],
+            vec![source],
+            None,
+        )
+        .unwrap();
+
+        assert!(plan.is_empty());
+    }
+
+    #[test]
+    fn rebases_relative_markdown_links_to_targets_that_stay_in_place() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let old_folder = root.join("A/Folder");
+        let new_folder = root.join("B/Folder");
+        let source = old_folder.join("Source.md");
+        let shared = root.join("A/Shared Note.md");
+        fs::create_dir_all(&old_folder).unwrap();
+        fs::create_dir_all(new_folder.parent().unwrap()).unwrap();
+        fs::write(&source, "[shared](../Shared%20Note.md#part?mode=raw)").unwrap();
+        fs::write(&shared, "shared").unwrap();
+
+        let mut connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let transaction = connection.transaction().unwrap();
+        index_document(
+            &transaction,
+            root,
+            &source,
+            "[shared](../Shared%20Note.md#part?mode=raw)",
+        )
+        .unwrap();
+        index_document(&transaction, root, &shared, "shared").unwrap();
+        transaction.commit().unwrap();
+
+        let plan = plan_for_renames(
+            &connection,
+            root,
+            &[(source.clone(), new_folder.join("Source.md"))],
+            vec![source],
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(plan.len(), 1);
+        assert_eq!(
+            plan[0].content,
+            "[shared](../../A/Shared%20Note.md#part?mode=raw)"
+        );
+    }
+
+    #[test]
+    fn rewrites_external_markdown_links_to_moved_attachments_and_keeps_suffixes() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let old_folder = root.join("Project");
+        let new_folder = root.join("Archive");
+        let source = old_folder.join("Note.md");
+        let attachment = old_folder.join("image.png");
+        let external = root.join("Index.md");
+        fs::create_dir_all(&old_folder).unwrap();
+        fs::write(&source, "![image](image.png)").unwrap();
+        fs::write(&attachment, [0, 1, 2]).unwrap();
+        fs::write(&external, "[image](Project/image.png?download=1#preview)").unwrap();
+
+        let connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let plan = plan_for_renames(
+            &connection,
+            root,
+            &[
+                (source.clone(), new_folder.join("Note.md")),
+                (attachment.clone(), new_folder.join("image.png")),
+            ],
+            vec![source, external.clone()],
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(plan.len(), 1);
+        assert_eq!(plan[0].path, external);
+        assert_eq!(
+            plan[0].content,
+            "[image](Archive/image.png?download=1#preview)"
+        );
     }
 }

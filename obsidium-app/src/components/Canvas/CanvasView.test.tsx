@@ -632,6 +632,129 @@ describe('CanvasView', () => {
     expect(renderer!.container.querySelector('.q-canvas__selection-count')?.textContent).toBe('canvas.selectionCount');
   });
 
+  it('opens a file node from its context menu', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'note', type: 'file', x: 0, y: 0, width: 160, height: 100, file: 'Notes/Important.md' }],
+      edges: [],
+    });
+    const onOpenFile = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={onOpenFile} />,
+      );
+    });
+    await actAndSettle();
+
+    const node = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => {
+      node.dispatchEvent(new MouseEvent('contextmenu', { clientX: 120, clientY: 80, bubbles: true, cancelable: true }));
+    });
+
+    const menu = renderer!.container.querySelector<HTMLElement>('.q-canvas__menu');
+    expect(menu).not.toBeNull();
+    expect(menu?.getAttribute('aria-label')).toBe('canvas.menu.label');
+    await actAndSettle(() => {
+      [...menu!.querySelectorAll<HTMLButtonElement>('button')]
+        .find((item) => item.textContent === 'canvas.menu.open')!
+        .click();
+    });
+
+    expect(onOpenFile).toHaveBeenCalledWith('/vault/Notes/Important.md');
+    expect(renderer!.container.querySelector('.q-canvas__menu')).toBeNull();
+  });
+
+  it('keeps keyboard input inside the context menu and preserves canvas selection on Escape', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [{ id: 'a', type: 'text', x: 0, y: 0, width: 100, height: 80, text: 'A' }],
+      edges: [],
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    const node = renderer!.container.querySelector<HTMLElement>('.q-canvas__object')!;
+    await actAndSettle(() => { node.dispatchEvent(new MouseEvent('pointerdown', { button: 0, bubbles: true })); });
+    await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', code: 'KeyR', bubbles: true })); });
+    await actAndSettle(() => {
+      stage.dispatchEvent(new MouseEvent('contextmenu', { clientX: 300, clientY: 200, bubbles: true, cancelable: true }));
+    });
+
+    const menu = renderer!.container.querySelector<HTMLElement>('.q-canvas__menu')!;
+    const items = [...menu.querySelectorAll<HTMLButtonElement>('button')];
+    const originalTop = node.style.top;
+    expect(document.activeElement).toBe(items[0]);
+
+    const arrowDown = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+    await actAndSettle(() => { items[0]!.dispatchEvent(arrowDown); });
+    expect(arrowDown.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(items[1]);
+    expect(node.style.top).toBe(originalTop);
+
+    await actAndSettle(() => {
+      items[1]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
+    });
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(1);
+    expect(renderer!.container.querySelector('.q-canvas__menu')).not.toBeNull();
+
+    await actAndSettle(() => {
+      items[1]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    });
+    expect(renderer!.container.querySelector('.q-canvas__menu')).toBeNull();
+    expect(renderer!.container.querySelectorAll('.q-canvas__object.is-selected')).toHaveLength(1);
+    expect(canvas.dataset.activeTool).toBe('rectangle');
+    expect(document.activeElement).toBe(canvas);
+  });
+
+  it('activates the focused context menu item with Enter', async () => {
+    canvasSource.content = JSON.stringify({ nodes: [], edges: [] });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => {
+      stage.dispatchEvent(new MouseEvent('contextmenu', { clientX: 300, clientY: 200, bubbles: true, cancelable: true }));
+    });
+    const firstItem = renderer!.container.querySelector<HTMLButtonElement>('.q-canvas__menu button')!;
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    await actAndSettle(() => { firstItem.dispatchEvent(enter); });
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(1);
+    expect(renderer!.container.querySelector('.q-canvas__menu')).toBeNull();
+  });
+
+  it('closes the context menu on Tab and returns focus to the canvas', async () => {
+    canvasSource.content = JSON.stringify({ nodes: [], edges: [] });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
+    await actAndSettle(() => {
+      stage.dispatchEvent(new MouseEvent('contextmenu', { clientX: 300, clientY: 200, bubbles: true, cancelable: true }));
+    });
+    const item = renderer!.container.querySelector<HTMLButtonElement>('.q-canvas__menu button')!;
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    await actAndSettle(() => { item.dispatchEvent(tab); });
+
+    expect(tab.defaultPrevented).toBe(true);
+    expect(renderer!.container.querySelector('.q-canvas__menu')).toBeNull();
+    expect(document.activeElement).toBe(canvas);
+  });
+
   it('keeps a selected connection when the user selects a card and deletes it', async () => {
     canvasSource.content = JSON.stringify({
       nodes: [

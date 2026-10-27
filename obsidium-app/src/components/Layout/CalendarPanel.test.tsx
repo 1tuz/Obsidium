@@ -42,11 +42,14 @@ vi.mock('../../modules/documents/fileGateway', () => ({
   readFileSnapshot: vi.fn(async (path: string) => ({
     content: state.sources[path], hash: state.sources[path], textHash: state.sources[path],
   })),
+  trashFile: vi.fn(),
 }));
 vi.mock('../../modules/bases/createCalendarBaseFile', () => ({ createCalendarBaseFile }));
+vi.mock('../../modules/documents/renameWorkspaceFile', () => ({ renameWorkspaceFile: vi.fn() }));
 
 const { CalendarPanel } = await import('./CalendarPanel');
-const { readDirectory } = await import('../../modules/documents/fileGateway');
+const { readDirectory, trashFile } = await import('../../modules/documents/fileGateway');
+const { renameWorkspaceFile } = await import('../../modules/documents/renameWorkspaceFile');
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -95,6 +98,147 @@ describe('CalendarPanel', () => {
 
     act(() => views[1].click());
     expect(onOpenView).toHaveBeenLastCalledWith('/vault/Work/Plan.base', 3);
+  });
+
+  it('shows actions for a calendar Base from its group heading', async () => {
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
+    });
+    await actAndSettle();
+
+    const base = renderer!.container.querySelector<HTMLElement>('.q-calendar-panel__name')!;
+    act(() => { base.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true, cancelable: true, clientX: 90, clientY: 70,
+    })); });
+    await actAndSettle();
+
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent)).toEqual([
+      t('fileTree.open'), t('common.rename'), t('common.delete'),
+    ]);
+    expect(document.querySelectorAll('.q-menu__item-icon')).toHaveLength(3);
+    expect(document.querySelector('[role="menuitem"].q-menu__item--danger')?.textContent).toContain(t('common.delete'));
+  });
+
+  it('opens Base actions from the focusable action button', async () => {
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
+    });
+    await actAndSettle();
+    const trigger = renderer!.container.querySelector<HTMLButtonElement>(
+      `[aria-label="${t('boards.actions', { name: 'Plan' })}"]`,
+    )!;
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    trigger.focus();
+    act(() => { trigger.click(); });
+    await actAndSettle();
+
+    expect(document.querySelector('.q-menu')).not.toBeNull();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('opens the first calendar view from the Base context menu', async () => {
+    const onOpenView = vi.fn();
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={onOpenView} />);
+    });
+    await actAndSettle();
+    const heading = renderer!.container.querySelector<HTMLElement>('.q-calendar-panel__name')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('fileTree.open'))!.click());
+
+    expect(onOpenView).toHaveBeenCalledWith('/vault/Work/Plan.base', 1);
+  });
+
+  it('starts inline rename for a calendar Base from its context menu', async () => {
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
+    });
+    await actAndSettle();
+    const heading = renderer!.container.querySelector<HTMLElement>('.q-calendar-panel__name')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.rename'))!.click());
+    await actAndSettle();
+    expect(renderer!.container.querySelector('.cm-content')?.textContent).toBe('Plan');
+    expect(renameWorkspaceFile).not.toHaveBeenCalled();
+  });
+
+  it('moves the calendar Base to trash only after contextual delete confirmation', async () => {
+    vi.mocked(trashFile).mockClear();
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
+    });
+    await actAndSettle();
+    const heading = renderer!.container.querySelector<HTMLElement>('.q-calendar-panel__name')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+    expect(trashFile).not.toHaveBeenCalled();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')]
+      .find((button) => button.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+
+    expect(trashFile).toHaveBeenCalledWith('/vault', '/vault/Work/Plan.base');
+  });
+
+  it('does not refresh the old workspace after a pending Base deletion resolves', async () => {
+    const pending = deferred<string>();
+    vi.mocked(trashFile).mockReturnValueOnce(pending.promise);
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
+    });
+    await actAndSettle();
+    const heading = renderer!.container.querySelector<HTMLElement>('.q-calendar-panel__name')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')]
+      .find((button) => button.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+
+    act(() => renderer!.update(<CalendarPanel active workspacePath="/other" onOpenView={vi.fn()} />));
+    await actAndSettle();
+    const oldWorkspaceCalls = vi.mocked(readDirectory).mock.calls
+      .filter(([path]) => path === '/vault').length;
+    pending.resolve('/trash/Plan.base');
+    await actAndSettle();
+
+    expect(vi.mocked(readDirectory).mock.calls.filter(([path]) => path === '/vault')).toHaveLength(oldWorkspaceCalls);
+  });
+
+  it('does not refresh the old workspace after a pending Base rename resolves', async () => {
+    const pending = deferred<string | null>();
+    vi.mocked(renameWorkspaceFile).mockReturnValueOnce(pending.promise);
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
+    });
+    await actAndSettle();
+    const heading = renderer!.container.querySelector<HTMLElement>('.q-calendar-panel__name')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.rename'))!.click());
+    await actAndSettle();
+    const content = renderer!.container.querySelector<HTMLElement>('.cm-content')!;
+    act(() => { content.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    expect(renameWorkspaceFile).toHaveBeenCalledWith('/vault/Work/Plan.base', 'Plan');
+
+    act(() => renderer!.update(<CalendarPanel active workspacePath="/other" onOpenView={vi.fn()} />));
+    await actAndSettle();
+    const oldWorkspaceCalls = vi.mocked(readDirectory).mock.calls
+      .filter(([path]) => path === '/vault').length;
+    pending.resolve('/vault/Work/Deadline.base');
+    await actAndSettle();
+
+    expect(vi.mocked(readDirectory).mock.calls.filter(([path]) => path === '/vault')).toHaveLength(oldWorkspaceCalls);
   });
 
   it('shows the empty state when no Base has a calendar view', async () => {

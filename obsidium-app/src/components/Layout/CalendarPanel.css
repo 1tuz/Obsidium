@@ -37,6 +37,13 @@
   margin-block: var(--q-space-4);
 }
 
+.q-calendar-panel__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-4);
+}
+
 .q-calendar-panel__name {
   padding: var(--q-space-4) var(--q-space-8);
   color: var(--q-text-secondary);

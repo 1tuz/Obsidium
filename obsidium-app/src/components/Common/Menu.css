@@ -9,7 +9,8 @@
   border-radius: var(--q-radius-xl);
   background: var(--q-dialog-bg);
   box-shadow: var(--q-elevation-float), var(--q-shadow-ring);
-  max-height: min(16rem, calc(100vh - var(--q-space-16)));
+  max-width: calc(100vw - var(--q-space-16));
+  max-height: min(16rem, calc(100dvh - var(--q-space-16)));
   overflow-y: auto;
 }
 
@@ -62,6 +63,32 @@
 
 .q-menu__item:disabled .q-menu__item-label {
   color: var(--q-text-disabled);
+}
+
+.q-menu__item--danger .q-menu__item-label,
+.q-menu__item--danger .q-menu__item-icon {
+  color: var(--q-text-danger);
+}
+
+.q-menu__item--danger:hover:not(:disabled) .q-menu__item-label,
+.q-menu__item--danger[data-active]:not(:disabled) .q-menu__item-label,
+.q-menu__item--danger:hover:not(:disabled) .q-menu__item-icon,
+.q-menu__item--danger[data-active]:not(:disabled) .q-menu__item-icon {
+  color: var(--q-text-danger);
+}
+
+.q-menu__separator {
+  flex: 0 0 auto;
+  height: var(--q-border-1);
+  margin: var(--q-gap-2xs) var(--q-padding-xs);
+  background: var(--q-border-subtle);
+}
+
+.q-menu__shortcut {
+  flex: 0 0 auto;
+  color: var(--q-text-tertiary);
+  font-size: var(--q-font-size-ui-sm);
+  white-space: nowrap;
 }
 
 .q-menu__item-icon {

@@ -73,6 +73,7 @@ interface BacklinksPanelProps {
   indexReady: boolean;
   indexRevision: number;
   isOpen: boolean;
+  historyRequest?: number;
   onOpenBacklink: (backlink: Backlink, disposition: LinkDisposition) => void;
   onOpenOutgoing: (link: OutgoingLink, disposition: LinkDisposition) => void;
   onOpenAnalysis: (result: AnalysisResult, disposition: LinkDisposition) => void;
@@ -110,6 +111,7 @@ function BacklinksPanelComponent({
   indexReady,
   indexRevision,
   isOpen,
+  historyRequest = 0,
   onOpenBacklink,
   onOpenOutgoing,
   onOpenAnalysis,
@@ -129,6 +131,10 @@ function BacklinksPanelComponent({
     ? sourceMethod
     : sidebarMethods[0] ?? sourceMethod;
   const chipRowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (historyRequest > 0) setMode('history');
+  }, [historyRequest, setMode]);
 
   useEffect(() => {
     if (!isPanelMode(storedMode)) setMode(DEFAULT_MODE);

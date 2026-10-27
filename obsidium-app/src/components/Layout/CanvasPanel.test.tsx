@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
+import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
 import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom';
@@ -24,9 +25,19 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('../../modules/documents/fileGateway', () => ({
   isCanvasPath: (path: string) => path.toLowerCase().endsWith('.canvas'),
   readDirectory: vi.fn(async (path: string) => state.directories[path] ?? []),
+  trashFile: vi.fn(),
 }));
+vi.mock('../../modules/documents/renameWorkspaceFile', () => ({ renameWorkspaceFile: vi.fn() }));
 
 const { CanvasPanel } = await import('./CanvasPanel');
+const { readDirectory, trashFile } = await import('../../modules/documents/fileGateway');
+const { renameWorkspaceFile } = await import('../../modules/documents/renameWorkspaceFile');
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => { resolve = complete; });
+  return { promise, resolve };
+}
 
 describe('CanvasPanel', () => {
   let renderer: MountedDom | null = null;
@@ -90,6 +101,202 @@ describe('CanvasPanel', () => {
     );
     act(() => nested!.click());
     expect(onOpenCanvas).toHaveBeenCalledWith('/vault/Work/Architecture overview.canvas');
+  });
+
+  it('shows open, rename, and delete actions on a canvas right-click', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasPanel active workspacePath="/vault" onOpenCanvas={vi.fn()} onCreateCanvas={() => {}} />,
+      );
+    });
+    await actAndSettle();
+
+    const item = renderer!.container.querySelector<HTMLElement>(
+      '.q-canvas-panel__item[title="/vault/Boards.canvas"]',
+    )!;
+    act(() => { item.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true, cancelable: true, clientX: 90, clientY: 70,
+    })); });
+    await actAndSettle();
+
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((entry) => entry.textContent)).toEqual([
+      t('fileTree.open'), t('common.rename'), t('common.delete'),
+    ]);
+    expect(document.querySelectorAll('.q-menu__item-icon')).toHaveLength(3);
+    expect(document.querySelector('[role="menuitem"].q-menu__item--danger')?.textContent).toContain(t('common.delete'));
+  });
+
+  it('opens the selected canvas from its context menu', async () => {
+    const onOpenCanvas = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <CanvasPanel active workspacePath="/vault" onOpenCanvas={onOpenCanvas} onCreateCanvas={() => {}} />,
+      );
+    });
+    await actAndSettle();
+
+    const item = renderer!.container.querySelector<HTMLElement>(
+      '.q-canvas-panel__item[title="/vault/Boards.canvas"]',
+    )!;
+    act(() => { item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('fileTree.open'))!.click(); });
+
+    expect(onOpenCanvas).toHaveBeenCalledWith('/vault/Boards.canvas');
+  });
+
+  it('renames a canvas through the existing workspace rename service', async () => {
+    vi.mocked(renameWorkspaceFile).mockResolvedValueOnce('/vault/Sketch.canvas');
+    act(() => {
+      renderer = mountDom(
+        <CanvasPanel active workspacePath="/vault" onOpenCanvas={() => {}} onCreateCanvas={() => {}} />,
+      );
+    });
+    await actAndSettle();
+    const item = renderer!.container.querySelector<HTMLElement>(
+      '.q-canvas-panel__item[title="/vault/Boards.canvas"]',
+    )!;
+    act(() => { item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.rename'))!.click(); });
+    await actAndSettle();
+    const content = renderer!.container.querySelector<HTMLElement>('.cm-content')!;
+    const view = EditorView.findFromDOM(content)!;
+    act(() => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: 'Sketch' } }));
+    act(() => { content.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
+    await actAndSettle();
+
+    expect(renameWorkspaceFile).toHaveBeenCalledWith('/vault/Boards.canvas', 'Sketch');
+  });
+
+  it('moves a canvas to trash only after contextual delete confirmation', async () => {
+    const itemPath = '/vault/Boards.canvas';
+    vi.mocked(trashFile).mockClear();
+    act(() => {
+      renderer = mountDom(
+        <CanvasPanel active workspacePath="/vault" onOpenCanvas={() => {}} onCreateCanvas={() => {}} />,
+      );
+    });
+    await actAndSettle();
+
+    const item = renderer!.container.querySelector<HTMLElement>(`.q-canvas-panel__item[title="${itemPath}"]`)!;
+    act(() => { item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.delete'))!.click(); });
+    await actAndSettle();
+    expect(trashFile).not.toHaveBeenCalled();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')]
+      .find((button) => button.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+
+    expect(trashFile).toHaveBeenCalledWith('/vault', itemPath);
+  });
+
+  it('closes its context menu and delete dialog when the panel becomes inactive', async () => {
+    const props = {
+      active: true,
+      workspacePath: '/vault',
+      onOpenCanvas: vi.fn(),
+      onCreateCanvas: vi.fn(),
+    };
+    act(() => { renderer = mountDom(<CanvasPanel {...props} />); });
+    await actAndSettle();
+
+    const item = renderer!.container.querySelector<HTMLElement>(
+      '.q-canvas-panel__item[title="/vault/Boards.canvas"]',
+    )!;
+    act(() => { item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    expect(document.querySelector('.q-menu')).not.toBeNull();
+    act(() => renderer!.update(<CanvasPanel {...props} active={false} />));
+    await actAndSettle();
+    expect(document.querySelector('.q-menu')).toBeNull();
+
+    act(() => renderer!.update(<CanvasPanel {...props} />));
+    await actAndSettle();
+    const activeItem = renderer!.container.querySelector<HTMLElement>(
+      '.q-canvas-panel__item[title="/vault/Boards.canvas"]',
+    )!;
+    act(() => { activeItem.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.delete'))!.click(); });
+    await actAndSettle();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    act(() => renderer!.update(<CanvasPanel {...props} active={false} />));
+    await actAndSettle();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  });
+
+  it('does not refresh a hidden canvas workspace after a pending delete resolves', async () => {
+    const pending = deferred<string>();
+    vi.mocked(trashFile).mockReturnValueOnce(pending.promise);
+    const props = {
+      active: true,
+      workspacePath: '/vault',
+      onOpenCanvas: vi.fn(),
+      onCreateCanvas: vi.fn(),
+    };
+    act(() => { renderer = mountDom(<CanvasPanel {...props} />); });
+    await actAndSettle();
+    const item = renderer!.container.querySelector<HTMLElement>(
+      '.q-canvas-panel__item[title="/vault/Boards.canvas"]',
+    )!;
+    act(() => { item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.delete'))!.click(); });
+    await actAndSettle();
+    act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')]
+      .find((button) => button.textContent === t('common.delete'))!.click());
+    await actAndSettle();
+
+    act(() => renderer!.update(<CanvasPanel {...props} active={false} />));
+    await actAndSettle();
+    const oldWorkspaceCalls = vi.mocked(readDirectory).mock.calls
+      .filter(([path]) => path === '/vault').length;
+    pending.resolve('/trash/Boards.canvas');
+    await actAndSettle();
+
+    expect(vi.mocked(readDirectory).mock.calls.filter(([path]) => path === '/vault')).toHaveLength(oldWorkspaceCalls);
+  });
+
+  it('does not refresh the old canvas workspace after a pending rename resolves', async () => {
+    const pending = deferred<string | null>();
+    vi.mocked(renameWorkspaceFile).mockReturnValueOnce(pending.promise);
+    const props = {
+      active: true,
+      workspacePath: '/vault',
+      onOpenCanvas: vi.fn(),
+      onCreateCanvas: vi.fn(),
+    };
+    act(() => { renderer = mountDom(<CanvasPanel {...props} />); });
+    await actAndSettle();
+    const item = renderer!.container.querySelector<HTMLElement>(
+      '.q-canvas-panel__item[title="/vault/Boards.canvas"]',
+    )!;
+    act(() => { item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((entry) => entry.textContent === t('common.rename'))!.click(); });
+    await actAndSettle();
+    const content = renderer!.container.querySelector<HTMLElement>('.cm-content')!;
+    const view = EditorView.findFromDOM(content)!;
+    act(() => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: 'Sketch' } }));
+    act(() => { content.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
+    await actAndSettle();
+
+    act(() => renderer!.update(<CanvasPanel {...props} workspacePath="/other" />));
+    await actAndSettle();
+    const oldWorkspaceCalls = vi.mocked(readDirectory).mock.calls
+      .filter(([path]) => path === '/vault').length;
+    pending.resolve('/vault/Sketch.canvas');
+    await actAndSettle();
+
+    expect(vi.mocked(readDirectory).mock.calls.filter(([path]) => path === '/vault')).toHaveLength(oldWorkspaceCalls);
   });
 
   it('creates a canvas from the explicit create control', async () => {
