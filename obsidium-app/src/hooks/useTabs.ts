@@ -108,7 +108,7 @@ export function useTabs(
 
   const splitPane = useCallback((paneId: string, direction: 'horizontal' | 'vertical') => {
     const pane = paneLeaves(state.layout).find((item) => item.paneId === paneId);
-    if (!pane) return;
+    if (!pane) return null;
     const current = state.tabs.find((tab) => tab.tabId === pane.activeTabId);
     const newPaneId = crypto.randomUUID();
     const duplicate = current
@@ -117,6 +117,7 @@ export function useTabs(
     touch();
     dispatch({ type: 'focus-pane', paneId });
     dispatch({ type: 'split-pane', paneId, newPaneId, direction, tab: duplicate });
+    return newPaneId;
   }, [state.layout, state.tabs, touch]);
 
   const moveTab = useCallback((tabId: string, paneId: string, beforeTabId: string | null) => {

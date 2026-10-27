@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { Button } from '../Common/Button';
 import { Dialog, DialogFooter } from '../Common/Dialog';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Menu, type MenuItem, type MenuPosition } from '../Common/Menu';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
-import { Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
+import { ExternalLink, Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
 import { listen } from '@tauri-apps/api/event';
 import { t } from '../../i18n';
 import {
@@ -62,11 +62,15 @@ function kanbanBoards(boards: readonly KanbanBoard[]): KanbanBoard[] {
 
 function FolderTree({
   folder,
+  active,
+  workspacePath,
   onOpenView,
   onRenameBoard,
   onDeleteBoard,
 }: {
   folder: BoardFolder;
+  active: boolean;
+  workspacePath: string | null;
   onOpenView: BoardsPanelProps['onOpenView'];
   onRenameBoard: (board: KanbanBoard) => void;
   onDeleteBoard: (board: KanbanBoard) => void;
@@ -79,6 +83,8 @@ function FolderTree({
             <summary><Icon icon={Folder} />{child.name}</summary>
             <FolderTree
               folder={child}
+              active={active}
+              workspacePath={workspacePath}
               onOpenView={onOpenView}
               onRenameBoard={onRenameBoard}
               onDeleteBoard={onDeleteBoard}
@@ -88,10 +94,14 @@ function FolderTree({
       ))}
       {folder.boards.map((board) => (
         <li className="q-boards-tree__board" key={board.path}>
-          <div className="q-boards-tree__heading">
-            <strong title={board.path}>{board.name}</strong>
-            <BoardMenu board={board} onRename={onRenameBoard} onDelete={onDeleteBoard} />
-          </div>
+          <BoardMenu
+            board={board}
+            active={active}
+            workspacePath={workspacePath}
+            onOpenView={onOpenView}
+            onRename={onRenameBoard}
+            onDelete={onDeleteBoard}
+          />
           {board.views.map((view) => (
             <div className="q-boards-tree__view" key={`${board.path}:${view.index}`}>
               <button
@@ -112,35 +122,53 @@ function FolderTree({
 
 function BoardMenu({
   board,
+  active,
+  workspacePath,
+  onOpenView,
   onRename,
   onDelete,
 }: {
   board: KanbanBoard;
+  active: boolean;
+  workspacePath: string | null;
+  onOpenView: BoardsPanelProps['onOpenView'];
   onRename: (board: KanbanBoard) => void;
   onDelete: (board: KanbanBoard) => void;
 }) {
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const close = useCallback(() => setPosition(null), []);
+  useEffect(() => {
+    close();
+  }, [active, close, workspacePath]);
+  const openAt = (left: number, top: number) => setPosition({ left, top });
   const items: MenuItem[] = [
+    { id: 'open', label: t('fileTree.open'), icon: ExternalLink, onSelect: () => onOpenView(board.path, board.views[0]!.index) },
     { id: 'rename', label: t('common.rename'), icon: Pencil, onSelect: () => onRename(board) },
-    { id: 'delete', label: t('common.delete'), icon: Trash2, onSelect: () => onDelete(board) },
+    { id: 'delete', label: t('common.delete'), icon: Trash2, danger: true, onSelect: () => onDelete(board) },
   ];
 
   return (
-    <>
+    <div
+      className="q-boards-tree__heading"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        openAt(event.clientX, event.clientY);
+      }}
+    >
+      <strong title={board.path}>{board.name}</strong>
       <IconButton
         label={t('boards.actions', { name: board.name })}
         size="small"
         aria-expanded={Boolean(position)}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
-          setPosition({ top: rect.bottom, left: rect.right });
+          openAt(rect.right, rect.bottom);
         }}
       >
         <Icon icon={MoreHorizontal} />
       </IconButton>
       <Menu open={Boolean(position)} position={position} items={items} onClose={close} />
-    </>
+    </div>
   );
 }
 
@@ -156,6 +184,7 @@ export function BoardsPanel({
   const cache = useRef<KanbanBoardCache>(new Map());
   const scanQueue = useRef(Promise.resolve());
   const scanRevision = useRef(0);
+  const previousWorkspacePath = useRef(workspacePath);
   const lastCreateRequest = useRef(0);
   const [boards, setBoards] = useState<KanbanBoard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -171,6 +200,18 @@ export function BoardsPanel({
     () => workspacePath ? boardTree(boards, workspacePath) : null,
     [boards, workspacePath],
   );
+
+  useLayoutEffect(() => {
+    scanRevision.current += 1;
+    if (previousWorkspacePath.current !== workspacePath) {
+      previousWorkspacePath.current = workspacePath;
+      setBoards([]);
+    }
+    setRenameTarget(null);
+    setDeleteTarget(null);
+    setRenameError('');
+    setDeleteError('');
+  }, [active, workspacePath]);
 
   const refresh = useCallback(() => {
     if (!workspacePath) return Promise.resolve();
@@ -334,6 +375,8 @@ export function BoardsPanel({
       {tree && boards.length > 0 ? (
         <FolderTree
           folder={tree}
+          active={active}
+          workspacePath={workspacePath}
           onOpenView={onOpenView}
           onRenameBoard={(board) => { setRenameError(''); setRenameTarget(board); }}
           onDeleteBoard={(board) => { setDeleteError(''); setDeleteTarget(board); }}

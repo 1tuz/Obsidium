@@ -20,7 +20,10 @@ const uiStateMocks = vi.hoisted(() => ({
   queueLayout: vi.fn(),
   queueTabsSnapshot: vi.fn(),
 }));
-const openerMocks = vi.hoisted(() => ({ openPath: vi.fn(async () => undefined) }));
+const openerMocks = vi.hoisted(() => ({
+  openPath: vi.fn(async () => undefined),
+  revealItemInDir: vi.fn(async () => undefined),
+}));
 const settingsState = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
   loadConfig: vi.fn(async () => null as Record<string, unknown> | null),
@@ -81,7 +84,7 @@ vi.mock('./components/Layout/Titlebar', () => ({
   ),
 }));
 
-vi.mock('@tauri-apps/plugin-opener', () => ({ openPath: openerMocks.openPath }));
+vi.mock('@tauri-apps/plugin-opener', () => openerMocks);
 
 vi.mock('./components/Layout/WindowControls', () => ({
   WindowControls: () => null,

@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 
+const selectionMocks = vi.hoisted(() => ({ clearSelection: vi.fn() }));
+
 vi.mock('../Common/DeleteNotesDialog', () => ({ DeleteNotesDialog: () => null }));
 vi.mock('./SidebarFooter', () => ({ SidebarFooter: () => null }));
 vi.mock('./FileTree', () => ({ FileTree: () => <div className="q-file-tree" /> }));
@@ -33,7 +35,7 @@ vi.mock('./useFileSelection', () => ({
       focusRow: vi.fn(),
     },
     targetsFor: (path: string) => [path],
-    clearSelection: vi.fn(),
+    clearSelection: selectionMocks.clearSelection,
   }),
 }));
 vi.mock('./useFileDragAndDrop', () => ({ useFileTreeDrag: vi.fn() }));
@@ -88,7 +90,10 @@ describe('Sidebar file creation', () => {
     });
 
     expect(Array.from(document.querySelectorAll('.q-menu__item-label'), (node) => node.textContent))
-      .toEqual([t('fileTree.createNote'), t('fileTree.createFolder')]);
+      .toEqual([
+        t('fileTree.createNote'), t('fileTree.createFolder'), t('fileTree.createFromTemplate'),
+        t('fileTree.searchVault'), t('fileTree.collapseFolders'), t('fileTree.revealWorkspace'),
+      ]);
   });
 
   it('opens root creation actions from blank space elsewhere in the Files panel', () => {
@@ -104,7 +109,10 @@ describe('Sidebar file creation', () => {
     });
 
     expect(Array.from(document.querySelectorAll('.q-menu__item-label'), (node) => node.textContent))
-      .toEqual([t('fileTree.createNote'), t('fileTree.createFolder')]);
+      .toEqual([
+        t('fileTree.createNote'), t('fileTree.createFolder'), t('fileTree.createFromTemplate'),
+        t('fileTree.searchVault'), t('fileTree.collapseFolders'), t('fileTree.revealWorkspace'),
+      ]);
   });
 
   it('does not open root actions when right-clicking a panel control', () => {
@@ -130,7 +138,7 @@ describe('Sidebar file creation', () => {
       mounted!.container.querySelector<HTMLButtonElement>('.q-sidebar-header-actions button')!.click();
     });
 
-    expect(createUniqueFile).toHaveBeenCalledWith('/vault');
+    expect(createUniqueFile).toHaveBeenCalledWith('/vault', undefined, '');
     expect(props.onLoadDirectory).toHaveBeenCalledWith('/vault');
     expect(props.onFileSelect).toHaveBeenCalledWith('/vault/Без названия.md');
   });

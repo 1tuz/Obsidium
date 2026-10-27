@@ -3,15 +3,15 @@ import { ChevronDown, ChevronRight, LoaderCircle, Palette } from 'lucide';
 import { IconizePicker } from './IconizePicker';
 import { fileIcon, type FileIconAssignment } from './iconize';
 import { Icon } from '../Common/Icon';
-import { isBasePath, isCanvasPath, isMarkdownPath, type WorkspaceItem } from '../../modules/documents/fileGateway';
-import { fileActionItems } from './fileActionItems';
+import type { WorkspaceItem } from '../../modules/documents/fileGateway';
+import { fileActionItems, selectionActionItems } from './fileActionItems';
 import { parseGuideDepths, type FileTreeActions } from './fileTreeModel';
 import { FileTreeRename } from './FileTreeRename';
+import { isMarkdownPath } from '../../modules/documents/fileGateway';
 import { Menu } from '../Common/Menu';
 import { t } from '../../i18n';
 import { titleWhenClipped } from '../Common/titleWhenClipped';
 import { useContextMenu } from '../Common/useContextMenu';
-import { fileStem } from '../../modules/paths';
 
 interface FileTreeRowProps {
   item: WorkspaceItem;
@@ -41,7 +41,10 @@ export const FileTreeRow = memo(function FileTreeRow({
   onIconChange,
 }: FileTreeRowProps) {
   const isFolder = item.type === 'folder';
-  const canRowActions = isFolder || isMarkdownPath(item.id) || isBasePath(item.id) || isCanvasPath(item.id);
+  const extension = item.id.match(/\.[^.\\/]+$/)?.[0] ?? '';
+  const renameName = !isFolder && !isMarkdownPath(item.id) && extension && item.name.endsWith(extension)
+    ? item.name.slice(0, -extension.length)
+    : item.name;
   const menu = useContextMenu();
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -72,10 +75,10 @@ export const FileTreeRow = memo(function FileTreeRow({
       ))}
       {renaming ? (
         <FileTreeRename
-          name={isBasePath(item.id) ? fileStem(item.id) : item.name}
+          name={renameName}
           className={itemClass}
           active={active}
-          onCommit={(nextName) => actions.commitRename(item.id, nextName)}
+          onCommit={(nextName) => actions.commitRename(item.id, nextName, isFolder)}
           onCancel={actions.cancelRename}
         />
       ) : (
@@ -107,7 +110,6 @@ export const FileTreeRow = memo(function FileTreeRow({
             transfer.setData('text/plain', item.id);
           }}
           onContextMenu={(event) => {
-            if (!canRowActions) return;
             actions.focusRow(item.id);
             menu.onContextMenu(event);
           }}
@@ -127,15 +129,19 @@ export const FileTreeRow = memo(function FileTreeRow({
           </span>
         </button>
       )}
-      {canRowActions && menu.open && (
+      {menu.open && (
         <Menu
           open
           position={menu.position}
-          items={onIconChange ? [
-            ...fileActionItems(actions, item.id, item.type),
-            { id: 'iconize', label: t('fileTree.iconize'), icon: Palette,
-              onSelect: () => setIconPickerOpen(true) },
-          ] : fileActionItems(actions, item.id, item.type)}
+          items={actions.targetsFor(item.id).length > 1
+            ? selectionActionItems(actions, item.id)
+            : [
+              ...fileActionItems(actions, item.id, item.type),
+              ...(onIconChange ? [{
+                id: 'iconize', label: t('fileTree.iconize'), icon: Palette,
+                onSelect: () => setIconPickerOpen(true),
+              }] : []),
+            ]}
           onClose={menu.close}
           ariaLabel={isFolder ? t('fileTree.folderActions') : t('fileTree.fileActions')}
         />

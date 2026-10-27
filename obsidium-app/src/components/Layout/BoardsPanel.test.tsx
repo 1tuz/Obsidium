@@ -192,8 +192,10 @@ describe('BoardsPanel', () => {
     act(() => menuButton!.click());
     await actAndSettle();
     expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
-      t('common.rename'), t('common.delete'),
+      t('fileTree.open'), t('common.rename'), t('common.delete'),
     ]);
+    expect(document.querySelectorAll('.q-menu__item-icon')).toHaveLength(3);
+    expect(document.querySelector('[role="menuitem"].q-menu__item--danger')?.textContent).toContain(t('common.delete'));
 
     act(() => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
       .find((item) => item.textContent === t('common.rename'))!.click());
@@ -233,6 +235,97 @@ describe('BoardsPanel', () => {
       .find((button) => button.textContent === t('common.delete'))!.click());
     await actAndSettle();
     expect(trashFile).toHaveBeenCalledWith('/vault', '/vault/Work/Roadmap.base');
+  });
+
+  it('opens the existing board actions from a right-click on its heading', async () => {
+    const onOpenView = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <BoardsPanel
+          active
+          workspacePath="/vault"
+          onOpenView={onOpenView}
+          actionRequest={null}
+          onActionRequestComplete={vi.fn()}
+          createRequest={0}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    const heading = renderer!.container.querySelector<HTMLElement>('.q-boards-tree__heading')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true, cancelable: true, clientX: 90, clientY: 70,
+    })); });
+    await actAndSettle();
+
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
+      t('fileTree.open'), t('common.rename'), t('common.delete'),
+    ]);
+    expect(document.querySelectorAll('.q-menu__item-icon')).toHaveLength(3);
+    expect(document.querySelector('[role="menuitem"].q-menu__item--danger')?.textContent).toContain(t('common.delete'));
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((item) => item.textContent === t('fileTree.open'))!.click(); });
+    expect(onOpenView).toHaveBeenCalledWith('/vault/Work/Bugs.base', 0);
+  });
+
+  it('closes board menus and dialogs when the panel scope changes', async () => {
+    const props = {
+      active: true,
+      workspacePath: '/vault',
+      onOpenView: vi.fn(),
+      actionRequest: null,
+      onActionRequestComplete: vi.fn(),
+      createRequest: 0,
+    };
+    act(() => { renderer = mountDom(<BoardsPanel {...props} />); });
+    await actAndSettle();
+
+    const heading = renderer!.container.querySelector<HTMLElement>('.q-boards-tree__heading')!;
+    act(() => { heading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    expect(document.querySelector('.q-menu')).not.toBeNull();
+    act(() => renderer!.update(<BoardsPanel {...props} active={false} />));
+    await actAndSettle();
+    expect(document.querySelector('.q-menu')).toBeNull();
+
+    act(() => renderer!.update(<BoardsPanel {...props} active />));
+    await actAndSettle();
+    const activeHeading = renderer!.container.querySelector<HTMLElement>('.q-boards-tree__heading')!;
+    act(() => { activeHeading.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); });
+    await actAndSettle();
+    act(() => { [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((item) => item.textContent === t('common.delete'))!.click(); });
+    await actAndSettle();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    act(() => renderer!.update(<BoardsPanel {...props} active={false} />));
+    await actAndSettle();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  });
+
+  it('discards an in-flight scan when the workspace changes while hidden', async () => {
+    let resolveRoot!: (entries: Awaited<ReturnType<typeof readDirectory>>) => void;
+    const pendingRoot = new Promise<Awaited<ReturnType<typeof readDirectory>>>((resolve) => {
+      resolveRoot = resolve;
+    });
+    vi.mocked(readDirectory).mockImplementationOnce(() => pendingRoot);
+    const props = {
+      active: true,
+      workspacePath: '/vault',
+      onOpenView: vi.fn(),
+      actionRequest: null,
+      onActionRequestComplete: vi.fn(),
+      createRequest: 0,
+    };
+    act(() => { renderer = mountDom(<BoardsPanel {...props} />); });
+    await actAndSettle();
+
+    act(() => renderer!.update(<BoardsPanel {...props} active={false} workspacePath="/other" />));
+    await actAndSettle();
+    act(() => resolveRoot([{ id: '/vault/Work', name: 'Work', type: 'folder' }]));
+    await actAndSettle();
+
+    expect(renderer!.container.textContent).not.toContain('Bugs');
   });
 
   it('creates a new board with a dedicated tag by default and opens it', async () => {

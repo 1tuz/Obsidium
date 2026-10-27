@@ -182,11 +182,24 @@ describe('useFileTreeActions creation', () => {
     expect(latest.renamingPath).toBe('/vault/Old.base');
   });
 
+  it('renames other files while preserving their extension and tree label', async () => {
+    vi.mocked(renameFile).mockResolvedValue({
+      updatedPaths: [], content: '', hash: 'hash', textHash: 'text-hash',
+    });
+    const patchFileInTree = vi.fn();
+    act(() => { mounted = mountDom(<HarnessWithPatch patchFileInTree={patchFileInTree} />); });
+
+    await actAndSettle(() => latest.rowActions.commitRename('/vault/diagram.png', 'diagram-final'));
+
+    expect(renameFile).toHaveBeenCalledWith('/vault/diagram.png', '/vault/diagram-final.png');
+    expect(patchFileInTree).toHaveBeenCalledWith('/vault/diagram.png', { name: 'diagram-final.png' });
+  });
+
   it('sanitizes folder names before passing them to the folder rename command', async () => {
     vi.mocked(renameFolder).mockResolvedValue('/vault/Draft Notes');
     act(() => { mounted = mountDom(<HarnessWithPatch patchFileInTree={vi.fn()} />); });
 
-    await actAndSettle(() => latest.rowActions.commitRename('/vault/Projects', 'Draft/Notes'));
+    await actAndSettle(() => latest.rowActions.commitRename('/vault/Projects', 'Draft/Notes', true));
 
     expect(renameFolder).toHaveBeenCalledWith('/vault/Projects', 'Draft Notes');
   });

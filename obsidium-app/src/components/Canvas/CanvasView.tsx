@@ -1,6 +1,6 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TargetedDragEvent, TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent } from 'preact';
 import { t } from '../../i18n';
 import { useTauriEvent } from '../../hooks/useTauriEvent';
@@ -327,6 +327,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const [snapPoint, setSnapPoint] = useState<CanvasSnapPoint | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
+  const canvasRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [notePickerOpen, setNotePickerOpen] = useState(false);
   const [slashMenu, setSlashMenu] = useState<{ point: CanvasPoint; query: string } | null>(null);
   const [linkDraft, setLinkDraft] = useState<CanvasLinkDraft | null>(null);
@@ -2042,6 +2044,39 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   const menuNodeId = menu?.nodeId ?? null;
   const compact = camera.zoom < COMPACT_ZOOM_THRESHOLD;
 
+  useLayoutEffect(() => {
+    if (!menu) return;
+    menuRef.current?.querySelector<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)')?.focus();
+  }, [menu]);
+
+  const handleMenuKeyDown = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')]
+      .filter((item) => !item.disabled);
+    const currentIndex = items.indexOf(event.target as HTMLButtonElement);
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      const nextIndex = (currentIndex + step + items.length) % items.length;
+      items[nextIndex]?.focus();
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
+    } else if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      items[currentIndex]?.click();
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      setMenu(null);
+      canvasRef.current?.focus({ preventScroll: true });
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setMenu(null);
+      canvasRef.current?.focus({ preventScroll: true });
+    }
+  };
+
   if (loading) return <div className="q-canvas-loading" aria-busy="true">{t('canvas.loading')}</div>;
   if (error && !document) return <div className="q-canvas-error" role="alert">{t('canvas.errors.read', { reason: error })}</div>;
   if (!document) return null;
@@ -2090,6 +2125,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
 
   return (
     <section
+      ref={canvasRef}
       className={`q-canvas${inactive ? ' q-canvas--inactive' : ''}`}
       data-paper-style={paperStyle}
       data-grid={grid}
@@ -2467,6 +2503,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           </div>
         )}
         {menu && <div
+          ref={menuRef}
           className="q-canvas__menu"
           style={{
             left: canvasPixels(Math.min(menu.x, Math.max(0, viewport.width - 200))),
@@ -2474,6 +2511,7 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
           }}
           role="menu"
           aria-label={t('canvas.menu.label')}
+          onKeyDown={handleMenuKeyDown}
         >
           {menuNodeId === null ? <>
             <button role="menuitem" onClick={() => {

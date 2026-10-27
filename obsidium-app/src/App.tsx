@@ -46,6 +46,7 @@ import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath, re
 import type { CanvasNoteTarget } from "./components/Canvas/canvasNoteLinks";
 import { resolveFragmentOffset, splitLinkTarget } from "./modules/links/fragment";
 import { createCanvasFile } from "./modules/canvas/createCanvasFile";
+import { createBaseFile } from "./modules/bases/createBaseFile";
 import { flushCanvasDocuments } from "./modules/canvas/persistence";
 import { fileStem } from "./modules/paths";
 import { useNoteRelocation } from "./modules/documents/useNoteRelocation";
@@ -59,6 +60,7 @@ import { readNoteType, setNoteType } from "./modules/schema/setNoteType";
 import { useWindowDocumentSync } from "./modules/documents/useWindowDocumentSync";
 import { applyTemplateToDocument } from "./components/Editor/docMutations";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { isMacOs } from "./modules/platform";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
@@ -117,6 +119,8 @@ export default function App() {
     offset: number;
     nonce: string;
   } | null>(null);
+  const [searchInitialQuery, setSearchInitialQuery] = useState('');
+  const [historyRequest, setHistoryRequest] = useState(0);
   const [homePagePath, setHomePagePath] = useState<string | null>(null);
   const [sidebarPanel, setSidebarPanel] = useLocalState<'files' | 'boards' | 'calendar' | 'canvas'>('obsidium_sidebar_panel', 'files');
   const [boardActionRequest, setBoardActionRequest] = useState<BoardActionRequest | null>(null);
@@ -303,6 +307,49 @@ export default function App() {
   const openAsText = useCallback((path: string) => {
     openNote(path, { textMode: true });
   }, [openNote]);
+
+  const openSidebarFile = useCallback((path: string) => {
+    if (isMarkdownPath(path) || isBasePath(path) || isCanvasPath(path)
+      || isPdfPath(path) || isTextFilePath(path)) {
+      openNote(path);
+      return;
+    }
+    void openPath(path).catch((error) => {
+      console.error('Failed to open file with the system application', error);
+    });
+  }, [openNote]);
+
+  const openSidebarHistory = useCallback((path: string) => {
+    openNote(path);
+    setRightSidebarOpen(true);
+    setHistoryRequest((current) => current + 1);
+  }, [openNote, setRightSidebarOpen]);
+
+  const searchFromSidebar = useCallback((initialQuery = '') => {
+    setSearchInitialQuery(initialQuery);
+    search.show();
+  }, [search.show]);
+
+  const createCanvasIn = useCallback(async (folder: string) => {
+    const path = await createCanvasFile(folder);
+    if (path) openNote(path);
+  }, [openNote]);
+
+  const createBaseIn = useCallback(async (folder: string) => {
+    try {
+      const path = await createBaseFile(folder);
+      if (path) openNote(path);
+    } catch (error) {
+      console.error('Failed to create Base', error);
+    }
+  }, [openNote]);
+
+  const openInRight = panesEnabled && paneLeaves(layout).length < 4
+    ? (path: string) => {
+      const paneId = splitPane(activePaneId, 'horizontal');
+      if (paneId) openNote(path, { paneId });
+    }
+    : undefined;
 
   const createNewCanvas = useCallback(async () => {
     if (!workspacePath) return;
@@ -958,6 +1005,12 @@ export default function App() {
           workspacePath={workspacePath}
           workspaceName={workspaceName}
           onFileSelect={openNote}
+          onOpenFile={openSidebarFile}
+          onOpenInRight={openInRight}
+          onOpenHistory={openSidebarHistory}
+          onSearch={searchFromSidebar}
+          onCreateCanvasIn={createCanvasIn}
+          onCreateBaseIn={createBaseIn}
           onLoadDirectory={sidebarLoadDirectory}
           isOpen={leftSidebarVisible}
           onOpenSettings={() => { void commandRegistry.execute('view.settings'); }}
@@ -968,6 +1021,7 @@ export default function App() {
           onOpenBaseView={openBaseView}
           onOpenCanvas={(path) => openNote(path)}
           onCreateCanvas={() => { void createNewCanvas(); }}
+          templateFolder={config?.templates.folder ?? ''}
           onOpenAsText={openAsText}
           onBoardRenamed={handleFileRenamed}
           boardActionRequest={boardActionRequest}
@@ -1006,6 +1060,7 @@ export default function App() {
           indexReady={linkIndexReady}
           indexRevision={linkIndexRevision}
           isOpen={rightSidebarVisible}
+          historyRequest={historyRequest}
           onOpenBacklink={handleOpenBacklink}
           onOpenOutgoing={handleOpenOutgoingLink}
           onOpenAnalysis={handleOpenAnalysisResult}
@@ -1020,6 +1075,7 @@ export default function App() {
       <DeleteNotesDialog
         targets={tabFileOps.deleteTargets}
         pending={tabFileOps.isDeleting}
+        error={tabFileOps.deleteError}
         onCancel={tabFileOps.dismissDelete}
         onConfirm={tabFileOps.confirmDelete}
       />
@@ -1027,7 +1083,11 @@ export default function App() {
       <SearchDialog
         open={search.open}
         workspacePath={workspacePath}
-        onClose={search.hide}
+        initialQuery={searchInitialQuery}
+        onClose={() => {
+          search.hide();
+          setSearchInitialQuery('');
+        }}
         onOpenResult={handleOpenSearchResult}
         onCreate={createNewFile}
       />

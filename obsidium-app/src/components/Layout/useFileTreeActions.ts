@@ -1,5 +1,5 @@
 import { useEffect, useInsertionEffect, useMemo, useRef, useState } from 'react';
-import { copyFile, isBasePath, isCanvasPath, isFileCommandError, isMarkdownPath, trashFile } from '../../modules/documents/fileGateway';
+import { copyFile, isFileCommandError, isMarkdownPath, trashFile } from '../../modules/documents/fileGateway';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import { renameFolder } from '../../modules/documents/workspaceFolder';
 import {
@@ -38,6 +38,7 @@ export function useFileTreeActions({
   const [createdItemRefreshed, setCreatedItemRefreshed] = useState(false);
   const [deleteTargets, setDeleteTargets] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const actionPendingRef = useRef(false);
   const creationGenerationRef = useRef(0);
@@ -51,6 +52,8 @@ export function useFileTreeActions({
     setCreatedItem(null);
     setCreatedItemRefreshed(false);
     setCreateError(null);
+    setDeleteTargets([]);
+    setDeleteError(null);
   }, [creationScope, workspacePath]);
 
   const startRename = useStableCallback((path: string) => {
@@ -62,12 +65,14 @@ export function useFileTreeActions({
     if (createdItemRefreshed) setCreatedItem(null);
   });
 
-  const commitRename = useStableCallback(async (path: string, nextName: string) => {
-    const isFile = isMarkdownPath(path) || isBasePath(path) || isCanvasPath(path);
-    const current = isMarkdownPath(path) || isBasePath(path) ? fileStem(path) : fileName(path);
-    const originalName = isBasePath(path) ? fileName(path) : current;
+  const commitRename = useStableCallback(async (path: string, nextName: string, isFolder = false) => {
+    const isFile = !isFolder;
+    const pathName = fileName(path);
+    const extension = isFile ? pathName.match(/\.[^.]+$/)?.[0] ?? '' : '';
+    const current = isFile && extension ? pathName.slice(0, -extension.length) : pathName;
+    const originalName = isMarkdownPath(path) ? current : pathName;
     const trimmed = nextName.trim();
-    const name = isFile ? trimmed : sanitizeFileName(trimmed);
+    const name = sanitizeFileName(trimmed);
     setRenamingPath(null);
     setCreateError(null);
     if (!name || name === current) {
@@ -75,7 +80,8 @@ export function useFileTreeActions({
       return;
     }
 
-    onPatchFileInTree?.(path, { name });
+    const treeName = isMarkdownPath(path) ? name : `${name}${extension}`;
+    onPatchFileInTree?.(path, { name: treeName });
     try {
       const newPath = isFile
         ? await renameWorkspaceFile(path, name)
@@ -85,7 +91,11 @@ export function useFileTreeActions({
         setCreatedItem((current) => {
           if (current?.id !== path) return current;
           if (createdItemRefreshed) return null;
-          return { ...current, id: newPath, name: isFile ? fileStem(newPath) : fileName(newPath) };
+          return {
+            ...current,
+            id: newPath,
+            name: isMarkdownPath(newPath) ? fileStem(newPath) : fileName(newPath),
+          };
         });
       } else {
         onPatchFileInTree?.(path, { name: originalName });
@@ -108,24 +118,39 @@ export function useFileTreeActions({
 
   const dismissDelete = useStableCallback(() => {
     setDeleteTargets([]);
+    setDeleteError(null);
   });
 
   const confirmDelete = useStableCallback(async () => {
     if (actionPendingRef.current || deleteTargets.length === 0) return;
     actionPendingRef.current = true;
     setIsDeleting(true);
+    const generation = creationGenerationRef.current;
+    const currentWorkspace = workspacePath;
+    let completed = 0;
     try {
-      if (workspacePath) {
+      setDeleteError(null);
+      if (currentWorkspace) {
         for (const path of deleteTargets) {
+          if (generation !== creationGenerationRef.current) return;
           try {
-            await trashFile(workspacePath, path);
+            await trashFile(currentWorkspace, path);
+            completed += 1;
           } catch (error) {
             console.error(`Delete failed for ${path}`, error);
+            if (generation === creationGenerationRef.current) {
+              setDeleteTargets(deleteTargets.slice(completed));
+              setDeleteError(t('fileTree.deleteFailed', { reason: path }));
+              if (completed > 0) clearSelection?.();
+            }
+            return;
           }
         }
       }
+      if (generation !== creationGenerationRef.current) return;
       clearSelection?.();
       setDeleteTargets([]);
+      setDeleteError(null);
     } finally {
       actionPendingRef.current = false;
       setIsDeleting(false);
@@ -153,13 +178,13 @@ export function useFileTreeActions({
     }
   });
 
-  const createNoteIn = useStableCallback(async (folder: string) => {
+  const createNoteIn = useStableCallback(async (folder: string, content: string = '') => {
     if (actionPendingRef.current) return;
     actionPendingRef.current = true;
     const generation = creationGenerationRef.current;
     setCreateError(null);
     try {
-      const created = await createUniqueFile(folder);
+      const created = await createUniqueFile(folder, undefined, content);
       if (generation !== creationGenerationRef.current) return;
       if (!created) {
         setCreateError(t('fileTree.createFailed', { reason: folder }));
@@ -244,6 +269,7 @@ export function useFileTreeActions({
     renamingPath,
     createdItem,
     deleteTargets,
+    deleteError,
     isDeleting,
     rowActions,
     confirmDelete,

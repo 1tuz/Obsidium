@@ -15,13 +15,23 @@ import { animateMenuEntrance } from '../../modules/motion';
 import './Menu.css';
 
 export interface MenuItem {
+  type?: 'item';
   id: string;
   label: string;
   disabled?: boolean;
   checked?: boolean;
+  danger?: boolean;
+  shortcut?: string;
   icon?: IconNode;
   onSelect: () => void;
 }
+
+export interface MenuSeparator {
+  type: 'separator';
+  id: string;
+}
+
+export type MenuEntry = MenuItem | MenuSeparator;
 
 export interface MenuPosition {
   top: number;
@@ -33,7 +43,7 @@ interface MenuProps {
   id?: string;
   open: boolean;
   position: MenuPosition | null;
-  items: MenuItem[];
+  items: MenuEntry[];
   onClose: () => void;
   role?: 'listbox' | 'menu';
   ariaLabel?: string;
@@ -43,24 +53,30 @@ interface MenuProps {
 
 const VIEWPORT_MARGIN_PX = 8;
 
-function firstEnabled(items: MenuItem[]): number {
-  return items.findIndex((item) => !item.disabled);
+function isSelectable(item: MenuEntry): item is MenuItem {
+  return item.type !== 'separator';
 }
 
-function lastEnabled(items: MenuItem[]): number {
+function firstEnabled(items: MenuEntry[]): number {
+  return items.findIndex((item) => isSelectable(item) && !item.disabled);
+}
+
+function lastEnabled(items: MenuEntry[]): number {
   for (let index = items.length - 1; index >= 0; index -= 1) {
-    if (!items[index]!.disabled) return index;
+    const item = items[index]!;
+    if (isSelectable(item) && !item.disabled) return index;
   }
   return -1;
 }
 
-function stepEnabled(items: MenuItem[], from: number, step: number): number {
+function stepEnabled(items: MenuEntry[], from: number, step: number): number {
   const count = items.length;
   if (count === 0) return -1;
   let next = from;
   for (let attempt = 0; attempt < count; attempt += 1) {
     next = (next + step + count) % count;
-    if (!items[next]!.disabled) return next;
+    const item = items[next]!;
+    if (isSelectable(item) && !item.disabled) return next;
   }
   return from;
 }
@@ -82,10 +98,12 @@ export function Menu({
   const [activeIndex, setActiveIndex] = useState(0);
   const baseId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
-  const activeIndexSafe = items[activeIndex] && !items[activeIndex]!.disabled
+  const activeEntry = items[activeIndex];
+  const activeIndexSafe = activeEntry && isSelectable(activeEntry) && !activeEntry.disabled
     ? activeIndex
     : firstEnabled(items);
-  const activeItem = activeIndexSafe >= 0 ? items[activeIndexSafe] : undefined;
+  const activeCandidate = activeIndexSafe >= 0 ? items[activeIndexSafe] : undefined;
+  const activeItem = activeCandidate && isSelectable(activeCandidate) ? activeCandidate : undefined;
   const activeId = activeItem ? `${baseId}-option-${activeIndexSafe}` : undefined;
 
   useLayoutEffect(() => {
@@ -103,20 +121,19 @@ export function Menu({
 
   useLayoutEffect(() => {
     if (!open) return;
-    menuRef.current?.querySelector<HTMLElement>('[data-active]')?.focus();
-  }, [activeIndexSafe, open]);
+    if (role === 'listbox') menuRef.current?.focus();
+    else menuRef.current?.querySelector<HTMLElement>('[data-active]')?.focus();
+  }, [activeIndexSafe, open, role]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
     if (!open || !position || !menu) return;
     const rect = menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
-      menu.style.left = `${Math.max(VIEWPORT_MARGIN_PX, position.left - rect.width)}px`;
-    }
-    if (rect.bottom > window.innerHeight) {
-      menu.style.top = `${Math.max(VIEWPORT_MARGIN_PX, position.top - rect.height)}px`;
-    }
-  }, [open, position]);
+    const maxLeft = Math.max(VIEWPORT_MARGIN_PX, window.innerWidth - rect.width - VIEWPORT_MARGIN_PX);
+    const maxTop = Math.max(VIEWPORT_MARGIN_PX, window.innerHeight - rect.height - VIEWPORT_MARGIN_PX);
+    menu.style.left = `${Math.min(Math.max(position.left, VIEWPORT_MARGIN_PX), maxLeft)}px`;
+    menu.style.top = `${Math.min(Math.max(position.top, VIEWPORT_MARGIN_PX), maxTop)}px`;
+  }, [items, open, position]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -170,6 +187,10 @@ export function Menu({
   }, [closeAndRestore, excludeRef, onClose, open]);
 
   const handleKeyDown = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Tab') {
+      closeAndRestore();
+      return;
+    }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       setActiveIndex((current) => stepEnabled(items, current, 1));
@@ -207,7 +228,8 @@ export function Menu({
       id={id}
       role={role}
       aria-label={ariaLabel}
-      aria-activedescendant={activeId}
+      aria-activedescendant={role === 'listbox' ? activeId : undefined}
+      tabIndex={role === 'listbox' ? 0 : undefined}
       className="q-menu"
       onKeyDown={handleKeyDown}
       style={{
@@ -216,7 +238,7 @@ export function Menu({
         width: position.width,
       }}
     >
-      {items.map((item, index) => (
+      {items.map((item, index) => isSelectable(item) ? (
         <button
           key={item.id}
           id={`${baseId}-option-${index}`}
@@ -224,9 +246,10 @@ export function Menu({
           role={role === 'listbox' ? 'option' : 'menuitem'}
           aria-selected={role === 'listbox' ? Boolean(item.checked) : undefined}
           data-active={index === activeIndexSafe ? '' : undefined}
-          tabIndex={index === activeIndexSafe ? 0 : -1}
+          tabIndex={role === 'listbox' ? -1 : index === activeIndexSafe ? 0 : -1}
           disabled={item.disabled}
-          className="q-menu__item"
+          className={`q-menu__item${item.danger ? ' q-menu__item--danger' : ''}`}
+          onMouseDown={role === 'listbox' ? (event) => event.preventDefault() : undefined}
           onClick={() => {
             if (item.disabled) return;
             item.onSelect();
@@ -239,10 +262,13 @@ export function Menu({
             </span>
           )}
           <span className="q-menu__item-label">{item.label}</span>
+          {item.shortcut && <span className="q-menu__shortcut">{item.shortcut}</span>}
           {showCheck && item.checked && (
             <Icon icon={Check} className="q-menu__item-check" />
           )}
         </button>
+      ) : (
+        <div key={item.id} role="separator" className="q-menu__separator" />
       ))}
     </div>,
     document.body,

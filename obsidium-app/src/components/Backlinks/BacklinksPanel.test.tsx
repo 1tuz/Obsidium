@@ -75,9 +75,10 @@ vi.mock('../../modules/openExternalUrl', () => ({
 
 interface PanelOverrides {
   documentPath?: string | null;
+  historyRequest?: number;
 }
 
-function mountPanel({ documentPath = 'C:\\notes\\Current.md' }: PanelOverrides = {}) {
+function mountPanel({ documentPath = 'C:\\notes\\Current.md', historyRequest }: PanelOverrides = {}) {
   const onOpenBacklink = vi.fn();
   const onOpenOutgoing = vi.fn();
   const renderer = mountDom(
@@ -88,6 +89,7 @@ function mountPanel({ documentPath = 'C:\\notes\\Current.md' }: PanelOverrides =
       indexReady
       indexRevision={1}
       isOpen
+      historyRequest={historyRequest}
       onOpenBacklink={onOpenBacklink}
       onOpenOutgoing={onOpenOutgoing}
       onOpenAnalysis={vi.fn()}
@@ -133,6 +135,7 @@ describe('BacklinksPanel', () => {
     linkState.loading = false;
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === 'get_knowledge_report') return emptyReport();
+      if (command === 'note_history') return { total: 0, versions: [] };
       return [];
     });
   });
@@ -156,10 +159,21 @@ describe('BacklinksPanel', () => {
       .toBe('backlinks.vaultTitle');
   });
 
+  it('switches to history when requested by a file context menu', async () => {
+    const mounted = mountPanel({ historyRequest: 1 });
+    renderer = mounted.renderer;
+    await actAndSettle();
+
+    expect(mounted.pressed()).toEqual(['false', 'false', 'false', 'false', 'false', 'true']);
+    expect(mounted.panel.querySelector('.q-backlinks__scope-name')?.textContent)
+      .toBe('backlinks.historyTitle|Current');
+  });
+
   it('migrates an unknown stored mode to vault', async () => {
     localStorage.setItem('obsidium_backlinks_mode', JSON.stringify('nonsense'));
     const mounted = mountPanel({ documentPath: null });
     renderer = mounted.renderer;
+    await actAndSettle();
     await actAndSettle();
 
     expect(mounted.pressed()).toEqual(['true', 'false', 'false', 'false', 'false', 'false']);

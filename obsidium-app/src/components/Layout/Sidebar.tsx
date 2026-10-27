@@ -20,11 +20,30 @@ import { CanvasPanel } from './CanvasPanel';
 import { SidebarHeaderActions } from './SidebarHeaderActions';
 import { SpaceSwitcher } from './SpaceSwitcher';
 import { SpacesDialog } from '../Spaces/SpacesDialog';
-import type { Space } from '../../modules/spaces';
+import { DEFAULT_SPACE_ID, isWholeVaultSpace, type Space } from '../../modules/spaces';
 import { t } from '../../i18n';
 import { rootActionItems } from './fileActionItems';
 import { Menu } from '../Common/Menu';
 import { useContextMenu } from '../Common/useContextMenu';
+import { MoveToFolderDialog } from './MoveToFolderDialog';
+import { TemplateDialog } from '../Templates/TemplateDialog';
+import { copyText } from '../../modules/clipboard';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { readTemplate, type NoteTemplate } from '../../modules/templates';
+import { absolutePath, comparablePath, relativePath } from '../../modules/paths';
+
+function creationRootForSpace(workspacePath: string | null, spaces?: SpacesControls): string | null {
+  if (!workspacePath) return null;
+  if (!spaces || spaces.activeSpaceId === DEFAULT_SPACE_ID) return workspacePath;
+  const activeSpace = spaces.spaces.find((space) => space.id === spaces.activeSpaceId);
+  if (!activeSpace) return null;
+  const relativeRoot = activeSpace.root.replace(/\\/g, '/');
+  if (!relativeRoot) return workspacePath;
+  if (/^(?:[a-z]:|\/)/i.test(relativeRoot)) return null;
+  const segments = relativeRoot.split('/').filter(Boolean);
+  if (segments.some((segment) => segment === '.' || segment === '..')) return null;
+  return absolutePath(workspacePath, segments.join('/'));
+}
 
 export interface SpacesControls {
   spaces: Space[];
@@ -42,6 +61,12 @@ interface SidebarProps {
   workspacePath: string | null;
   workspaceName: string;
   onFileSelect: (path: string, options?: { disposition?: LinkDisposition }) => void;
+  onOpenFile?: (path: string) => void;
+  onOpenInRight?: (path: string) => void;
+  onOpenHistory?: (path: string) => void;
+  onSearch?: (initialQuery?: string) => void;
+  onCreateCanvasIn?: (folder: string) => void | Promise<void>;
+  onCreateBaseIn?: (folder: string) => void | Promise<void>;
   onLoadDirectory: (path: string) => Promise<boolean | void>;
   isOpen: boolean;
   onOpenSettings: () => void;
@@ -60,6 +85,7 @@ interface SidebarProps {
   onAddToBoard?: (path: string) => void;
   onRemoveFromBoard?: (path: string) => void;
   spaces?: SpacesControls;
+  templateFolder?: string;
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -70,6 +96,12 @@ export const Sidebar = memo(function Sidebar({
   workspacePath,
   workspaceName,
   onFileSelect,
+  onOpenFile,
+  onOpenInRight,
+  onOpenHistory,
+  onSearch,
+  onCreateCanvasIn,
+  onCreateBaseIn,
   onLoadDirectory,
   isOpen,
   onOpenSettings,
@@ -88,8 +120,12 @@ export const Sidebar = memo(function Sidebar({
   onAddToBoard,
   onRemoveFromBoard,
   spaces,
+  templateFolder = '',
 }: SidebarProps) {
   const [spacesDialogOpen, setSpacesDialogOpen] = useState(false);
+  const [moveTargets, setMoveTargets] = useState<string[]>([]);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [templateTarget, setTemplateTarget] = useState<string | null>(null);
   const { expandedFolders, setExpandedFolders, followFolder } = useExpandedFolders(workspacePath);
   const { config, updateConfig } = useSettingsStore();
   const configRef = useRef(config);
@@ -135,6 +171,12 @@ export const Sidebar = memo(function Sidebar({
     baseRows,
     onFileSelect,
   );
+  const activeSpace = spaces?.spaces.find((space) => space.id === spaces.activeSpaceId) ?? null;
+  const creationRootPath = creationRootForSpace(workspacePath, spaces);
+  const filteredSpace = activeSpace !== null && !isWholeVaultSpace(activeSpace);
+  const allowedMoveFolders = useMemo(() => filteredSpace
+    ? new Set([...directories.keys()].map(comparablePath))
+    : null, [directories, filteredSpace]);
   const fileOps = useFileTreeActions({
     workspacePath,
     targetsFor,
@@ -143,7 +185,8 @@ export const Sidebar = memo(function Sidebar({
     onPatchFileInTree,
     onDirectoryChanged: async (folder) => {
       setExpandedFolders((current) => (current.has(folder) ? current : new Set(current).add(folder)));
-      return onLoadDirectory(folder);
+      if (!filteredSpace) return onLoadDirectory(folder);
+      return undefined;
     },
     onOpenCreated: (path) => onFileSelect(path),
     onPathMoved: (from, to) => {
@@ -163,23 +206,83 @@ export const Sidebar = memo(function Sidebar({
     )
     : baseRows,
   [baseRows, directories, expandedFolders, fileOps.createdItem, files, loadingDirectories, workspacePath]);
+  const visibleFilePaths = useMemo(() => new Set(rows
+    .filter((row) => row.item.type === 'file')
+    .map((row) => comparablePath(row.item.id))), [rows]);
+  const visiblePaths = useMemo(() => new Set(rows.map((row) => comparablePath(row.item.id))), [rows]);
 
-  const moveFiles = useStableCallback(async (sourceId: string, targetId: string) => {
+  const movePaths = useStableCallback(async (sourcePaths: readonly string[], targetId: string) => {
     let anyMoved = false;
-    for (const fileId of targetsFor(sourceId)) {
-      const moved = await moveIntoFolder(fileId, targetId);
-      if (!moved) continue;
-      anyMoved = true;
-      followFolder(fileId, moved);
-      updateIconAssignments((current) => rebaseFileIcons(current, fileId, moved));
+    let firstError: unknown;
+    const failedPaths: string[] = [];
+    for (const fileId of sourcePaths) {
+      try {
+        const moved = await moveIntoFolder(fileId, targetId);
+        if (!moved) {
+          failedPaths.push(fileId);
+          continue;
+        }
+        anyMoved = true;
+        followFolder(fileId, moved);
+        updateIconAssignments((current) => rebaseFileIcons(current, fileId, moved));
+      } catch (error) {
+        console.error(`Move failed for ${fileId}`, error);
+        firstError ??= error;
+        failedPaths.push(fileId);
+      }
     }
 
-    if (!anyMoved) return;
-    setExpandedFolders((prev) => (
-      prev.has(targetId) ? prev : new Set(prev).add(targetId)
-    ));
-    void onLoadDirectory(targetId);
+    if (anyMoved) {
+      setExpandedFolders((prev) => (
+        prev.has(targetId) ? prev : new Set(prev).add(targetId)
+      ));
+      clearSelection();
+      if (!filteredSpace) {
+        void onLoadDirectory(targetId).catch((error) => {
+          console.error(`Failed to refresh moved folder ${targetId}`, error);
+          setMoveError(t('fileTree.moveFailed', { reason: String(error) }));
+        });
+      }
+    }
+    return { failedPaths, error: firstError };
   });
+
+  const moveFiles = useStableCallback(async (sourceId: string, targetId: string) => {
+    setMoveError(null);
+    const { failedPaths, error } = await movePaths(targetsFor(sourceId), targetId);
+    if (failedPaths.length > 0) {
+      setMoveError(t('fileTree.moveFailed', {
+        reason: error ? String(error) : failedPaths.join(', '),
+      }));
+    }
+  });
+
+  const requestMoveToFolder = useStableCallback((path: string) => {
+    const targets = targetsFor(path);
+    if (!creationRootPath || targets.length === 0) return;
+    setMoveError(null);
+    setMoveTargets(targets);
+  });
+
+  const createTemplateIn = useStableCallback((folder: string) => {
+    setTemplateTarget(folder);
+  });
+
+  const selectTemplate = useStableCallback(async (template: NoteTemplate) => {
+    if (!templateTarget) return;
+    const folder = templateTarget;
+    const content = await readTemplate(template);
+    await fileOps.rowActions.createNoteIn?.(folder, content);
+    setTemplateTarget(null);
+  });
+
+  useEffect(() => {
+    clearSelection();
+    setMoveTargets([]);
+    setMoveError(null);
+    setTemplateTarget(null);
+    rootMenu.close();
+  }, [clearSelection, creationRootPath, rootMenu.close, spaces?.activeSpaceId, workspacePath]);
 
   const toggleFolder = useStableCallback((id: string) => {
     pendingScrollTopRef.current = contentRef.current?.scrollTop ?? null;
@@ -206,12 +309,79 @@ export const Sidebar = memo(function Sidebar({
   const treeActions = useMemo<FileTreeActions>(() => ({
     ...selectionActions,
     ...fileOps.rowActions,
+    targetsFor,
+    openFile: onOpenFile ?? onFileSelect,
+    openInRight: onOpenInRight,
+    openHistory: onOpenHistory,
+    canDuplicateSelection: (path) => targetsFor(path).every((target) => visibleFilePaths.has(comparablePath(target))),
+    canMoveSelection: (path) => targetsFor(path).every((target) => visiblePaths.has(comparablePath(target))),
+    copyPath: (path) => {
+      if (!workspacePath) return;
+      try {
+        void copyText(relativePath(workspacePath, path));
+      } catch (error) {
+        console.error('Failed to copy file path', error);
+      }
+    },
+    copyPaths: (path) => {
+      if (!workspacePath) return;
+      try {
+        const paths = targetsFor(path).map((target) => relativePath(workspacePath, target));
+        void copyText(paths.join('\n'));
+      } catch (error) {
+        console.error('Failed to copy selected file paths', error);
+      }
+    },
+    copyInternalLink: (path) => {
+      if (!workspacePath) return;
+      const target = relativePath(workspacePath, path).replace(/\.md$/i, '');
+      void copyText(`[[${target}]]`);
+    },
+    reveal: (path) => {
+      void revealItemInDir(path).catch((error) => console.error('Failed to reveal file', error));
+    },
+    revealWorkspace: () => {
+      if (workspacePath) {
+        void revealItemInDir(workspacePath).catch((error) => console.error('Failed to reveal workspace', error));
+      }
+    },
+    collapseFolders: () => setExpandedFolders(new Set()),
+    searchVault: () => onSearch?.(),
+    searchInFolder: (path) => {
+      if (workspacePath) onSearch?.(`folder:"${relativePath(workspacePath, path)}"`);
+    },
+    moveToFolder: requestMoveToFolder,
+    createCanvasIn: onCreateCanvasIn,
+    createBaseIn: onCreateBaseIn,
+    createTemplateIn,
     addToBoard: onAddToBoard,
     removeFromBoard: onRemoveFromBoard,
     openAsText: onOpenAsText,
     toggleFolder,
     prefetchFolder,
-  }), [fileOps.rowActions, onAddToBoard, onOpenAsText, onRemoveFromBoard, prefetchFolder, selectionActions, toggleFolder]);
+  }), [
+    createTemplateIn,
+    onCreateBaseIn,
+    onCreateCanvasIn,
+    fileOps.rowActions,
+    onAddToBoard,
+    onFileSelect,
+    onOpenFile,
+    onOpenHistory,
+    onOpenInRight,
+    onOpenAsText,
+    onSearch,
+    onRemoveFromBoard,
+    prefetchFolder,
+    requestMoveToFolder,
+    selectionActions,
+    setExpandedFolders,
+    targetsFor,
+    toggleFolder,
+    visibleFilePaths,
+    visiblePaths,
+    workspacePath,
+  ]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -242,7 +412,7 @@ export const Sidebar = memo(function Sidebar({
       className={`q-collapsible-panel q-sidebar ${isOpen ? '' : 'is-collapsed'}`}
       aria-hidden={!isOpen}
       onContextMenu={(event) => {
-        if (panel !== 'files' || !workspacePath) return;
+        if (panel !== 'files' || !creationRootPath) return;
         const target = event.target instanceof Element ? event.target : null;
         if (target?.closest(
           '[data-file-id], .q-file-tree, button, input, textarea, select, [role="button"], [data-space-switcher]',
@@ -254,8 +424,9 @@ export const Sidebar = memo(function Sidebar({
       </div>
       {panel === 'files' && workspacePath ? (
         <SidebarHeaderActions
-          onCreateNote={() => void fileOps.rowActions.createNoteIn?.(workspacePath)}
-          onCreateFolder={() => void fileOps.rowActions.createFolderIn?.(workspacePath)}
+          disabled={!creationRootPath}
+          onCreateNote={() => creationRootPath && void fileOps.rowActions.createNoteIn?.(creationRootPath)}
+          onCreateFolder={() => creationRootPath && void fileOps.rowActions.createFolderIn?.(creationRootPath)}
         />
       ) : null}
       {spaces && panel === 'files' ? (
@@ -273,13 +444,14 @@ export const Sidebar = memo(function Sidebar({
         <div hidden={panel !== 'files'}>
         {!treeReady ? null : (
           <FileTree
+            key={`${workspacePath}:${spaces?.activeSpaceId ?? DEFAULT_SPACE_ID}`}
             rows={rows}
             activeFile={activeFile}
             selectedFiles={selectedFiles}
             renamingPath={fileOps.renamingPath}
             actions={treeActions}
-            rootPath={workspacePath}
-            error={fileOps.createError}
+            rootPath={creationRootPath}
+            error={fileOps.createError ?? moveError}
             icons={iconizeEnabled ? iconAssignments : undefined}
             onIconChange={iconizeEnabled ? updateIcon : undefined}
           />
@@ -313,11 +485,11 @@ export const Sidebar = memo(function Sidebar({
         </div>
       </div>
 
-      {panel === 'files' && workspacePath && rootMenu.open && (
+      {panel === 'files' && creationRootPath && rootMenu.open && (
         <Menu
           open
           position={rootMenu.position}
-          items={rootActionItems(fileOps.rowActions, workspacePath)}
+          items={rootActionItems(treeActions, creationRootPath)}
           onClose={rootMenu.close}
           ariaLabel={t('fileTree.rootActions')}
         />
@@ -334,9 +506,36 @@ export const Sidebar = memo(function Sidebar({
         />
       ) : null}
 
+      <MoveToFolderDialog
+        open={moveTargets.length > 0}
+        workspacePath={workspacePath}
+        rootFolder={creationRootPath}
+        targets={moveTargets}
+        allowedFolders={allowedMoveFolders}
+        onClose={() => setMoveTargets([])}
+        onMove={async (folder) => {
+          setMoveError(null);
+          const { failedPaths, error } = await movePaths(moveTargets, folder);
+          if (failedPaths.length > 0) {
+            setMoveTargets(failedPaths);
+            throw error ?? new Error(failedPaths.join(', '));
+          }
+          setMoveTargets([]);
+        }}
+      />
+
+      <TemplateDialog
+        open={templateTarget !== null}
+        workspacePath={workspacePath}
+        folder={templateFolder}
+        onClose={() => setTemplateTarget(null)}
+        onSelect={selectTemplate}
+      />
+
       <DeleteNotesDialog
         targets={deleteTargets}
         pending={fileOps.isDeleting}
+        error={fileOps.deleteError}
         onCancel={fileOps.dismissDelete}
         onConfirm={fileOps.confirmDelete}
       />

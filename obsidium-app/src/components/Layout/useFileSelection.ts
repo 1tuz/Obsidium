@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LinkDisposition } from '../../modules/links';
-import { comparablePath } from '../../modules/paths';
+import { comparablePath, isInsidePath } from '../../modules/paths';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import type { VisibleFileRow } from './fileTreeModel';
 
@@ -64,9 +64,15 @@ export function useFileSelection(
     onFileOpen(path, { disposition: 'new-tab' });
   });
 
-  const targetsFor = useStableCallback((path: string) => (
-    selectedFiles.size > 1 && selectedFiles.has(path) ? Array.from(selectedFiles) : [path]
-  ));
+  const targetsFor = useStableCallback((path: string) => {
+    if (selectedFiles.size <= 1 || !selectedFiles.has(path)) return [path];
+    const folders = rows
+      .filter((row) => row.item.type === 'folder' && selectedFiles.has(row.item.id))
+      .map((row) => row.item.id);
+    return Array.from(selectedFiles).filter((target) => (
+      !folders.some((folder) => isInsidePath(target, folder))
+    ));
+  });
 
   const focusRow = useStableCallback((path: string) => {
     if (selectedFiles.size > 1 && selectedFiles.has(path)) return;

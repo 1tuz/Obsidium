@@ -13,6 +13,6 @@ const LINK_LIST_LIMIT: usize = 200;
 pub use backlinks::{backlink_rows, backlinks};
 pub use edges::{for_each_link, for_each_typed_link, read_documents};
 pub use outgoing::{linked_paths, outgoing_links};
-pub use rename::{plan_for_rename, LinkRewrite};
+pub use rename::{plan_for_rename, plan_for_renames, LinkRewrite};
 pub use repository::{candidate_sources, index_document, open_schema, remove_document};
 pub use resolver::resolve_many;
