@@ -8,7 +8,14 @@ import {
   type WeekGrid,
 } from '../calendar/monthGrid';
 import { baseProperty } from './properties';
+import { parseBase, serializeBase } from './baseFormat';
 import type { BaseFieldValue, BaseRow, BaseViewDefinition } from './types';
+
+export function buildCalendarBase(name: string): string {
+  const definition = parseBase('');
+  definition.views = [{ type: 'calendar', name, dateField: 'date', order: [] }];
+  return serializeBase(definition);
+}
 
 export type CalendarDay = GridDay<BaseRow>;
 export type CalendarMonth = MonthGrid<BaseRow>;

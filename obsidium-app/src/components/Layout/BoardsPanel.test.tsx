@@ -236,6 +236,7 @@ describe('BoardsPanel', () => {
   });
 
   it('creates a new board with a dedicated tag by default and opens it', async () => {
+    state.directories['/vault'] = [];
     const onOpenView = vi.fn();
     const props = {
       active: true, workspacePath: '/vault', onOpenView,
@@ -243,9 +244,11 @@ describe('BoardsPanel', () => {
     };
     act(() => { renderer = mountDom(<BoardsPanel {...props} />); });
     await actAndSettle();
+    expect(renderer!.container.textContent).toContain(t('boards.emptyKanban'));
     act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-boards-panel__header button')!.click());
     await actAndSettle();
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+    expect(dialog.textContent).toContain(t('boards.newBoard'));
     const nameInput = dialog.querySelector<HTMLInputElement>('input')!;
     expect(dialog.querySelector<HTMLSelectElement>('select')?.value).toBe('tag');
     nameInput.value = 'Sprint';
