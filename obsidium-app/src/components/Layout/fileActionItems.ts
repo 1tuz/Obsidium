@@ -1,15 +1,14 @@
 import {
   ArrowRight,
   Copy,
-  CopyPlus,
   ExternalLink,
-  FilePlus,
+  FilePlus2,
   FileText,
   FolderOpen,
   FolderPlus,
   History,
   LayoutTemplate,
-  Link,
+  Link2,
   PanelRight,
   Pencil,
   Search,
@@ -80,7 +79,7 @@ function createItems(actions: FileMenuActions, path: string): MenuEntry[] {
     items.push({
       id: 'new-note-here',
       label: t('fileTree.newNoteHere'),
-      icon: FilePlus,
+      icon: FilePlus2,
       onSelect: () => actions.createNoteIn?.(path),
     });
   }
@@ -141,7 +140,7 @@ export function rootActionItems(actions: FileMenuActions, path: string): MenuEnt
   return grouped([
     [
       ...(actions.createNoteIn ? [{
-        id: 'new-note', label: t('fileTree.createNote'), icon: FilePlus,
+        id: 'new-note', label: t('fileTree.createNote'), icon: FilePlus2,
         onSelect: () => actions.createNoteIn?.(path),
       }] : []),
       ...(actions.createFolderIn ? [{
@@ -188,7 +187,7 @@ export function selectionActionItems(actions: FileMenuActions, path: string): Me
     }] : [],
     [
       ...(actions.duplicateFile && (actions.canDuplicateSelection?.(path) ?? true) ? [{
-        id: 'duplicate-selection', label: t('common.duplicate'), icon: CopyPlus,
+        id: 'duplicate-selection', label: t('common.duplicate'), icon: Copy,
         onSelect: () => actions.duplicateFile?.(path),
       }] : []),
       ...(actions.moveToFolder && (actions.canMoveSelection?.(path) ?? true) ? [{
@@ -216,7 +215,7 @@ export function fileActionItems(
         onSelect: () => actions.openFile?.(path),
       }] : []),
       ...(markdown && actions.openInNewTab ? [{
-        id: 'open-new-tab', label: t('fileTree.openInNewTab'), icon: CopyPlus,
+        id: 'open-new-tab', label: t('fileTree.openInNewTab'), icon: ExternalLink,
         onSelect: () => actions.openInNewTab?.(path),
       }] : []),
       ...(markdown && actions.openInRight ? [{
@@ -230,7 +229,7 @@ export function fileActionItems(
     ],
     [
       ...(markdown && actions.copyInternalLink ? [{
-        id: 'copy-internal-link', label: t('fileTree.copyInternalLink'), icon: Link,
+        id: 'copy-internal-link', label: t('fileTree.copyInternalLink'), icon: Link2,
         onSelect: () => actions.copyInternalLink?.(path),
       }] : []),
       ...(actions.copyPath ? [{
@@ -248,7 +247,7 @@ export function fileActionItems(
     ],
     [
       ...(actions.duplicateFile ? [{
-        id: 'duplicate', label: t('common.duplicate'), icon: CopyPlus,
+        id: 'duplicate', label: t('common.duplicate'), icon: Copy,
         onSelect: () => actions.duplicateFile?.(path),
       }] : []),
       ...(actions.moveToFolder ? [{
