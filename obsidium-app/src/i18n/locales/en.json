@@ -840,11 +840,16 @@
     "iconReset": "Reset icon",
     "newNote": "New note",
     "newFolder": "New folder",
+    "createNote": "Create note",
+    "createFolder": "Create folder",
     "newNoteHere": "New note here",
     "newFolderHere": "New folder here",
     "newFolderName": "New folder",
     "rootActions": "Actions in the knowledge base root",
-    "createFailed": "Could not create: {{reason}}"
+    "createFailed": "Could not create: {{reason}}",
+    "createdButRefreshFailed": "Created, but the folder list could not be refreshed.",
+    "renameConflict": "The name “{{name}}” is already taken",
+    "renameFailed": "Could not rename to “{{name}}”"
   },
   "workspace": {
     "switch": "Switch the knowledge base",

@@ -5,6 +5,7 @@
   bottom: var(--q-space-12);
   display: flex;
   width: var(--q-graph-settings-width);
+  max-width: calc(100% - var(--q-space-24));
   flex-direction: column;
   gap: var(--q-space-16);
   padding: var(--q-space-16);

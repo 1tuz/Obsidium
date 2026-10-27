@@ -35,11 +35,11 @@ const ARCHIVE_PENALTY: f64 = 0.45;
 pub fn definitions() -> Vec<Value> {
     vec![tool(
         "search_context",
-        "Готовые фрагменты заметок по запросу: путь, раздел, номера строк и текст вокруг совпадения — читать заметки целиком не нужно. Кандидаты берутся из полнотекстового поиска, дополняются соседями по графу ссылок (graphDepth) и объединяются ранговым слиянием RRF, поэтому scores сравнимы только между результатами одного вызова. folder и tags сужают набор, mode=deep добавляет похожие заметки через BM25F и общих соседей через Adamic-Adar. Ответ ограничен maxChars символов JSON: при нехватке места выставляется truncated и omitted, а hasMore говорит, что кандидаты остались. hash — отпечаток файла для последующей правки через expectedHash.",
+        "Ограниченная подготовка контекста для ответа: фрагменты заметок с путями, разделами, строками, причинами совпадения и хэшами. Tantivy даёт основной лексический порядок; граф ссылок дополняет свободные места, но не поднимает заметку над прямым совпадением. Это полнотекстовый поиск, не семантический. folder и tags сужают набор, mode=deep дополнительно использует BM25F и Adamic-Adar. Индекс сообщает состояние и число документов. Ответ ограничен maxChars символов JSON; truncated и omitted показывают усечение, hasMore — наличие следующих кандидатов. searchMethod указывает реально использованные лексические, графовые и BM25F-сигналы. hash пригоден для expectedHash при последующей правке.",
         json!({
             "query": { "type": "string", "description": "Поисковый запрос: слова, которые должны встретиться в заметке" },
             "workspace": workspace_property(),
-            "folder": { "type": "string", "description": "Искать только в этой папке, пусто — вся база" },
+            "folder": { "type": "string", "description": "Искать только в этой папке, пусто — вся база; окно кандидатов расширяется, пока фильтр не даст limit результатов или поиск не исчерпает лимит" },
             "tags": {
                 "type": "array",
                 "items": { "type": "string" },
@@ -131,7 +131,7 @@ impl Candidate {
         let base = if text == 0.0 {
             graph * GRAPH_ONLY_PENALTY
         } else {
-            text + tags + graph
+            text + tags
         };
         base * self.archive_penalty()
     }
@@ -181,39 +181,53 @@ fn search_context(core: &Core, arguments: &Value) -> Result<Value, String> {
     let seeds = seed_notes(core, &vault, arguments)?;
     let workspace = vault.root.to_string_lossy().into_owned();
     let config = core.settings.get_config();
-    let window = (size.saturating_mul(CANDIDATE_FACTOR))
+    let mut window = (size.saturating_mul(CANDIDATE_FACTOR))
         .min(MAX_CANDIDATES)
         .max(1);
-
-    let response = core
-        .search
-        .search(&workspace, &query, Some(window), &config.search)
-        .map_err(|error| error.to_string())?;
-    let terms = response.query_terms.clone();
-    let indexing = response.status.updating;
-
     let mut candidates = Vec::<Candidate>::new();
     let mut index = HashMap::<String, usize>::new();
     let mut text_order = Vec::<usize>::new();
-    for result in response.results {
-        let path = PathBuf::from(&result.path);
-        push_text(
-            &mut candidates,
-            &mut index,
-            &mut text_order,
-            path,
-            &result.matched_tags,
-            &tags,
-            folder.as_deref(),
-            &vault,
-        );
-    }
+    let (terms, indexing, index_status) = loop {
+        let response = core
+            .search
+            .search(&workspace, &query, Some(window), &config.search)
+            .map_err(|error| error.to_string())?;
+        let terms = response.query_terms;
+        let indexing = response.status.updating;
+        let index_status = json!({
+            "state": response.status.state,
+            "updating": indexing,
+            "indexedDocuments": response.status.indexed_documents,
+            "scannedDocuments": response.status.scanned_documents,
+        });
+        let returned = response.results.len();
+        for result in response.results {
+            push_text(
+                &mut candidates,
+                &mut index,
+                &mut text_order,
+                PathBuf::from(&result.path),
+                &result.matched_tags,
+                &tags,
+                folder.as_deref(),
+                &vault,
+            );
+        }
+        if text_order.len() >= size
+            || returned < window
+            || window >= crate::search::query::MAX_WINDOW
+        {
+            break (terms, indexing, index_status);
+        }
+        window = (window * 2).min(crate::search::query::MAX_WINDOW);
+    };
 
     let deep_seeds = text_order
         .iter()
         .take(DEEP_SEEDS)
         .map(|position| candidates[*position].path.clone())
         .collect::<Vec<_>>();
+    let mut bm25f_used = false;
     if mode == Mode::Deep {
         for seed in &deep_seeds {
             if let Ok(found) = core.search.analyze_document(
@@ -223,6 +237,7 @@ fn search_context(core: &Core, arguments: &Value) -> Result<Value, String> {
                 Some(size),
                 &config,
             ) {
+                bm25f_used = true;
                 for result in found {
                     push_text(
                         &mut candidates,
@@ -240,21 +255,26 @@ fn search_context(core: &Core, arguments: &Value) -> Result<Value, String> {
     }
 
     let mut graph_order = Vec::<usize>::new();
+    let mut graph_used = false;
+    let mut adamic_adar_used = false;
     if depth > 0 {
         if let Ok(graph) = core.search.graph_snapshot(&workspace) {
-            expand_graph(
-                &graph,
-                &vault,
-                &mut candidates,
-                &mut index,
-                &mut graph_order,
-                &text_order,
-                &seeds,
-                &tags,
-                folder.as_deref(),
-                size,
-                depth,
-            );
+            if !text_order.is_empty() || !seeds.is_empty() {
+                expand_graph(
+                    &graph,
+                    &vault,
+                    &mut candidates,
+                    &mut index,
+                    &mut graph_order,
+                    &text_order,
+                    &seeds,
+                    &tags,
+                    folder.as_deref(),
+                    size,
+                    depth,
+                );
+                graph_used = true;
+            }
         }
         if mode == Mode::Deep {
             for seed in &deep_seeds {
@@ -265,6 +285,7 @@ fn search_context(core: &Core, arguments: &Value) -> Result<Value, String> {
                     Some(size),
                     &config,
                 ) {
+                    adamic_adar_used = true;
                     for result in found {
                         let path = PathBuf::from(&result.path);
                         let relative = vault.relative(&path);
@@ -346,8 +367,14 @@ fn search_context(core: &Core, arguments: &Value) -> Result<Value, String> {
 
     let mut results = Vec::<Value>::new();
     let mut omitted = 0usize;
-    let mut has_more = ordered.len() > size;
-    for position in ordered.iter().take(size) {
+    let mut has_more = false;
+    let mut seen_excerpts = HashSet::<String>::new();
+    let mut included_notes = 0usize;
+    for position in &ordered {
+        if included_notes >= size {
+            has_more = true;
+            break;
+        }
         let candidate = &candidates[*position];
         let Ok(snapshot) = read_file_snapshot_impl(&candidate.path) else {
             continue;
@@ -358,6 +385,9 @@ fn search_context(core: &Core, arguments: &Value) -> Result<Value, String> {
         }
         let mut included = false;
         for fragment in found {
+            if seen_excerpts.contains(&fragment.excerpt) {
+                continue;
+            }
             let value = fragment_value(&vault, candidate, &fragment, &snapshot.hash, &terms);
             results.push(value);
             let chars = serde_json::to_string(&results)
@@ -368,20 +398,34 @@ fn search_context(core: &Core, arguments: &Value) -> Result<Value, String> {
                 results.pop();
                 omitted += 1;
             } else {
+                seen_excerpts.insert(fragment.excerpt.clone());
                 included = true;
             }
         }
-        if !included {
-            has_more = true;
+        if included {
+            included_notes += 1;
         }
     }
     let used = serde_json::to_string(&results)
         .map_err(|error| error.to_string())?
         .chars()
         .count();
+    let mut search_methods = vec!["tantivy"];
+    if bm25f_used {
+        search_methods.push("bm25f");
+    }
+    if adamic_adar_used {
+        search_methods.push("adamic-adar");
+    }
+    if graph_used {
+        search_methods.push("graph");
+    }
+    let search_method = search_methods.join("+");
 
     Ok(json!({
         "indexing": indexing,
+        "indexStatus": index_status,
+        "searchMethod": search_method,
         "query": {
             "terms": terms,
             "folder": folder,
@@ -509,6 +553,10 @@ fn adjacency(graph: &GraphSnapshot) -> HashMap<String, Vec<String>> {
             .or_default()
             .push(source.to_owned());
     }
+    for neighbours in adjacency.values_mut() {
+        neighbours.sort();
+        neighbours.dedup();
+    }
     adjacency
 }
 
@@ -535,7 +583,6 @@ fn fragment_value(
     terms: &[String],
 ) -> Value {
     let (text, tags, graph) = candidate.signal();
-    let score = text + tags + graph;
     json!({
         "path": vault.relative(&candidate.path),
         "heading": fragment.heading,
@@ -549,7 +596,7 @@ fn fragment_value(
             "tags": round(tags),
             "graph": round(graph),
         },
-        "score": round(score),
+        "score": round(candidate.score()),
     })
 }
 
@@ -664,6 +711,14 @@ fn is_archived(path: &Path) -> bool {
             name.as_str(),
             "архив" | "archive" | "archived" | "archive-old" | "старое"
         )
+    }) || path.file_stem().is_some_and(|name| {
+        let name = name.to_string_lossy().to_lowercase();
+        ["копия", "stale", "устарев"]
+            .iter()
+            .any(|marker| name.contains(marker))
+            || name
+                .split([' ', '-', '_', '(', ')', '[', ']'])
+                .any(|part| matches!(part, "old" | "backup" | "copy"))
     })
 }
 
@@ -791,6 +846,7 @@ mod tests {
         let answer = call(&core, "search_context", &json!({ "query": "установка" })).unwrap();
 
         let first = &answer["results"][0];
+        assert_eq!(answer["searchMethod"], "tantivy+graph");
         assert_eq!(first["heading"], "Установка", "{answer}");
         let start = first["lineStart"].as_u64().unwrap() as usize;
         let end = first["lineEnd"].as_u64().unwrap() as usize;
@@ -825,12 +881,115 @@ mod tests {
     }
 
     #[test]
+    fn exact_excerpts_are_deduplicated_across_notes_and_lower_results_fill_slots() {
+        let (_directory, core, _root) = fixture(&[
+            ("А.md", "# Раздел\n\nсовпадение общее\n"),
+            ("Б.md", "# Раздел\n\nсовпадение общее\n"),
+            ("В.md", "# Раздел\n\nсовпадение уникальное\n"),
+        ]);
+
+        let answer = call(
+            &core,
+            "search_context",
+            &json!({ "query": "совпадение", "limit": 2, "graphDepth": 0 }),
+        )
+        .unwrap();
+
+        let results = answer["results"].as_array().unwrap();
+        assert_eq!(results.len(), 2, "{answer}");
+        let excerpts = results
+            .iter()
+            .map(|item| item["excerpt"].as_str().unwrap())
+            .collect::<HashSet<_>>();
+        assert_eq!(excerpts.len(), results.len(), "{answer}");
+        assert!(
+            results.iter().any(|item| item["path"] == "В.md"),
+            "{answer}"
+        );
+        core.shutdown();
+    }
+
+    #[test]
+    fn filename_copy_markers_are_treated_as_archived() {
+        assert!(super::is_archived(Path::new("Проекты/План (копия).md")));
+        assert!(super::is_archived(Path::new("Projects/Plan-old.md")));
+        assert!(!super::is_archived(Path::new("Projects/Copywriting.md")));
+        assert!(!super::is_archived(Path::new("Projects/Copycat.md")));
+        assert!(!super::is_archived(Path::new("Проекты/План.md")));
+    }
+
+    #[test]
+    fn graph_bonus_does_not_reorder_direct_lexical_results() {
+        let mut first = super::Candidate::new(PathBuf::from("Первый.md"));
+        first.text_rank = Some(1);
+        let mut second = super::Candidate::new(PathBuf::from("Второй.md"));
+        second.text_rank = Some(2);
+        second.graph_rank = Some(1);
+
+        assert!(first.score() > second.score());
+
+        let vault = crate::mcp::vault::Vault {
+            root: PathBuf::from("/vault"),
+            visible: false,
+        };
+        let fragment = crate::search::excerpt::Fragment {
+            heading: None,
+            line_start: 1,
+            line_end: 1,
+            excerpt: "совпадение".to_owned(),
+        };
+        let value = super::fragment_value(
+            &vault,
+            &second,
+            &fragment,
+            "hash",
+            &["совпадение".to_owned()],
+        );
+        assert!(value["signals"]["graph"].as_f64().unwrap() > 0.0);
+        assert_eq!(
+            value["score"].as_f64().unwrap(),
+            super::round(second.score())
+        );
+    }
+
+    #[test]
+    fn folder_filter_searches_beyond_the_initial_candidate_window() {
+        let mut files = (0..210)
+            .map(|index| {
+                let name = format!("Шум/Ротация ключей TLS {index:03}.md");
+                (name, "# Ротация ключей TLS\n\nротация ключей tls\n")
+            })
+            .collect::<Vec<_>>();
+        files.push((
+            "Цель/Ключи.md".to_owned(),
+            "# Ключи\n\nротация ключей tls\n",
+        ));
+        let borrowed = files
+            .iter()
+            .map(|(name, content)| (name.as_str(), *content))
+            .collect::<Vec<_>>();
+        let (_directory, core, _root) = fixture(&borrowed);
+
+        let answer = call(
+            &core,
+            "search_context",
+            &json!({ "query": "ротация ключей tls", "folder": "Цель", "graphDepth": 0 }),
+        )
+        .unwrap();
+
+        assert_eq!(paths(&answer), ["Цель/Ключи.md"], "{answer}");
+        core.shutdown();
+    }
+
+    #[test]
     fn max_chars_bounds_the_serialized_results() {
-        let long = format!("# Раздел\n\n{}", "слово строка\n".repeat(60));
         let files = (0..6)
             .map(|index| {
                 let name = format!("Заметка{index}.md");
-                let content = long.clone();
+                let content = format!(
+                    "# Раздел\n\n{}",
+                    format!("слово строка {index}\n").repeat(60)
+                );
                 (name, content)
             })
             .collect::<Vec<_>>();
@@ -922,6 +1081,7 @@ mod tests {
         assert!(found.contains(&"Центр.md".to_owned()), "{with_graph}");
         assert!(found.contains(&"Сосед.md".to_owned()), "{with_graph}");
         assert!(!found.contains(&"Дальний.md".to_owned()), "{with_graph}");
+        assert_eq!(with_graph["searchMethod"], "tantivy+graph");
 
         let without = call(
             &core,
@@ -931,6 +1091,40 @@ mod tests {
         .unwrap();
         let found = paths(&without);
         assert_eq!(found, ["Центр.md"], "{without}");
+        core.shutdown();
+    }
+
+    #[test]
+    fn search_method_reports_only_signals_that_ran() {
+        let (_directory, core, _root) =
+            fixture(&[("Заметка.md", "# Заметка\n\nслово для поиска\n")]);
+
+        let without_seeds = call(
+            &core,
+            "search_context",
+            &json!({ "query": "несуществующее", "mode": "deep", "graphDepth": 0 }),
+        )
+        .unwrap();
+        assert_eq!(without_seeds["searchMethod"], "tantivy");
+
+        let deep = call(
+            &core,
+            "search_context",
+            &json!({ "query": "слово", "mode": "deep", "graphDepth": 0 }),
+        )
+        .unwrap();
+        assert_eq!(deep["searchMethod"], "tantivy+bm25f");
+
+        let deep_without_links = call(
+            &core,
+            "search_context",
+            &json!({ "query": "слово", "mode": "deep", "graphDepth": 1 }),
+        )
+        .unwrap();
+        assert_eq!(
+            deep_without_links["searchMethod"],
+            "tantivy+bm25f+adamic-adar+graph"
+        );
         core.shutdown();
     }
 

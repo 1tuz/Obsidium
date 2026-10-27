@@ -43,7 +43,8 @@ export const FileTree = memo(function FileTree({
       className="q-file-tree"
       onContextMenu={(event) => {
         if (!root) return;
-        if (event.target instanceof Element && event.target.closest('[data-file-id]')) return;
+        const target = event.target instanceof Element ? event.target : null;
+        if (target?.closest('[data-file-id], button, input, textarea, select, [role="button"]')) return;
         rootMenu.onContextMenu(event);
       }}
     >

@@ -907,6 +907,9 @@ describe('GraphSettings', () => {
   it('wraps settings text instead of clipping it and leaves room for graph history', () => {
     expect(graphSettingsStyles).toMatch(/\.q-graph-settings\s*\{[^}]*overflow-x:\s*hidden;/s);
     expect(graphSettingsStyles).toMatch(
+      /\.q-graph-settings\s*\{[^}]*max-width:\s*calc\(100% - var\(--q-space-24\)\);/s,
+    );
+    expect(graphSettingsStyles).toMatch(
       /\.q-graph-settings-toggle > span\s*\{[^}]*overflow-wrap:\s*anywhere;/s,
     );
     expect(graphSettingsStyles).toMatch(

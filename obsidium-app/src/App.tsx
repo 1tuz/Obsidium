@@ -83,7 +83,7 @@ const PdfViewer = lazy(() => import("./components/Pdf/PdfViewer")
   .then((module) => ({ default: module.PdfViewer })));
 
 const EMPTY_PATHS: ReadonlySet<string> = new Set();
-const noDirectoryLoad = (): Promise<boolean> => Promise.resolve(true);
+const noDirectoryLoad = (): Promise<void> => Promise.resolve();
 
 export default function App() {
   const search = useOverlay();
@@ -958,7 +958,6 @@ export default function App() {
           workspacePath={workspacePath}
           workspaceName={workspaceName}
           onFileSelect={openNote}
-          onCreateNote={() => commandRegistry.execute('note.new').then(() => undefined)}
           onLoadDirectory={sidebarLoadDirectory}
           isOpen={leftSidebarVisible}
           onOpenSettings={() => { void commandRegistry.execute('view.settings'); }}

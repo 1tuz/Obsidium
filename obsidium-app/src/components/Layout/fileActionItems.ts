@@ -47,14 +47,14 @@ export function rootActionItems(actions: FileMenuActions, path: string): MenuIte
   if (actions.createNoteIn) {
     items.push({
       id: 'new-note',
-      label: t('fileTree.newNote'),
+      label: t('fileTree.createNote'),
       onSelect: () => actions.createNoteIn?.(path),
     });
   }
   if (actions.createFolderIn) {
     items.push({
       id: 'new-folder',
-      label: t('fileTree.newFolder'),
+      label: t('fileTree.createFolder'),
       onSelect: () => actions.createFolderIn?.(path),
     });
   }

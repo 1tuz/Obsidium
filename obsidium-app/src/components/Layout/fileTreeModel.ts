@@ -1,6 +1,6 @@
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import type { FileMenuActions } from './fileActionItems';
-import { comparablePath } from '../../modules/paths';
+import { comparablePath, parentDirectory } from '../../modules/paths';
 
 export interface VisibleFileRow {
   item: WorkspaceItem;
@@ -30,8 +30,30 @@ export function buildVisibleFileRows(
   directories: ReadonlyMap<string, WorkspaceItem[]>,
   expandedFolders: ReadonlySet<string>,
   loadingDirectories: ReadonlySet<string>,
+  workspacePath?: string | null,
+  createdItem?: WorkspaceItem | null,
 ): VisibleFileRow[] {
   const rows: VisibleFileRow[] = [];
+  let visibleRoots = roots;
+  let visibleDirectories = directories;
+
+  if (workspacePath && createdItem) {
+    const parent = parentDirectory(createdItem.id);
+    const parentKey = [...directories.keys()].find(
+      (path) => comparablePath(path) === comparablePath(parent),
+    );
+    if (comparablePath(parent) === comparablePath(workspacePath)) {
+      if (!roots.some((item) => comparablePath(item.id) === comparablePath(createdItem.id))) {
+        visibleRoots = [...roots, createdItem];
+      }
+    } else {
+      const key = parentKey ?? parent;
+      const parentItems = parentKey ? directories.get(parentKey) ?? [] : [];
+      if (!parentItems.some((item) => comparablePath(item.id) === comparablePath(createdItem.id))) {
+        visibleDirectories = new Map(directories).set(key, [...parentItems, createdItem]);
+      }
+    }
+  }
 
   const visit = (items: readonly WorkspaceItem[], depth: number, continuingGuides: number[]) => {
     const guideDepths = continuingGuides.join(',');
@@ -51,7 +73,7 @@ export function buildVisibleFileRows(
       });
 
       if (expanded) {
-        const children = directories.get(item.id);
+        const children = visibleDirectories.get(item.id);
         if (children && children.length > 0) {
           let guidesForChildren = [...continuingGuides];
           if (isLast) {
@@ -64,7 +86,7 @@ export function buildVisibleFileRows(
     });
   };
 
-  visit(roots, 0, []);
+  visit(visibleRoots, 0, []);
   return rows;
 }
 

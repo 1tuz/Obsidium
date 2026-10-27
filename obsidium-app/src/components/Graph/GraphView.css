@@ -6,6 +6,7 @@
   min-height: 0;
   width: 100%;
   overflow: hidden;
+  container-type: inline-size;
   background-color: var(--q-graph-backdrop);
 }
 
@@ -60,7 +61,7 @@
   display: flex;
   align-items: center;
   gap: var(--q-space-8);
-  min-width: min(420px, calc(100vw - var(--q-space-64)));
+  min-width: min(420px, calc(100% - var(--q-space-64)));
 }
 
 .q-graph-timeline__controls input[type="range"] {
@@ -72,6 +73,26 @@
   white-space: nowrap;
 }
 
+@container (max-width: 760px) {
+  .q-graph:has(> .q-graph-settings:not(.q-graph-settings--collapsed)) .q-graph-timeline {
+    right: var(--q-space-16);
+    max-width: calc(100% - var(--q-space-32));
+  }
+
+  .q-graph:has(> .q-graph-settings:not(.q-graph-settings--collapsed)):has(> .q-graph-timeline .q-graph-timeline__controls) > .q-graph-settings {
+    padding-bottom: calc(var(--q-space-16) + var(--q-space-128));
+  }
+
+  .q-graph:has(> .q-graph-settings:not(.q-graph-settings--collapsed)) .q-graph-timeline__controls {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .q-graph:has(> .q-graph-settings:not(.q-graph-settings--collapsed)) .q-graph-timeline__controls > span {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 
 .q-graph-message {
   position: absolute;

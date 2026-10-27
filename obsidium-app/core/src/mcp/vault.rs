@@ -136,21 +136,98 @@ impl Vault {
         let windows_drive_path =
             bytes.get(1) == Some(&b':') && bytes.first().is_some_and(u8::is_ascii_alphabetic);
         if Path::new(trimmed).is_absolute() || windows_drive_path || trimmed.starts_with(r"\\") {
-            let path = crate::search::paths::canonical_path(Path::new(trimmed));
-            return self.ensure_inside(path);
+            let mut candidate = PathBuf::from(trimmed);
+            if candidate
+                .components()
+                .any(|component| component == Component::ParentDir)
+            {
+                return Err(format!("Путь должен быть внутри базы знаний: {input}"));
+            }
+            let mut suffix = Vec::new();
+            loop {
+                match std::fs::canonicalize(&candidate) {
+                    Ok(canonical) => {
+                        let mut resolved =
+                            self.ensure_inside(crate::search::paths::canonical_path(&canonical))?;
+                        for component in suffix.iter().rev() {
+                            resolved.push(component);
+                        }
+                        return Ok(resolved);
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                        match std::fs::symlink_metadata(&candidate) {
+                            Err(metadata_error)
+                                if metadata_error.kind() == std::io::ErrorKind::NotFound => {}
+                            _ => {
+                                return Err(format!(
+                                    "Не удалось проверить путь: {}",
+                                    candidate.to_string_lossy()
+                                ));
+                            }
+                        }
+                        let Some(name) = candidate.file_name() else {
+                            return Err(format!(
+                                "Не удалось проверить путь: {}",
+                                candidate.to_string_lossy()
+                            ));
+                        };
+                        suffix.push(name.to_os_string());
+                        if !candidate.pop() {
+                            return Err(format!(
+                                "Не удалось проверить путь: {}",
+                                candidate.to_string_lossy()
+                            ));
+                        }
+                    }
+                    Err(_) => {
+                        return Err(format!(
+                            "Не удалось проверить путь: {}",
+                            candidate.to_string_lossy()
+                        ));
+                    }
+                }
+            }
         }
-        let mut relative = PathBuf::new();
-        for component in Path::new(&trimmed.replace('\\', "/")).components() {
+        let mut components = Vec::new();
+        let normalized = trimmed.replace('\\', "/");
+        for component in Path::new(&normalized).components() {
             match component {
-                Component::Normal(value) => relative.push(value),
+                Component::Normal(value) => components.push(value),
                 Component::CurDir => {}
                 _ => return Err(format!("Путь должен быть внутри базы знаний: {input}")),
             }
         }
-        if relative.as_os_str().is_empty() {
+        if components.is_empty() {
             return Err("Пустой путь".to_owned());
         }
-        Ok(self.root.join(relative))
+        let mut path = self.root.clone();
+        for (index, component) in components.iter().enumerate() {
+            let candidate = path.join(component);
+            match std::fs::canonicalize(&candidate) {
+                Ok(canonical) => path = self.ensure_inside(canonical)?,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    match std::fs::symlink_metadata(&candidate) {
+                        Err(metadata_error)
+                            if metadata_error.kind() == std::io::ErrorKind::NotFound => {}
+                        _ => {
+                            return Err(format!(
+                                "Не удалось проверить путь: {}",
+                                candidate.to_string_lossy()
+                            ));
+                        }
+                    }
+                    path.extend(components[index..].iter());
+                    break;
+                }
+                Err(_) => {
+                    return Err(format!(
+                        "Не удалось проверить путь: {}",
+                        candidate.to_string_lossy()
+                    ));
+                }
+            }
+        }
+        Ok(path)
     }
 
     fn ensure_inside(&self, path: PathBuf) -> Result<PathBuf, String> {
@@ -228,6 +305,34 @@ mod tests {
         assert!(vault.note_path("Проекты/../../secrets.md").is_err());
         assert!(vault.note_path("C:/Windows/system.ini").is_err());
         assert!(vault.note_path("/etc/passwd").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_paths_through_a_symlink_outside_the_vault() {
+        use std::os::unix::fs::symlink;
+
+        let (_guard, _core, vault) = vault();
+        let sibling = vault.root.parent().unwrap().join("sibling-vault");
+        fs::create_dir_all(&sibling).unwrap();
+        fs::write(sibling.join("secret.md"), "чужое").unwrap();
+        symlink(&sibling, vault.root.join("outside")).unwrap();
+
+        assert!(vault.note_path("outside/secret.md").is_err());
+        assert!(vault.note_path("outside/new.md").is_err());
+        assert!(vault
+            .note_path(&vault.root.join("outside/new.md").to_string_lossy())
+            .is_err());
+        assert_eq!(
+            vault.note_path("inside/new.md").unwrap(),
+            vault.root.join("inside/new.md")
+        );
+        assert_eq!(
+            vault
+                .note_path(&vault.root.join("inside/absolute-new.md").to_string_lossy())
+                .unwrap(),
+            vault.root.join("inside/absolute-new.md")
+        );
     }
 
     #[test]
