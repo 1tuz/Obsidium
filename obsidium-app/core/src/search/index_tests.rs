@@ -143,6 +143,20 @@ fn disk_index_searches_title_and_body_by_case_insensitive_prefix() {
 }
 
 #[test]
+fn russian_inflections_share_the_existing_stemmer_for_index_and_query() {
+    let (_directory, index) = indexed(&[(
+        "notes/Ротация.md",
+        "Ротация ключей TLS",
+        "Ротация ключей TLS.",
+    )]);
+
+    let results = index.search_defaults("ключи", 10).unwrap().1;
+
+    assert_eq!(results.len(), 1);
+    assert!(results[0].path.ends_with("Ротация.md"));
+}
+
+#[test]
 fn a_multi_word_query_ranks_partial_matches_instead_of_returning_nothing() {
     let (_guard, index) = indexed(&[
         (

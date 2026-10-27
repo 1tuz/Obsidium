@@ -1,14 +1,15 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useInsertionEffect, useMemo, useRef, useState } from 'react';
 import { copyFile, isBasePath, isCanvasPath, isFileCommandError, isMarkdownPath, trashFile } from '../../modules/documents/fileGateway';
+import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import { renameFolder } from '../../modules/documents/workspaceFolder';
 import {
   isRenameConflict,
   renameWorkspaceFile,
 } from '../../modules/documents/renameWorkspaceFile';
-import { claimNumberedPath, fileStem } from '../../modules/paths';
+import { claimNumberedPath, fileName, fileStem } from '../../modules/paths';
 import { useStableCallback } from '../../hooks/useStableCallback';
 import { t } from '../../i18n';
-import { createUniqueFile } from '../../modules/documents/documentFactory';
+import { createUniqueFile, sanitizeFileName } from '../../modules/documents/documentFactory';
 import { createUniqueFolder } from '../../modules/documents/folderFactory';
 
 interface FileTreeActionsInput {
@@ -17,8 +18,9 @@ interface FileTreeActionsInput {
   clearSelection?: () => void;
   onPatchFileInTree?: (path: string, patch: { id?: string; name?: string }) => void;
   onPathMoved?: (from: string, to: string) => void;
-  onDirectoryChanged?: (path: string) => void;
+  onDirectoryChanged?: (path: string) => void | boolean | Promise<void | boolean>;
   onOpenCreated?: (path: string) => void;
+  creationScope?: string | null;
 }
 
 export function useFileTreeActions({
@@ -29,12 +31,27 @@ export function useFileTreeActions({
   onPathMoved,
   onDirectoryChanged,
   onOpenCreated,
+  creationScope = null,
 }: FileTreeActionsInput) {
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [createdItem, setCreatedItem] = useState<WorkspaceItem | null>(null);
+  const [createdItemRefreshed, setCreatedItemRefreshed] = useState(false);
   const [deleteTargets, setDeleteTargets] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const actionPendingRef = useRef(false);
+  const creationGenerationRef = useRef(0);
+
+  useInsertionEffect(() => {
+    creationGenerationRef.current += 1;
+  }, [creationScope, workspacePath]);
+
+  useEffect(() => {
+    setRenamingPath(null);
+    setCreatedItem(null);
+    setCreatedItemRefreshed(false);
+    setCreateError(null);
+  }, [creationScope, workspacePath]);
 
   const startRename = useStableCallback((path: string) => {
     setRenamingPath(path);
@@ -42,29 +59,46 @@ export function useFileTreeActions({
 
   const cancelRename = useStableCallback(() => {
     setRenamingPath(null);
+    if (createdItemRefreshed) setCreatedItem(null);
   });
 
   const commitRename = useStableCallback(async (path: string, nextName: string) => {
-    const current = fileStem(path);
+    const isFile = isMarkdownPath(path) || isBasePath(path) || isCanvasPath(path);
+    const current = isMarkdownPath(path) || isBasePath(path) ? fileStem(path) : fileName(path);
+    const originalName = isBasePath(path) ? fileName(path) : current;
     const trimmed = nextName.trim();
+    const name = isFile ? trimmed : sanitizeFileName(trimmed);
     setRenamingPath(null);
-    if (!trimmed || trimmed === current) return;
+    setCreateError(null);
+    if (!name || name === current) {
+      if (createdItem?.id === path && createdItemRefreshed) setCreatedItem(null);
+      return;
+    }
 
-    onPatchFileInTree?.(path, { name: trimmed });
+    onPatchFileInTree?.(path, { name });
     try {
-      const isFile = isMarkdownPath(path) || isBasePath(path) || isCanvasPath(path);
       const newPath = isFile
-        ? await renameWorkspaceFile(path, trimmed)
-        : await renameFolder(path, trimmed);
-      if (newPath) onPathMoved?.(path, newPath);
-      else onPatchFileInTree?.(path, { name: current });
+        ? await renameWorkspaceFile(path, name)
+        : await renameFolder(path, name);
+      if (newPath) {
+        onPathMoved?.(path, newPath);
+        setCreatedItem((current) => {
+          if (current?.id !== path) return current;
+          if (createdItemRefreshed) return null;
+          return { ...current, id: newPath, name: isFile ? fileStem(newPath) : fileName(newPath) };
+        });
+      } else {
+        onPatchFileInTree?.(path, { name: originalName });
+      }
     } catch (error) {
-      onPatchFileInTree?.(path, { name: current });
+      onPatchFileInTree?.(path, { name: originalName });
       if (isRenameConflict(error)) {
-        console.warn(`File ${trimmed} already exists!`);
+        setCreateError(t('fileTree.renameConflict', { name }));
       } else {
         console.error('Rename failed', error);
+        setCreateError(t('fileTree.renameFailed', { name }));
       }
+      setRenamingPath(path);
     }
   });
 
@@ -122,15 +156,37 @@ export function useFileTreeActions({
   const createNoteIn = useStableCallback(async (folder: string) => {
     if (actionPendingRef.current) return;
     actionPendingRef.current = true;
+    const generation = creationGenerationRef.current;
     setCreateError(null);
     try {
       const created = await createUniqueFile(folder);
+      if (generation !== creationGenerationRef.current) return;
       if (!created) {
         setCreateError(t('fileTree.createFailed', { reason: folder }));
         return;
       }
-      onDirectoryChanged?.(folder);
+      setCreatedItem({ id: created, name: fileStem(created), type: 'file' });
+      setCreatedItemRefreshed(false);
+      setRenamingPath(created);
       onOpenCreated?.(created);
+      try {
+        const refreshed = await onDirectoryChanged?.(folder);
+        if (generation !== creationGenerationRef.current) return;
+        if (refreshed === false) {
+          setCreateError(t('fileTree.createdButRefreshFailed'));
+          return;
+        }
+        setCreatedItemRefreshed(refreshed === true);
+      } catch (error) {
+        if (generation !== creationGenerationRef.current) return;
+        console.error('Failed to refresh created note', error);
+        setCreateError(t('fileTree.createdButRefreshFailed'));
+        return;
+      }
+    } catch (error) {
+      if (generation !== creationGenerationRef.current) return;
+      console.error('Failed to show created note', error);
+      setCreateError(t('fileTree.createFailed', { reason: folder }));
     } finally {
       actionPendingRef.current = false;
     }
@@ -139,14 +195,36 @@ export function useFileTreeActions({
   const createFolderIn = useStableCallback(async (folder: string) => {
     if (actionPendingRef.current) return;
     actionPendingRef.current = true;
+    const generation = creationGenerationRef.current;
     setCreateError(null);
     try {
       const created = await createUniqueFolder(folder);
+      if (generation !== creationGenerationRef.current) return;
       if (!created) {
         setCreateError(t('fileTree.createFailed', { reason: folder }));
         return;
       }
-      onDirectoryChanged?.(folder);
+      setCreatedItem({ id: created, name: fileName(created), type: 'folder' });
+      setCreatedItemRefreshed(false);
+      setRenamingPath(created);
+      try {
+        const refreshed = await onDirectoryChanged?.(folder);
+        if (generation !== creationGenerationRef.current) return;
+        if (refreshed === false) {
+          setCreateError(t('fileTree.createdButRefreshFailed'));
+          return;
+        }
+        setCreatedItemRefreshed(refreshed === true);
+      } catch (error) {
+        if (generation !== creationGenerationRef.current) return;
+        console.error('Failed to refresh created folder', error);
+        setCreateError(t('fileTree.createdButRefreshFailed'));
+        return;
+      }
+    } catch (error) {
+      if (generation !== creationGenerationRef.current) return;
+      console.error('Failed to show created folder', error);
+      setCreateError(t('fileTree.createFailed', { reason: folder }));
     } finally {
       actionPendingRef.current = false;
     }
@@ -164,6 +242,7 @@ export function useFileTreeActions({
 
   return {
     renamingPath,
+    createdItem,
     deleteTargets,
     isDeleting,
     rowActions,

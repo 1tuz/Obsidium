@@ -34,6 +34,66 @@ describe('file tree model', () => {
     ]);
   });
 
+  it('shows a newly created item until a filtered tree refresh includes it', () => {
+    const created = { id: '/vault/New note.md', name: 'New note', type: 'file' as const };
+    const rows = buildVisibleFileRows(
+      [],
+      new Map([['/vault', []]]),
+      new Set(),
+      new Set(),
+      '/vault',
+      created,
+    );
+
+    expect(rows.map((row) => row.item.id)).toEqual([created.id]);
+  });
+
+  it('adds a created child to its expanded parent without duplicating refreshed items', () => {
+    const parent = { id: '/vault/Projects', name: 'Projects', type: 'folder' as const };
+    const created = { id: '/vault/Projects/New folder', name: 'New folder', type: 'folder' as const };
+    const directories = new Map<string, WorkspaceItem[]>([['/vault', [parent]], [parent.id, []]]);
+    const rows = buildVisibleFileRows(
+      [parent],
+      directories,
+      new Set([parent.id]),
+      new Set(),
+      '/vault',
+      created,
+    );
+
+    expect(rows.map((row) => [row.item.id, row.depth])).toEqual([
+      [parent.id, 0],
+      [created.id, 1],
+    ]);
+    const refreshed = buildVisibleFileRows(
+      [parent],
+      new Map([...directories, [parent.id, [created]]]),
+      new Set([parent.id]),
+      new Set(),
+      '/vault',
+      created,
+    );
+    expect(refreshed.map((row) => row.item.id)).toEqual([parent.id, created.id]);
+  });
+
+  it('shows a created child when its visible parent has not loaded yet', () => {
+    const parent = { id: '/vault/Projects', name: 'Projects', type: 'folder' as const };
+    const created = { id: '/vault/Projects/New note.md', name: 'New note', type: 'file' as const };
+    const rows = buildVisibleFileRows(
+      [parent],
+      new Map([['/vault', [parent]]]),
+      new Set([parent.id]),
+      new Set(),
+      '/vault',
+      created,
+    );
+
+    expect(rows.map((row) => [row.item.id, row.depth])).toEqual([
+      [parent.id, 0],
+      [created.id, 1],
+    ]);
+  });
+
   it('describes guide lines as a primitive so memoised rows survive a rebuild', () => {
     const args = [
       [folder, rootFile],

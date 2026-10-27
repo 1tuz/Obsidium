@@ -848,11 +848,16 @@
     "iconReset": "Сбросить значок",
     "newNote": "Новая заметка",
     "newFolder": "Новая папка",
+    "createNote": "Создать заметку",
+    "createFolder": "Создать папку",
     "newNoteHere": "Новая заметка здесь",
     "newFolderHere": "Новая папка здесь",
     "newFolderName": "Новая папка",
     "rootActions": "Действия в корне базы знаний",
-    "createFailed": "Не удалось создать: {{reason}}"
+    "createFailed": "Не удалось создать: {{reason}}",
+    "createdButRefreshFailed": "Объект создан, но список папки не удалось обновить.",
+    "renameConflict": "Имя «{{name}}» уже занято",
+    "renameFailed": "Не удалось переименовать в «{{name}}»"
   },
   "workspace": {
     "switch": "Переключить базу знаний",

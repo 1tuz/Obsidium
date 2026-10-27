@@ -1,9 +1,16 @@
 // @vitest-environment happy-dom
 import { act } from 'preact/test-utils';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { t } from '../../i18n';
 import { GraphTimeline } from './GraphTimeline';
+
+const graphViewStyles = readFileSync(
+  resolve(process.cwd(), 'src/components/Graph/GraphView.css'),
+  'utf8',
+);
 
 describe('GraphTimeline', () => {
   let renderer: MountedDom | null = null;
@@ -12,6 +19,33 @@ describe('GraphTimeline', () => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
     vi.useRealTimers();
+  });
+
+  it('sizes expanded controls to the graph pane instead of the viewport', () => {
+    expect(graphViewStyles).toMatch(
+      /\.q-graph-timeline__controls\s*\{[^}]*min-width:\s*min\(420px, calc\(100% - var\(--q-space-64\)\)\);/s,
+    );
+  });
+
+  it('keeps the timeline inside a narrow pane when settings are open', () => {
+    expect(graphViewStyles).toMatch(
+      /\.q-graph\s*\{[^}]*container-type:\s*inline-size;/s,
+    );
+    expect(graphViewStyles).toMatch(
+      /@container\s*\(max-width:\s*760px\)\s*\{[^}]*\.q-graph:has\(> \.q-graph-settings:not\(\.q-graph-settings--collapsed\)\) \.q-graph-timeline\s*\{[^}]*right:\s*var\(--q-space-16\);[^}]*max-width:\s*calc\(100% - var\(--q-space-32\)\);/s,
+    );
+  });
+
+  it('keeps settings controls reachable beneath a wrapped narrow timeline', () => {
+    expect(graphViewStyles).toMatch(
+      /@container\s*\(max-width:\s*760px\)\s*\{[\s\S]*?\.q-graph:has\(> \.q-graph-settings:not\(\.q-graph-settings--collapsed\)\):has\(> \.q-graph-timeline \.q-graph-timeline__controls\) > \.q-graph-settings\s*\{[^}]*padding-bottom:\s*calc\(var\(--q-space-16\) \+ var\(--q-space-128\)\);/s,
+    );
+    expect(graphViewStyles).toMatch(
+      /\.q-graph:has\(> \.q-graph-settings:not\(\.q-graph-settings--collapsed\)\) \.q-graph-timeline__controls\s*\{[^}]*flex-wrap:\s*wrap;[^}]*min-width:\s*0;/s,
+    );
+    expect(graphViewStyles).toMatch(
+      /\.q-graph:has\(> \.q-graph-settings:not\(\.q-graph-settings--collapsed\)\) \.q-graph-timeline__controls > span\s*\{[^}]*white-space:\s*normal;[^}]*overflow-wrap:\s*anywhere;/s,
+    );
   });
 
   it('selects a history event and returns to the live graph', () => {

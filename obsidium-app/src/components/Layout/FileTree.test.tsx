@@ -2,6 +2,7 @@
 import { act } from 'preact/test-utils';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
 import { describe, expect, it, vi } from 'vitest';
+import { EditorView } from '@codemirror/view';
 import type { WorkspaceItem } from '../../modules/documents/fileGateway';
 import type { FileTreeActions } from './fileTreeModel';
 import { t } from '../../i18n';
@@ -106,6 +107,77 @@ describe('file tree rendering', () => {
     });
   });
 
+  it('selects the note basename and wires Enter and Escape to rename actions', () => {
+    const path = 'C:\\vault\\New note.md';
+    const commitRename = vi.fn((): void => {});
+    const cancelRename = vi.fn((): void => {});
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(
+        <FileTree
+          rows={buildVisibleFileRows([{ id: path, name: 'New note', type: 'file' }], new Map(), new Set(), new Set())}
+          activeFile={null}
+          selectedFiles={new Set<string>()}
+          renamingPath={path}
+          actions={{ ...actions, commitRename, cancelRename }}
+        />,
+      );
+    });
+
+    const content = tree.container.querySelector<HTMLElement>('.cm-content')!;
+    const view = EditorView.findFromDOM(content)!;
+    expect(view.state.doc.toString()).toBe('New note');
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe('New note'.length);
+
+    act(() => { content.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
+    expect(commitRename).toHaveBeenCalledWith(path, 'New note');
+    act(() => { content.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
+    expect(cancelRename).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
+  });
+
+  it('removes the .base suffix from its inline rename value', () => {
+    const path = 'C:\\vault\\Roadmap.base';
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(
+        <FileTree
+          rows={buildVisibleFileRows([{ id: path, name: 'Roadmap.base', type: 'file' }], new Map(), new Set(), new Set())}
+          activeFile={null}
+          selectedFiles={new Set<string>()}
+          renamingPath={path}
+          actions={actions}
+        />,
+      );
+    });
+
+    expect(tree.container.querySelector('.cm-content')?.textContent).toBe('Roadmap');
+    act(() => tree.unmount());
+  });
+
+  it('selects the full folder name when inline rename starts', () => {
+    const path = 'C:\\vault\\New folder';
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(
+        <FileTree
+          rows={buildVisibleFileRows([{ id: path, name: 'New folder', type: 'folder' }], new Map(), new Set(), new Set())}
+          activeFile={null}
+          selectedFiles={new Set<string>()}
+          renamingPath={path}
+          actions={actions}
+        />,
+      );
+    });
+
+    const view = EditorView.findFromDOM(tree.container.querySelector<HTMLElement>('.cm-content')!)!;
+    expect(view.state.doc.toString()).toBe('New folder');
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe('New folder'.length);
+    act(() => tree.unmount());
+  });
+
   it('opens root creation actions on the empty area below the rows', () => {
     createNoteIn.mockClear();
     createFolderIn.mockClear();
@@ -136,6 +208,69 @@ describe('file tree rendering', () => {
     act(() => {
       tree.unmount();
     });
+  });
+
+  it('does not open root actions when right-clicking an empty-state button', () => {
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(
+        <FileTree
+          rows={[]}
+          activeFile={null}
+          selectedFiles={new Set<string>()}
+          renamingPath={null}
+          actions={actions}
+          rootPath="C:\\vault"
+        />,
+      );
+    });
+
+    act(() => {
+      tree.container.querySelector('.q-empty-state__actions button')!.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 40,
+        clientY: 60,
+      }));
+    });
+
+    expect(document.querySelector('.q-menu')).toBeNull();
+    act(() => tree.unmount());
+  });
+
+  it('creates inside the folder whose row received the context click', () => {
+    const folder = { id: 'C:\\vault\\Projects', name: 'Projects', type: 'folder' as const };
+    createNoteIn.mockClear();
+    createFolderIn.mockClear();
+    let tree!: MountedDom;
+    act(() => {
+      tree = mountDom(
+        <FileTree
+          rows={buildVisibleFileRows([folder], new Map(), new Set(), new Set())}
+          activeFile={null}
+          selectedFiles={new Set<string>()}
+          renamingPath={null}
+          actions={actions}
+          rootPath={'C:\\vault'}
+        />,
+      );
+    });
+
+    act(() => {
+      tree.container.querySelector('.q-file-item')!.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 10,
+        clientY: 10,
+      }));
+    });
+    const menu = document.querySelector('.q-menu')!;
+    expect(Array.from(menu.querySelectorAll('.q-menu__item-label'), (node) => node.textContent))
+      .toEqual([t('fileTree.newNoteHere'), t('fileTree.newFolderHere'), t('common.rename'), t('common.delete')]);
+
+    act(() => (menu.querySelector('.q-menu__item') as HTMLButtonElement).click());
+    expect(createNoteIn).toHaveBeenCalledWith(folder.id);
+    act(() => tree.unmount());
   });
 
   it('keeps the row menu out of the root creation actions', () => {

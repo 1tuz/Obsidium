@@ -21,6 +21,10 @@ import { SidebarHeaderActions } from './SidebarHeaderActions';
 import { SpaceSwitcher } from './SpaceSwitcher';
 import { SpacesDialog } from '../Spaces/SpacesDialog';
 import type { Space } from '../../modules/spaces';
+import { t } from '../../i18n';
+import { rootActionItems } from './fileActionItems';
+import { Menu } from '../Common/Menu';
+import { useContextMenu } from '../Common/useContextMenu';
 
 export interface SpacesControls {
   spaces: Space[];
@@ -38,8 +42,7 @@ interface SidebarProps {
   workspacePath: string | null;
   workspaceName: string;
   onFileSelect: (path: string, options?: { disposition?: LinkDisposition }) => void;
-  onCreateNote: () => void | Promise<void>;
-  onLoadDirectory: (path: string) => Promise<boolean>;
+  onLoadDirectory: (path: string) => Promise<boolean | void>;
   isOpen: boolean;
   onOpenSettings: () => void;
   onOpenWorkspaces: () => void;
@@ -67,7 +70,6 @@ export const Sidebar = memo(function Sidebar({
   workspacePath,
   workspaceName,
   onFileSelect,
-  onCreateNote,
   onLoadDirectory,
   isOpen,
   onOpenSettings,
@@ -120,26 +122,28 @@ export const Sidebar = memo(function Sidebar({
     updateIconAssignments((current) => setFileIcon(current, path, icon));
   });
   const contentRef = useRef<HTMLDivElement>(null);
+  const rootMenu = useContextMenu();
   const pendingScrollTopRef = useRef<number | null>(null);
   const treeReady = Boolean(workspacePath && directories.has(workspacePath));
-  const rows = useMemo(() => {
+  const baseRows = useMemo(() => {
     if (!treeReady) return [];
     return buildVisibleFileRows(files, directories, expandedFolders, loadingDirectories);
   }, [directories, expandedFolders, files, loadingDirectories, treeReady]);
 
   const { selectedFiles, rowActions: selectionActions, targetsFor, clearSelection } = useFileSelection(
     activeFile,
-    rows,
+    baseRows,
     onFileSelect,
   );
   const fileOps = useFileTreeActions({
     workspacePath,
     targetsFor,
+    creationScope: spaces?.activeSpaceId ?? null,
     clearSelection,
     onPatchFileInTree,
-    onDirectoryChanged: (folder) => {
+    onDirectoryChanged: async (folder) => {
       setExpandedFolders((current) => (current.has(folder) ? current : new Set(current).add(folder)));
-      void onLoadDirectory(folder);
+      return onLoadDirectory(folder);
     },
     onOpenCreated: (path) => onFileSelect(path),
     onPathMoved: (from, to) => {
@@ -147,6 +151,18 @@ export const Sidebar = memo(function Sidebar({
       updateIconAssignments((current) => rebaseFileIcons(current, from, to));
     },
   });
+
+  const rows = useMemo(() => fileOps.createdItem
+    ? buildVisibleFileRows(
+      files,
+      directories,
+      expandedFolders,
+      loadingDirectories,
+      workspacePath,
+      fileOps.createdItem,
+    )
+    : baseRows,
+  [baseRows, directories, expandedFolders, fileOps.createdItem, files, loadingDirectories, workspacePath]);
 
   const moveFiles = useStableCallback(async (sourceId: string, targetId: string) => {
     let anyMoved = false;
@@ -222,12 +238,23 @@ export const Sidebar = memo(function Sidebar({
   const { deleteTargets } = fileOps;
 
   return (
-    <aside className={`q-collapsible-panel q-sidebar ${isOpen ? '' : 'is-collapsed'}`} aria-hidden={!isOpen}>
+    <aside
+      className={`q-collapsible-panel q-sidebar ${isOpen ? '' : 'is-collapsed'}`}
+      aria-hidden={!isOpen}
+      onContextMenu={(event) => {
+        if (panel !== 'files' || !workspacePath) return;
+        const target = event.target instanceof Element ? event.target : null;
+        if (target?.closest(
+          '[data-file-id], .q-file-tree, button, input, textarea, select, [role="button"], [data-space-switcher]',
+        )) return;
+        rootMenu.onContextMenu(event);
+      }}
+    >
       <div className="q-panel-header" data-tauri-drag-region aria-hidden="true">
       </div>
       {panel === 'files' && workspacePath ? (
         <SidebarHeaderActions
-          onCreateNote={() => void onCreateNote()}
+          onCreateNote={() => void fileOps.rowActions.createNoteIn?.(workspacePath)}
           onCreateFolder={() => void fileOps.rowActions.createFolderIn?.(workspacePath)}
         />
       ) : null}
@@ -239,7 +266,10 @@ export const Sidebar = memo(function Sidebar({
           onManage={() => setSpacesDialogOpen(true)}
         />
       ) : null}
-      <div ref={contentRef} className="q-sidebar-content">
+      <div
+        ref={contentRef}
+        className="q-sidebar-content"
+      >
         <div hidden={panel !== 'files'}>
         {!treeReady ? null : (
           <FileTree
@@ -282,6 +312,16 @@ export const Sidebar = memo(function Sidebar({
           />
         </div>
       </div>
+
+      {panel === 'files' && workspacePath && rootMenu.open && (
+        <Menu
+          open
+          position={rootMenu.position}
+          items={rootActionItems(fileOps.rowActions, workspacePath)}
+          onClose={rootMenu.close}
+          ariaLabel={t('fileTree.rootActions')}
+        />
+      )}
 
       {spaces ? (
         <SpacesDialog

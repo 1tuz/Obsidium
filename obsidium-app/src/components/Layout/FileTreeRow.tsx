@@ -11,6 +11,7 @@ import { Menu } from '../Common/Menu';
 import { t } from '../../i18n';
 import { titleWhenClipped } from '../Common/titleWhenClipped';
 import { useContextMenu } from '../Common/useContextMenu';
+import { fileStem } from '../../modules/paths';
 
 interface FileTreeRowProps {
   item: WorkspaceItem;
@@ -71,7 +72,7 @@ export const FileTreeRow = memo(function FileTreeRow({
       ))}
       {renaming ? (
         <FileTreeRename
-          name={item.name}
+          name={isBasePath(item.id) ? fileStem(item.id) : item.name}
           className={itemClass}
           active={active}
           onCommit={(nextName) => actions.commitRename(item.id, nextName)}
