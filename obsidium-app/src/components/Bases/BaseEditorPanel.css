@@ -119,10 +119,6 @@
   height: var(--q-size-16);
 }
 
-.q-base-editor__row .q-button {
-  flex: 0 0 auto;
-}
-
 .q-base-editor__error {
   margin: 0;
   color: var(--q-text-danger, var(--q-red-600));

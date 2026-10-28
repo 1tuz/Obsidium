@@ -7,17 +7,20 @@ import './SidebarHeaderActions.css';
 interface SidebarHeaderActionsProps {
   onCreateNote: () => void;
   onCreateFolder: () => void;
+  onSearch?: () => void;
   disabled?: boolean;
 }
 
 export const SidebarHeaderActions = memo(function SidebarHeaderActions({
   onCreateNote,
   onCreateFolder,
+  onSearch,
   disabled,
 }: SidebarHeaderActionsProps) {
-  const buttons: Array<{ id: 'file-plus' | 'folder-plus'; label: string; onClick: () => void }> = [
+  const buttons: Array<{ id: 'search' | 'file-plus' | 'folder-plus'; label: string; onClick: () => void }> = [
     { id: 'file-plus', label: t('fileTree.newNote'), onClick: onCreateNote },
     { id: 'folder-plus', label: t('fileTree.newFolder'), onClick: onCreateFolder },
+    ...(onSearch ? [{ id: 'search' as const, label: t('fileTree.searchVault'), onClick: onSearch }] : []),
   ];
 
   return (

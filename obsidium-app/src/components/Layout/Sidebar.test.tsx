@@ -56,6 +56,7 @@ const props = {
   workspacePath: '/vault',
   workspaceName: 'Vault',
   onFileSelect: vi.fn(),
+  onSearch: vi.fn(),
   onLoadDirectory: vi.fn(async () => true),
   isOpen: true,
   onOpenSettings: vi.fn(),
@@ -128,6 +129,18 @@ describe('Sidebar file creation', () => {
     });
 
     expect(document.querySelector('.q-menu')).toBeNull();
+  });
+
+  it('routes the header search button to the search dialog', async () => {
+    act(() => { mounted = mountDom(<Sidebar {...props} />); });
+
+    await actAndSettle(() => {
+      mounted!.container.querySelector<HTMLButtonElement>(
+        `.q-sidebar-header-actions button[aria-label="${t('fileTree.searchVault')}"]`,
+      )!.click();
+    });
+
+    expect(props.onSearch).toHaveBeenCalledOnce();
   });
 
   it('routes the header note button through creation in the current root', async () => {

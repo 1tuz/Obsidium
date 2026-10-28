@@ -79,7 +79,7 @@
 }
 
 .q-editor-content[data-reading-style],
-.q-canvas[data-paper-style] {
+.q-canvas[data-paper-style]:not([data-paper-style="theme"]) {
   --q-reading-book-font: Georgia, "Times New Roman", serif;
   --q-reading-code-keyword: #7A3E65;
   --q-reading-code-string: #355F3A;

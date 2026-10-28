@@ -5,7 +5,7 @@ import { rhombus, stickerGlyph } from './CanvasGlyphs';
 import { IconButton } from '../Common/IconButton';
 import './CanvasToolbar.css';
 
-export type CanvasPaperStyle = 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
+export type CanvasPaperStyle = 'theme' | 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
 export type CanvasGrid = 'none' | 'dots' | 'lines';
 export type CanvasTool = 'select' | 'text' | 'image' | 'note' | 'group' | 'edge' | 'rectangle' | 'diamond' | 'ellipse' | 'number' | 'draw' | 'sticker';
 
@@ -86,7 +86,7 @@ export function CanvasToolbar({
       <label className="q-canvas-toolbar__setting q-canvas-toolbar__divider">
         <span>{t('canvas.toolbar.paperStyle')}</span>
         <select aria-label={t('canvas.toolbar.paperStyle')} value={paperStyle} onChange={(event) => onPaperStyleChange(event.currentTarget.value as CanvasPaperStyle)}>
-          {(['paper-white', 'ivory', 'parchment', 'sepia', 'dark-paper'] as const).map(style => (
+          {(['theme', 'paper-white', 'ivory', 'parchment', 'sepia', 'dark-paper'] as const).map(style => (
             <option key={style} value={style}>{t(`settings.editor.styles.${style}`)}</option>
           ))}
         </select>
