@@ -351,6 +351,40 @@ describe('CanvasView', () => {
     expect(saved.nodes[1]).toMatchObject({ text: '5', width: 48, height: 48, obsidium: { shape: 'number' } });
   });
 
+  it('follows the app theme when the board selects the theme paper', async () => {
+    canvasSource.content = JSON.stringify({
+      nodes: [],
+      edges: [],
+      obsidium: { canvas: { paperStyle: 'ivory' } },
+    });
+    act(() => {
+      renderer = mountDom(
+        <CanvasView
+          path="/vault/Board.canvas"
+          workspacePath="/vault"
+          inactive={false}
+          indexRevision={0}
+          onOpenFile={vi.fn()}
+        />,
+      );
+    });
+    await actAndSettle();
+
+    const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
+    expect(canvas.dataset.paperStyle).toBe('ivory');
+    const select = renderer!.container.querySelector<HTMLSelectElement>('select[aria-label="canvas.toolbar.paperStyle"]')!;
+    expect([...select.options].map((option) => option.value)).toContain('theme');
+
+    select.value = 'theme';
+    await actAndSettle(() => { select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(canvas.dataset.paperStyle).toBe('theme');
+
+    await act(settleAutosave);
+    const writes = vi.mocked(writeFileAtomic).mock.calls;
+    const saved = JSON.parse(String(writes[writes.length - 1]?.[1]));
+    expect(saved.obsidium.canvas.paperStyle).toBe('theme');
+  });
+
   it('saves the selected connection route without changing its endpoints', async () => {
     canvasSource.content = JSON.stringify({
       nodes: [

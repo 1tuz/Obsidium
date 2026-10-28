@@ -200,7 +200,7 @@ function boardPreferences(document: CanvasDocument): Record<string, unknown> {
 
 function readPaperStyle(document: CanvasDocument): CanvasPaperStyle {
   const style = boardPreferences(document).paperStyle;
-  return style === 'ivory' || style === 'parchment' || style === 'sepia' || style === 'dark-paper'
+  return style === 'theme' || style === 'ivory' || style === 'parchment' || style === 'sepia' || style === 'dark-paper'
     ? style
     : 'paper-white';
 }

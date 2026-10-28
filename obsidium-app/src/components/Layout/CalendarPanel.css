@@ -14,10 +14,15 @@
 }
 
 .q-calendar-panel__header h2 {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   color: var(--q-text-primary);
   font-size: var(--q-font-size-ui-base);
   font-weight: var(--q-font-weight-ui-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .q-calendar-panel__list {

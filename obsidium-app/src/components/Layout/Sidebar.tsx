@@ -427,6 +427,7 @@ export const Sidebar = memo(function Sidebar({
           disabled={!creationRootPath}
           onCreateNote={() => creationRootPath && void fileOps.rowActions.createNoteIn?.(creationRootPath)}
           onCreateFolder={() => creationRootPath && void fileOps.rowActions.createFolderIn?.(creationRootPath)}
+          onSearch={() => onSearch?.()}
         />
       ) : null}
       {spaces && panel === 'files' ? (

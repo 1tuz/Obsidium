@@ -20,7 +20,7 @@ describe('CanvasToolbar', () => {
   });
 
   it('uses the canvas ink token for tool icons on paper surfaces', () => {
-    expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style\]\s*\{[^}]*--q-icon-button-icon:\s*var\(--q-canvas-ink\);/s);
+    expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style\](?::not\(\[data-paper-style='theme'\]\))?\s*\{[^}]*--q-icon-button-icon:\s*var\(--q-canvas-ink\);/s);
     expect(canvasStyles).toMatch(/--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink-solid\) 34%, var\(--q-canvas-paper-solid\)\)/);
     expect(canvasStyles).toMatch(/\.q-canvas__stage--lines\s*\{[^}]*var\(--q-canvas-grid-line/);
     expect(canvasStyles).toMatch(/\.q-canvas__object--shape\s*\{[^}]*--q-canvas-shape-stroke:/s);
@@ -40,7 +40,7 @@ describe('CanvasToolbar', () => {
   });
 
   it('keeps the dark grid line visible against the dark paper', () => {
-    expect(canvasStyles).toMatch(/:root\[data-theme='dark'\] \.q-canvas\[data-paper-style\]\s*\{[^}]*--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink-solid\) 46%/s);
+    expect(canvasStyles).toMatch(/:root\[data-theme='dark'\] \.q-canvas\[data-paper-style\](?::not\(\[data-paper-style='theme'\]\))?\s*\{[^}]*--q-canvas-grid-line:\s*color-mix\(in srgb, var\(--q-canvas-ink-solid\) 46%/s);
   });
 
   it('tints the armed tool with accent tokens instead of the neutral pressed wash', () => {
@@ -119,6 +119,42 @@ describe('CanvasToolbar', () => {
     const diamond = renderer!.container.querySelector<HTMLButtonElement>('button[aria-label="Diamond"]')!;
     const path = diamond.querySelector('path');
     expect(path?.getAttribute('d')?.startsWith('M12 2.5')).toBe(true);
+  });
+
+  it('offers a paper style that follows the active app theme', async () => {
+    const onPaperStyleChange = vi.fn();
+    act(() => {
+      renderer = mountDom(
+        <CanvasToolbar
+          activeTool="select"
+          paperStyle="paper-white"
+          grid="none"
+          canUndo={false}
+          canRedo={false}
+          onToolChange={() => {}}
+          onPaperStyleChange={onPaperStyleChange}
+          onGridChange={() => {}}
+          onOpenSlash={() => {}}
+          onUndo={() => {}}
+          onRedo={() => {}}
+        />,
+      );
+    });
+
+    const select = renderer!.container.querySelectorAll<HTMLSelectElement>('select')[0];
+    expect([...select.options].map((option) => option.value)).toEqual([
+      'theme', 'paper-white', 'ivory', 'parchment', 'sepia', 'dark-paper',
+    ]);
+    select.value = 'theme';
+    await actAndSettle(() => { select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(onPaperStyleChange).toHaveBeenCalledWith('theme');
+  });
+
+  it('maps the theme paper style onto theme tokens instead of reading paper', () => {
+    expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style='theme'\]\s*\{[^}]*--q-canvas-paper:\s*var\(--q-bg-canvas\);/s);
+    expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style='theme'\]\s*\{[^}]*--q-canvas-ink:\s*var\(--q-text-primary\);/s);
+    expect(canvasStyles).toMatch(/\.q-canvas\[data-paper-style\]:not\(\[data-paper-style='theme'\]\)\s*\{/);
+    expect(canvasStyles).toMatch(/:root\[data-theme='dark'\] \.q-canvas\[data-paper-style\]:not\(\[data-paper-style='theme'\]\)\s*\{/);
   });
 
   it('dispatches tool, paper, grid and history actions with accessible controls', async () => {

@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
@@ -393,5 +395,21 @@ describe('CalendarPanel', () => {
     act(() => renderer!.update(<CalendarPanel active workspacePath="/vault" onOpenView={() => {}} />));
     await actAndSettle();
     expect(readDirectory).toHaveBeenCalled();
+  });
+
+  it('keeps the create button on one line and truncates the title instead', async () => {
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={() => {}} />);
+    });
+    await actAndSettle();
+
+    const header = renderer!.container.querySelector('.q-calendar-panel__header')!;
+    const create = [...header.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === t('calendarPanel.create'))!;
+    expect(create.classList.contains('q-button--s')).toBe(true);
+
+    const buttonStyles = readFileSync(resolve(process.cwd(), 'src/styles/components/buttons.css'), 'utf8');
+    expect(buttonStyles).toMatch(/\.q-button\s*\{[^}]*white-space:\s*nowrap;/s);
+    expect(buttonStyles).toMatch(/\.q-button\s*\{[^}]*flex:\s*0 0 auto;/s);
   });
 });

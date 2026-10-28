@@ -7,11 +7,14 @@
   height: var(--q-button-height);
   border: 0;
   box-sizing: border-box;
+  max-width: 100%;
+  flex: 0 0 auto;
   border-radius: var(--q-button-radius);
   font-family: var(--q-font-family-ui);
   font-size: var(--q-button-font-size);
   line-height: var(--q-button-line-height);
   font-weight: var(--q-font-weight-ui-medium);
+  white-space: nowrap;
   cursor: pointer;
   position: relative;
 }
@@ -19,6 +22,7 @@
 .q-button svg {
   width: var(--q-button-icon-size);
   height: var(--q-button-icon-size);
+  flex: 0 0 auto;
 }
 
 .q-button--s,
@@ -28,11 +32,6 @@
   padding: var(--q-button-s-padding-y) var(--q-button-s-padding-x);
   border-radius: var(--q-button-s-radius);
   line-height: var(--q-button-s-line-height);
-}
-
-.q-dialog__footer .q-button {
-  flex: 0 0 auto;
-  white-space: nowrap;
 }
 
 .q-button--xs {
