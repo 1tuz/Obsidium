@@ -10,7 +10,6 @@ use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::files::error::FileCommandError;
 use obsidium_core::search::activity::{ActivityMeasure, ActivityNote};
-use std::path::Path;
 use std::sync::Arc;
 use tauri::State;
 
@@ -21,15 +20,14 @@ pub async fn prepare_search_index(
 ) -> Result<SearchIndexStatus, SearchError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        if let Ok(root) = super::paths::canonical_workspace(&workspace_path) {
-            if let Err(error) = core.watcher.watch(&root) {
-                eprintln!(
-                    "[obsidium:watch] наблюдение за базой не запущено: {error}. \
-                     Внешние правки будут подтягиваться при возврате фокуса в окно."
-                );
-            }
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        if let Err(error) = core.watcher.watch(&workspace_path) {
+            eprintln!(
+                "[obsidium:watch] наблюдение за базой не запущено: {error}. \
+                 Внешние правки будут подтягиваться при возврате фокуса в окно."
+            );
         }
-        core.search.prepare(&workspace_path)
+        core.search.prepare(&workspace_path.to_string_lossy())
     })
     .await
 }
@@ -43,7 +41,12 @@ pub async fn search_knowledge_base(
 ) -> Result<SearchResponse, SearchError> {
     let service = core.search.clone();
     let settings = core.settings.get_config().search;
-    run_blocking(move || service.search(&workspace_path, &query, limit, &settings)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.search(&workspace_path.to_string_lossy(), &query, limit, &settings)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -52,6 +55,9 @@ pub fn get_search_index_status(
     workspace_path: Option<String>,
 ) -> SearchIndexStatus {
     let service = &core.search;
+    let workspace_path = workspace_path
+        .and_then(|path| core.access.check_root(&path).ok())
+        .map(|path| path.to_string_lossy().into_owned());
     service.status(workspace_path.as_deref())
 }
 
@@ -72,7 +78,12 @@ pub async fn rebuild_search_index(
     workspace_path: String,
 ) -> Result<SearchIndexStatus, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.rebuild_active_index(&workspace_path)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.rebuild_active_index(&workspace_path.to_string_lossy())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -82,7 +93,16 @@ pub async fn get_backlinks(
     document_path: String,
 ) -> Result<Vec<Backlink>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.backlinks(&workspace_path, &document_path)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        let document_path = core.access.check(&document_path)?;
+        service.backlinks(
+            &workspace_path.to_string_lossy(),
+            &document_path.to_string_lossy(),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -92,7 +112,16 @@ pub async fn get_outgoing_links(
     document_path: String,
 ) -> Result<Vec<OutgoingLink>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.outgoing_links(&workspace_path, &document_path)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        let document_path = core.access.check(&document_path)?;
+        service.outgoing_links(
+            &workspace_path.to_string_lossy(),
+            &document_path.to_string_lossy(),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -104,8 +133,16 @@ pub async fn run_dataview_query(
     tz_offset_minutes: i64,
 ) -> Result<QueryOutput, SearchError> {
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     run_blocking(move || {
-        service.run_dataview_query(&workspace_path, &document_path, &query, tz_offset_minutes)
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        let document_path = core.access.check(&document_path)?;
+        service.run_dataview_query(
+            &workspace_path.to_string_lossy(),
+            &document_path.to_string_lossy(),
+            &query,
+            tz_offset_minutes,
+        )
     })
     .await
 }
@@ -117,7 +154,20 @@ pub async fn get_note_fields(
     document_paths: Vec<String>,
 ) -> Result<Vec<NoteFields>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.note_fields(&workspace_path, &document_paths)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        let document_paths = document_paths
+            .iter()
+            .map(|path| {
+                core.access
+                    .check(path)
+                    .map(|path| path.to_string_lossy().into_owned())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        service.note_fields(&workspace_path.to_string_lossy(), &document_paths)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -126,7 +176,12 @@ pub async fn get_base_rows(
     workspace_path: String,
 ) -> Result<Vec<NoteFields>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.base_rows(&workspace_path)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.base_rows(&workspace_path.to_string_lossy())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -135,7 +190,12 @@ pub async fn get_note_activity(
     workspace_path: String,
 ) -> Result<Vec<obsidium_core::search::activity::NoteTimestamp>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.note_timestamps(&workspace_path)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.note_timestamps(&workspace_path.to_string_lossy())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -147,8 +207,17 @@ pub async fn get_note_day_notes(
     tz_offset_minutes: i64,
 ) -> Result<Vec<ActivityNote>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.notes_on_day(&workspace_path, &day, measure, tz_offset_minutes))
-        .await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.notes_on_day(
+            &workspace_path.to_string_lossy(),
+            &day,
+            measure,
+            tz_offset_minutes,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -158,7 +227,12 @@ pub async fn get_recent_changes(
     limit: Option<usize>,
 ) -> Result<Vec<ActivityNote>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.recent_changes(&workspace_path, limit)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.recent_changes(&workspace_path.to_string_lossy(), limit)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -169,7 +243,12 @@ pub async fn get_calendar_events(
     month: i64,
 ) -> Result<Vec<CalendarEvent>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.calendar_events(&workspace_path, year, month)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.calendar_events(&workspace_path.to_string_lossy(), year, month)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -179,7 +258,12 @@ pub async fn query_base(
     query: BaseQuery,
 ) -> Result<BaseEvaluation, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.query_base(&workspace_path, &query)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.query_base(&workspace_path.to_string_lossy(), &query)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -190,7 +274,17 @@ pub async fn resolve_wiki_links(
     targets: Vec<String>,
 ) -> Result<WikiLinkResolution, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.resolve_wiki_links(&workspace_path, &source_path, &targets)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        let source_path = core.access.check(&source_path)?;
+        service.resolve_wiki_links(
+            &workspace_path.to_string_lossy(),
+            &source_path.to_string_lossy(),
+            &targets,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -201,15 +295,29 @@ pub async fn suggest_notes(
     limit: Option<usize>,
 ) -> Result<Vec<NoteSuggestion>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.suggest_notes(&workspace_path, &query, limit.unwrap_or(12))).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.suggest_notes(
+            &workspace_path.to_string_lossy(),
+            &query,
+            limit.unwrap_or(12),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn update_task_status(
+    core: State<'_, Arc<Core>>,
     path: String,
     task_id: String,
     new_status: String,
 ) -> Result<bool, FileCommandError> {
-    run_blocking(move || super::tasks::update_task_status(Path::new(&path), &task_id, &new_status))
-        .await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let path = core.access.check(&path)?;
+        super::tasks::update_task_status(&path, &task_id, &new_status)
+    })
+    .await
 }

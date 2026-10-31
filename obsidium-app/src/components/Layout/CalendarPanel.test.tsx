@@ -1,6 +1,4 @@
 // @vitest-environment happy-dom
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../../i18n';
@@ -62,6 +60,10 @@ function deferred<T>() {
 describe('CalendarPanel', () => {
   let renderer: MountedDom | null = null;
 
+  const getCreateButton = () => renderer!.container.querySelector<HTMLButtonElement>(
+    '.q-sidebar-panel-header__action',
+  );
+
   afterEach(() => {
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
@@ -80,9 +82,7 @@ describe('CalendarPanel', () => {
 
     const views = [...bases[0].querySelectorAll<HTMLButtonElement>('.q-calendar-panel__view')];
     expect(views.map((view) => view.textContent)).toEqual(['Deadlines', 'Releases']);
-    expect([...renderer!.container.querySelectorAll('button')].some((button) => (
-      button.textContent === t('calendarPanel.create')
-    ))).toBe(true);
+    expect(getCreateButton()?.getAttribute('aria-label')).toBe(t('calendarPanel.create'));
     expect(renderer!.container.textContent).not.toContain('Sprint');
     expect(renderer!.container.textContent).not.toContain('Roadmap');
   });
@@ -252,9 +252,7 @@ describe('CalendarPanel', () => {
 
     expect(renderer!.container.textContent).toContain(t('calendarPanel.empty'));
     expect(renderer!.container.querySelector('.q-calendar-panel__view')).toBeNull();
-    expect([...renderer!.container.querySelectorAll('button')].some((button) => (
-      button.textContent === t('calendarPanel.create')
-    ))).toBe(true);
+    expect(getCreateButton()?.getAttribute('aria-label')).toBe(t('calendarPanel.create'));
     state.sources['/vault/Work/Plan.base'] = [
       'views:',
       '  - type: kanban',
@@ -268,6 +266,15 @@ describe('CalendarPanel', () => {
     ].join('\n');
   });
 
+  it('disables calendar creation when no workspace is selected', async () => {
+    act(() => {
+      renderer = mountDom(<CalendarPanel active workspacePath={null} onOpenView={() => {}} />);
+    });
+    await actAndSettle();
+
+    expect(getCreateButton()?.disabled).toBe(true);
+  });
+
   it('creates and opens a Calendar Base from the panel action', async () => {
     const onOpenView = vi.fn();
     createCalendarBaseFile.mockResolvedValue('/vault/Calendar.base');
@@ -276,8 +283,7 @@ describe('CalendarPanel', () => {
     });
     await actAndSettle();
 
-    const createButton = [...renderer!.container.querySelectorAll('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'));
+    const createButton = getCreateButton();
     expect(createButton).toBeDefined();
     act(() => createButton?.click());
     await actAndSettle();
@@ -291,8 +297,7 @@ describe('CalendarPanel', () => {
       renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
     });
     await actAndSettle();
-    const createButton = [...renderer!.container.querySelectorAll('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'))!;
+    const createButton = getCreateButton()!;
 
     createCalendarBaseFile.mockResolvedValueOnce(null);
     act(() => createButton.click());
@@ -301,8 +306,7 @@ describe('CalendarPanel', () => {
       .toBe(t('calendarPanel.nameExhausted'));
 
     createCalendarBaseFile.mockRejectedValueOnce(new Error('disk full'));
-    act(() => [...renderer!.container.querySelectorAll('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'))!.click());
+    act(() => getCreateButton()!.click());
     await actAndSettle();
     expect(renderer!.container.querySelector('[role="alert"]')?.textContent)
       .toBe(t('calendarPanel.createError', { reason: 'Error: disk full' }));
@@ -315,13 +319,12 @@ describe('CalendarPanel', () => {
       renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={vi.fn()} />);
     });
     await actAndSettle();
-    const createButton = [...renderer!.container.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'))!;
+    const createButton = getCreateButton()!;
 
     act(() => { createButton.click(); createButton.click(); });
     expect(createCalendarBaseFile).toHaveBeenCalledTimes(1);
     expect(createButton.disabled).toBe(true);
-    expect(createButton.textContent).toBe(t('calendarPanel.creating'));
+    expect(createButton.getAttribute('aria-label')).toBe(t('calendarPanel.creating'));
 
     pending.resolve('/vault/Calendar.base');
     await actAndSettle();
@@ -336,8 +339,7 @@ describe('CalendarPanel', () => {
       renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={onOpenView} />);
     });
     await actAndSettle();
-    act(() => [...renderer!.container.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'))!.click());
+    act(() => getCreateButton()!.click());
     act(() => renderer!.update(
       <CalendarPanel active workspacePath="/other-vault" onOpenView={onOpenView} />,
     ));
@@ -355,8 +357,7 @@ describe('CalendarPanel', () => {
       renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={onOpenView} />);
     });
     await actAndSettle();
-    act(() => [...renderer!.container.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'))!.click());
+    act(() => getCreateButton()!.click());
     act(() => renderer!.update(
       <CalendarPanel active={false} workspacePath="/vault" onOpenView={onOpenView} />,
     ));
@@ -374,8 +375,7 @@ describe('CalendarPanel', () => {
       renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={onOpenView} />);
     });
     await actAndSettle();
-    act(() => [...renderer!.container.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'))!.click());
+    act(() => getCreateButton()!.click());
     act(() => renderer!.unmount());
     renderer = null;
     pending.resolve('/vault/Calendar.base');
@@ -397,19 +397,18 @@ describe('CalendarPanel', () => {
     expect(readDirectory).toHaveBeenCalled();
   });
 
-  it('keeps the create button on one line and truncates the title instead', async () => {
+  it('keeps the full panel title and labels its compact create action', async () => {
     act(() => {
       renderer = mountDom(<CalendarPanel active workspacePath="/vault" onOpenView={() => {}} />);
     });
     await actAndSettle();
 
-    const header = renderer!.container.querySelector('.q-calendar-panel__header')!;
-    const create = [...header.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === t('calendarPanel.create'))!;
-    expect(create.classList.contains('q-button--s')).toBe(true);
+    const header = renderer!.container.querySelector('.q-sidebar-panel-header')!;
+    expect(header.querySelector('h2')?.textContent).toBe(t('calendarPanel.title'));
 
-    const buttonStyles = readFileSync(resolve(process.cwd(), 'src/styles/components/buttons.css'), 'utf8');
-    expect(buttonStyles).toMatch(/\.q-button\s*\{[^}]*white-space:\s*nowrap;/s);
-    expect(buttonStyles).toMatch(/\.q-button\s*\{[^}]*flex:\s*0 0 auto;/s);
+    const create = getCreateButton()!;
+    expect(create.getAttribute('aria-label')).toBe(t('calendarPanel.create'));
+    expect(create.title).toBe(t('calendarPanel.create'));
+    expect(create.querySelector('svg')?.getAttribute('data-icon-name')).toBe('plus');
   });
 });

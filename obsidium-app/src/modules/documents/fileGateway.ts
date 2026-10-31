@@ -25,6 +25,7 @@ type FileErrorCode =
   | 'invalid_utf8'
   | 'conflict'
   | 'already_exists'
+  | 'outside_workspace'
   | 'task';
 
 interface FileCommandError {
@@ -143,6 +144,12 @@ export function ensureDirectory(path: string): Promise<void> {
 
 export function copyFile(from: string, to: string): Promise<void> {
   return invoke<void>('copy_file', { from, to });
+}
+
+export type ImportKind = 'book' | 'cover' | 'media';
+
+export function pickImportFile(kind: ImportKind): Promise<string | null> {
+  return invoke<string | null>('pick_import_file', { kind });
 }
 
 const FREE_NAME_ATTEMPTS = 10_000;

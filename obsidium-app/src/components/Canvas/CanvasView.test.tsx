@@ -5,10 +5,8 @@ import { actAndSettle, mountDom, type MountedDom } from '../../testing/mountDom'
 import { importIntoFiles } from '../../modules/docs/vaultFiles';
 import { forgetCanvasCamera } from '../../modules/canvas/persistence';
 import { dropNoteOnTarget } from '../../modules/dragPayload';
-import { open } from '@tauri-apps/plugin-dialog';
 
 vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => path }));
-vi.mock('@tauri-apps/plugin-dialog', () => ({ open: vi.fn() }));
 vi.mock('../../i18n', () => ({ t: (key: string) => key }));
 vi.mock('../../hooks/useTauriEvent', () => ({ useTauriEvent: vi.fn() }));
 vi.mock('../../modules/export/markdownToHtml', () => ({
@@ -34,6 +32,7 @@ vi.mock('../../modules/documents/fileGateway', () => ({
   isCanvasPath: () => true,
   isFileCommandError: () => false,
   isMarkdownPath: () => false,
+  pickImportFile: vi.fn(async () => null),
   readFileSnapshot: vi.fn(async () => ({
     content: canvasSource.content,
     hash: 'original-hash',
@@ -85,7 +84,7 @@ function settleAutosave(): Promise<void> {
 }
 
 const { CanvasView } = await import('./CanvasView');
-const { writeFileAtomic } = await import('../../modules/documents/fileGateway');
+const { writeFileAtomic, pickImportFile } = await import('../../modules/documents/fileGateway');
 const { createUniqueFile } = await import('../../modules/documents/documentFactory');
 
 describe('CanvasView', () => {
@@ -1142,7 +1141,7 @@ describe('CanvasView', () => {
   });
 
   it('adds a photo from the file dialog through the vault importer', async () => {
-    vi.mocked(open).mockResolvedValueOnce('/Users/me/Pictures/photo.png');
+    vi.mocked(pickImportFile).mockResolvedValueOnce('/Users/me/Pictures/photo.png');
     act(() => {
       renderer = mountDom(
         <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
@@ -1174,7 +1173,7 @@ describe('CanvasView', () => {
   });
 
   it('opens the image dialog immediately from the photo tool and keeps select armed', async () => {
-    vi.mocked(open).mockResolvedValueOnce(null);
+    vi.mocked(pickImportFile).mockResolvedValueOnce(null);
     act(() => {
       renderer = mountDom(
         <CanvasView path="/vault/Board.canvas" workspacePath="/vault" inactive={false} indexRevision={0} onOpenFile={vi.fn()} />,
@@ -1184,12 +1183,12 @@ describe('CanvasView', () => {
     const canvas = renderer!.container.querySelector<HTMLElement>('.q-canvas')!;
     const button = renderer!.container.querySelector<HTMLButtonElement>('button[aria-label="canvas.toolbar.tool.image"]')!;
     await actAndSettle(() => { button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
-    expect(vi.mocked(open)).toHaveBeenCalled();
+    expect(vi.mocked(pickImportFile)).toHaveBeenCalled();
     expect(canvas.getAttribute('data-active-tool')).toBe('select');
 
     await actAndSettle(() => { canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', code: 'KeyF', bubbles: true, cancelable: true })); });
     expect(canvas.getAttribute('data-active-tool')).toBe('select');
-    expect(vi.mocked(open)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(pickImportFile)).toHaveBeenCalledTimes(2);
     const stage = renderer!.container.querySelector<HTMLElement>('.q-canvas__stage')!;
     await actAndSettle(() => { stage.dispatchEvent(new MouseEvent('pointerdown', { clientX: 60, clientY: 40, button: 0, bubbles: true })); });
     expect(renderer!.container.querySelectorAll('.q-canvas__object')).toHaveLength(0);

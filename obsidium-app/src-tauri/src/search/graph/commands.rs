@@ -31,9 +31,11 @@ pub async fn get_graph_snapshot(
     let similar_edges =
         similar_edges.unwrap_or_else(|| core.settings.get_config().graph.similar_edges);
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     let bytes = run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
         service
-            .render_graph_with_similarity(&workspace_path, options, similar_edges)
+            .render_graph_with_similarity(&workspace_path.to_string_lossy(), options, similar_edges)
             .map(|snapshot| snapshot.as_ref().clone())
     })
     .await?;
@@ -53,9 +55,16 @@ pub async fn get_graph_modified_date_delta(
 ) -> Result<Option<GraphModifiedDateDelta>, SearchError> {
     let options = layout_options(&layout_mode, attraction, repulsion)?;
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     let base_epoch = u64::from(base_epoch_low) | (u64::from(base_epoch_high) << 32);
     run_blocking(move || {
-        service.graph_modified_date_delta(&workspace_path, base_epoch, since_revision, options)
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.graph_modified_date_delta(
+            &workspace_path.to_string_lossy(),
+            base_epoch,
+            since_revision,
+            options,
+        )
     })
     .await
 }
@@ -73,9 +82,16 @@ pub async fn get_graph_topology_delta(
 ) -> Result<Option<GraphTopologyDelta>, SearchError> {
     let options = layout_options(&layout_mode, attraction, repulsion)?;
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     let base_epoch = u64::from(base_epoch_low) | (u64::from(base_epoch_high) << 32);
     run_blocking(move || {
-        service.graph_topology_delta(&workspace_path, base_epoch, since_revision, options)
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.graph_topology_delta(
+            &workspace_path.to_string_lossy(),
+            base_epoch,
+            since_revision,
+            options,
+        )
     })
     .await
 }
@@ -86,7 +102,12 @@ pub async fn get_graph_timeline_range(
     workspace_path: String,
 ) -> Result<obsidium_core::search::graph::timeline::TimelineRange, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.graph_timeline_range(&workspace_path)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.graph_timeline_range(&workspace_path.to_string_lossy())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -97,7 +118,12 @@ pub async fn get_graph_timeline_events(
     limit: usize,
 ) -> Result<Vec<obsidium_core::search::graph::timeline::TimelineEvent>, SearchError> {
     let service = core.search.clone();
-    run_blocking(move || service.graph_timeline_events(&workspace_path, after_event, limit)).await
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.graph_timeline_events(&workspace_path.to_string_lossy(), after_event, limit)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -111,9 +137,11 @@ pub async fn get_graph_timeline_snapshot(
 ) -> Result<tauri::ipc::Response, SearchError> {
     let options = layout_options(&layout_mode, attraction, repulsion)?;
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     let bytes = run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
         service
-            .render_graph_at_event(&workspace_path, event_id, options)
+            .render_graph_at_event(&workspace_path.to_string_lossy(), event_id, options)
             .map(|snapshot| snapshot.as_ref().clone())
     })
     .await?;
@@ -132,9 +160,19 @@ pub async fn get_graph_paths(
             message: format!("Запрошено больше {MAX_PATHS} путей за раз"),
         });
     }
-    let service = core.search.clone();
+    let core = Arc::clone(&core);
     let epoch = u64::from(epoch_low) | (u64::from(epoch_high) << 32);
-    run_blocking(move || service.graph_paths(epoch, &indices)).await
+    run_blocking(move || {
+        let root = core
+            .search
+            .active_root()
+            .ok_or_else(|| SearchError::InvalidWorkspace {
+                message: "База знаний не открыта".to_owned(),
+            })?;
+        core.access.check_root(&root.to_string_lossy())?;
+        core.search.graph_paths(epoch, &indices)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -155,13 +193,17 @@ pub async fn set_graph_positions(
         });
     }
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     let epoch = u64::from(epoch_low) | (u64::from(epoch_high) << 32);
     let updates = updates
         .into_iter()
         .map(|update| (update.index, update.x, update.y))
         .collect::<Vec<_>>();
-    run_blocking(move || service.save_graph_positions(&workspace_path, epoch, options, &updates))
-        .await
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.save_graph_positions(&workspace_path.to_string_lossy(), epoch, options, &updates)
+    })
+    .await
 }
 
 fn layout_options(mode: &str, attraction: f64, repulsion: f64) -> Result<Options, SearchError> {
@@ -187,10 +229,12 @@ pub async fn get_graph_filter_nodes(
     property_value: Option<String>,
 ) -> Result<Vec<u32>, SearchError> {
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     let epoch = u64::from(epoch_low) | (u64::from(epoch_high) << 32);
     run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
         service.graph_filter_nodes(
-            &workspace_path,
+            &workspace_path.to_string_lossy(),
             epoch,
             GraphNodeFilter {
                 folder,
@@ -212,6 +256,11 @@ pub async fn get_graph_cluster_ids(
     resolution: f64,
 ) -> Result<Vec<u32>, SearchError> {
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     let epoch = u64::from(epoch_low) | (u64::from(epoch_high) << 32);
-    run_blocking(move || service.graph_cluster_ids(&workspace_path, epoch, resolution)).await
+    run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        service.graph_cluster_ids(&workspace_path.to_string_lossy(), epoch, resolution)
+    })
+    .await
 }

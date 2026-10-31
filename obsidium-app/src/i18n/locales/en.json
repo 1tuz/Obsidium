@@ -614,7 +614,7 @@
     "canvas": "Open canvases"
   },
   "calendarPanel": {
-    "title": "Calendar",
+    "title": "Calendars",
     "empty": "No calendar views",
     "loading": "Looking for calendars…",
     "create": "New calendar",
@@ -791,7 +791,7 @@
   },
   "boards": {
     "title": "Boards",
-    "newBoard": "+ New board",
+    "newBoard": "New board",
     "empty": "No views found",
     "emptyKanban": "No kanban boards",
     "loading": "Finding boards…",

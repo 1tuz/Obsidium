@@ -4,6 +4,7 @@ import { Dialog, DialogFooter } from '../Common/Dialog';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
 import { Menu, type MenuItem, type MenuPosition } from '../Common/Menu';
+import { SidebarPanelHeader } from './SidebarPanelHeader';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { ExternalLink, Folder, MoreHorizontal, Pencil, Trash2 } from 'lucide';
 import { listen } from '@tauri-apps/api/event';
@@ -365,10 +366,12 @@ export function BoardsPanel({
 
   return (
     <section className="q-boards-panel" aria-label={t('boards.title')}>
-      <header className="q-boards-panel__header">
-        <h2>{t('boards.title')}</h2>
-        <Button size="s" onClick={() => setNewOpen(true)}>{t('boards.newBoard')}</Button>
-      </header>
+      <SidebarPanelHeader
+        title={t('boards.title')}
+        createLabel={t('boards.newBoard')}
+        disabled={!workspacePath}
+        onCreate={() => setNewOpen(true)}
+      />
       {loading && boards.length === 0 ? <p>{t('boards.loading')}</p> : null}
       {failed ? <p role="alert">{t('boards.loadError')}</p> : null}
       {!loading && !failed && boards.length === 0 ? <p>{t('boards.emptyKanban')}</p> : null}

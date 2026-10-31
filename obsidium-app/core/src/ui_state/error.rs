@@ -7,6 +7,7 @@ pub enum UiStateError {
     Io { message: String },
     Task { message: String },
     InvalidInput { message: String },
+    OutsideWorkspace { path: String },
     UnsupportedSchema { version: i64 },
     Unavailable { message: String },
 }
@@ -31,6 +32,19 @@ impl From<crate::app_core::TaskFailed> for UiStateError {
     fn from(error: crate::app_core::TaskFailed) -> Self {
         Self::Task {
             message: error.to_string(),
+        }
+    }
+}
+
+impl From<crate::files::error::FileCommandError> for UiStateError {
+    fn from(error: crate::files::error::FileCommandError) -> Self {
+        match error {
+            crate::files::error::FileCommandError::OutsideWorkspace { path } => {
+                Self::OutsideWorkspace { path }
+            }
+            error => Self::InvalidInput {
+                message: error.to_string(),
+            },
         }
     }
 }

@@ -1,11 +1,8 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
-import { readFileStat } from '../documents/fileGateway';
+import { pickImportFile, readFileStat } from '../documents/fileGateway';
 import { absolutePath, fileName } from '../paths';
 import { resolveVaultAbsolutePath } from './vaultAssets';
 import { importIntoFiles, splitNameExt } from './vaultFiles';
-
-const BOOK_EXTENSIONS = ['epub', 'mobi', 'azw3', 'fb2'] as const;
 
 const MIME_BY_EXT: Record<string, string> = {
   epub: 'application/epub+zip',
@@ -30,11 +27,8 @@ async function importBookFile(
 export async function pickAndImportBook(
   workspacePath: string,
 ): Promise<{ relative: string; byteLength: number } | null> {
-  const selected = await open({
-    multiple: false,
-    filters: [{ name: 'Books', extensions: [...BOOK_EXTENSIONS] }],
-  });
-  if (typeof selected !== 'string' || !selected) return null;
+  const selected = await pickImportFile('book');
+  if (!selected) return null;
   return importBookFile(workspacePath, selected);
 }
 

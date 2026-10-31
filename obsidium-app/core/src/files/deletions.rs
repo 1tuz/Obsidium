@@ -1,5 +1,5 @@
 use super::error::FileCommandError;
-use super::trash::{original_path, trash_path, trashed_notes};
+use super::trash::{existing_trash_path, original_path, trashed_notes};
 use crate::search::paths::slash_path;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -33,7 +33,13 @@ pub fn deletion_page_impl(
     offset: usize,
     limit: usize,
 ) -> Result<DeletionPage, FileCommandError> {
-    let mut deletions = deletions(workspace);
+    let Some(trash) = existing_trash_path(workspace)? else {
+        return Ok(DeletionPage {
+            total: 0,
+            deletions: Vec::new(),
+        });
+    };
+    let mut deletions = deletions(&trash);
     deletions.sort_by(|(left_at, left), (right_at, right)| {
         right_at
             .cmp(left_at)
@@ -55,22 +61,23 @@ pub fn deletion_page_impl(
     })
 }
 
-pub fn deletion_files(workspace: &Path, id: &str) -> Vec<PathBuf> {
+pub fn deletion_files(workspace: &Path, id: &str) -> Result<Vec<PathBuf>, FileCommandError> {
     let Ok(id) = id.parse::<u128>() else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
-    let trash = trash_path(workspace);
-    trashed_notes(&trash)
+    let Some(trash) = existing_trash_path(workspace)? else {
+        return Ok(Vec::new());
+    };
+    Ok(trashed_notes(&trash)
         .filter(|(_, metadata)| deleted_at_nanos(metadata) == id)
         .map(|(path, _)| path)
-        .collect()
+        .collect())
 }
 
-fn deletions(workspace: &Path) -> Vec<(u128, Deletion)> {
-    let trash = trash_path(workspace);
+fn deletions(trash: &Path) -> Vec<(u128, Deletion)> {
     let mut grouped = HashMap::<u128, Deletion>::new();
-    for (path, metadata) in trashed_notes(&trash) {
-        let original = original_path(&trash, &path);
+    for (path, metadata) in trashed_notes(trash) {
+        let original = original_path(trash, &path);
         let deletion = grouped
             .entry(deleted_at_nanos(&metadata))
             .or_insert_with(|| Deletion {
@@ -133,7 +140,7 @@ mod tests {
         assert_eq!(folder_deletion.files, 2);
         assert_eq!(page.deletions[1].original, "В.md");
         assert_eq!(page.deletions[1].files, 1);
-        assert_eq!(deletion_files(root, &folder_deletion.id).len(), 2);
+        assert_eq!(deletion_files(root, &folder_deletion.id).unwrap().len(), 2);
     }
 
     #[test]

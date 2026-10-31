@@ -1,5 +1,5 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
+import { isFileCommandError, isMarkdownPath, pickImportFile, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TargetedDragEvent, TargetedKeyboardEvent, TargetedMouseEvent, TargetedPointerEvent } from 'preact';
 import { t } from '../../i18n';
@@ -7,7 +7,6 @@ import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { absolutePath, fileName, parentDirectory, resolveNotePath, samePath } from '../../modules/paths';
 import { splitNoteLink, type CanvasNoteSource, type CanvasNoteTarget } from './canvasNoteLinks';
 import { openExternalUrl } from '../../modules/openExternalUrl';
-import { isFileCommandError, isMarkdownPath, readFileSnapshot, writeFileAtomic } from '../../modules/documents/fileGateway';
 import { createUniqueFile } from '../../modules/documents/documentFactory';
 import { recalledCanvasCamera, registerCanvasFlush, rememberCanvasCamera } from '../../modules/canvas/persistence';
 import {
@@ -814,12 +813,8 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [nodeColor, setCanvasDocument, worldPoint]);
 
   const attachImage = useCallback(async (point: CanvasPoint) => {
-    const selected = await open({
-      multiple: false,
-      directory: false,
-      filters: [{ name: t('canvas.toolbar.tool.image'), extensions: MEDIA_EXTENSIONS }],
-    });
-    if (!selected || Array.isArray(selected)) return;
+    const selected = await pickImportFile('media');
+    if (!selected) return;
     try {
       const relative = await importIntoFiles(
         workspacePath,

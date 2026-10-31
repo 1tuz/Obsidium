@@ -4,8 +4,7 @@ use crate::app_core::Core;
 use crate::blocking::run_blocking;
 use crate::files::error::FileCommandError;
 use crate::files::gate;
-use crate::files::trash::trash_path;
-use std::path::Path;
+use crate::files::trash::existing_trash_path;
 use std::sync::Arc;
 use tauri::State;
 
@@ -21,9 +20,10 @@ pub async fn note_history(
     let core = Arc::clone(&core);
     run_blocking(move || {
         let history = &core.history;
+        let path = core.access.check(&path)?;
         Ok(history.page(
             &|| core.known_roots(),
-            Path::new(&path),
+            &path,
             offset,
             limit.min(HISTORY_PAGE_LIMIT),
         ))
@@ -40,7 +40,8 @@ pub async fn read_note_version(
     let core = Arc::clone(&core);
     run_blocking(move || {
         let history = &core.history;
-        Ok(history.version(&|| core.known_roots(), Path::new(&path), version.as_deref()))
+        let path = core.access.check(&path)?;
+        Ok(history.version(&|| core.known_roots(), &path, version.as_deref()))
     })
     .await
 }
@@ -54,26 +55,26 @@ pub async fn name_note_version(
 ) -> Result<Option<String>, FileCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        Ok(gate::name_version(
-            &core,
-            Path::new(&path),
-            version.as_deref(),
-            &name,
-        ))
+        let path = core.access.check(&path)?;
+        Ok(gate::name_version(&core, &path, version.as_deref(), &name))
     })
     .await
 }
 
 #[tauri::command]
 pub async fn cleanup_history(
+    core: State<'_, Arc<Core>>,
     workspace_path: String,
     retention_days: u32,
 ) -> Result<u64, FileCommandError> {
+    let core = Arc::clone(&core);
     run_blocking(move || {
-        let vault = Path::new(&workspace_path);
-        store::adopt_legacy_history_tree(vault);
-        store::adopt_legacy_history_tree(&trash_path(vault));
-        Ok(store::remove_expired(vault, retention_days))
+        let vault = core.access.check_root(&workspace_path)?;
+        store::adopt_legacy_history_tree(&vault);
+        if let Some(trash) = existing_trash_path(&vault)? {
+            store::adopt_legacy_history_tree(&trash);
+        }
+        Ok(store::remove_expired(&vault, retention_days))
     })
     .await
 }

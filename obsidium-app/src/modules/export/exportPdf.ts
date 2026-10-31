@@ -1,5 +1,4 @@
 import { invoke } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
 import { resolveVaultAssetUrl } from '../docs/vaultAssets';
 import type { MarkdownReadingSettings } from '../settings';
 import { escapeHtml, renderMarkdownToHtml } from './markdownToHtml';
@@ -44,11 +43,7 @@ async function awaitLayout(root: HTMLElement): Promise<void> {
 }
 
 async function nativeExportPath(title: string): Promise<string | null> {
-  const target = await save({
-    defaultPath: `${title}.pdf`,
-    filters: [{ name: 'PDF', extensions: ['pdf'] }],
-  });
-  return target ?? null;
+  return invoke<string | null>('pick_export_target', { title });
 }
 
 export async function exportNoteToPdf(request: PdfExportRequest): Promise<boolean> {

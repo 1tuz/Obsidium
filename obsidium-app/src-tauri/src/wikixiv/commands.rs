@@ -1,5 +1,6 @@
 use super::models::{SearchRequest, WikixivSearchResult};
 use crate::app_core::Core;
+use crate::files::error::FileCommandError;
 use std::sync::Arc;
 use tauri::State;
 
@@ -9,10 +10,14 @@ pub async fn wikixiv_search(
     text: String,
     generation: u64,
     document_path: Option<String>,
-) -> Result<WikixivSearchResult, String> {
+) -> Result<WikixivSearchResult, FileCommandError> {
     let settings = &core.settings;
     let service = core.wikixiv.clone();
     let enabled = settings.get_config().analysis.enable_wikixiv;
+    let document_path = match document_path {
+        Some(path) => Some(core.access.check(&path)?.to_string_lossy().into_owned()),
+        None => None,
+    };
     tauri::async_runtime::spawn_blocking(move || {
         service.search(
             SearchRequest {
@@ -24,5 +29,8 @@ pub async fn wikixiv_search(
         )
     })
     .await
-    .map_err(|error| error.to_string())?
+    .map_err(|error| FileCommandError::Task {
+        message: error.to_string(),
+    })?
+    .map_err(|message| FileCommandError::Io { message })
 }

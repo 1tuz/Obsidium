@@ -1,5 +1,7 @@
 use crate::app_core::Core;
-use crate::search::paths::{markdown_files, relative_slash_path, strip_root};
+use crate::search::paths::{
+    canonicalize_with_missing_tail, markdown_files, relative_slash_path, strip_root,
+};
 use std::path::{Component, Path, PathBuf};
 
 const SIMILAR_LIMIT: usize = 5;
@@ -136,57 +138,16 @@ impl Vault {
         let windows_drive_path =
             bytes.get(1) == Some(&b':') && bytes.first().is_some_and(u8::is_ascii_alphabetic);
         if Path::new(trimmed).is_absolute() || windows_drive_path || trimmed.starts_with(r"\\") {
-            let mut candidate = PathBuf::from(trimmed);
-            if candidate
+            let path = Path::new(trimmed);
+            if path
                 .components()
                 .any(|component| component == Component::ParentDir)
             {
                 return Err(format!("Путь должен быть внутри базы знаний: {input}"));
             }
-            let mut suffix = Vec::new();
-            loop {
-                match std::fs::canonicalize(&candidate) {
-                    Ok(canonical) => {
-                        let mut resolved =
-                            self.ensure_inside(crate::search::paths::canonical_path(&canonical))?;
-                        for component in suffix.iter().rev() {
-                            resolved.push(component);
-                        }
-                        return Ok(resolved);
-                    }
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                        match std::fs::symlink_metadata(&candidate) {
-                            Err(metadata_error)
-                                if metadata_error.kind() == std::io::ErrorKind::NotFound => {}
-                            _ => {
-                                return Err(format!(
-                                    "Не удалось проверить путь: {}",
-                                    candidate.to_string_lossy()
-                                ));
-                            }
-                        }
-                        let Some(name) = candidate.file_name() else {
-                            return Err(format!(
-                                "Не удалось проверить путь: {}",
-                                candidate.to_string_lossy()
-                            ));
-                        };
-                        suffix.push(name.to_os_string());
-                        if !candidate.pop() {
-                            return Err(format!(
-                                "Не удалось проверить путь: {}",
-                                candidate.to_string_lossy()
-                            ));
-                        }
-                    }
-                    Err(_) => {
-                        return Err(format!(
-                            "Не удалось проверить путь: {}",
-                            candidate.to_string_lossy()
-                        ));
-                    }
-                }
-            }
+            let resolved = canonicalize_with_missing_tail(path)
+                .map_err(|_| format!("Не удалось проверить путь: {input}"))?;
+            return self.ensure_inside(resolved);
         }
         let mut components = Vec::new();
         let normalized = trimmed.replace('\\', "/");
@@ -200,34 +161,12 @@ impl Vault {
         if components.is_empty() {
             return Err("Пустой путь".to_owned());
         }
-        let mut path = self.root.clone();
-        for (index, component) in components.iter().enumerate() {
-            let candidate = path.join(component);
-            match std::fs::canonicalize(&candidate) {
-                Ok(canonical) => path = self.ensure_inside(canonical)?,
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    match std::fs::symlink_metadata(&candidate) {
-                        Err(metadata_error)
-                            if metadata_error.kind() == std::io::ErrorKind::NotFound => {}
-                        _ => {
-                            return Err(format!(
-                                "Не удалось проверить путь: {}",
-                                candidate.to_string_lossy()
-                            ));
-                        }
-                    }
-                    path.extend(components[index..].iter());
-                    break;
-                }
-                Err(_) => {
-                    return Err(format!(
-                        "Не удалось проверить путь: {}",
-                        candidate.to_string_lossy()
-                    ));
-                }
-            }
-        }
-        Ok(path)
+        let path = components
+            .iter()
+            .fold(self.root.clone(), |path, component| path.join(component));
+        let resolved = canonicalize_with_missing_tail(&path)
+            .map_err(|_| format!("Не удалось проверить путь: {}", path.to_string_lossy()))?;
+        self.ensure_inside(resolved)
     }
 
     fn ensure_inside(&self, path: PathBuf) -> Result<PathBuf, String> {
@@ -300,7 +239,7 @@ mod tests {
 
     #[test]
     fn rejects_paths_that_escape_the_vault() {
-        let (_guard, core, vault) = vault();
+        let (_guard, _core, vault) = vault();
         assert!(vault.note_path("../secrets.md").is_err());
         assert!(vault.note_path("Проекты/../../secrets.md").is_err());
         assert!(vault.note_path("C:/Windows/system.ini").is_err());
@@ -337,7 +276,7 @@ mod tests {
 
     #[test]
     fn rejects_a_sibling_folder_whose_name_starts_with_the_vault_name() {
-        let (_guard, core, vault) = vault();
+        let (_guard, _core, vault) = vault();
         let sibling = vault
             .root
             .parent()
@@ -352,7 +291,7 @@ mod tests {
 
     #[test]
     fn a_foreign_vault_keeps_its_own_boundary() {
-        let (_guard, core, vault) = vault();
+        let (_guard, _core, vault) = vault();
         let other = tempfile::tempdir().unwrap();
         let foreign = Vault {
             root: crate::search::paths::canonical_path(other.path()),
@@ -389,7 +328,7 @@ mod tests {
 
     #[test]
     fn skips_hidden_folders_such_as_trash() {
-        let (_guard, core, vault) = vault();
+        let (_guard, _core, vault) = vault();
         let trash = vault.root.join(crate::files::trash::TRASH_FOLDER);
         fs::create_dir_all(&trash).unwrap();
         fs::write(trash.join("Удалённая.md"), "мусор").unwrap();

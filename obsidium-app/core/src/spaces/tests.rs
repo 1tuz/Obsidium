@@ -207,6 +207,21 @@ fn list_space_files_respects_the_root_and_missing_roots() {
     .is_empty());
 }
 
+#[cfg(unix)]
+#[test]
+fn list_space_files_rejects_roots_that_symlink_outside_the_workspace() {
+    let vault = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    write(outside.path(), "secret.md", "# secret");
+    std::os::unix::fs::symlink(outside.path(), vault.path().join("escape")).unwrap();
+    let space = Space {
+        root: "escape".to_owned(),
+        ..Space::default()
+    };
+
+    assert!(list_space_files(vault.path(), &space).unwrap().is_empty());
+}
+
 #[test]
 fn list_space_files_skips_excluded_folders_and_their_children() {
     let vault = tempfile::tempdir().unwrap();

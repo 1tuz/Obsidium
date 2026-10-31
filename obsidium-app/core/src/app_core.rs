@@ -1,3 +1,4 @@
+use crate::access::PathGrants;
 use crate::documents::{DocumentEvent, DocumentHub, SaveFailed};
 use crate::files::gate::{NoteHistoryChanged, Relocation};
 use crate::files::watcher::{WatchBatch, WatchScope, WatchSink, WorkspaceWatcher};
@@ -73,6 +74,7 @@ pub struct Core {
     pub settings: SettingsManager,
     pub schema: SchemaStore,
     pub ui_state: UiStateService,
+    pub access: Arc<PathGrants>,
     pub search: SearchService,
     pub history: HistoryService,
     pub documents: DocumentHub,
@@ -103,10 +105,14 @@ impl Core {
                     core.ingest_watch(batch);
                 }
             });
+            let ui_state = UiStateService::open(&app_data_dir.join("ui-state.sqlite3"));
+            let access = Arc::new(PathGrants::new());
+            access.grant_roots(ui_state.workspace_roots().unwrap_or_default());
             Core {
                 settings: SettingsManager::new(app_data_dir),
                 schema: SchemaStore::new(),
-                ui_state: UiStateService::open(&app_data_dir.join("ui-state.sqlite3")),
+                ui_state,
+                access,
                 search: SearchService::new(
                     app_data_dir.join("search-v2"),
                     notifier,

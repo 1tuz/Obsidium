@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Pencil, Trash2 } from 'lucide';
-import { Button } from '../Common/Button';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { Icon } from '../Common/Icon';
 import { Menu, type MenuItem, type MenuPosition } from '../Common/Menu';
@@ -11,6 +10,7 @@ import { isCanvasPath, readDirectory, trashFile } from '../../modules/documents/
 import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile';
 import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { WORKSPACE_CHANGED_EVENT } from '../../hooks/useWorkspaceEvents';
+import { SidebarPanelHeader } from './SidebarPanelHeader';
 import './CanvasPanel.css';
 
 interface CanvasPanelProps {
@@ -216,10 +216,12 @@ export function CanvasPanel({ active, workspacePath, onOpenCanvas, onCreateCanva
 
   return (
     <section className="q-canvas-panel" aria-label={t('canvasPanel.title')}>
-      <header className="q-canvas-panel__header">
-        <h2>{t('canvasPanel.title')}</h2>
-        <Button size="s" onClick={onCreateCanvas}>{t('canvasPanel.create')}</Button>
-      </header>
+      <SidebarPanelHeader
+        title={t('canvasPanel.title')}
+        createLabel={t('canvasPanel.create')}
+        disabled={!workspacePath}
+        onCreate={onCreateCanvas}
+      />
       {loading && canvases.length === 0 ? <p>{t('canvasPanel.loading')}</p> : null}
       {error ? <p role="alert">{t('error.recoveryFailed', { reason: error })}</p> : null}
       {actionError ? <p role="alert">{actionError}</p> : null}

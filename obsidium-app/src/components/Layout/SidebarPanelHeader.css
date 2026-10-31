@@ -1,0 +1,30 @@
+.q-sidebar-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--q-space-8);
+  min-width: 0;
+}
+
+.q-sidebar-panel-header h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--q-text-primary);
+  font-size: var(--q-font-size-ui-base);
+  font-weight: var(--q-font-weight-ui-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-sidebar-panel-header__action.q-icon-button--medium {
+  flex: 0 0 var(--q-size-44);
+  width: var(--q-size-44);
+  height: var(--q-size-44);
+}
+
+.q-sidebar-panel-header__action svg {
+  width: var(--q-size-20);
+  height: var(--q-size-20);
+}
