@@ -1,3 +1,4 @@
+mod access;
 #[cfg(all(desktop, not(debug_assertions)))]
 mod autostart;
 mod blocking;
@@ -129,6 +130,7 @@ pub fn run() {
                 });
             let core = app_core::Core::open(&app_data_dir, events);
             core.apply_mcp_settings();
+            access::allow_grants(app.handle(), &core.access)?;
             app.manage(core);
 
             let window_state_manager = window_state::WindowStateManager::new(&app_data_dir);
@@ -190,6 +192,7 @@ pub fn run() {
             journal::commands::journal_note,
             files::commands::copy_file,
             files::commands::rename_file,
+            files::commands::pick_import_file,
             gallery::commands::list_workspace_images,
             documents::commands::document_open,
             documents::commands::document_push,
@@ -241,6 +244,7 @@ pub fn run() {
             ui_state::commands::forget_ui_workspace,
             ui_state::commands::set_ui_workspace_home_page,
             ui_state::commands::resolve_ui_workspace,
+            ui_state::commands::pick_workspace_folder,
             ui_state::commands::resolve_ui_document,
             ui_state::commands::open_ui_session,
             ui_state::commands::save_ui_state_batch,
@@ -257,6 +261,7 @@ pub fn run() {
             mcp::commands::apply_mcp_settings,
             mcp::commands::set_active_note,
             export::commands::export_pdf,
+            export::commands::pick_export_target,
             export::commands::pdf_export_is_native
         ])
         .on_window_event(|window, event| {

@@ -26,7 +26,8 @@ obsidium-app/src/components/Editor/hooks/
 └── useEditorBookPage.ts страница книги, FM, загрузка файла
 
 obsidium-app/src/modules/docs/
-├── books.ts            import EPUB → Files/, pick dialog
+├── books.ts            import EPUB → Files/, native Rust picker and exact-file grant
+
 ├── bookProgress.ts     synthetic pages N/M (bytes / 1024)
 ├── bookQuotes.ts       obsidium-reader: ссылки и blockquote-цитаты; прежняя схема читается
 ├── bookBookmarks.ts    закладки: разбор и запись FM bookmarks
@@ -87,7 +88,7 @@ src-tauri/src/ui_state/reader.rs  SQLite reader_state
 2. SQLite CFI — только если `cache.current === pages.current`;
 3. иначе fraction из FM; устаревший CFI сбрасывается.
 
-Файл книги загружается через asset-протокол (`convertFileSrc` → `fetch` → `File`), а не IPC-командой чтения: IPC вернул бы байты base64-строкой, раздутой на треть и целиком скопированной через мост, а `File` даёт zip.js внутри foliate произвольный доступ к архиву. Размер файла для синтетических страниц берётся параллельно из метаданных (`readFileStat`), а не из загруженных байтов.
+Файл книги загружается через asset-протокол (`convertFileSrc` → `fetch` → `File`), а не IPC-командой чтения: IPC вернул бы байты base64-строкой, раздутой на треть и целиком скопированной через мост, а `File` даёт zip.js внутри foliate произвольный доступ к архиву. Размер файла для синтетических страниц берётся параллельно из метаданных (`readFileStat`), а не из загруженных байтов. Это работает потому, что книга лежит в базе, а база разрешена протоколу ассетов при открытии; книга за пределами базы протоколом не откроется ([[workspace-switching]], TD-18 в [[tech-debt]]).
 
 ## Оформление читалки
 

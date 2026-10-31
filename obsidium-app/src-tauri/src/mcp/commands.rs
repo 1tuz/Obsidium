@@ -1,12 +1,17 @@
 use super::McpStatus;
 use crate::app_core::Core;
-use std::path::PathBuf;
+use crate::files::error::FileCommandError;
 use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
-pub fn set_active_note(core: State<'_, Arc<Core>>, path: Option<String>) {
-    core.active_note.set(path.map(PathBuf::from));
+pub fn set_active_note(
+    core: State<'_, Arc<Core>>,
+    path: Option<String>,
+) -> Result<(), FileCommandError> {
+    let path = path.map(|path| core.access.check(&path)).transpose()?;
+    core.active_note.set(path);
+    Ok(())
 }
 
 #[tauri::command]

@@ -4,6 +4,7 @@
 #[cfg(test)]
 pub(crate) mod legacy_name;
 
+pub mod access;
 pub mod app_core;
 pub mod documents;
 pub mod files;

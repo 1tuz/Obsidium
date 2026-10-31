@@ -1,5 +1,5 @@
-import { open } from '@tauri-apps/plugin-dialog';
-import { IMAGE_EXTENSIONS, mediaExtensionForMime } from './imageEmbeds';
+import { pickImportFile } from '../documents/fileGateway';
+import { mediaExtensionForMime } from './imageEmbeds';
 import { importIntoFiles } from './vaultFiles';
 import { resolveVaultAssetUrl } from './vaultAssets';
 import {
@@ -62,10 +62,7 @@ export async function importCoverBytes(
 }
 
 export async function pickAndImportCover(workspacePath: string): Promise<string | null> {
-  const selected = await open({
-    multiple: false,
-    filters: [{ name: 'Images', extensions: IMAGE_EXTENSIONS }],
-  });
-  if (typeof selected !== 'string' || !selected) return null;
+  const selected = await pickImportFile('cover');
+  if (!selected) return null;
   return importCoverFile(workspacePath, selected);
 }

@@ -6,7 +6,6 @@ use crate::files::commands::WriteSource;
 use crate::history::Source;
 use serde::Serialize;
 use serde_json::Value;
-use std::path::Path;
 use std::sync::Arc;
 use tauri::State;
 
@@ -18,6 +17,7 @@ pub enum DocumentCommandError {
     Missing,
     InvalidUtf8 { message: String },
     InvalidChanges { message: String },
+    OutsideWorkspace { path: String },
     Io { message: String },
     Task { message: String },
 }
@@ -50,6 +50,19 @@ impl From<crate::app_core::TaskFailed> for DocumentCommandError {
     }
 }
 
+impl From<crate::files::error::FileCommandError> for DocumentCommandError {
+    fn from(error: crate::files::error::FileCommandError) -> Self {
+        match error {
+            crate::files::error::FileCommandError::OutsideWorkspace { path } => {
+                Self::OutsideWorkspace { path }
+            }
+            error => Self::Io {
+                message: error.to_string(),
+            },
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn document_open(
     core: State<'_, Arc<Core>>,
@@ -58,9 +71,8 @@ pub async fn document_open(
 ) -> Result<OpenedDocument, DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        Ok(core
-            .documents
-            .open(&core, Path::new(&path), tz_offset_minutes)?)
+        let path = core.access.check(&path)?;
+        Ok(core.documents.open(&core, &path, tz_offset_minutes)?)
     })
     .await
 }
@@ -75,9 +87,10 @@ pub async fn document_push(
 ) -> Result<bool, DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
+        let path = core.access.check(&path)?;
         Ok(core
             .documents
-            .push(&core, Path::new(&path), version, &client, &changes)?)
+            .push(&core, &path, version, &client, &changes)?)
     })
     .await
 }
@@ -89,7 +102,11 @@ pub async fn document_pull(
     version: u64,
 ) -> Result<PullResult, DocumentCommandError> {
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(core.documents.pull(Path::new(&path), version)?)).await
+    run_blocking(move || {
+        let path = core.access.check(&path)?;
+        Ok(core.documents.pull(&path, version)?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -103,14 +120,10 @@ pub async fn document_replace_text(
     let source = Source::from(source.unwrap_or_default());
     let core = Arc::clone(&core);
     run_blocking(move || {
-        Ok(core.documents.replace_text(
-            &core,
-            Path::new(&path),
-            &text,
-            SYSTEM_CLIENT,
-            source,
-            base_version,
-        )?)
+        let path = core.access.check(&path)?;
+        Ok(core
+            .documents
+            .replace_text(&core, &path, &text, SYSTEM_CLIENT, source, base_version)?)
     })
     .await
 }
@@ -126,13 +139,10 @@ pub async fn document_revert(
     let source = Source::from(WriteSource::Revert { from_ms });
     let core = Arc::clone(&core);
     run_blocking(move || {
-        Ok(core.documents.revert(
-            &core,
-            Path::new(&path),
-            &version_text,
-            &previous_text,
-            source,
-        )?)
+        let path = core.access.check(&path)?;
+        Ok(core
+            .documents
+            .revert(&core, &path, &version_text, &previous_text, source)?)
     })
     .await
 }
@@ -143,7 +153,18 @@ pub async fn document_import_legacy(
     replicas: Vec<LegacyReplica>,
 ) -> Result<usize, DocumentCommandError> {
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(core.documents.import_legacy(&replicas))).await
+    run_blocking(move || {
+        let allowed: Vec<LegacyReplica> = replicas
+            .into_iter()
+            .filter_map(|mut replica| {
+                let path = core.access.check(&replica.path).ok()?;
+                replica.path = path.to_string_lossy().into_owned();
+                Some(replica)
+            })
+            .collect();
+        Ok(core.documents.import_legacy(&allowed))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -152,7 +173,11 @@ pub async fn document_read(
     path: String,
 ) -> Result<OpenedDocument, DocumentCommandError> {
     let core = Arc::clone(&core);
-    run_blocking(move || Ok(core.documents.read(&core, Path::new(&path))?)).await
+    run_blocking(move || {
+        let path = core.access.check(&path)?;
+        Ok(core.documents.read(&core, &path)?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -163,9 +188,8 @@ pub async fn document_resolve_positions(
 ) -> Result<Vec<Option<usize>>, DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        Ok(core
-            .documents
-            .resolve_positions(Path::new(&path), &positions)?)
+        let path = core.access.check(&path)?;
+        Ok(core.documents.resolve_positions(&path, &positions)?)
     })
     .await
 }
@@ -177,7 +201,8 @@ pub async fn document_release(
 ) -> Result<(), DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        core.documents.release(&core, Path::new(&path));
+        let path = core.access.check(&path)?;
+        core.documents.release(&core, &path);
         Ok(())
     })
     .await
@@ -203,4 +228,23 @@ pub async fn document_reconcile_all(
         Ok(())
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DocumentCommandError;
+    use crate::files::error::FileCommandError;
+    use serde_json::json;
+
+    #[test]
+    fn path_access_errors_keep_the_outside_workspace_code() {
+        let error = DocumentCommandError::from(FileCommandError::OutsideWorkspace {
+            path: "/outside".to_owned(),
+        });
+
+        assert_eq!(
+            serde_json::to_value(error).unwrap(),
+            json!({ "code": "outside_workspace", "details": { "path": "/outside" } })
+        );
+    }
 }

@@ -1,6 +1,8 @@
 use super::error::SearchError;
 use std::fs;
+use std::io::{Error, ErrorKind};
 use std::path::{Component, Path, PathBuf};
+use std::{ffi::OsString, io};
 use walkdir::{DirEntry, WalkDir};
 
 pub fn identity(path: &Path) -> String {
@@ -22,6 +24,41 @@ pub fn canonical_workspace(workspace: &str) -> Result<PathBuf, SearchError> {
         message: error.to_string(),
     })?;
     Ok(normalize_extended_prefix(canonical))
+}
+
+pub(crate) fn canonicalize_with_missing_tail(path: &Path) -> io::Result<PathBuf> {
+    let mut candidate = path.to_path_buf();
+    let mut suffix = Vec::<OsString>::new();
+    loop {
+        match fs::canonicalize(&candidate) {
+            Ok(mut canonical) => {
+                for component in suffix.iter().rev() {
+                    canonical.push(component);
+                }
+                return Ok(canonical);
+            }
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                match fs::symlink_metadata(&candidate) {
+                    Err(error) if error.kind() == ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                    Ok(_) => {
+                        return Err(Error::new(
+                            ErrorKind::InvalidInput,
+                            "cannot canonicalize an existing path",
+                        ));
+                    }
+                }
+                let Some(name) = candidate.file_name().map(OsString::from) else {
+                    return Err(Error::new(ErrorKind::InvalidInput, "path has no file name"));
+                };
+                suffix.push(name);
+                if !candidate.pop() {
+                    return Err(Error::new(ErrorKind::InvalidInput, "path has no parent"));
+                }
+            }
+            Err(error) => return Err(error),
+        }
+    }
 }
 
 pub fn same_workspace(root: &Path, workspace: &str) -> bool {

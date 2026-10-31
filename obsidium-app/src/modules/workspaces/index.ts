@@ -1,11 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
 import { samePath } from '../paths';
 
 export async function pickWorkspaceFolder(): Promise<string | null> {
   try {
-    const selected = await open({ directory: true, multiple: false });
-    return typeof selected === 'string' ? selected : null;
+    return await invoke<string | null>('pick_workspace_folder');
   } catch (error) {
     console.error('Failed to pick a workspace directory', error);
     return null;

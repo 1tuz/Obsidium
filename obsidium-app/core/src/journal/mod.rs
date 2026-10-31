@@ -20,6 +20,7 @@ pub struct JournalNote {
 #[serde(tag = "code", content = "details", rename_all = "snake_case")]
 pub enum JournalError {
     Io { message: String },
+    OutsideWorkspace { path: String },
     Settings { message: String },
     Date { message: String },
     Template { message: String },
@@ -28,8 +29,13 @@ pub enum JournalError {
 
 impl From<crate::files::error::FileCommandError> for JournalError {
     fn from(error: crate::files::error::FileCommandError) -> Self {
-        Self::Io {
-            message: error.to_string(),
+        match error {
+            crate::files::error::FileCommandError::OutsideWorkspace { path } => {
+                Self::OutsideWorkspace { path }
+            }
+            error => Self::Io {
+                message: error.to_string(),
+            },
         }
     }
 }
@@ -44,11 +50,15 @@ impl From<crate::app_core::TaskFailed> for JournalError {
 
 impl std::fmt::Display for JournalError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (Self::Io { message }
-        | Self::Settings { message }
-        | Self::Date { message }
-        | Self::Template { message }
-        | Self::Task { message }) = self;
-        formatter.write_str(message)
+        match self {
+            Self::Io { message }
+            | Self::Settings { message }
+            | Self::Date { message }
+            | Self::Template { message }
+            | Self::Task { message } => formatter.write_str(message),
+            Self::OutsideWorkspace { path } => {
+                write!(formatter, "путь вне разрешённых баз знаний: {path}")
+            }
+        }
     }
 }

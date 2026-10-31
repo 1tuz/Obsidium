@@ -4,7 +4,7 @@ pub use super::workspace_locator::workspace_vault;
 use super::workspace_locator::{address, known_paths, known_workspace, open_guest, wait_until};
 use super::{optional_text, text, tool, workspace_property};
 use crate::app_core::Core;
-use crate::search::paths::{canonical_path, same_path};
+use crate::search::paths::same_path;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::time::Duration;
@@ -124,8 +124,11 @@ fn open_note(core: &Core, arguments: &Value) -> Result<Value, String> {
 }
 
 fn switch_to(core: &Core, path: &Path, note: Option<&str>) -> Result<Value, String> {
-    bridge::switch_workspace(core, path);
-    let root = canonical_path(path);
+    let root = core
+        .access
+        .check_root(&path.to_string_lossy())
+        .map_err(|error| error.to_string())?;
+    bridge::switch_workspace(core, &root);
     let service = &core.search;
     let switched = wait_until(SWITCH_TIMEOUT, || {
         service

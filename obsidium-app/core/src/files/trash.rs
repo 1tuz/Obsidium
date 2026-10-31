@@ -3,8 +3,7 @@ use super::relocate::{
     relocate, remove_empty_ancestors, remove_empty_folders, remove_files, Placement, Relocated,
 };
 use crate::history::OBSIDIUM_FOLDER;
-use crate::search::paths::canonical_path;
-use crate::search::paths::slash_path;
+use crate::search::paths::{canonical_path, slash_path, strip_root};
 use serde::Serialize;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -41,11 +40,21 @@ pub fn trash_path(workspace: &Path) -> PathBuf {
     workspace.join(TRASH_FOLDER)
 }
 
+pub fn existing_trash_path(workspace: &Path) -> Result<Option<PathBuf>, FileCommandError> {
+    checked_trash_path(workspace, false)
+}
+
 pub fn trash_state_impl(workspace: &Path) -> Result<TrashState, FileCommandError> {
-    let path = trash_path(workspace);
-    let (count, bytes) = trashed_notes(&path).fold((0, 0), |(count, bytes), (_, metadata)| {
-        (count + 1, bytes + metadata.len())
-    });
+    let trash = existing_trash_path(workspace)?;
+    let path = trash.clone().unwrap_or_else(|| trash_path(workspace));
+    let (count, bytes) = trash
+        .as_deref()
+        .map(|path| {
+            trashed_notes(path).fold((0, 0), |(count, bytes), (_, metadata)| {
+                (count + 1, bytes + metadata.len())
+            })
+        })
+        .unwrap_or((0, 0));
     Ok(TrashState {
         path: path.to_string_lossy().into_owned(),
         count,
@@ -54,10 +63,12 @@ pub fn trash_state_impl(workspace: &Path) -> Result<TrashState, FileCommandError
 }
 
 pub fn cleanup_trash_impl(workspace: &Path, retention_days: u32) -> Result<u64, FileCommandError> {
-    let trash = trash_path(workspace);
-    if retention_days == 0 || !trash.is_dir() {
+    if retention_days == 0 {
         return Ok(0);
     }
+    let Some(trash) = existing_trash_path(workspace)? else {
+        return Ok(0);
+    };
     let lifetime = Duration::from_secs(u64::from(retention_days) * 24 * 60 * 60);
     let now = SystemTime::now();
     let expired = trashed_files(&trash)
@@ -76,10 +87,9 @@ pub fn cleanup_trash_impl(workspace: &Path, retention_days: u32) -> Result<u64, 
 }
 
 pub fn empty_trash_impl(workspace: &Path) -> Result<u64, FileCommandError> {
-    let trash = trash_path(workspace);
-    if !trash.is_dir() {
+    let Some(trash) = existing_trash_path(workspace)? else {
         return Ok(0);
-    }
+    };
     let files = trashed_files(&trash)
         .map(|(path, _)| path)
         .collect::<Vec<_>>();
@@ -89,7 +99,9 @@ pub fn empty_trash_impl(workspace: &Path) -> Result<u64, FileCommandError> {
 }
 
 pub fn list_trash_impl(workspace: &Path) -> Result<Vec<TrashedFile>, FileCommandError> {
-    let trash = trash_path(workspace);
+    let Some(trash) = existing_trash_path(workspace)? else {
+        return Ok(Vec::new());
+    };
     let mut files = trashed_notes(&trash)
         .map(|(path, metadata)| TrashedFile {
             original: slash_path(&original_path(&trash, &path)),
@@ -127,10 +139,16 @@ pub fn restore_from_trash_impl(
     workspace: &Path,
     trashed: &Path,
 ) -> Result<Relocated, FileCommandError> {
-    let trash = canonical_path(&trash_path(workspace));
+    let trash = existing_trash_path(workspace)?.ok_or_else(|| FileCommandError::Io {
+        message: "корзина не существует".to_owned(),
+    })?;
+    let trash = canonical_path(&trash);
     let trashed = canonical_path(trashed);
     let relative = Some(original_path(&trash, &trashed))
-        .filter(|relative| trashed.starts_with(&trash) && !relative.as_os_str().is_empty())
+        .filter(|relative| {
+            strip_root(&trash, &trashed).is_some_and(|inside| !inside.as_os_str().is_empty())
+                && !relative.as_os_str().is_empty()
+        })
         .ok_or_else(|| FileCommandError::Io {
             message: format!("не в корзине: {}", trashed.display()),
         })?;
@@ -149,14 +167,53 @@ pub fn restore_from_trash_impl(
 }
 
 pub fn move_to_trash_impl(workspace: &Path, entry: &Path) -> Result<Relocated, FileCommandError> {
-    let target = trash_path(workspace).join(place_in_trash(workspace, entry));
+    let trash = checked_trash_path(workspace, true)?.ok_or_else(|| FileCommandError::Io {
+        message: "не удалось создать корзину".to_owned(),
+    })?;
+    let target = trash.join(place_in_trash(workspace, entry));
     relocate(entry, &target, Placement::Trash)
 }
 
 pub fn ensure_trash_impl(workspace: &Path) -> Result<String, FileCommandError> {
-    let path = trash_path(workspace);
-    fs::create_dir_all(&path)?;
+    let path = checked_trash_path(workspace, true)?.ok_or_else(|| FileCommandError::Io {
+        message: "не удалось создать корзину".to_owned(),
+    })?;
     Ok(path.to_string_lossy().into_owned())
+}
+
+fn checked_trash_path(workspace: &Path, create: bool) -> Result<Option<PathBuf>, FileCommandError> {
+    let canonical_workspace = fs::canonicalize(workspace)?;
+    let path = trash_path(workspace);
+    match fs::symlink_metadata(&path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            return Err(FileCommandError::OutsideWorkspace {
+                path: path.to_string_lossy().into_owned(),
+            });
+        }
+        Ok(metadata) if !metadata.is_dir() => {
+            return Err(FileCommandError::Io {
+                message: format!("корзина не является каталогом: {}", path.display()),
+            });
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && !create => {
+            return Ok(None);
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => match fs::create_dir(&path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error.into()),
+        },
+        Err(error) => return Err(error.into()),
+    }
+    let canonical = fs::canonicalize(&path)?;
+    if !matches!(strip_root(&canonical_workspace, &canonical), Some(relative) if !relative.as_os_str().is_empty())
+    {
+        return Err(FileCommandError::OutsideWorkspace {
+            path: canonical.to_string_lossy().into_owned(),
+        });
+    }
+    Ok(Some(path))
 }
 
 fn place_in_trash(workspace: &Path, entry: &Path) -> PathBuf {
@@ -237,6 +294,30 @@ mod tests {
 
     fn workspace() -> tempfile::TempDir {
         tempfile::tempdir().unwrap()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_trash_symlink_cannot_redirect_operations_outside_the_workspace() {
+        let workspace = workspace();
+        let external = tempfile::tempdir().unwrap();
+        let note = workspace.path().join("Живая.md");
+        let outside = external.path().join("Старая.md");
+        fs::write(&note, "не удалять").unwrap();
+        aged_file(&outside, 900);
+        std::os::unix::fs::symlink(external.path(), trash_path(workspace.path())).unwrap();
+
+        assert!(ensure_trash_impl(workspace.path()).is_err());
+        assert!(trash_state_impl(workspace.path()).is_err());
+        assert!(list_trash_impl(workspace.path()).is_err());
+        assert!(cleanup_trash_impl(workspace.path(), 30).is_err());
+        assert!(empty_trash_impl(workspace.path()).is_err());
+        assert!(move_to_trash_impl(workspace.path(), &note).is_err());
+        assert!(restore_from_trash_impl(workspace.path(), &outside).is_err());
+        assert!(crate::files::deletions::deletion_page_impl(workspace.path(), 0, 20).is_err());
+        assert!(crate::files::deletions::deletion_files(workspace.path(), "1").is_err());
+        assert_eq!(fs::read_to_string(&note).unwrap(), "не удалять");
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "мусор");
     }
 
     #[test]

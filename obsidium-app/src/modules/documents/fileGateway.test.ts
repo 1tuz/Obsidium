@@ -96,10 +96,12 @@ describe('fileGateway', () => {
 
   it('recognizes structured command errors', () => {
     const error = { code: 'already_exists', details: { path: 'note.md' } };
+    const outsideWorkspace = { code: 'outside_workspace', details: { path: '/private/file' } };
 
     expect(isFileCommandError(error)).toBe(true);
     expect(isFileCommandError(error, 'already_exists')).toBe(true);
     expect(isFileCommandError(error, 'conflict')).toBe(false);
+    expect(isFileCommandError(outsideWorkspace, 'outside_workspace')).toBe(true);
     expect(isFileCommandError(new Error('failure'))).toBe(false);
   });
 });

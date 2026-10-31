@@ -14,7 +14,8 @@ pub async fn get_schema(
 ) -> Result<ObjectSchema, SchemaError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        let registry = core.schema.registry(Path::new(&workspace_path))?;
+        let root = core.access.check_root(&workspace_path)?;
+        let registry = core.schema.registry(&root)?;
         registry.schema()
     })
     .await
@@ -28,7 +29,8 @@ pub async fn save_schema(
 ) -> Result<ObjectSchema, SchemaError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        let registry = core.schema.registry(Path::new(&workspace_path))?;
+        let root = core.access.check_root(&workspace_path)?;
+        let registry = core.schema.registry(&root)?;
         registry.save(&schema)?;
         registry.schema()
     })
@@ -43,8 +45,12 @@ pub async fn validate_note(
 ) -> Result<Vec<Violation>, SchemaError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        let registry = core.schema.registry(Path::new(&workspace_path))?;
-        let content = read_text(&note_path(registry.root(), &path))?;
+        let root = core.access.check_root(&workspace_path)?;
+        let registry = core.schema.registry(&root)?;
+        let note = core
+            .access
+            .check(&note_path(&root, &path).to_string_lossy())?;
+        let content = read_text(&note)?;
         let fields = note_fields(&content);
         let schema = registry.schema()?;
         Ok(registry.validate_note(&schema, &fields))

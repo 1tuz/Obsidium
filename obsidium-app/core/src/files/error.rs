@@ -16,6 +16,9 @@ pub enum FileCommandError {
     AlreadyExists {
         path: String,
     },
+    OutsideWorkspace {
+        path: String,
+    },
     Task {
         message: String,
     },
@@ -45,6 +48,9 @@ impl std::fmt::Display for FileCommandError {
             }
             Self::Conflict { .. } => formatter.write_str("файл изменился на диске"),
             Self::AlreadyExists { path } => write!(formatter, "уже существует: {path}"),
+            Self::OutsideWorkspace { path } => {
+                write!(formatter, "путь вне разрешённых баз знаний: {path}")
+            }
         }
     }
 }

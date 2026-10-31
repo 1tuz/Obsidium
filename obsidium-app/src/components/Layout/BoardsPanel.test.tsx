@@ -338,7 +338,11 @@ describe('BoardsPanel', () => {
     act(() => { renderer = mountDom(<BoardsPanel {...props} />); });
     await actAndSettle();
     expect(renderer!.container.textContent).toContain(t('boards.emptyKanban'));
-    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-boards-panel__header button')!.click());
+    const create = renderer!.container.querySelector<HTMLButtonElement>(
+      '.q-sidebar-panel-header__action',
+    )!;
+    expect(create.getAttribute('aria-label')).toBe(t('boards.newBoard'));
+    act(() => create.click());
     await actAndSettle();
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
     expect(dialog.textContent).toContain(t('boards.newBoard'));
@@ -360,5 +364,22 @@ describe('BoardsPanel', () => {
       '/vault/Sprint.base', expect.stringContaining('board/sprint'),
     );
     expect(onOpenView).toHaveBeenCalledWith('/vault/Sprint.base', 0);
+  });
+
+  it('disables board creation when no workspace is selected', async () => {
+    const props = {
+      active: true,
+      workspacePath: null,
+      onOpenView: vi.fn(),
+      actionRequest: null,
+      onActionRequestComplete: vi.fn(),
+      createRequest: 0,
+    };
+    act(() => { renderer = mountDom(<BoardsPanel {...props} />); });
+    await actAndSettle();
+
+    expect(renderer!.container.querySelector<HTMLButtonElement>(
+      '.q-sidebar-panel-header__action',
+    )?.disabled).toBe(true);
   });
 });

@@ -52,12 +52,21 @@ pub fn delete_space(settings: &mut SpaceSettings, id: &str) -> Result<(), String
 }
 
 pub fn list_space_files(workspace: &Path, space: &Space) -> Result<Vec<String>, FileCommandError> {
+    let canonical_workspace = std::fs::canonicalize(workspace)?;
     let root = if space.root.trim().is_empty() {
         workspace.to_path_buf()
     } else {
         workspace.join(space.root.trim())
     };
     if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+    let canonical_root = match std::fs::canonicalize(&root) {
+        Ok(root) => root,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    if strip_root(&canonical_workspace, &canonical_root).is_none() {
         return Ok(Vec::new());
     }
     let Some(relative_root) = strip_root(workspace, &root) else {

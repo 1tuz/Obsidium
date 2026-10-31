@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ExternalLink, MoreHorizontal, Pencil, Trash2 } from 'lucide';
-import { Button } from '../Common/Button';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
 import { Icon } from '../Common/Icon';
 import { IconButton } from '../Common/IconButton';
@@ -13,6 +12,7 @@ import { isBasePath, readDirectory, readFileSnapshot, trashFile } from '../../mo
 import { renameWorkspaceFile } from '../../modules/documents/renameWorkspaceFile';
 import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { WORKSPACE_CHANGED_EVENT } from '../../hooks/useWorkspaceEvents';
+import { SidebarPanelHeader } from './SidebarPanelHeader';
 import './CalendarPanel.css';
 
 interface CalendarPanelProps {
@@ -175,12 +175,12 @@ export function CalendarPanel({ active, workspacePath, onOpenView }: CalendarPan
 
   return (
     <section className="q-calendar-panel" aria-label={t('calendarPanel.title')}>
-      <header className="q-calendar-panel__header">
-        <h2>{t('calendarPanel.title')}</h2>
-        <Button size="s" disabled={!workspacePath || creating} onClick={() => { void createCalendar(); }}>
-          {creating ? t('calendarPanel.creating') : t('calendarPanel.create')}
-        </Button>
-      </header>
+      <SidebarPanelHeader
+        title={t('calendarPanel.title')}
+        createLabel={creating ? t('calendarPanel.creating') : t('calendarPanel.create')}
+        disabled={!workspacePath || creating}
+        onCreate={() => { void createCalendar(); }}
+      />
       {actionError ? <p role="alert">{actionError}</p> : null}
       {loading && groups.length === 0 ? <p>{t('calendarPanel.loading')}</p> : null}
       {error ? <p role="alert">{t('error.recoveryFailed', { reason: error })}</p> : null}

@@ -1,7 +1,7 @@
 use crate::app_core::Core;
 use crate::blocking::run_blocking;
+use crate::files::error::FileCommandError;
 use crate::settings::models::Space;
-use std::path::Path;
 use std::sync::Arc;
 use tauri::State;
 
@@ -34,7 +34,7 @@ pub async fn list_space_files(
     core: State<'_, Arc<Core>>,
     workspace_path: String,
     space_id: Option<String>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, FileCommandError> {
     let space = match space_id {
         Some(id) => core
             .settings
@@ -43,11 +43,16 @@ pub async fn list_space_files(
             .spaces
             .into_iter()
             .find(|space| space.id == id)
-            .ok_or_else(|| format!("пространство не найдено: {id}"))?,
+            .ok_or_else(|| FileCommandError::Io {
+                message: format!("пространство не найдено: {id}"),
+            })?,
         None => Space::default(),
     };
 
-    run_blocking(move || crate::spaces::list_space_files(Path::new(&workspace_path), &space))
-        .await
-        .map_err(|error| error.to_string())
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let root = core.access.check_root(&workspace_path)?;
+        crate::spaces::list_space_files(&root, &space)
+    })
+    .await
 }

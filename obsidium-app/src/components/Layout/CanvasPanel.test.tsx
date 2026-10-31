@@ -314,12 +314,27 @@ describe('CanvasPanel', () => {
     });
     await actAndSettle();
 
-    const create = [...renderer!.container.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === t('canvasPanel.create'));
+    const create = renderer!.container.querySelector<HTMLButtonElement>(
+      '.q-sidebar-panel-header__action',
+    );
     expect(create).toBeDefined();
+    expect(create?.getAttribute('aria-label')).toBe(t('canvasPanel.create'));
     act(() => create!.click());
     expect(onCreateCanvas).toHaveBeenCalledOnce();
     expect(onOpenCanvas).not.toHaveBeenCalled();
+  });
+
+  it('disables creation when no workspace is selected', async () => {
+    act(() => {
+      renderer = mountDom(
+        <CanvasPanel active workspacePath={null} onOpenCanvas={() => {}} onCreateCanvas={() => {}} />,
+      );
+    });
+    await actAndSettle();
+
+    expect(renderer!.container.querySelector<HTMLButtonElement>(
+      '.q-sidebar-panel-header__action',
+    )?.disabled).toBe(true);
   });
 
   it('scans only while it is open', async () => {

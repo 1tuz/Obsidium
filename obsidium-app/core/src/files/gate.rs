@@ -193,7 +193,7 @@ pub fn restore(core: &Core, workspace: &Path, trashed: &Path) -> Result<PathBuf,
 }
 
 pub fn restore_deletion(core: &Core, workspace: &Path, id: &str) -> Result<(), FileCommandError> {
-    restore_all(core, workspace, &deletion_files(workspace, id)).map(|_| ())
+    restore_all(core, workspace, &deletion_files(workspace, id)?).map(|_| ())
 }
 
 fn restore_all(

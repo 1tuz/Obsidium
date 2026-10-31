@@ -14,10 +14,13 @@ pub async fn evaluate_inline_expressions(
     tz_offset_minutes: Option<i64>,
 ) -> Result<Vec<InlineResult>, SearchError> {
     let service = core.search.clone();
+    let core = Arc::clone(&core);
     run_blocking(move || {
+        let workspace_path = core.access.check_root(&workspace_path)?;
+        let note_path = core.access.check(&note_path)?;
         service.evaluate_inline_expressions(
-            &workspace_path,
-            &note_path,
+            &workspace_path.to_string_lossy(),
+            &note_path.to_string_lossy(),
             &expressions,
             tz_offset_minutes.unwrap_or_default(),
         )
