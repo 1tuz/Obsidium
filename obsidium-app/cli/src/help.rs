@@ -37,6 +37,7 @@ const HELP: &str = r#"Obsidium CLI — тонкий клиент инструм�
   history <path> [--offset N] [--limit N]
   backlinks <path>
   mcp stdio [--workspace PATH]
+  connect [PATH]      add project MCP settings for Claude Code and Codex
   help
 
 Флаги:

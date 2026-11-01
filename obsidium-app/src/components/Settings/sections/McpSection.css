@@ -43,3 +43,13 @@
   line-height: var(--q-font-line-height-normal);
   white-space: pre;
 }
+
+.q-mcp-connection-result {
+  padding: 0 var(--q-gap-lg) var(--q-gap-lg);
+  color: var(--q-text-secondary);
+  font-size: var(--q-font-size-ui-sm);
+}
+
+.q-mcp-connection-result--error {
+  color: var(--q-text-danger);
+}

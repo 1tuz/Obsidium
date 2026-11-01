@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   applyMcpSettings,
+  connectMcpWorkspace,
   createMcpToken,
   getMcpStatus,
   type McpStatus,
@@ -98,12 +99,15 @@ function useMcpRestart(onStatus: (status: McpStatus) => void) {
   }, [onStatus]);
 }
 
-export function McpSection({ config }: { config: AppConfig }) {
+export function McpSection({ config, workspacePath }: { config: AppConfig; workspacePath: string | null }) {
   const { persist } = useSettingsPersist();
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [portDraft, setPortDraft] = useState<number | null>(null);
   const [tokenDraft, setTokenDraft] = useState<string | null>(null);
+  const [connectingWorkspace, setConnectingWorkspace] = useState(false);
+  const [workspaceConnected, setWorkspaceConnected] = useState(false);
+  const [workspaceConnectionError, setWorkspaceConnectionError] = useState<string | null>(null);
   const restart = useMcpRestart(setStatus);
   const mcp = config.mcp;
 
@@ -143,6 +147,21 @@ export function McpSection({ config }: { config: AppConfig }) {
       if (ok) setCopied(snippet.title);
       else console.error('Failed to copy snippet');
     });
+  };
+
+  const connectWorkspace = async () => {
+    if (!workspacePath || connectingWorkspace) return;
+    setConnectingWorkspace(true);
+    setWorkspaceConnectionError(null);
+    setWorkspaceConnected(false);
+    try {
+      await connectMcpWorkspace(workspacePath);
+      setWorkspaceConnected(true);
+    } catch (error) {
+      setWorkspaceConnectionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setConnectingWorkspace(false);
+    }
   };
 
   return (
@@ -214,6 +233,31 @@ export function McpSection({ config }: { config: AppConfig }) {
           ))}
         </Section>
       ) : null}
+
+      <Section title={t('settings.mcp.workspaceConnection')}>
+        <Row
+          label={t('settings.mcp.connectWorkspace')}
+          description={t('settings.mcp.connectWorkspaceHint')}
+        >
+          <TextButton
+            data-testid="connect-workspace"
+            disabled={!workspacePath || connectingWorkspace}
+            onClick={() => void connectWorkspace()}
+          >
+            {t(connectingWorkspace ? 'settings.mcp.connecting' : 'settings.mcp.connect')}
+          </TextButton>
+        </Row>
+        {workspaceConnected ? (
+          <div className="q-mcp-connection-result" role="status">
+            {t('settings.mcp.workspaceConnected')}
+          </div>
+        ) : null}
+        {workspaceConnectionError ? (
+          <div className="q-mcp-connection-result q-mcp-connection-result--error" role="alert">
+            {t('settings.mcp.workspaceConnectionFailed', { reason: workspaceConnectionError })}
+          </div>
+        ) : null}
+      </Section>
     </>
   );
 }

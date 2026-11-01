@@ -40,6 +40,10 @@ fn execute() -> CliResult<()> {
         return Ok(());
     }
 
+    if args.first() == Some("connect") {
+        return commands::connect::run(&mut args, &options, workspace.as_deref());
+    }
+
     let selected = workspace
         .as_deref()
         .map(Path::new)

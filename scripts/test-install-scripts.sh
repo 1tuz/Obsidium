@@ -84,13 +84,16 @@ run_with_mocks Darwin arm64 "$temporary_root/mac-uninstall.log" "$temporary_root
 cli_root="$temporary_root/cli"
 cli_home="$cli_root/home"
 cli_app="$cli_root/app/Obsidium.app"
-cli_binary="$cli_app/Contents/MacOS/obsidium"
+cli_gui="$cli_app/Contents/MacOS/Obsidium"
+cli_binary="$cli_app/Contents/MacOS/obsidium-cli"
 cli_prefix="$cli_home/.local/bin"
 cli_link="$cli_prefix/obsidium"
 cli_path="/usr/bin:/bin:/usr/sbin:/sbin"
 mkdir -p "$cli_home" "$cli_app/Contents/MacOS"
-printf '#!/bin/sh\nprintf obsidium-cli\n' > "$cli_binary"
+printf '#!/bin/sh\nprintf gui\n' > "$cli_gui"
+printf '#!/bin/sh\nprintf cli\n' > "$cli_binary"
 chmod +x "$cli_binary"
+chmod +x "$cli_gui"
 printf 'plist stays\n' > "$cli_app/Contents/Info.plist"
 
 run_cli() {
@@ -102,7 +105,7 @@ output="$(run_cli "$script_dir/install-cli.sh" --app "$cli_app")"
 [[ "$(readlink "$cli_link")" == "$cli_binary" ]]
 [[ "$output" == *"export PATH=\"$cli_prefix:\$PATH\""* ]]
 [[ "$(cat "$cli_app/Contents/Info.plist")" == 'plist stays' ]]
-[[ "$("$cli_link")" == 'obsidium-cli' ]]
+[[ "$("$cli_link")" == 'cli' ]]
 
 run_cli "$script_dir/install-cli.sh" --app "$cli_app" >/dev/null
 [[ -L "$cli_link" ]]

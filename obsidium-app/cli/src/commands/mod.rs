@@ -3,6 +3,7 @@ use crate::error::{CliResult, Failure};
 use crate::output::Options;
 use obsidium_core::Core;
 
+pub mod connect;
 mod context;
 mod graph;
 mod knowledge;

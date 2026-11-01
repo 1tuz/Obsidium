@@ -32,6 +32,7 @@ function run(command, args) {
 
 const triple = argument('--target') ?? hostTriple();
 const suffix = process.platform === 'win32' ? '.exe' : '';
+const binaryName = triple.endsWith('-apple-darwin') ? 'obsidium-cli' : 'obsidium';
 
 let targetRoot = path.join(appDir, 'src-tauri/target');
 if (appTarget) {
@@ -55,7 +56,7 @@ if (release) args.push('--release');
 run('cargo', args);
 
 const source = path.join(targetRoot, triple, profile, `obsidium${suffix}`);
-const destination = path.join(binaries, `obsidium-${triple}${suffix}`);
+const destination = path.join(binaries, `${binaryName}-${triple}${suffix}`);
 if (!existsSync(source)) throw new Error(`the CLI binary is missing at ${source}`);
 mkdirSync(binaries, { recursive: true });
 copyFileSync(source, destination);
