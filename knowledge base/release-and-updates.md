@@ -90,7 +90,10 @@ Linux- и Windows-пакеты в отдельный macOS-релиз не по�
 ### Сборка sidecar
 
 `scripts/prepare-cli-sidecar.mjs` — единственная реализация сборки CLI sidecar для бандла: собирает
-`obsidium-cli` и кладёт бинарь в `src-tauri/binaries/obsidium-<triple>`. Флаг `--app-target` переключает
+`obsidium-cli` и кладёт бинарь в `src-tauri/binaries/obsidium-<triple>`, а для macOS —
+`src-tauri/binaries/obsidium-cli-<triple>`, чтобы он не столкнулся с GUI `Obsidium` на файловой системе
+без учёта регистра. `tauri.macos.conf.json` задаёт это имя только для macOS; CLI-команда остаётся
+`obsidium` на всех платформах. Флаг `--app-target` переключает
 `src-tauri/target` на junction `.artifacts/cargo-release` до сборки, `--target` задаёт трипл, повторный
 вызов ничего не меняет.
 

@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "obsidium-app"
-version = "0.5.27"
+version = "0.5.28"
 dependencies = [
  "objc2",
  "objc2-app-kit",
@@ -2893,7 +2893,7 @@ dependencies = [
 
 [[package]]
 name = "obsidium-core"
-version = "0.5.27"
+version = "0.5.28"
 dependencies = [
  "atomic-write-file",
  "blake3",
@@ -2906,6 +2906,7 @@ dependencies = [
  "serde_json",
  "tantivy",
  "tempfile",
+ "toml_edit 0.25.12+spec-1.1.0",
  "unicode-normalization",
  "ureq",
  "uuid",
@@ -5060,6 +5061,7 @@ dependencies = [
  "indexmap 2.14.0",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
+ "toml_writer",
  "winnow 1.0.3",
 ]
 

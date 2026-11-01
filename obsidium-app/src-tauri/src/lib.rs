@@ -260,6 +260,7 @@ pub fn run() {
             mcp::commands::get_mcp_status,
             mcp::commands::apply_mcp_settings,
             mcp::commands::set_active_note,
+            mcp::commands::connect_mcp_workspace,
             export::commands::export_pdf,
             export::commands::pick_export_target,
             export::commands::pdf_export_is_native

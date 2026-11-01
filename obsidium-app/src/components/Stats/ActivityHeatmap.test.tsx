@@ -9,6 +9,8 @@ import {
   formatClock,
   formatDayNumber,
   formatNoteMoment,
+  firstDayOfMonthMonthsAgo,
+  HEATMAP_MONTHS,
   localDayNumber,
   type ActivityNote,
   type NoteTimestamp,
@@ -78,6 +80,11 @@ function dayButtons(container: HTMLElement): HTMLButtonElement[] {
   return [...container.querySelectorAll<HTMLButtonElement>('button.q-activity-heatmap__day')];
 }
 
+function heatmapDayCount(): number {
+  const today = new Date();
+  return localDayNumber(today.getTime()) - firstDayOfMonthMonthsAgo(today, HEATMAP_MONTHS - 1) + 1;
+}
+
 function buttonFor(container: HTMLElement, day: number): HTMLButtonElement {
   const found = dayButtons(container).find(
     (button) => button.getAttribute('aria-label')?.startsWith(`${formatDayNumber(day, 'en', true)}`),
@@ -132,7 +139,7 @@ describe('ActivityHeatmap', () => {
     mounted = mountDom(<ActivityHeatmap workspacePath="/vault" />);
     await settle();
     const buttons = dayButtons(mounted.container);
-    expect(buttons.length).toBeGreaterThan(350);
+    expect(buttons).toHaveLength(heatmapDayCount());
     for (const button of buttons) {
       const label = button.getAttribute('aria-label');
       expect(label).toBeTruthy();
@@ -201,7 +208,7 @@ describe('ActivityHeatmap', () => {
       back?.click();
     });
     await settle();
-    expect(dayButtons(mounted.container).length).toBeGreaterThan(350);
+    expect(dayButtons(mounted.container)).toHaveLength(heatmapDayCount());
   });
 
   it('lists the notes the current measure reports', async () => {

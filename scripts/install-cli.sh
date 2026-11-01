@@ -74,9 +74,9 @@ if [ "$uninstall" = true ]; then
 fi
 
 if [ "$app_given" = false ]; then
-  if [ -f "/Applications/Obsidium.app/Contents/MacOS/obsidium" ]; then
+  if [ -f "/Applications/Obsidium.app/Contents/MacOS/Obsidium" ]; then
     app_path="/Applications/Obsidium.app"
-  elif [ -f "$HOME/Applications/Obsidium.app/Contents/MacOS/obsidium" ]; then
+  elif [ -f "$HOME/Applications/Obsidium.app/Contents/MacOS/Obsidium" ]; then
     app_path="$HOME/Applications/Obsidium.app"
   else
     app_path="/Applications/Obsidium.app"
@@ -87,7 +87,7 @@ resolved_app="$(CDPATH= cd "$app_path" 2>/dev/null && pwd)" || {
   printf 'install-cli.sh: app bundle not found: %s\n' "$app_path" >&2
   exit 1
 }
-binary="$resolved_app/Contents/MacOS/obsidium"
+binary="$resolved_app/Contents/MacOS/obsidium-cli"
 if [ ! -f "$binary" ]; then
   printf 'install-cli.sh: no CLI at %s\n' "$binary" >&2
   printf 'Reinstall Obsidium or pass --app with the bundle location.\n' >&2

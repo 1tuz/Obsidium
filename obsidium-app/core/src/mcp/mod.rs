@@ -6,6 +6,7 @@ mod server;
 mod stdio;
 pub mod tools;
 pub mod vault;
+pub mod workspace_config;
 
 pub use stdio::{open_headless_core, run_stdio_bridge, run_stdio_core, run_stdio_headless};
 

@@ -78,7 +78,7 @@ export function SettingsForm({
       content = <AnalysisSection config={config} onChange={onChange} />;
       break;
     case 'mcp':
-      content = <McpSection config={config} />;
+      content = <McpSection config={config} workspacePath={workspacePath} />;
       break;
     case 'history':
       content = <HistorySection config={config} onChange={onChange} />;

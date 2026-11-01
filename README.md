@@ -213,7 +213,7 @@ The Windows scripts install or remove Obsidium for the current user. They leave 
 
 ### Command line
 
-The application bundle ships the headless CLI: on macOS it is `Obsidium.app/Contents/MacOS/obsidium`, on Windows it sits next to `Obsidium.exe`, and the Linux package installs it as `/usr/bin/obsidium`.
+The application bundle ships the headless CLI: on macOS it is `Obsidium.app/Contents/MacOS/obsidium-cli`, on Windows it sits next to `Obsidium.exe`, and the Linux package installs it as `/usr/bin/obsidium`.
 
 To link the macOS binary into `~/.local/bin`, run:
 
@@ -224,6 +224,8 @@ sh scripts/install-cli.sh
 The script uses `/Applications/Obsidium.app` (or `~/Applications/Obsidium.app`) and accepts `--app <path>` for another bundle and `--prefix <dir>` for another destination. It refuses to replace a regular file and prints the exact `export PATH=...` line when the directory is not on `PATH`. Remove the link with `sh scripts/uninstall-cli.sh`; uninstall deletes only a symlink that points into an `Obsidium.app`.
 
 `obsidium mcp stdio` starts the MCP server over stdio without opening the desktop window, so editors and agents can use the CLI headlessly.
+
+Run `obsidium connect [PATH]` to add project-scoped MCP settings for Claude Code and Codex. It preserves other entries in `.mcp.json` and `.codex/config.toml`, and does not read or index the vault. The clients may ask you to trust the project or approve the server. On macOS, install the CLI symlink with `sh scripts/install-cli.sh` first.
 
 ## Updates
 
