@@ -24,10 +24,49 @@ const openerMocks = vi.hoisted(() => ({
   openPath: vi.fn(async () => undefined),
   revealItemInDir: vi.fn(async () => undefined),
 }));
+const tauriMocks = vi.hoisted(() => {
+  const indexStatus = {
+    state: 'ready',
+    updating: false,
+    generation: 0,
+    revision: 0,
+    indexedDocuments: 0,
+    scannedDocuments: 0,
+  };
+
+  return {
+    invoke: vi.fn(async (command: string) => {
+      if (command === 'get_spaces') return [];
+      if (command === 'prepare_search_index' || command === 'get_search_index_status') return indexStatus;
+      return undefined;
+    }),
+    listen: vi.fn(async () => () => undefined),
+    currentWindow: {
+      label: 'main',
+      setTheme: vi.fn(async () => undefined),
+      onCloseRequested: vi.fn(async () => () => undefined),
+    },
+  };
+});
 const settingsState = vi.hoisted(() => ({
   config: null as Record<string, unknown> | null,
   loadConfig: vi.fn(async () => null as Record<string, unknown> | null),
   updateConfig: vi.fn(),
+}));
+
+vi.mock('@tauri-apps/api/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tauri-apps/api/core')>()),
+  invoke: tauriMocks.invoke,
+}));
+
+vi.mock('@tauri-apps/api/event', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tauri-apps/api/event')>()),
+  listen: tauriMocks.listen,
+}));
+
+vi.mock('@tauri-apps/api/window', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tauri-apps/api/window')>()),
+  getCurrentWindow: () => tauriMocks.currentWindow,
 }));
 
 vi.mock('./hooks/useWorkspace', () => ({
@@ -241,6 +280,16 @@ describe('App editor lifecycle', () => {
     });
     return renderer!;
   }
+
+  it('mounts without Tauri bridge errors', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await renderWithSession();
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
+  });
 
   afterEach(() => {
     if (renderer) {
