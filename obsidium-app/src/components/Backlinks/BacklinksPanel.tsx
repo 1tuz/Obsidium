@@ -79,6 +79,7 @@ interface BacklinksPanelProps {
   onOpenAnalysis: (result: AnalysisResult, disposition: LinkDisposition) => void;
   onOpenLocalGraph: (path: string, disposition: LinkDisposition) => void;
   onOpenNote?: (path: string) => void;
+  onOpenExternalUrl?: (url: string) => void;
 }
 
 function dispositionFromEvent(event: MouseEvent<Element>): LinkDisposition {
@@ -117,6 +118,7 @@ function BacklinksPanelComponent({
   onOpenAnalysis,
   onOpenLocalGraph,
   onOpenNote,
+  onOpenExternalUrl,
 }: BacklinksPanelProps) {
   const { config } = useSettingsStore();
   const sidebarMethods = enabledSidebarMethods(config?.analysis);
@@ -395,6 +397,10 @@ function BacklinksPanelComponent({
                 label={hit.title}
                 title={hit.snippet ? `${hit.title}\n\n${hit.snippet}` : hit.title}
                 onClick={() => {
+                  if (onOpenExternalUrl) {
+                    onOpenExternalUrl(hit.url);
+                    return;
+                  }
                   void openExternalUrl(hit.url).catch((error) => {
                     console.error('Failed to open Wiki url', error);
                   });

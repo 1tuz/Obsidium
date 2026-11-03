@@ -167,6 +167,33 @@ describe('WorkspaceSession', () => {
       emptyTabPath(emptyTabId),
     ]);
   });
+
+  it('restores and persists a web tab URL without treating it as a workspace file', async () => {
+    const webTabId = crypto.randomUUID();
+    const url = 'https://example.com/docs';
+    openSessionMock.mockResolvedValue({
+      activeTabId: webTabId,
+      layout: layout(webTabId),
+      views: [],
+      graphCamera: null,
+      tabs: [{
+        tabId: webTabId,
+        documentId: null,
+        kind: 'web',
+        position: 0,
+        paneId: 'main',
+        relativePath: null,
+        url,
+      }],
+    });
+    const session = await WorkspaceSession.open('C:\\notes');
+    expect(session.restoredTabs()).toContainEqual(expect.objectContaining({ kind: 'web', path: url }));
+
+    const webTab: SessionTab = { tabId: webTabId, documentId: null, kind: 'web', path: url, paneId: 'main' };
+    session.queueTabsSnapshot([webTab], webTabId);
+    await vi.waitFor(() => expect(saveStateBatchMock).toHaveBeenCalledTimes(1));
+    expect(saveStateBatchMock.mock.calls[0][0].session?.tabs?.[0].url).toBe(url);
+  });
 });
 
 describe('WorkspaceSession.restorable', () => {

@@ -68,7 +68,7 @@ pub fn save_session(
         return Ok(());
     }
     let mut query = transaction.prepare(
-        "SELECT tab_id, document_id, kind, position, pane_id FROM tabs
+        "SELECT tab_id, document_id, kind, position, pane_id, url FROM tabs
          WHERE workspace_id = ?1 AND window_id = ?2 ORDER BY position, tab_id",
     )?;
     let mut stored = query
@@ -82,6 +82,7 @@ pub fn save_session(
                 kind: TabKind::parse(&row.get::<_, String>(2)?, 2)?,
                 position: row.get(3)?,
                 pane_id: row.get(4)?,
+                url: row.get(5)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -122,10 +123,10 @@ pub fn save_session(
         )?;
         for tab in tabs {
             transaction.execute(
-                "INSERT INTO tabs(workspace_id, window_id, tab_id, document_id, kind, position, pane_id)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO tabs(workspace_id, window_id, tab_id, document_id, kind, position, pane_id, url)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![workspace, input.window_id, tab.tab_id.to_string(),
-                    tab.document_id.map(|id| id.to_string()), tab.kind.as_str(), tab.position, tab.pane_id],
+                    tab.document_id.map(|id| id.to_string()), tab.kind.as_str(), tab.position, tab.pane_id, tab.url],
             )?;
         }
     } else if session.layout.is_none()

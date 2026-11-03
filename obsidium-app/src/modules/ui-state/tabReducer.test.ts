@@ -36,6 +36,20 @@ describe('tabsReducer', () => {
     expect(reopened.activeTabId).toBe('two');
   });
 
+  it('opens a website as a separate tab that can be closed', () => {
+    const initial: TabsState = { tabs: [empty('one')], activeTabId: 'one', layout: pane('main', 'one') };
+    const opened = tabsReducer(initial, {
+      type: 'open-web-new-tab', url: 'https://example.com/docs', tabId: 'website',
+    });
+
+    expect(opened.tabs).toContainEqual(expect.objectContaining({
+      tabId: 'website', kind: 'web', path: 'https://example.com/docs',
+    }));
+    expect(opened.activeTabId).toBe('website');
+    expect(tabsReducer(opened, { type: 'close', tabId: 'website', fallback: empty('fallback') })
+      .tabs.map((tab) => tab.tabId)).toEqual(['one']);
+  });
+
   it('closes the graph tab like any other', () => {
     const state: TabsState = { tabs: [empty('one'), graph('two')], activeTabId: 'two', layout: pane('main', 'two') };
 

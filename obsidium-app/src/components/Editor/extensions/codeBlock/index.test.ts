@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { editorMarkdownSupport } from '../markdownConfig';
@@ -12,14 +12,19 @@ vi.mock('../../../../modules/clipboard', () => ({ copyText }));
 const FENCED = '```js\nconst count = 1;\n```';
 const EMPTY_FENCED = '```js\n```';
 
-function mount(doc: string, caret?: number) {
+function mount(doc: string, caret?: number, editable?: Compartment) {
   const parent = document.createElement('div');
   document.body.append(parent);
   const view = new EditorView({
     state: EditorState.create({
       doc,
       selection: { anchor: caret ?? doc.length },
-      extensions: [editorMarkdownSupport, codeBlockExtension],
+      extensions: [
+        editorMarkdownSupport,
+        codeBlockExtension,
+        EditorView.lineWrapping,
+        ...(editable ? [editable.of(EditorView.editable.of(true))] : []),
+      ],
     }),
     parent,
   });
@@ -86,6 +91,29 @@ describe('code block extension', () => {
     const line = parent.querySelector('.cm-line.q-md-code-line');
     expect(line?.classList.contains('q-md-code-line--first')).toBe(true);
     expect(line?.classList.contains('q-md-code-line--last')).toBe(true);
+  });
+
+  it('hides fences in reading mode even when the saved caret is on the opening fence', async () => {
+    const editable = new Compartment();
+    const mounted = mount(FENCED, 0, editable);
+    view = mounted.view;
+    parent = mounted.parent;
+    view.dispatch({ effects: editable.reconfigure(EditorView.editable.of(false)) });
+    await settle();
+
+    expect(codeLines(mounted.parent)).toEqual(['const count = 1;']);
+  });
+
+  it('keeps ASCII diagram columns on one visual line', async () => {
+    const diagram = ['```text', '┌──────────┐', '│ database │', '└──────────┘', '```'].join('\n');
+    const mounted = mount(diagram);
+    view = mounted.view;
+    parent = mounted.parent;
+    await settle();
+
+    const line = parent.querySelector<HTMLElement>('.cm-line.q-md-code-line');
+    expect(line).not.toBeNull();
+    expect(getComputedStyle(line!).whiteSpace).toBe('pre');
   });
 
   it('keeps the fences of an empty fenced block', async () => {

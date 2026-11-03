@@ -38,7 +38,7 @@ impl UiStateDatabase {
             .map(|value| parse_uuid_column(value, 0))
             .transpose()?;
         let mut tab_query = self.connection.prepare(
-            "SELECT t.tab_id, t.document_id, t.kind, t.position, d.relative_path, t.pane_id,
+            "SELECT t.tab_id, t.document_id, t.kind, t.position, d.relative_path, t.pane_id, t.url,
                     (t.document_id IS NULL OR d.status = 'active')
              FROM tabs t LEFT JOIN documents d
                  ON d.workspace_id = t.workspace_id AND d.id = t.document_id
@@ -60,8 +60,9 @@ impl UiStateDatabase {
                         position: row.get(3)?,
                         relative_path: row.get(4)?,
                         pane_id: row.get(5)?,
+                        url: row.get(6)?,
                     },
-                    row.get::<_, bool>(6)?,
+                    row.get::<_, bool>(7)?,
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -73,6 +74,7 @@ impl UiStateDatabase {
                 kind: tab.kind.clone(),
                 position: tab.position,
                 pane_id: tab.pane_id.clone(),
+                url: tab.url.clone(),
             })
             .collect::<Vec<_>>();
         let mut layout =

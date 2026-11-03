@@ -1,4 +1,4 @@
-type TabKind = 'document' | 'empty' | 'graph';
+type TabKind = 'document' | 'empty' | 'graph' | 'web';
 
 export type PaneLayout =
   | { kind: 'pane'; paneId: string; activeTabId: string | null }
@@ -39,6 +39,7 @@ export interface StoredTab {
   kind: TabKind;
   position: number;
   paneId: string;
+  url?: string | null;
 }
 
 interface LoadedTab extends StoredTab {

@@ -15,6 +15,7 @@ export type TabsAction =
   | { type: 'open-file' | 'open-file-new-tab'; path: string; tabId: string; textMode?: boolean }
   | { type: 'close'; path?: string; tabId?: string; fallback: SessionTab }
   | { type: 'new-tab' | 'open-graph'; tab: SessionTab }
+  | { type: 'open-web-new-tab'; url: string; tabId: string }
   | { type: 'reorder'; from: number; to: number; paneId?: string }
   | { type: 'split-pane'; paneId: string; newPaneId: string; direction: 'horizontal' | 'vertical'; tab: SessionTab }
   | { type: 'move-tab'; tabId: string; paneId: string; to?: number; fallback: SessionTab }
@@ -47,6 +48,7 @@ function complete(tabs: SessionTab[], activeTabId: string, layout: PaneLayout, r
 
 function duplicate(tabs: SessionTab[], tab: SessionTab, paneId: string): SessionTab | undefined {
   return tabs.find((existing) => existing.tabId !== tab.tabId
+    && existing.kind === tab.kind
     && ((existing.paneId === paneId && existing.path === tab.path
       && (existing.textMode === true) === (tab.textMode === true))
       || (existing.kind === 'graph' && tab.kind === 'graph')));
@@ -134,6 +136,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       const paneId = activePaneId(state);
       const textMode = action.textMode === true;
       const existing = state.tabs.find((tab) => tab.paneId === paneId
+        && tab.kind === 'document'
         && tab.path === action.path
         && (tab.textMode === true) === textMode);
       if (existing) return complete(state.tabs, existing.tabId, state.layout);
@@ -171,6 +174,20 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       if (existing) return complete(state.tabs, existing.tabId, state.layout);
       if (state.tabs.some((tab) => tab.tabId === action.tab.tabId)) return state;
       const tab = { ...action.tab, paneId };
+      return complete([...state.tabs, tab], tab.tabId, state.layout);
+    }
+    case 'open-web-new-tab': {
+      const paneId = activePaneId(state);
+      const existing = state.tabs.find((tab) => tab.kind === 'web' && tab.paneId === paneId && tab.path === action.url);
+      if (existing) return complete(state.tabs, existing.tabId, state.layout);
+      if (state.tabs.some((tab) => tab.tabId === action.tabId)) return state;
+      const tab: SessionTab = {
+        tabId: action.tabId,
+        documentId: null,
+        kind: 'web',
+        path: action.url,
+        paneId,
+      };
       return complete([...state.tabs, tab], tab.tabId, state.layout);
     }
     case 'reorder': {

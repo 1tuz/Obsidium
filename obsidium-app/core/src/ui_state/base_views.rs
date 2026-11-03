@@ -78,6 +78,7 @@ fn version_eight_database_receives_the_base_view_table() {
         .execute_batch(
             "DROP TABLE base_view_states;
             ALTER TABLE tabs DROP COLUMN pane_id;
+            ALTER TABLE tabs DROP COLUMN url;
             ALTER TABLE sessions DROP COLUMN layout_json;
             PRAGMA user_version = 8;",
         )

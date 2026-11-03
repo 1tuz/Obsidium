@@ -64,6 +64,7 @@ pub enum TabKind {
     Document,
     Empty,
     Graph,
+    Web,
 }
 
 impl TabKind {
@@ -72,6 +73,7 @@ impl TabKind {
             Self::Document => "document",
             Self::Empty => "empty",
             Self::Graph => "graph",
+            Self::Web => "web",
         }
     }
 
@@ -80,6 +82,7 @@ impl TabKind {
             "document" => Ok(Self::Document),
             "empty" => Ok(Self::Empty),
             "graph" => Ok(Self::Graph),
+            "web" => Ok(Self::Web),
             value => Err(rusqlite::Error::FromSqlConversionFailure(
                 index,
                 rusqlite::types::Type::Text,
@@ -101,6 +104,8 @@ pub struct TabState {
     pub position: i64,
     #[serde(default = "main_pane_id")]
     pub pane_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -112,6 +117,7 @@ pub struct LoadedTabState {
     pub position: i64,
     pub pane_id: String,
     pub relative_path: Option<String>,
+    pub url: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

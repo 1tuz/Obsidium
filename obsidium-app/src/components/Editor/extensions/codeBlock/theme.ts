@@ -60,6 +60,7 @@ export const codeBlockTheme = EditorView.theme({
     position: 'relative',
     boxSizing: 'border-box',
     fontFamily: 'var(--q-editor-code-font)',
+    whiteSpace: 'pre',
     paddingLeft: 'var(--q-block-padding)',
     paddingRight: 'var(--q-block-padding)',
   },

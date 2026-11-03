@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { isImageSource } from '../docs/imageEmbeds';
 
 export interface WorkspaceItem {
   id: string;
@@ -67,6 +68,10 @@ export function isTextFilePath(path: string): boolean {
 
 export function isPdfPath(path: string): boolean {
   return path.toLowerCase().endsWith('.pdf');
+}
+
+export function isImagePath(path: string): boolean {
+  return isImageSource(path);
 }
 
 export function readDirectory(path: string): Promise<WorkspaceItem[]> {

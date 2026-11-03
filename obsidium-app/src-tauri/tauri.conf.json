@@ -24,7 +24,7 @@
         "enable": true,
         "scope": []
       },
-      "csp": "default-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost ws: wss: https:; font-src 'self' data: blob:; img-src 'self' asset: http://asset.localhost data: blob: https:; media-src 'self' asset: http://asset.localhost blob: https:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "csp": "default-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost ws: wss: https:; font-src 'self' data: blob:; img-src 'self' asset: http://asset.localhost data: blob: https:; media-src 'self' asset: http://asset.localhost blob: https:; frame-src 'self' blob: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self'",
       "dangerousDisableAssetCspModification": [
         "style-src"
       ]
