@@ -140,8 +140,14 @@ fn web_tab_urls_survive_session_save_and_restore() {
 
     database.save_batch(&input).expect("save web tab");
 
-    let loaded = database.load_session(workspace_id, "main").expect("load session");
-    let tab = loaded.tabs.iter().find(|tab| tab.tab_id == web_tab_id).expect("web tab");
+    let loaded = database
+        .load_session(workspace_id, "main")
+        .expect("load session");
+    let tab = loaded
+        .tabs
+        .iter()
+        .find(|tab| tab.tab_id == web_tab_id)
+        .expect("web tab");
     assert_eq!(tab.kind, TabKind::Web);
     assert_eq!(tab.url.as_deref(), Some("https://example.com/docs"));
 }
