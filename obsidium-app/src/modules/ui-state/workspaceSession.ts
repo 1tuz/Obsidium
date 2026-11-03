@@ -9,6 +9,7 @@ import {
 import { StateBatchQueue } from './stateBatchQueue';
 import { getWindowId } from '../windowId';
 import { absolutePath, relativePath } from '../paths';
+import { normalizeWebUrl } from '../openExternalUrl';
 import { emptyTabPath, GRAPH_TAB_PATH, viewKey } from './types';
 import type {
   GraphCameraState,
@@ -67,6 +68,10 @@ export class WorkspaceSession {
       if (tab.kind === 'graph') {
         return [{ ...tab, path: GRAPH_TAB_PATH }];
       }
+      if (tab.kind === 'web') {
+        const url = tab.url ? normalizeWebUrl(tab.url) : null;
+        return url ? [{ ...tab, path: url }] : [];
+      }
       if (!tab.relativePath || !tab.documentId) return [];
       return [{ ...tab, path: absolutePath(this.workspacePath, tab.relativePath) }];
     });
@@ -101,6 +106,7 @@ export class WorkspaceSession {
       kind: tab.kind,
       position,
       paneId: tab.paneId,
+      url: tab.kind === 'web' ? tab.path : undefined,
     }));
     this.queue.queueSession({
       activeTabId,

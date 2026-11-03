@@ -48,7 +48,9 @@ const codeBlockPlugin = ViewPlugin.fromClass(class {
 
   update(update: ViewUpdate): void {
     const treeChanged = syntaxTree(update.state) !== syntaxTree(update.startState);
-    if (!update.docChanged && !update.viewportChanged && !treeChanged && !update.selectionSet) return;
+    const editabilityChanged = update.state.facet(EditorView.editable)
+      !== update.startState.facet(EditorView.editable);
+    if (!update.docChanged && !update.viewportChanged && !treeChanged && !update.selectionSet && !editabilityChanged) return;
     this.sync(update.view, update.docChanged || treeChanged);
     this.scheduleUpdate(update.view);
   }
@@ -60,7 +62,7 @@ const codeBlockPlugin = ViewPlugin.fromClass(class {
 
   private sync(view: EditorView, allowParse = true): void {
     const state = view.state;
-    const head = state.selection.main.head;
+    const head = state.facet(EditorView.editable) ? state.selection.main.head : null;
     if (this.decorationsDoc === state.doc && this.decorationsHead === head) return;
     const tree = ensureEditorTree(view, allowParse);
     const blocks = codeBlocks(tree, state.doc, visibleTreeRanges(view, tree.length));

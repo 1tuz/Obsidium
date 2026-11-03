@@ -31,6 +31,7 @@ interface TitlebarTabProps {
 function getTitle(path: string) {
   if (path === GRAPH_TAB_PATH) return t('tabs.graph');
   if (isEmptyTabPath(path)) return t('tabs.newTab');
+  if (/^https?:\/\//i.test(path)) return new URL(path).hostname;
   return fileStem(path);
 }
 

@@ -1,0 +1,15 @@
+.q-image-file-pane {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: var(--q-bg-primary);
+}
+
+.q-image-file-pane img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

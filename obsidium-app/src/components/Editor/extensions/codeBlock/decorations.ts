@@ -23,14 +23,14 @@ function edgeDecoration(isFirst: boolean, isLast: boolean): Decoration {
   return BODY_LINE;
 }
 
-function hiddenFences(doc: Text, block: CodeBlockShape, head: number): { first: number; last: number } | null {
+function hiddenFences(doc: Text, block: CodeBlockShape, head: number | null): { first: number; last: number } | null {
   const opening = doc.lineAt(block.from);
   if (block.contentFrom >= block.contentTo) return null;
-  const hideOpening = !shouldRevealSyntax(doc, head, opening.from, opening.to);
+  const hideOpening = head === null || !shouldRevealSyntax(doc, head, opening.from, opening.to);
   const closing = block.contentTo < block.end ? doc.lineAt(block.contentTo) : null;
   const hideClosing = closing !== null
     && closing.number !== opening.number
-    && !shouldRevealSyntax(doc, head, closing.from, closing.to);
+    && (head === null || !shouldRevealSyntax(doc, head, closing.from, closing.to));
   if (!hideOpening) return hideClosing && closing ? { first: closing.number, last: closing.number } : null;
   return { first: opening.number, last: hideClosing && closing ? closing.number : opening.number };
 }
@@ -38,7 +38,7 @@ function hiddenFences(doc: Text, block: CodeBlockShape, head: number): { first: 
 export function codeBlockDecorations(
   doc: Text,
   blocks: readonly CodeBlockShape[],
-  head: number,
+  head: number | null,
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
 

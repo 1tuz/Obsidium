@@ -8,6 +8,7 @@ pub mod v6_to_v7;
 pub mod v7_to_v8;
 pub mod v8_to_v9;
 pub mod v9_to_v10;
+pub mod v10_to_v11;
 
 use super::error::UiStateError;
 use rusqlite::Connection;
@@ -21,10 +22,11 @@ use v6_to_v7::migrate_v6_to_v7;
 use v7_to_v8::migrate_v7_to_v8;
 use v8_to_v9::migrate_v8_to_v9;
 use v9_to_v10::migrate_v9_to_v10;
+use v10_to_v11::migrate_v10_to_v11;
 
 type Step = fn(&Connection) -> Result<(), UiStateError>;
 
-const STEPS: [Step; 9] = [
+const STEPS: [Step; 10] = [
     migrate_v1_to_v2,
     migrate_v2_to_v3,
     migrate_v3_to_v4,
@@ -34,6 +36,7 @@ const STEPS: [Step; 9] = [
     migrate_v7_to_v8,
     migrate_v8_to_v9,
     migrate_v9_to_v10,
+    migrate_v10_to_v11,
 ];
 
 const LATEST_VERSION: i64 = STEPS.len() as i64 + 1;

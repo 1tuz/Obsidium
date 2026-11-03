@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { EditorPane } from "./components/Editor/EditorPane";
+import { ImageFilePane } from "./components/Editor/ImageFilePane";
 import { TextFilePane } from "./components/Editor/TextFilePane";
+import { WebPagePane } from "./components/Browser/WebPagePane";
 import { Titlebar } from "./components/Layout/Titlebar";
 import { PaneLayoutView } from "./components/Layout/PaneLayoutView";
 import { WindowControls } from "./components/Layout/WindowControls";
@@ -26,7 +28,7 @@ import { useLiveTabs } from "./hooks/useLiveTabs";
 import { useLocalState } from "./modules/workspace/uiPersist";
 import { PANEL_LIMITS, clampPanelWidth } from "./modules/layout/panelWidth";
 import { matchesShortcut, SHORTCUTS } from "./config/shortcuts";
-import { openExternalUrl } from "./modules/openExternalUrl";
+import { normalizeWebUrl, openExternalUrl } from "./modules/openExternalUrl";
 import { beginOpenTrace } from "./modules/perf/openTrace";
 import { markBootStage } from "./modules/perf/bootTrace";
 import type { SearchResult } from "./modules/search";
@@ -42,7 +44,7 @@ import { DEFAULT_BUILTINS, DEFAULT_LIVE_TABS, useSettingsStore } from "./modules
 import { installUpdateOnStartup } from "./modules/updates";
 import { resolveLocale, t } from "./i18n";
 import { useActiveNoteReport, useMcpNavigation } from "./modules/mcp";
-import { isBasePath, isCanvasPath, isMarkdownPath, isPdfPath, isTextFilePath, readFileSnapshot, writeFileAtomic } from "./modules/documents/fileGateway";
+import { isBasePath, isCanvasPath, isImagePath, isMarkdownPath, isPdfPath, isTextFilePath, readFileSnapshot, writeFileAtomic } from "./modules/documents/fileGateway";
 import type { CanvasNoteTarget } from "./components/Canvas/canvasNoteLinks";
 import { resolveFragmentOffset, splitLinkTarget } from "./modules/links/fragment";
 import { createCanvasFile } from "./modules/canvas/createCanvasFile";
@@ -202,6 +204,7 @@ export default function App() {
     createFromTemplate,
     createCanvas,
     createLinkedFile,
+    openWebUrl,
     handleExternalRename
   } = useTabs(workspacePath, workspaceReady);
   const activeTab = tabs.find((tab) => tab.tabId === activeTabId) ?? null;
@@ -309,7 +312,7 @@ export default function App() {
   }, [openNote]);
 
   const openSidebarFile = useCallback((path: string) => {
-    if (isMarkdownPath(path) || isBasePath(path) || isCanvasPath(path)
+    if (isMarkdownPath(path) || isBasePath(path) || isCanvasPath(path) || isImagePath(path)
       || isPdfPath(path) || isTextFilePath(path)) {
       openNote(path);
       return;
@@ -367,11 +370,16 @@ export default function App() {
     }
   }, [openNote, workspacePath]);
 
-  const handleOpenExternalUrl = useCallback((url: string) => {
-    void openExternalUrl(url).catch((error) => {
+  const handleOpenExternalUrl = useCallback((raw: string) => {
+    const url = normalizeWebUrl(raw);
+    if (url) {
+      openWebUrl(url);
+      return;
+    }
+    void openExternalUrl(raw).catch((error) => {
       console.error('Failed to open external URL', error);
     });
-  }, []);
+  }, [openWebUrl]);
 
   const restoreNavigation = useCallback((delta: -1 | 1) => {
     const path = go(delta);
@@ -809,6 +817,9 @@ export default function App() {
       ? paneActiveTab.path : null;
     const activePdfPath = paneActiveTab?.kind === 'document' && isPdfPath(paneActiveTab.path)
       ? paneActiveTab.path : null;
+    const activeImagePath = paneActiveTab?.kind === 'document' && isImagePath(paneActiveTab.path)
+      ? paneActiveTab.path : null;
+    const activeWebUrl = paneActiveTab?.kind === 'web' ? paneActiveTab.path : null;
 
     return (
       <div
@@ -896,6 +907,7 @@ export default function App() {
                       indexRevision={linkIndexRevision}
                       onOpenFile={(path) => openNote(path, { paneId })}
                       onOpenNoteLink={(link, sourcePath) => openCanvasNote(link, paneId, activeCanvasPath, sourcePath).catch(() => undefined)}
+                      onOpenExternalUrl={handleOpenExternalUrl}
                     />
                   </Suspense>
                 )}
@@ -904,6 +916,8 @@ export default function App() {
                     <PdfViewer path={activePdfPath} workspacePath={workspacePath} />
                   </Suspense>
                 )}
+                {activeImagePath && <ImageFilePane path={activeImagePath} />}
+                {activeWebUrl && <WebPagePane url={activeWebUrl} />}
                 {!activeBasePath && !activeCanvasPath && paneActiveTab?.kind === 'empty' ? (
                   <NewTab
                     key={paneActiveTab.tabId}
@@ -922,6 +936,7 @@ export default function App() {
                         indexRevision={linkIndexRevision}
                         onOpenFile={(path) => openNote(path, { paneId })}
                         onOpenNoteLink={(link, sourcePath) => openCanvasNote(link, paneId, tab.path, sourcePath).catch(() => undefined)}
+                        onOpenExternalUrl={handleOpenExternalUrl}
                       />
                     </Suspense>
                   ) : isBasePath(tab.path) ? (
@@ -1066,6 +1081,7 @@ export default function App() {
           onOpenAnalysis={handleOpenAnalysisResult}
           onOpenLocalGraph={(path, disposition) => openNote(path, { disposition })}
           onOpenNote={(path) => openNote(path)}
+          onOpenExternalUrl={handleOpenExternalUrl}
         />
       </div>
 

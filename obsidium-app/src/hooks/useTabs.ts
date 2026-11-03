@@ -7,7 +7,8 @@ import {
 } from './tabWorkspace';
 import { createUniqueCanvas, createUniqueFile } from '../modules/documents/documentFactory';
 import { useTabSession } from './useTabSession';
-import { isBasePath, isPdfPath, isTextFilePath } from '../modules/documents/fileGateway';
+import { isBasePath, isImagePath, isPdfPath, isTextFilePath } from '../modules/documents/fileGateway';
+import { normalizeWebUrl } from '../modules/openExternalUrl';
 import type { LinkDisposition } from '../modules/links';
 import { paneLeaves } from '../modules/panes/layout';
 
@@ -79,13 +80,20 @@ export function useTabs(
       dispatch({ type: 'select', tabId: existing.tabId, paneId });
       return;
     }
-    if (!isTextFilePath(path) && !isBasePath(path) && !isPdfPath(path)) return;
+    if (!isTextFilePath(path) && !isBasePath(path) && !isPdfPath(path) && !isImagePath(path)) return;
     touch();
     if (paneId !== activePaneId) dispatch({ type: 'focus-pane', paneId });
     dispatch(disposition === 'new-tab'
       ? { type: 'open-file-new-tab', path, tabId: crypto.randomUUID(), textMode }
       : { type: 'open-file', path, tabId: crypto.randomUUID(), textMode });
   }, [activePaneId, openGraph, state.tabs, touch]);
+
+  const openWebUrl = useCallback((raw: string) => {
+    const url = normalizeWebUrl(raw);
+    if (!url) return;
+    touch();
+    dispatch({ type: 'open-web-new-tab', url, tabId: crypto.randomUUID() });
+  }, [touch]);
 
   const closeTab = useCallback((path: string, tabId?: string) => {
     touch();
@@ -201,6 +209,7 @@ export function useTabs(
     readGraphCamera,
     onGraphCameraChange: queueGraphCamera,
     activateFile,
+    openWebUrl,
     closeTab,
     newTab,
     reorderTabs,

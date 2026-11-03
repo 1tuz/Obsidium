@@ -30,4 +30,19 @@ describe('Titlebar', () => {
 
     expect(onToggleRightSidebar).toHaveBeenCalledOnce();
   });
+
+  it('closes a web page by its tab identity', () => {
+    const onClose = vi.fn();
+    const url = 'https://example.com/docs';
+
+    act(() => {
+      renderer = mountDom(
+        <Titlebar tabItems={[{ tabId: 'web-tab', path: url }]} onClose={onClose} />,
+      );
+    });
+
+    act(() => renderer!.container.querySelector<HTMLButtonElement>('.q-titlebar-tab-close')!.click());
+
+    expect(onClose).toHaveBeenCalledWith(url, 'web-tab');
+  });
 });

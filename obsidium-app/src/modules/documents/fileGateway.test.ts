@@ -4,6 +4,7 @@ import {
   createFile,
   isCanvasPath,
   isFileCommandError,
+  isImagePath,
   isPdfPath,
   isTextFilePath,
   readFileSnapshot,
@@ -32,6 +33,18 @@ describe('workspace file types', () => {
   it('recognises PDF files case-insensitively', () => {
     expect(isPdfPath('Manual.PDF')).toBe(true);
     expect(isPdfPath('Manual.epub')).toBe(false);
+  });
+
+  it('recognises PNG and SVG files as previewable workspace images', () => {
+    expect(isImagePath('diagram.PNG')).toBe(true);
+    expect(isImagePath('docs/architecture.svg')).toBe(true);
+    expect(isImagePath('notes.md')).toBe(false);
+  });
+
+  it('recognises PNG and SVG files as previewable workspace images', () => {
+    expect(isImagePath('diagram.PNG')).toBe(true);
+    expect(isImagePath('docs/architecture.svg')).toBe(true);
+    expect(isImagePath('notes.md')).toBe(false);
   });
 });
 

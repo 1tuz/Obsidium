@@ -122,6 +122,7 @@ interface CanvasViewProps {
   indexRevision: number;
   onOpenFile: (path: string) => void;
   onOpenNoteLink?: (link: CanvasNoteTarget, sourcePath: string | null) => Promise<void> | void;
+  onOpenExternalUrl?: (url: string) => void;
 }
 
 const GRID_SIZE = 20;
@@ -307,7 +308,7 @@ function imageDataUrl(url: string): Promise<string | null> {
     .catch(() => null);
 }
 
-export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpenFile, onOpenNoteLink }: CanvasViewProps) {
+export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpenFile, onOpenNoteLink, onOpenExternalUrl }: CanvasViewProps) {
   const [document, setDocument] = useState<CanvasDocument | null>(null);
   const [history, setHistory] = useState<CanvasHistory<CanvasDocument> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -744,8 +745,12 @@ export function CanvasView({ path, workspacePath, inactive, indexRevision, onOpe
   }, [path, resolveImageUrl, workspacePath]);
 
   const openUrl = useCallback((url: string) => {
+    if (onOpenExternalUrl) {
+      onOpenExternalUrl(url);
+      return;
+    }
     void openExternalUrl(url).catch((cause) => setActionError(String(cause)));
-  }, []);
+  }, [onOpenExternalUrl]);
 
   const selectNode = useCallback((node: CanvasTypedNode, event: TargetedPointerEvent<HTMLDivElement>) => {
     const next = selectCanvasNode(selection, node.id, event.shiftKey);

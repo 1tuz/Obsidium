@@ -37,6 +37,7 @@ pub const SCHEMA: &str = "CREATE TABLE workspaces (
          kind TEXT NOT NULL,
          position INTEGER NOT NULL,
          pane_id TEXT NOT NULL DEFAULT 'main',
+         url TEXT,
          PRIMARY KEY(workspace_id, window_id, tab_id),
          FOREIGN KEY(workspace_id, window_id)
              REFERENCES sessions(workspace_id, window_id) ON DELETE CASCADE,

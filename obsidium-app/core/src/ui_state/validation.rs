@@ -33,11 +33,17 @@ pub fn validate_batch(input: &SaveStateBatchInput) -> Result<(), UiStateError> {
             if !tab_ids.insert(tab.tab_id) {
                 return Err(invalid("duplicate tab id"));
             }
-            match (&tab.kind, tab.document_id) {
-                (TabKind::Document, None)
-                | (TabKind::Empty, Some(_))
-                | (TabKind::Graph, Some(_)) => {
+            match (&tab.kind, tab.document_id, tab.url.as_deref()) {
+                (TabKind::Document, None, _)
+                | (TabKind::Document, Some(_), Some(_))
+                | (TabKind::Empty | TabKind::Graph, Some(_), _)
+                | (TabKind::Empty | TabKind::Graph, None, Some(_))
+                | (TabKind::Web, Some(_), _)
+                | (TabKind::Web, None, None) => {
                     return Err(invalid("tab kind does not match document id"));
+                }
+                (TabKind::Web, None, Some(url)) if !valid_web_url(url) => {
+                    return Err(invalid("invalid web tab URL"));
                 }
                 _ => {}
             }
@@ -82,11 +88,36 @@ pub fn validate_batch(input: &SaveStateBatchInput) -> Result<(), UiStateError> {
     Ok(())
 }
 
+fn valid_web_url(value: &str) -> bool {
+    if value.is_empty() || value.len() > 8192 || value.chars().any(char::is_control) {
+        return false;
+    }
+    let Some((scheme, remainder)) = value.split_once("://") else {
+        return false;
+    };
+    if !scheme.eq_ignore_ascii_case("http") && !scheme.eq_ignore_ascii_case("https") {
+        return false;
+    }
+    let authority = remainder.split(['/', '?', '#']).next().unwrap_or_default();
+    !authority.is_empty() && !authority.chars().any(char::is_whitespace)
+}
+
 #[cfg(test)]
 mod tests {
     use super::validate_batch;
     use crate::ui_state::models::SaveStateBatchInput;
     use uuid::Uuid;
+
+    #[test]
+    fn web_tabs_require_absolute_http_or_https_urls() {
+        use super::valid_web_url;
+
+        assert!(valid_web_url("https://example.com/path"));
+        assert!(valid_web_url("http://localhost:8080"));
+        assert!(!valid_web_url("javascript:alert(1)"));
+        assert!(!valid_web_url("https://"));
+        assert!(!valid_web_url("https://example.com/\n"));
+    }
 
     #[test]
     fn stale_or_malformed_batch_is_rejected_before_storage() {

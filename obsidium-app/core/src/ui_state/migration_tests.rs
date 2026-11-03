@@ -46,7 +46,8 @@ fn version_nine_migration_keeps_tabs_and_creates_main_layout() {
     let connection = Connection::open_in_memory().unwrap();
     let schema = super::migrations::schema::SCHEMA
         .replace("         layout_json TEXT,\n", "")
-        .replace("         pane_id TEXT NOT NULL DEFAULT 'main',\n", "");
+        .replace("         pane_id TEXT NOT NULL DEFAULT 'main',\n", "")
+        .replace("         url TEXT,\n", "");
     connection.execute_batch(&schema).unwrap();
     connection
         .execute_batch("PRAGMA user_version = 9;")
@@ -87,6 +88,14 @@ fn version_nine_migration_keeps_tabs_and_creates_main_layout() {
         serde_json::from_str::<serde_json::Value>(&layout).unwrap(),
         serde_json::json!({"kind": "pane", "paneId": "main", "activeTabId": tab})
     );
+    let has_url: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tabs') WHERE name = 'url')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(has_url);
 }
 
 #[test]
@@ -118,7 +127,7 @@ fn version_one_allows_new_file_beside_missing_tombstone_after_migration() {
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 10);
+    assert_eq!(version, 11);
 }
 
 #[test]
@@ -199,6 +208,7 @@ fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
              ALTER TABLE workspaces DROP COLUMN home_page;
              DROP TABLE base_view_states;
              ALTER TABLE tabs DROP COLUMN pane_id;
+             ALTER TABLE tabs DROP COLUMN url;
              ALTER TABLE sessions DROP COLUMN layout_json;
              PRAGMA user_version = 5;",
         )
@@ -240,7 +250,7 @@ fn upgrading_from_five_keeps_the_session_and_adds_the_graph_camera() {
         .expect("version");
 
     assert_eq!(row, ("tab".to_owned(), None, None, None));
-    assert_eq!(version, 10);
+    assert_eq!(version, 11);
 }
 
 #[test]
@@ -294,7 +304,7 @@ fn a_fresh_database_is_created_at_the_latest_version_without_dead_tables() {
     let version = connection
         .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
         .expect("version");
-    assert_eq!(version, 10);
+    assert_eq!(version, 11);
     assert!(
         !schema_shape(&connection)
             .iter()

@@ -114,11 +114,36 @@ pub fn batch(
                 kind: TabKind::Document,
                 position: 0,
                 pane_id: "main".to_owned(),
+                url: None,
             }]),
         }),
         views: vec![view(document_id, position)],
         graph_camera: None,
     }
+}
+
+#[test]
+fn web_tab_urls_survive_session_save_and_restore() {
+    let (mut database, workspace_id, document_id, epoch) = setup();
+    let web_tab_id = Uuid::new_v4();
+    let mut input = batch(workspace_id, document_id, epoch, 1, 20);
+    let session = input.session.as_mut().expect("session");
+    session.active_tab_id = Some(web_tab_id);
+    session.tabs.as_mut().expect("tabs").push(TabState {
+        tab_id: web_tab_id,
+        document_id: None,
+        kind: TabKind::Web,
+        position: 1,
+        pane_id: "main".to_owned(),
+        url: Some("https://example.com/docs".to_owned()),
+    });
+
+    database.save_batch(&input).expect("save web tab");
+
+    let loaded = database.load_session(workspace_id, "main").expect("load session");
+    let tab = loaded.tabs.iter().find(|tab| tab.tab_id == web_tab_id).expect("web tab");
+    assert_eq!(tab.kind, TabKind::Web);
+    assert_eq!(tab.url.as_deref(), Some("https://example.com/docs"));
 }
 
 #[test]
