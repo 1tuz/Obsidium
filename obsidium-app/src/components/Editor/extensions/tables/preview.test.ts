@@ -6,6 +6,7 @@ import { tablesExtension } from './index';
 import { flushTableWidgetSessions } from './widgetSessionRegistry';
 import { scheduleApplyTableModel, scheduleDeleteTable } from './structure';
 import { findTablesInDoc } from './constructs';
+import { setCell } from './model';
 
 const markdown = '| A | B |\n| --- | --- |\n| old | value |\n';
 const views: EditorView[] = [];
@@ -18,14 +19,21 @@ afterEach(() => {
 function setup(readOnly = false) {
     const mode = new Compartment();
     let changes = 0;
+    const spans: { from: number; to: number; insert: string }[] = [];
     const view = new EditorView({ parent: document.body,
         state: EditorState.create({ doc: markdown, extensions: [tablesExtension,
             mode.of([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]),
-            EditorView.updateListener.of((update) => { if (update.docChanged) changes += 1; }),
+            EditorView.updateListener.of((update) => {
+                if (!update.docChanged) return;
+                changes += 1;
+                update.changes.iterChanges((from, to, _fromB, _toB, insert) => {
+                    spans.push({ from, to, insert: insert.toString() });
+                });
+            }),
         ] }),
     });
     views.push(view);
-    return { view, changes: () => changes, setMode: (value: boolean) => view.dispatch({
+    return { view, spans, changes: () => changes, setMode: (value: boolean) => view.dispatch({
         effects: mode.reconfigure([EditorState.readOnly.of(value), EditorView.editable.of(!value)]),
     }) };
 }
@@ -57,12 +65,14 @@ describe('table reading mode', () => {
 
     it('commits the active nested editor synchronously once before reading mode', async () => {
         vi.useFakeTimers();
-        const { view, setMode, changes } = setup();
+        const { view, spans, setMode, changes } = setup();
         const nested = activate(view);
         nested.dispatch({ changes: { from: 0, to: nested.state.doc.length, insert: 'updated' } });
         flush(view);
         expect(view.state.readOnly).toBe(false);
         expect(view.state.doc.toString()).toContain('| updated | value |');
+        const cellFrom = markdown.indexOf('old');
+        expect(spans).toEqual([{ from: cellFrom, to: cellFrom + 2, insert: 'update' }]);
         expect(changes()).toBe(1);
         setMode(true);
         expect(view.dom.querySelector('.q-md-table-cell-field, .q-md-table-widget .cm-editor')).toBeNull();
@@ -80,10 +90,33 @@ describe('table reading mode', () => {
         expect(view.state.doc.toString()).toBe(markdown);
         expect(changes()).toBe(0);
     });
+    it('commits an already-issued add-row action before reading and cancels its queued callback', async () => {
+        vi.useFakeTimers();
+        const { view, setMode, changes } = setup();
+        view.dom.querySelector('.q-md-table-add-row')!.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true, button: 0, clientX: 100, clientY: 100,
+        }));
+        expect(view.dom.querySelectorAll('tbody tr')).toHaveLength(3);
+        expect(findTablesInDoc(view.state.doc)[0].model.cells).toHaveLength(2);
+        expect(changes()).toBe(0);
+        flush(view);
+        expect(view.state.readOnly).toBe(false);
+        expect(findTablesInDoc(view.state.doc)[0].model.cells).toHaveLength(3);
+        expect(changes()).toBe(1);
+        setMode(true);
+        const committed = view.state.doc.toString();
+        await vi.advanceTimersByTimeAsync(500);
+        expect(view.state.doc.toString()).toBe(committed);
+        expect(changes()).toBe(1);
+        expect(view.dom.querySelector('.q-md-table-widget .cm-editor')).toBeNull();
+    });
+
     it.each(['apply', 'delete'])('invalidates queued %s even when editing resumes immediately', async (operation) => {
         const { view, setMode, changes } = setup();
         const table = findTablesInDoc(view.state.doc)[0];
-        if (operation === 'apply') scheduleApplyTableModel(view, table.from, table.contentTo, table.model);
+        if (operation === 'apply') {
+            scheduleApplyTableModel(view, table.from, table.contentTo, setCell(table.model, 0, 0, 'stale'));
+        }
         else scheduleDeleteTable(view, table.from, table.to);
         flush(view);
         setMode(true);
