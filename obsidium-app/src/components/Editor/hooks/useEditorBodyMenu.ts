@@ -2,12 +2,13 @@ import { useCallback, useState, type MouseEvent, type RefObject } from 'react';
 import { BookOpen, Table2, Tags } from 'lucide';
 import type { EditorView } from '@codemirror/view';
 import { t } from '../../../i18n';
-import type { MenuItem } from '../../Common/Menu';
+import type { MenuEntry, MenuItem } from '../../Common/Menu';
 import { useSelectionMenu } from '../../Common/useSelectionMenu';
 import { insertClipboardAsLink } from '../extensions/links';
 import { insertBookCallout } from '../extensions/bookCallout';
 import { insertTable } from '../extensions/tables';
 import { canInsertFrontmatter, insertFrontmatter } from '../extensions/frontmatterInsert';
+import { TURN_MENU, turnIntoChanges } from '../../../modules/blocks/turnInto';
 
 export function useEditorBodyMenu(
     bodyRef: RefObject<EditorView | null>,
@@ -56,7 +57,17 @@ export function useEditorBodyMenu(
         openSelectionMenu(event);
     }, [bodyRef, openSelectionMenu]);
 
-    const items: MenuItem[] = [
+    const turnInto = useCallback((target: (typeof TURN_MENU)[number]['target']) => {
+        const view = bodyRef.current;
+        if (!view) return;
+        const { from, to } = view.state.selection.main;
+        const changes = turnIntoChanges(view.state.doc.toString(), [{ from, to }], target);
+        if (!changes.length) return;
+        view.dispatch({ changes, scrollIntoView: true });
+        view.focus();
+    }, [bodyRef]);
+
+    const items: MenuEntry[] = [
         selectionMenu.copy,
         {
             id: 'paste',
@@ -82,6 +93,12 @@ export function useEditorBodyMenu(
             disabled: frontmatterDisabled,
             onSelect: insertBodyFrontmatter,
         },
+        { type: 'separator', id: 'turn-separator' },
+        ...TURN_MENU.map((entry): MenuItem => ({
+            id: `turn-${entry.target}`,
+            label: `${t('blocks.turnInto')}: ${t(entry.label)}`,
+            onSelect: () => turnInto(entry.target),
+        })),
     ];
 
     return {

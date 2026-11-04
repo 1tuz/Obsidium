@@ -41,6 +41,7 @@ mod link_title {
     pub use obsidium_core::link_title::*;
     pub mod commands;
 }
+mod synced;
 mod schema {
     pub use obsidium_core::schema::*;
     pub mod commands;
@@ -156,6 +157,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            synced::synced_blocks_read,
+            synced::synced_blocks_write,
             settings::commands::get_settings,
             settings::commands::update_settings,
             spaces::commands::get_spaces,

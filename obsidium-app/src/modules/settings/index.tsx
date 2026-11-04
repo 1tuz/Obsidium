@@ -51,6 +51,9 @@ interface EditorSettings extends FontSettings {
   linkSuggest: boolean;
   linkSuggestMinChars: number;
   liveTabs: number;
+  blockHandles: boolean;
+  slashCommands: boolean;
+  headingMinimap: boolean;
 }
 
 export type MarkdownReadingStyle = 'theme' | 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
@@ -64,6 +67,7 @@ export interface MarkdownReadingSettings {
   fontSizePx: number;
   lineHeight: number;
   pageWidthCh: number;
+  blockHover: boolean;
 }
 
 export const DEFAULT_MARKDOWN_READING_SETTINGS: MarkdownReadingSettings = {
@@ -73,6 +77,7 @@ export const DEFAULT_MARKDOWN_READING_SETTINGS: MarkdownReadingSettings = {
   fontSizePx: 18,
   lineHeight: 1.7,
   pageWidthCh: 100,
+  blockHover: true,
 };
 
 export const DEFAULT_EDITOR_MAX_WIDTH_CH = 100;
@@ -232,9 +237,13 @@ export function normalizeConfig(config: AppConfig): AppConfig {
       ...knownFont('editor', config.editor),
       maxWidthCh: widenLegacyWidth(config.editor.maxWidthCh, DEFAULT_EDITOR_MAX_WIDTH_CH),
       fullWidth: config.editor.fullWidth === true,
+      blockHandles: config.editor.blockHandles !== false,
+      slashCommands: config.editor.slashCommands !== false,
+      headingMinimap: config.editor.headingMinimap !== false,
       markdownReading: {
         ...DEFAULT_MARKDOWN_READING_SETTINGS,
         ...config.editor.markdownReading,
+        blockHover: config.editor.markdownReading?.blockHover !== false,
         pageWidthCh: widenLegacyWidth(config.editor.markdownReading?.pageWidthCh, DEFAULT_MARKDOWN_READING_SETTINGS.pageWidthCh),
       },
     },

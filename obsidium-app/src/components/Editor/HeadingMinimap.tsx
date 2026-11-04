@@ -1,0 +1,45 @@
+import { useEffect, useState } from 'react';
+import { EditorView } from '@codemirror/view';
+import { t } from '../../i18n';
+import { subscribeMinimap, type MinimapState } from './extensions/blocks/minimapBridge';
+import './HeadingMinimap.css';
+
+const EMPTY_MINIMAP: MinimapState = { headings: [], activeIndex: -1 };
+
+const LEVEL_WIDTHS: Record<number, number> = { 1: 18, 2: 16, 3: 14, 4: 12, 5: 10, 6: 8 };
+
+export function HeadingMinimap({ view }: { view: EditorView | null }) {
+  const [state, setState] = useState<MinimapState>(EMPTY_MINIMAP);
+
+  useEffect(() => {
+    if (!view) {
+      setState(EMPTY_MINIMAP);
+      return;
+    }
+    return subscribeMinimap(view, setState);
+  }, [view]);
+
+  if (!view || state.headings.length === 0) return null;
+
+  const jump = (pos: number) => {
+    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
+    view.focus();
+  };
+
+  return (
+    <nav className="q-block-minimap" aria-label={t('blocks.minimapLabel')}>
+      {state.headings.map((heading, index) => (
+        <button
+          key={`${heading.pos}-${index}`}
+          type="button"
+          className="q-block-minimap__stroke"
+          data-level={heading.level}
+          style={{ width: LEVEL_WIDTHS[heading.level] ?? 8, top: `${heading.ratio * 100}%` }}
+          title={heading.text}
+          aria-current={index === state.activeIndex ? 'true' : undefined}
+          onClick={() => jump(heading.pos)}
+        />
+      ))}
+    </nav>
+  );
+}

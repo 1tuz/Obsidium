@@ -1,0 +1,38 @@
+.q-block-minimap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--q-space-28);
+  padding: var(--q-space-8) 0;
+  pointer-events: none;
+  z-index: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+.q-block-minimap__stroke {
+  position: absolute;
+  right: var(--q-space-4);
+  display: block;
+  height: var(--q-border-2);
+  border: none;
+  background: var(--q-border-default);
+  padding: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background-color 120ms ease;
+}
+
+.q-block-minimap__stroke:hover {
+  background: var(--q-text-muted);
+}
+
+.q-block-minimap__stroke[aria-current='true'] {
+  background: var(--q-text-accent);
+}
+
+.q-block-minimap__stroke:focus-visible {
+  outline: var(--q-border-2) solid var(--q-border-focus);
+  outline-offset: var(--q-space-2);
+}
