@@ -366,4 +366,3 @@ export function blockHandlesExtension(options: BlockHandlesOptions): Extension {
     },
   );
 }
-
