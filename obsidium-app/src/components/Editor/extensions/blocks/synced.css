@@ -1,0 +1,19 @@
+.q-block-synced-badge {
+  display: none;
+  padding: 0 var(--q-space-8);
+  border: 0;
+  border-radius: var(--q-radius-sm);
+  background: transparent;
+  color: var(--q-text-muted);
+  font-size: var(--q-font-size-ui-xs);
+  font-family: var(--q-font-family-ui);
+  line-height: var(--q-space-20);
+  cursor: pointer;
+}
+
+.q-block-synced-badge:hover,
+.cm-line:hover > .q-block-synced-badge {
+  display: inline-block;
+  color: var(--q-text-secondary);
+  background: var(--q-bg-surface-hover);
+}

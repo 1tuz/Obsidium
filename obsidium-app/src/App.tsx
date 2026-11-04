@@ -25,6 +25,7 @@ import { useSpaces } from "./hooks/useSpaces";
 import { useTabs } from "./hooks/useTabs";
 import { useNavigationHistory } from "./hooks/useNavigationHistory";
 import { useLiveTabs } from "./hooks/useLiveTabs";
+import { onOpenNoteRequest } from "./modules/blocks/navigation";
 import { useLocalState } from "./modules/workspace/uiPersist";
 import { PANEL_LIMITS, clampPanelWidth } from "./modules/layout/panelWidth";
 import { matchesShortcut, SHORTCUTS } from "./config/shortcuts";
@@ -306,6 +307,10 @@ export default function App() {
     }
     activateFile(path, { disposition, paneId, textMode });
   }, [activateFile, activeFile, activePaneId, activeTab?.textMode, push]);
+
+  useEffect(() => onOpenNoteRequest((request) => {
+    openNote(request.path, request.offset === undefined ? undefined : { offset: request.offset });
+  }), [openNote]);
 
   const openAsText = useCallback((path: string) => {
     openNote(path, { textMode: true });

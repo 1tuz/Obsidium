@@ -1,0 +1,5 @@
+.q-block-hover {
+  background-color: color-mix(in srgb, var(--q-text-accent) 6%, transparent);
+  border-radius: var(--q-radius-sm);
+  box-shadow: inset 2px 0 0 var(--q-border-accent-subtle);
+}

@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import type { MarkdownReadingSettings } from '../../modules/settings';
-import { useMemo, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, type ViewUpdate } from '@codemirror/view';
 import { CodeMirrorField, type CodeMirrorFieldRef } from '../Common/CodeMirrorField';
@@ -9,6 +9,12 @@ import { Menu } from '../Common/Menu';
 import { collapseSelection } from './extensions/editorFocus';
 import { wikiHoverHighlightTitle } from './extensions/wikiHoverHighlight';
 import { useEditorBodyMenu } from './hooks/useEditorBodyMenu';
+import { HeadingMinimap } from './HeadingMinimap';
+import {
+    closeBlockMenu,
+    setBlockMenuHost,
+    type BlockMenuRequest,
+} from './extensions/blocks/menuHost';
 import { MetadataToggle } from './MetadataToggle';
 import {
     bodyPositionUnderCaret,
@@ -39,6 +45,7 @@ interface EditorContentProps {
     onToggleMetadata?: () => void;
     markdownReading: MarkdownReadingSettings;
     fullWidth?: boolean;
+    showMinimap?: boolean;
 }
 
 export function EditorContent({
@@ -58,7 +65,26 @@ export function EditorContent({
     onToggleMetadata,
     markdownReading,
     fullWidth = false,
+    showMinimap = false,
 }: EditorContentProps) {
+    const [bodyView, setBodyView] = useState<EditorView | null>(null);
+    const [blockMenu, setBlockMenu] = useState<BlockMenuRequest | null>(null);
+    const blockMenuExclude = useRef<HTMLElement | null>(null);
+
+    useEffect(() => {
+        blockMenuExclude.current = blockMenu?.exclude ?? null;
+    }, [blockMenu]);
+
+    useEffect(() => {
+        if (!bodyView) return;
+        setBlockMenuHost(bodyView, setBlockMenu);
+        return () => setBlockMenuHost(bodyView, null);
+    }, [bodyView]);
+
+    const handleCreate = useCallback((view: EditorView) => {
+        setBodyView(view);
+        onCreateEditor(view);
+    }, [onCreateEditor]);
     const titleExtensions = useMemo(() => [wikiHoverHighlightTitle], []);
     const bodyExtensions = useMemo<Extension[]>(() => [
         extensions,
@@ -66,6 +92,7 @@ export function EditorContent({
         EditorView.editable.of(!readOnly),
     ], [extensions, readOnly]);
     const bodyMenu = useEditorBodyMenu(bodyRef, autoLinkTitle);
+    const bodyContextMenu = bodyMenu.onContextMenu;
 
     const paperStyle = markdownReading.style === 'theme' ? undefined : markdownReading.style;
     const readingStyle = paperStyle ? {
@@ -82,7 +109,10 @@ export function EditorContent({
             data-reading-font={paperStyle ? markdownReading.font : undefined}
             data-full-width={fullWidth ? 'true' : undefined}
             style={readingStyle}
-            onContextMenu={readOnly ? undefined : bodyMenu.onContextMenu}
+            onContextMenu={readOnly ? undefined : (event) => {
+                if (bodyView) closeBlockMenu(bodyView);
+                bodyContextMenu(event);
+            }}
         >
             <CodeMirrorField
                 ref={titleRef}
@@ -124,10 +154,11 @@ export function EditorContent({
                     doc={initialBody}
                     selection={selection}
                     extensions={bodyExtensions}
-                    onCreate={onCreateEditor}
+                    onCreate={handleCreate}
                     onUpdate={onUpdate}
                     onFocus={() => collapseViewSelection(titleRef.current?.view)}
                 />
+                {showMinimap ? <HeadingMinimap view={bodyView} /> : null}
             </div>
             <Menu
                 open={!readOnly && bodyMenu.open}
@@ -135,6 +166,16 @@ export function EditorContent({
                 items={bodyMenu.items}
                 onClose={bodyMenu.close}
                 ariaLabel={t('editor.actions')}
+            />
+            <Menu
+                open={blockMenu !== null}
+                position={blockMenu?.position ?? null}
+                items={blockMenu?.items ?? []}
+                onClose={() => {
+                    if (bodyView) closeBlockMenu(bodyView);
+                }}
+                ariaLabel={blockMenu?.ariaLabel ?? t('blocks.menu')}
+                excludeRef={blockMenuExclude}
             />
         </div>
     );

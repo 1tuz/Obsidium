@@ -28,6 +28,11 @@ import { frontmatterPaste } from './frontmatterPaste';
 import { wikiHoverHighlight } from './wikiHoverHighlight';
 import { smartDashExtension } from './smartDash';
 import { pageSearchExtension } from './pageSearch';
+import { blockHandlesExtension } from './blocks/handles';
+import { slashMenuExtension } from './blocks/slash';
+import { blockHoverExtension } from './blocks/hover';
+import { syncedExtension } from './blocks/synced';
+import { minimapExtension } from './blocks/minimapBridge';
 import { noteSuggestExtension } from './suggest';
 import { bodySetup } from './bodySetup';
 import type { LinkDisposition, WikiLinkResolver } from '../../../modules/links';
@@ -46,6 +51,10 @@ export interface EditorExtensionConfig {
     linkSuggestMinChars?: number;
     highlightrEnabled?: boolean;
     advancedOutlinerEnabled?: boolean;
+    blockHandles?: boolean;
+    slashCommands?: boolean;
+    blockHover?: boolean;
+    readOnly?: boolean;
 }
 
 export function useEditorExtensions({
@@ -62,6 +71,10 @@ export function useEditorExtensions({
     linkSuggestMinChars = 2,
     highlightrEnabled = true,
     advancedOutlinerEnabled = true,
+    blockHandles = true,
+    slashCommands = true,
+    blockHover = true,
+    readOnly = false,
 }: EditorExtensionConfig) {
     return useMemo(() => {
         return [
@@ -108,8 +121,13 @@ export function useEditorExtensions({
             obsidiumCodeMirrorTheme,
             obsidiumEditorTheme,
             pageSearchExtension,
+            ...(blockHandles && !readOnly ? [blockHandlesExtension({ enabled: true, readOnly, path: notePath })] : []),
+            ...(slashCommands && !readOnly ? [slashMenuExtension({ enabled: true, readOnly })] : []),
+            ...(blockHover && readOnly ? [blockHoverExtension({ enabled: true, readOnly })] : []),
+            syncedExtension({ path: notePath, enabled: true }),
+            minimapExtension(),
             EditorView.lineWrapping,
             placeholder("Начните писать текст..."),
         ];
-    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, highlightrEnabled, advancedOutlinerEnabled, notePath]);
+    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, highlightrEnabled, advancedOutlinerEnabled, notePath, blockHandles, slashCommands, blockHover, readOnly]);
 }

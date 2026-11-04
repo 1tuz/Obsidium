@@ -133,6 +133,36 @@ export function EditorSection({ config, onChange }: SettingsSectionProps) {
           />
         </Row>
       </Section>
+      <Section title={t('settings.editor.blocks')}>
+        <Row label={t('settings.editor.blockHover')} description={t('settings.editor.blockHoverHint')}>
+          <Switch
+            checked={reading.blockHover !== false}
+            label={t('settings.editor.blockHover')}
+            onChange={(blockHover) => patchReading({ blockHover })}
+          />
+        </Row>
+        <Row label={t('settings.editor.blockHandles')} description={t('settings.editor.blockHandlesHint')}>
+          <Switch
+            checked={config.editor.blockHandles !== false}
+            label={t('settings.editor.blockHandles')}
+            onChange={(blockHandles) => patchEditor({ blockHandles })}
+          />
+        </Row>
+        <Row label={t('settings.editor.slashCommands')} description={t('settings.editor.slashCommandsHint')}>
+          <Switch
+            checked={config.editor.slashCommands !== false}
+            label={t('settings.editor.slashCommands')}
+            onChange={(slashCommands) => patchEditor({ slashCommands })}
+          />
+        </Row>
+        <Row label={t('settings.editor.headingMinimap')} description={t('settings.editor.headingMinimapHint')}>
+          <Switch
+            checked={config.editor.headingMinimap !== false}
+            label={t('settings.editor.headingMinimap')}
+            onChange={(headingMinimap) => patchEditor({ headingMinimap })}
+          />
+        </Row>
+      </Section>
       <Section title={t('settings.editor.input')}>
         <Row label={t('settings.editor.smartDashes')} description={t('settings.editor.smartDashesHint')}>
           <Switch

@@ -154,6 +154,10 @@ export function Editor({
     linkSuggestMinChars,
     highlightrEnabled,
     advancedOutlinerEnabled,
+    blockHandles: editorSettings?.blockHandles !== false,
+    slashCommands: editorSettings?.slashCommands !== false,
+    blockHover: editorSettings?.markdownReading?.blockHover !== false,
+    readOnly,
   });
   const extensions = useMemo(
     () => (isReady ? [baseExtensions, syncExtension] : []),
@@ -231,6 +235,7 @@ export function Editor({
         onToggleMetadata={metadata.toggleMetadata}
         markdownReading={editorSettings?.markdownReading ?? DEFAULT_MARKDOWN_READING_SETTINGS}
         fullWidth={editorSettings?.fullWidth === true}
+        showMinimap={editorSettings?.headingMinimap !== false}
       />
   );
 
