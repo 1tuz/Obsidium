@@ -1,8 +1,8 @@
 import type { EditorView } from '@codemirror/view';
-import { focusAfterTable } from './apply';
+import { applyTableModel, focusAfterTable } from './apply';
 import { TableCellEditor, type CellFlush, type CellNavAction } from './cellEditor';
 import { closeTableContextMenu } from './contextMenu';
-import { sanitizeCellValue, serializeTable } from './constructs';
+import { findTablesInDoc, sanitizeCellValue, serializeTable } from './constructs';
 import { collapseSelection } from '../editorFocus';
 import { setTableInteractionChrome } from './parentSelection';
 import {
@@ -421,6 +421,16 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         }
 
         this.openCellEditor(cell, click);
+    }
+
+    flushForReadOnly(): void {
+        if (this.disposed) return;
+        this.absorbActiveCell();
+        this.docFlush.cancel();
+        this.docFlush.clearDirty();
+        const live = findTablesInDoc(this.view.state.doc).find((table) => table.from === this.widget.from);
+        if (!live || serializeTable(live.model) === serializeTable(this.tableModel)) return;
+        applyTableModel(this.view, live.from, live.contentTo, this.tableModel);
     }
 
     dispose(): void {

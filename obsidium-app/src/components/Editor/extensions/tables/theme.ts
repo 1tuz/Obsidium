@@ -20,6 +20,12 @@ export const tableThemeSpec: Record<string, Record<string, string>> = {
         userSelect: 'none',
         pointerEvents: 'none',
     },
+    '.q-md-table-widget--readonly .q-md-table-layout': {
+        display: 'block',
+    },
+    '.q-md-table-widget--readonly, .q-md-table-widget--readonly .q-md-table-cell-wrapper': {
+        userSelect: 'text',
+    },
     '.q-md-table-shell': {
         display: 'block',
         width: '100%',

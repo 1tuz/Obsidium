@@ -23,6 +23,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { EditingToolbar } from './EditingToolbar';
 import { DEFAULT_BUILTINS, useSettingsStore } from '../../modules/settings';
 import { PageSearchBar } from './PageSearchBar';
+import { flushTableWidgetSessions } from './extensions/tables/widgetSessionRegistry';
 
 interface EditorPaneProps {
   canGoBack: boolean; canGoForward: boolean; onNavigate: (delta: -1 | 1) => void;
@@ -79,7 +80,12 @@ export function EditorPane({
   const viewing = opened && samePath(opened.path, tab.path) ? opened : null;
   const viewingVersion = viewing !== null;
 
-  useEffect(() => setReadOnly(false), [tab.path]);
+  useEffect(() => setReadOnly(false), [tab.tabId]);
+
+  const changeMode = useCallback((nextReadOnly: boolean) => {
+    if (nextReadOnly && bodyView) flushTableWidgetSessions(bodyView);
+    setReadOnly(nextReadOnly);
+  }, [bodyView]);
 
   useEffect(() => {
     if (opened && !viewing) closeVersion(tab.tabId);
@@ -149,7 +155,7 @@ export function EditorPane({
           focusMode={focusMode}
           onToggleFocusMode={onToggleFocusMode}
           readOnly={readOnly || viewingVersion}
-          onModeChange={setReadOnly}
+          onModeChange={changeMode}
           showModeToggle={!viewingVersion}
         />
         {!readOnly && (builtins.editingToolbar ?? true) && (

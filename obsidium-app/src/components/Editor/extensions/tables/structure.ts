@@ -21,6 +21,10 @@ function nextApplyGeneration(view: EditorView): number {
     return id;
 }
 
+export function cancelScheduledTableWrites(view: EditorView): void {
+    nextApplyGeneration(view);
+}
+
 export function scheduleApplyTableModel(
     view: EditorView,
     from: number,
@@ -30,7 +34,7 @@ export function scheduleApplyTableModel(
 ): void {
     const generation = nextApplyGeneration(view);
     queueMicrotask(() => {
-        if (!view.dom.isConnected) return;
+        if (!view.dom.isConnected || view.state.readOnly) return;
         if (applyGeneration.get(view) !== generation) return;
         const live = findTablesInDoc(view.state.doc).find((table) => table.from === from);
         const applyFrom = live?.from ?? from;
@@ -86,9 +90,10 @@ export function scheduleDeleteTable(
     from: number,
     blockTo: number,
 ): void {
-    nextApplyGeneration(view);
+    const generation = nextApplyGeneration(view);
     queueMicrotask(() => {
-        if (!view.dom.isConnected) return;
+        if (!view.dom.isConnected || view.state.readOnly) return;
+        if (applyGeneration.get(view) !== generation) return;
         view.dispatch({
             changes: { from, to: blockTo, insert: '' },
             selection: EditorSelection.cursor(from),

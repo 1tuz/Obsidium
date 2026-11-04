@@ -1,3 +1,5 @@
+import type { EditorView } from '@codemirror/view';
+import { cancelScheduledTableWrites } from './structure';
 import type { TableModel } from './model';
 
 export interface TableWidgetHandle {
@@ -8,6 +10,7 @@ export interface TableWidgetHandle {
 
 interface WidgetSessionHost {
     dispose(): void;
+    flushForReadOnly(): void;
     syncHandle(handle: TableWidgetHandle): void;
     syncModel(model: TableModel): void;
 }
@@ -46,4 +49,10 @@ export function cellRefFromElement(
     const col = Number(cell.dataset.col);
     if (!Number.isFinite(row) || !Number.isFinite(col)) return null;
     return { row, col };
+}
+
+export function flushTableWidgetSessions(view: EditorView): void {
+    cancelScheduledTableWrites(view);
+    const roots = [...view.dom.querySelectorAll<HTMLElement>('.q-md-table-widget')];
+    for (const root of roots) sessions.get(root)?.flushForReadOnly();
 }
