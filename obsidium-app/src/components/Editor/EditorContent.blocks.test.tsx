@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { useRef } from 'preact/hooks';
 import { act } from 'preact/test-utils';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorSelection, type Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
@@ -67,13 +67,18 @@ describe('EditorContent block features', () => {
   let renderer: MountedDom | null = null;
   const bodyRef: { current: EditorView | null } = { current: null };
 
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+  });
+
   afterEach(() => {
+    vi.restoreAllMocks();
     if (renderer) act(() => renderer?.unmount());
     renderer = null;
     bodyRef.current = null;
   });
 
-  it('renders one minimap stroke per heading and resizes by level', () => {
+  it('renders all block marks with heading weights and click-to-jump', () => {
     act(() => {
       renderer = mountDom(
         <Harness
@@ -86,11 +91,17 @@ describe('EditorContent block features', () => {
       );
     });
     const strokes = renderer!.container.querySelectorAll<HTMLElement>('.q-block-minimap__stroke');
-    expect(strokes).toHaveLength(2);
+    expect(strokes).toHaveLength(3);
+    expect([...strokes].map((stroke) => stroke.dataset.kind)).toEqual([
+      'heading', 'heading', 'paragraph',
+    ]);
     expect(strokes[0].dataset.level).toBe('1');
     expect(strokes[1].dataset.level).toBe('2');
     const widths = [...strokes].map((stroke) => parseFloat(stroke.style.width));
     expect(widths[0]).toBeGreaterThan(widths[1]);
+    expect(widths[1]).toBeGreaterThan(widths[2]);
+    act(() => { strokes[2].click(); });
+    expect(bodyRef.current!.state.selection.main.head).toBe(BODY.indexOf('body text'));
   });
 
   it('keeps the minimap hidden when the setting is off', () => {
@@ -116,7 +127,6 @@ describe('EditorContent block features', () => {
     const view = bodyRef.current!;
     view.focus();
     act(() => { typeSlash(view, ''); });
-    console.log('DBG', view.hasFocus, view.state.doc.toString().slice(-10), renderer!.container.innerHTML.includes('q-block-slash'), document.querySelectorAll('.q-block-slash').length);
     const panel = renderer!.container.querySelector<HTMLElement>('.q-block-slash');
     expect(panel).not.toBeNull();
     expect(panel!.querySelectorAll('.q-block-slash__row').length).toBeGreaterThan(0);

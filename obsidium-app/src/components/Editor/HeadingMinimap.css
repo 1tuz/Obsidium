@@ -1,7 +1,7 @@
 .q-block-minimap {
   position: absolute;
   top: 0;
-  right: 0;
+  left: 0;
   width: var(--q-space-28);
   padding: var(--q-space-8) 0;
   pointer-events: none;
@@ -12,7 +12,7 @@
 
 .q-block-minimap__stroke {
   position: absolute;
-  right: var(--q-space-4);
+  left: var(--q-space-4);
   display: block;
   height: var(--q-border-2);
   border: none;
@@ -29,6 +29,7 @@
 }
 
 .q-block-minimap__stroke[aria-current='true'] {
+  z-index: 1;
   background: var(--q-text-accent);
 }
 
