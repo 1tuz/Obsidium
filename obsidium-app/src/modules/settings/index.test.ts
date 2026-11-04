@@ -29,7 +29,7 @@ describe('normalizeConfig', () => {
 
     expect(normalized.editor.markdownReading).toEqual({
       style: 'sepia', texture: 'off', font: 'standard',
-      fontSizePx: 18, lineHeight: 1.7, pageWidthCh: 74,
+      fontSizePx: 18, lineHeight: 1.7, pageWidthCh: 74, blockHover: true,
     });
     expect(normalized.editor.fontSizeBase).toBe(16);
   });
