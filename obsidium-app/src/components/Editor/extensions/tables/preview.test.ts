@@ -80,6 +80,22 @@ describe('table reading mode', () => {
         expect(changes()).toBe(1);
     });
 
+    it.each(['😁', String.fromCodePoint(0x1f200)])('replaces an emoji with complete scalar boundaries for %s', async (replacement) => {
+        vi.useFakeTimers();
+        const { view, spans, changes, setMode } = setup();
+        const cellFrom = markdown.indexOf('old');
+        view.dispatch({ changes: { from: cellFrom, to: cellFrom + 3, insert: '😀' } });
+        const nested = activate(view);
+        nested.dispatch({ changes: { from: 0, to: nested.state.doc.length, insert: replacement } });
+        spans.length = 0;
+        flush(view);
+        expect(spans).toEqual([{ from: cellFrom, to: cellFrom + 2, insert: replacement }]);
+        expect(view.state.doc.toString()).toContain(`| ${replacement} | value |`);
+        setMode(true);
+        await vi.advanceTimersByTimeAsync(500);
+        expect(changes()).toBe(2);
+    });
+
     it('handles a disappeared nested editor without a later source change', async () => {
         vi.useFakeTimers();
         const { view, setMode, changes } = setup();

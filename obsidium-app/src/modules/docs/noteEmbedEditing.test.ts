@@ -105,6 +105,21 @@ describe('text change', () => {
     });
   });
 
+  it.each([
+    ['x😀y', 'x😁y', 1, 3, '😁'],
+    ['x😀y', `x${String.fromCodePoint(0x1f200)}y`, 1, 3, String.fromCodePoint(0x1f200)],
+    ['x😀y', 'x😀😁y', 3, 3, '😁'],
+    ['x😀😁y', 'x😀y', 3, 5, ''],
+  ] as const)('aligns Unicode scalar boundaries for %s → %s', (before, after, from, to, insert) => {
+    const change = textChange(before, after)!;
+    const spans: { from: number; to: number; insert: string }[] = [];
+    change.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+      spans.push({ from: fromA, to: toA, insert: inserted.toString() });
+    });
+    expect(spans).toEqual([{ from, to, insert }]);
+    expect(change.apply(doc(before)).toString()).toBe(after);
+  });
+
   it('handles deletions at the end of the text', () => {
     const change = textChange('line\n', 'line');
     expect(change).not.toBeNull();
