@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir.join("synced-blocks.json"))
 }
