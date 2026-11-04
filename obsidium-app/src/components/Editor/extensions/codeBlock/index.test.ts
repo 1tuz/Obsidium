@@ -104,8 +104,8 @@ describe('code block extension', () => {
     expect(codeLines(mounted.parent)).toEqual(['const count = 1;']);
   });
 
-  it('keeps ASCII diagram columns on one visual line', async () => {
-    const diagram = ['```text', '┌──────────┐', '│ database │', '└──────────┘', '```'].join('\n');
+  it('preserves ASCII diagram spaces while allowing visual wrapping', async () => {
+    const diagram = ['```text', '┌──────────┐', '│  database  │', '└──────────┘', '```'].join('\n');
     const mounted = mount(diagram);
     view = mounted.view;
     parent = mounted.parent;
@@ -113,7 +113,43 @@ describe('code block extension', () => {
 
     const line = parent.querySelector<HTMLElement>('.cm-line.q-md-code-line');
     expect(line).not.toBeNull();
-    expect(getComputedStyle(line!).whiteSpace).toBe('pre');
+    expect(getComputedStyle(line!).whiteSpace).toBe('pre-wrap');
+    expect(codeLines(parent)).toEqual(['┌──────────┐', '│  database  │', '└──────────┘', '```']);
+    expect(view.state.doc.toString()).toBe(diagram);
+  });
+
+  it.each([
+    ['', '', 'Plain text'],
+    ['js', 'JavaScript', 'JavaScript'],
+  ])('keeps language and copy controls available for a %s fence', async (language, value, label) => {
+    const mounted = mount(['```' + language, 'body', '```'].join('\n'));
+    view = mounted.view;
+    parent = mounted.parent;
+    await settle();
+
+    const select = parent.querySelector<HTMLSelectElement>('.q-md-code-controls__language');
+    const copy = parent.querySelector<HTMLButtonElement>('.q-md-code-controls__copy');
+    expect(select?.value).toBe(value);
+    expect(select?.selectedOptions[0]?.textContent).toBe(label);
+    expect(copy?.textContent).toBe('Copy code');
+    expect(copy?.disabled).toBe(false);
+  });
+
+  it.each(['', 'js'])('copies original spaces and long lines from a %s fence', async (language) => {
+    copyText.mockResolvedValue(true);
+    const body = '    aligned    columns\n' + 'longIdentifier'.repeat(40) + '\n  final  line';
+    const doc = ['```' + language, body, '```'].join('\n');
+    const mounted = mount(doc);
+    view = mounted.view;
+    parent = mounted.parent;
+    await settle();
+
+    parent.querySelector<HTMLButtonElement>('.q-md-code-controls__copy')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+
+    expect(copyText).toHaveBeenCalledExactlyOnceWith(body);
+    expect(view.state.doc.toString()).toBe(doc);
   });
 
   it('keeps the fences of an empty fenced block', async () => {
