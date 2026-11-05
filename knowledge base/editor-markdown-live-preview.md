@@ -70,6 +70,7 @@ src/components/Editor/
 | `links/autoTitle.ts` | paste/drop URL → `[title](url)`; fetch через Tauri `fetch_page_title` |
 | `outline/*` | списки `- ` / `N. ` / `N)` |
 | `bookCallout/*` | виджет `> [!book]` ([[editor-book-callout]]) |
+| `diagram/*` | виджет ` ```mermaid ` → SVG ([[editor-diagrams]]) |
 | `useEditorDoc.ts` | загрузка и сохранение `.md` |
 
 ## Слои отображения

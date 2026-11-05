@@ -4,6 +4,7 @@ import { t } from '../../../../i18n';
 import { blockAt } from '../../../../modules/blocks/model';
 import { applyTurnInto, turnSelectionRange, type TurnTarget } from '../../../../modules/blocks/turnInto';
 import { insertTable } from '../tables';
+import { DIAGRAM_SKELETON } from '../diagram/constants';
 import './slash.css';
 
 export interface SlashItem {
@@ -24,6 +25,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     { id: 'task', label: t('blocks.insertTask'), category: 'lists', target: 'task', insert: '- [ ] ' },
     { id: 'quote', label: t('blocks.insertQuote'), category: 'advanced', target: 'quote', insert: '> ' },
     { id: 'code', label: t('blocks.insertCode'), category: 'advanced', target: 'code', insert: '```\n\n```' },
+    { id: 'diagram', label: t('blocks.insertDiagram'), category: 'advanced', insert: `${DIAGRAM_SKELETON}\n` },
     { id: 'toggle', label: t('blocks.insertToggle'), category: 'advanced', insert: `> [!note]- ${t('blocks.targetToggle')}` },
     { id: 'table', label: t('blocks.insertTable'), category: 'advanced' },
     { id: 'divider', label: t('blocks.insertDivider'), category: 'advanced', insert: '---' },

@@ -6,6 +6,9 @@ import { baseFenceDataReady, baseFencePrefetchExtension } from './baseFence/pref
 import { collectBookCalloutDecorations } from './bookCallout/decorations';
 import { bookCalloutDataReady, bookCalloutPrefetchExtension } from './bookCallout/prefetch';
 import { collectDataviewDecorations } from './dataview/decorations';
+import { collectDiagramDecorations } from './diagram/decorations';
+import { diagramDataReady, diagramPrefetchExtension } from './diagram/prefetch';
+import { diagramTheme } from './diagram/theme';
 import { editorFocusExtension, setEditorFocus } from './editorFocus';
 import { dataviewDataReady, dataviewPrefetchExtension } from './dataview/prefetch';
 import { collectImageEmbedDecorations } from './image/decorations';
@@ -26,6 +29,7 @@ function collectLivePreviewWidgetDecorations(
     ...collectBaseFenceDecorations(state, config),
     ...collectBookCalloutDecorations(state, config),
     ...collectDataviewDecorations(state, config),
+    ...collectDiagramDecorations(state),
     ...collectReaderQuoteDecorations(state, config),
     ...collectImageEmbedDecorations(state, config),
   ];
@@ -48,6 +52,7 @@ const livePreviewWidgetField = StateField.define<DecorationSet>({
         || effect.is(bookCalloutDataReady)
         || effect.is(baseFenceDataReady)
         || effect.is(dataviewDataReady)
+        || effect.is(diagramDataReady)
         || effect.is(setEditorFocus))
     ) {
       return buildLivePreviewWidgetDecorations(tr.state);
@@ -65,6 +70,8 @@ export function livePreviewWidgetExtension(config: LivePreviewConfig): Extension
     bookCalloutPrefetchExtension(),
     dataviewPrefetchExtension(),
     baseFencePrefetchExtension(),
+    diagramTheme,
+    diagramPrefetchExtension(),
     noteTransclusionExtension(config),
   ];
 }

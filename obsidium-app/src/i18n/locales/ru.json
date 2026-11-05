@@ -107,7 +107,9 @@
       "addRow": "Добавить строку"
     },
     "readingMode": "Режим чтения",
-    "editingMode": "Режим редактирования"
+    "editingMode": "Режим редактирования",
+    "diagramPending": "Отрисовываю схему…",
+    "diagramFailed": "Схема не отрисовалась: {{reason}}"
   },
   "tabs": {
     "graph": "Граф",
@@ -1454,6 +1456,7 @@
     "insertCode": "Блок кода",
     "insertToggle": "Раскрывающийся блок",
     "insertTable": "Таблица",
-    "insertDivider": "Разделитель"
+    "insertDivider": "Разделитель",
+    "insertDiagram": "Схема"
   }
 }
