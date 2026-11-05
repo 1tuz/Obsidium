@@ -163,3 +163,10 @@ jobs:
 
       - name: Check the whole workspace for platform-specific code
         run: cargo check --locked --manifest-path obsidium-app/src-tauri/Cargo.toml --workspace --all-targets --target ${{ matrix.target }}
+
+  android:
+    name: Android companion build
+    uses: ./.github/workflows/android.yml
+    with:
+      signed_release: false
+      test_core: true

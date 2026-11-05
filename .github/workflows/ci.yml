@@ -51,7 +51,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: manual
         run: |
-          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace rust_lock agent_surface docs workflow release_contract installer_scripts; do
+          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace rust_lock agent_surface docs workflow release_contract installer_scripts android; do
             echo "$name=true" >> "$GITHUB_OUTPUT"
           done
 
@@ -61,6 +61,10 @@ jobs:
           ruby scripts/check-workflow-yaml.rb
           ruby scripts/test-ci-routing.rb
           node --test scripts/ci-routing.test.mjs
+
+      - name: Check Android companion integration
+        if: steps.changes.outputs.android == 'true' || steps.manual.outputs.android == 'true'
+        run: python3 -m unittest discover -s mobile/android/tests -v
 
       - name: Validate release contract
         if: steps.changes.outputs.release_contract == 'true' || steps.manual.outputs.release_contract == 'true'

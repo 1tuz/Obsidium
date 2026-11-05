@@ -72,3 +72,9 @@ installer_scripts:
   - 'scripts/install.ps1'
   - 'scripts/uninstall.ps1'
   - 'scripts/test-install-windows.ps1'
+android:
+  - 'mobile/android/**'
+  - '.github/workflows/android.yml'
+  - 'obsidium-app/src/styles/themes/palettes.css'
+  - 'obsidium-app/src/styles/themes/palette-semantic.css'
+  - 'obsidium-app/src-tauri/icons/**'
