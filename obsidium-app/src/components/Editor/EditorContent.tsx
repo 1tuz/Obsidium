@@ -148,7 +148,11 @@ export function EditorContent({
                     onToggle={onToggleMetadata}
                 />
             ) : null}
-            <div className="q-editor-content__body">
+            <div className={[
+                'q-editor-content__body',
+                showMinimap ? 'q-editor-content__body--minimap' : '',
+                showMinimap && !readOnly ? 'q-editor-content__body--minimap-editing' : '',
+            ].filter(Boolean).join(' ')}>
                 <CodeMirrorView
                     viewRef={bodyRef}
                     doc={initialBody}

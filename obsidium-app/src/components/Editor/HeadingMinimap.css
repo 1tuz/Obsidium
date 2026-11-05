@@ -2,6 +2,15 @@
   position: relative;
 }
 
+.q-editor-content__body--minimap {
+  box-sizing: border-box;
+  padding-inline-start: var(--q-space-28);
+}
+
+.q-editor-content__body--minimap-editing {
+  padding-inline-start: calc(var(--q-space-28) + var(--q-space-24));
+}
+
 .q-block-minimap {
   position: absolute;
   box-sizing: border-box;

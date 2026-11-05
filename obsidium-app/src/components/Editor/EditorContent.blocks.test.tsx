@@ -91,6 +91,7 @@ describe('EditorContent block features', () => {
       );
     });
     const strokes = renderer!.container.querySelectorAll<HTMLElement>('.q-block-minimap__stroke');
+    expect(renderer!.container.querySelector('.q-editor-content__body--minimap-editing')).not.toBeNull();
     expect(strokes).toHaveLength(3);
     expect([...strokes].map((stroke) => stroke.dataset.kind)).toEqual([
       'heading', 'heading', 'paragraph',
@@ -111,6 +112,17 @@ describe('EditorContent block features', () => {
       );
     });
     expect(renderer!.container.querySelector('.q-block-minimap')).toBeNull();
+    expect(renderer!.container.querySelector('.q-editor-content__body--minimap')).toBeNull();
+  });
+
+  it('reserves the map gutter without an editing-handle gutter in reading mode', () => {
+    act(() => {
+      renderer = mountDom(
+        <Harness bodyRef={bodyRef} body={BODY} extensions={[minimapExtension()]} readOnly showMinimap />,
+      );
+    });
+    expect(renderer!.container.querySelector('.q-editor-content__body--minimap')).not.toBeNull();
+    expect(renderer!.container.querySelector('.q-editor-content__body--minimap-editing')).toBeNull();
   });
 
   it('opens the slash menu on an empty line and filters by query', () => {
