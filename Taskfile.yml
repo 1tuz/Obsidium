@@ -1,0 +1,91 @@
+version: '3'
+
+silent: true
+
+tasks:
+  default:
+    desc: Список всех задач
+    cmds:
+      - task --list
+
+  install:
+    desc: Установка зависимостей фронтенда (npm ci)
+    dir: obsidium-app
+    cmds:
+      - npm ci
+
+  dev:
+    desc: Полное приложение в dev-режиме (нативное окно, HMR)
+    dir: obsidium-app
+    cmds:
+      - npm run tauri dev
+
+  web:
+    desc: Только браузерный Vite dev-сервер (http://localhost:1420/)
+    dir: obsidium-app
+    cmds:
+      - npm run dev
+
+  test:
+    desc: Полный прогон vitest
+    dir: obsidium-app
+    cmds:
+      - npm run test
+
+  test:watch:
+    desc: Vitest в режиме watch
+    dir: obsidium-app
+    cmds:
+      - npm run test:watch
+
+  typecheck:
+    desc: Проверка типов TypeScript (tsc --noEmit)
+    dir: obsidium-app
+    cmds:
+      - npx tsc --noEmit
+
+  colors:
+    desc: Поиск хардкод-цветов (требуется PowerShell)
+    dir: obsidium-app
+    cmds:
+      - npm run check:colors
+
+  tokens:sync:
+    desc: Синхронизация Figma-токенов
+    dir: obsidium-app
+    cmds:
+      - npm run tokens:sync
+
+  tokens:diff:
+    desc: Diff Figma-токенов с текущими значениями
+    dir: obsidium-app
+    cmds:
+      - npm run tokens:diff
+
+  check:tokens:
+    desc: Аудит использования дизайн-токенов
+    dir: obsidium-app
+    cmds:
+      - npm run check:tokens
+
+  check:figma-names:
+    desc: Аудит имён Figma-токенов
+    dir: obsidium-app
+    cmds:
+      - npm run check:figma-names
+
+  icons:sync:
+    desc: Синхронизация иконок
+    dir: obsidium-app
+    cmds:
+      - npm run icons:sync
+
+  rust:test:
+    desc: Полный набор Rust-тестов (cargo test, для ночного CI или ручного запуска)
+    dir: obsidium-app/src-tauri
+    cmds:
+      - cargo test
+
+  check:
+    desc: Составная проверка перед коммитом (typecheck, colors, check:tokens, check:figma-names)
+    deps: [typecheck, colors, check:tokens, check:figma-names]
