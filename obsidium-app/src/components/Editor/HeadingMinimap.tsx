@@ -27,7 +27,7 @@ export function HeadingMinimap({ view }: { view: EditorView | null }) {
   };
 
   return (
-    <nav className="q-block-minimap" aria-label={t('blocks.minimapLabel')}>
+    <nav className="q-block-minimap" aria-label={t('blocks.minimapLabel')} style={{ top: state.top, height: state.height }}>
       {state.marks.map((mark, index) => (
         <button
           key={`${mark.pos}-${index}`}

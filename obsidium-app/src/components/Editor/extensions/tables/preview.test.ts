@@ -14,14 +14,15 @@ afterEach(() => {
     views.forEach((view) => { view.destroy(); view.dom.remove(); });
     views.length = 0;
     vi.useRealTimers();
+    vi.unstubAllGlobals();
 });
 
-function setup(readOnly = false) {
+function setup(readOnly = false, source = markdown) {
     const mode = new Compartment();
     let changes = 0;
     const spans: { from: number; to: number; insert: string }[] = [];
     const view = new EditorView({ parent: document.body,
-        state: EditorState.create({ doc: markdown, extensions: [tablesExtension,
+        state: EditorState.create({ doc: source, extensions: [tablesExtension,
             mode.of([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]),
             EditorView.updateListener.of((update) => {
                 if (!update.docChanged) return;
@@ -125,6 +126,66 @@ describe('table reading mode', () => {
         expect(view.state.doc.toString()).toBe(committed);
         expect(changes()).toBe(1);
         expect(view.dom.querySelector('.q-md-table-widget .cm-editor')).toBeNull();
+    });
+
+    it('commits both pending table models in one transaction before reading', async () => {
+        vi.useFakeTimers();
+        const { view, setMode, changes } = setup(false, `${markdown}\n${markdown}`);
+        const roots = view.dom.querySelectorAll<HTMLElement>('.q-md-table-widget');
+        roots[0].querySelector('.q-md-table-add-row')!.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true, button: 0, clientX: 100, clientY: 100,
+        }));
+        roots[1].querySelector('td[data-row="1"][data-col="0"]')!.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true, button: 0, clientX: 100, clientY: 100,
+        }));
+        const nested = EditorView.findFromDOM(roots[1].querySelector('.cm-editor')!)!;
+        nested.dispatch({ changes: { from: 0, to: nested.state.doc.length, insert: 'latest 😁' } });
+        flush(view);
+        const tables = findTablesInDoc(view.state.doc);
+        expect(tables[0].model.cells).toHaveLength(3);
+        expect(tables[1].model.cells[1][0]).toBe('latest 😁');
+        expect(changes()).toBe(1);
+        setMode(true);
+        const committed = view.state.doc.toString();
+        await vi.advanceTimersByTimeAsync(500);
+        expect(view.state.doc.toString()).toBe(committed);
+        expect(changes()).toBe(1);
+    });
+
+    it('retains a pending structural model when an earlier document change moves its widget', () => {
+        vi.useFakeTimers();
+        const { view } = setup();
+        view.dom.querySelector('.q-md-table-add-row')!.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true, button: 0, clientX: 100, clientY: 100,
+        }));
+        view.dispatch({ changes: { from: 0, insert: 'prefix\n\n' } });
+        flush(view);
+        expect(findTablesInDoc(view.state.doc)[0].model.cells).toHaveLength(3);
+    });
+
+    it('refits static reading tables on resize and disconnects their observer', () => {
+        const observers: { callback: ResizeObserverCallback; disconnect: ReturnType<typeof vi.fn> }[] = [];
+        vi.stubGlobal('ResizeObserver', class {
+            callback: ResizeObserverCallback;
+            disconnect = vi.fn();
+            observe = vi.fn();
+            unobserve = vi.fn();
+            constructor(callback: ResizeObserverCallback) { this.callback = callback; observers.push(this); }
+        });
+        const { view } = setup(true, markdown.trimEnd() + '\n<!--q-table:{"merges":[],"rows":[40,40],"cols":[200,200]}-->\n');
+        const root = view.dom.querySelector<HTMLElement>('.q-md-table-widget')!;
+        const observer = observers[observers.length - 1]!;
+        const host = root.querySelector<HTMLElement>('.q-md-table-table-host')!;
+        Object.defineProperty(host, 'clientWidth', { configurable: true, value: 300 });
+        observer.callback([], {} as ResizeObserver);
+        expect([...root.querySelectorAll('col')].map((col) => col.style.width)).toEqual(['150px', '150px']);
+        Object.defineProperty(host, 'clientWidth', { configurable: true, value: 400 });
+        observer.callback([], {} as ResizeObserver);
+        expect([...root.querySelectorAll('col')].map((col) => col.style.width)).toEqual(['200px', '200px']);
+        expect(root.querySelector('.cm-editor, .q-md-table-add-row')).toBeNull();
+        view.destroy();
+        expect(observer.disconnect).toHaveBeenCalled();
+        vi.unstubAllGlobals();
     });
 
     it.each(['apply', 'delete'])('invalidates queued %s even when editing resumes immediately', async (operation) => {

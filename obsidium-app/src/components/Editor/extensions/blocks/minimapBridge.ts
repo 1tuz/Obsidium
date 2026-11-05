@@ -1,6 +1,7 @@
 import type { Extension, Text } from '@codemirror/state';
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { scanDocument, headingText, type BlockKind } from '../../../../modules/blocks/model';
+import { resolveEditorScrollElement } from '../../viewState/scroll';
 
 export interface MinimapMark {
   kind: BlockKind;
@@ -13,6 +14,8 @@ export interface MinimapMark {
 export interface MinimapState {
   marks: MinimapMark[];
   activeIndex: number;
+  top?: number;
+  height?: number;
 }
 
 type MinimapListener = (state: MinimapState) => void;
@@ -26,6 +29,9 @@ interface MinimapSession {
   rafId: number | null;
   onScroll: () => void;
   observer: ResizeObserver | null;
+  owner: HTMLElement | null;
+  top: number;
+  height: number;
 }
 
 const sessions = new WeakMap<EditorView, MinimapSession>();
@@ -91,13 +97,27 @@ function lineTops(view: EditorView, marks: readonly MinimapMark[]): number[] {
 }
 
 function publish(session: MinimapSession): void {
-  const state: MinimapState = { marks: session.marks, activeIndex: session.activeIndex };
+  const state: MinimapState = { marks: session.marks, activeIndex: session.activeIndex, top: session.top, height: session.height };
   for (const listener of session.listeners) listener(state);
 }
 
 function compute(view: EditorView, session: MinimapSession): void {
   const marks = minimapMarks(view.state.doc);
-  const scrollTop = view.scrollDOM.scrollTop;
+  const container = view.dom.closest<HTMLElement>('.q-editor-container');
+  const owner = container ? resolveEditorScrollElement(container, view.state.readOnly) : view.scrollDOM;
+  if (session.owner !== owner) {
+    session.owner?.removeEventListener('scroll', session.onScroll);
+    if (session.owner) session.observer?.unobserve(session.owner);
+    session.owner = owner;
+    owner.addEventListener('scroll', session.onScroll, { passive: true });
+    session.observer?.observe(owner);
+  }
+  const ownerRect = owner.getBoundingClientRect();
+  const scrollRect = view.scrollDOM.getBoundingClientRect();
+  const bodyRect = view.dom.closest('.q-editor-content__body')?.getBoundingClientRect();
+  session.top = ownerRect.top - (bodyRect?.top ?? ownerRect.top);
+  session.height = owner.clientHeight;
+  const scrollTop = owner === view.scrollDOM ? owner.scrollTop : ownerRect.top - scrollRect.top;
   const scrollHeight = view.scrollDOM.scrollHeight;
   const tops = lineTops(view, marks);
   const activeIndex = activeMarkIndex(marks, scrollTop, tops);
@@ -105,7 +125,7 @@ function compute(view: EditorView, session: MinimapSession): void {
     ...mark,
     ratio: scrollHeight > 0 ? Math.max(0, Math.min(1, tops[i] / scrollHeight)) : mark.ratio,
   }));
-  const compacted = compactMinimapMarks(normalized, view.scrollDOM.clientHeight, activeIndex);
+  const compacted = compactMinimapMarks(normalized, session.height, activeIndex);
   session.marks = compacted.marks;
   session.activeIndex = compacted.activeIndex;
   publish(session);
@@ -122,7 +142,7 @@ function scheduleCompute(view: EditorView, session: MinimapSession): void {
 function teardownSession(view: EditorView, session: MinimapSession): void {
   if (session.rafId !== null) cancelAnimationFrame(session.rafId);
   session.rafId = null;
-  view.scrollDOM.removeEventListener('scroll', session.onScroll);
+  session.owner?.removeEventListener('scroll', session.onScroll);
   session.observer?.disconnect();
   session.observer = null;
   sessions.delete(view);
@@ -138,9 +158,11 @@ function ensureSession(view: EditorView): MinimapSession {
     rafId: null,
     onScroll: () => scheduleCompute(view, session),
     observer: null,
+    owner: null,
+    top: 0,
+    height: 0,
   };
   const scrollDOM = view.scrollDOM;
-  scrollDOM.addEventListener('scroll', session.onScroll, { passive: true });
   if (typeof ResizeObserver !== 'undefined') {
     session.observer = new ResizeObserver(() => scheduleCompute(view, session));
     session.observer.observe(scrollDOM);
@@ -165,7 +187,7 @@ export function subscribeMinimap(
 const minimapPlugin = ViewPlugin.fromClass(
   class {
     update(update: ViewUpdate): void {
-      if (update.docChanged || update.geometryChanged || update.viewportChanged) {
+      if (update.docChanged || update.geometryChanged || update.viewportChanged || update.startState.readOnly !== update.state.readOnly) {
         const session = sessions.get(update.view);
         if (session) scheduleCompute(update.view, session);
       }

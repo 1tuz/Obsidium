@@ -1,7 +1,7 @@
 import { WidgetType, type EditorView } from '@codemirror/view';
 import { takeTableCellFocus } from './apply';
 import type { TableModel } from './model';
-import { renderTableWidgetDom } from './widgetDom';
+import { refitTableColumns, renderTableWidgetDom } from './widgetDom';
 import { bindWikiHover, refreshWikiHover, unbindWikiHover } from '../../../../modules/wikixiv';
 import { livePreviewConfigFacet } from '../livePreviewConfig';
 import { markdownNoteTarget } from '../links/interaction';
@@ -12,6 +12,7 @@ const TABLE_HIT_TARGET =
     '.q-md-table-scroll, .q-md-table-layout, .q-md-table-add-row, .q-md-table-add-col, .q-md-table-cell-field, .cm-editor';
 
 const WIDGET_CHROME_PX = 80;
+const staticObservers = new WeakMap<HTMLElement, ResizeObserver>();
 
 interface TableWidgetOptions {
     from: number;
@@ -95,7 +96,17 @@ export class TableWidget extends WidgetType {
                 event.ctrlKey || event.metaKey ? 'new-tab' : 'current',
             );
         });
-        if (this.readOnly) return root;
+        if (this.readOnly) {
+            const observer = new ResizeObserver(() => {
+                refitTableColumns(root, this.model);
+                view.requestMeasure();
+            });
+            observer.observe(root);
+            const tableHost = root.querySelector('.q-md-table-table-host');
+            if (tableHost) observer.observe(tableHost);
+            staticObservers.set(root, observer);
+            return root;
+        }
 
         const session = new WidgetSession(
             view,
@@ -122,6 +133,8 @@ export class TableWidget extends WidgetType {
     }
 
     destroy(dom: HTMLElement): void {
+        staticObservers.get(dom)?.disconnect();
+        staticObservers.delete(dom);
         unbindWidgetSession(dom);
         unbindWikiHover(dom);
     }

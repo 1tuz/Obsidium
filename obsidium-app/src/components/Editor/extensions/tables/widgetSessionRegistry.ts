@@ -1,6 +1,8 @@
 import type { EditorView } from '@codemirror/view';
 import { cancelScheduledTableWrites } from './structure';
 import type { TableModel } from './model';
+import { findTablesInDoc, serializeTable } from './constructs';
+import { localChange, textChange } from '../../../../modules/docs/noteEmbedEditing';
 
 export interface TableWidgetHandle {
     from: number;
@@ -10,7 +12,7 @@ export interface TableWidgetHandle {
 
 interface WidgetSessionHost {
     dispose(): void;
-    flushForReadOnly(): void;
+    snapshotForReadOnly(): { from: number; model: TableModel } | null;
     syncHandle(handle: TableWidgetHandle): void;
     syncModel(model: TableModel): void;
 }
@@ -54,5 +56,13 @@ export function cellRefFromElement(
 export function flushTableWidgetSessions(view: EditorView): void {
     cancelScheduledTableWrites(view);
     const roots = [...view.dom.querySelectorAll<HTMLElement>('.q-md-table-widget')];
-    for (const root of roots) sessions.get(root)?.flushForReadOnly();
+    const snapshots = roots.map((root) => sessions.get(root)?.snapshotForReadOnly()).filter((item) => item != null);
+    const tables = findTablesInDoc(view.state.doc);
+    const changes = snapshots.flatMap((snapshot) => {
+        const table = tables.find((item) => item.from === snapshot.from);
+        if (!table) return [];
+        const change = textChange(view.state.doc.sliceString(table.from, table.contentTo), serializeTable(snapshot.model));
+        return change ? [localChange(change, { from: table.from, to: table.contentTo }, view.state.doc)] : [];
+    });
+    if (changes.length && !view.state.readOnly) view.dispatch({ changes, userEvent: 'input' });
 }

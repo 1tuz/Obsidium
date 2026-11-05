@@ -1,8 +1,8 @@
 import type { EditorView } from '@codemirror/view';
-import { applyTableModel, focusAfterTable } from './apply';
+import { focusAfterTable } from './apply';
 import { TableCellEditor, type CellFlush, type CellNavAction } from './cellEditor';
 import { closeTableContextMenu } from './contextMenu';
-import { findTablesInDoc, sanitizeCellValue, serializeTable } from './constructs';
+import { sanitizeCellValue, serializeTable } from './constructs';
 import { collapseSelection } from '../editorFocus';
 import { setTableInteractionChrome } from './parentSelection';
 import {
@@ -84,6 +84,7 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
     readonly view: EditorView;
     readonly root: HTMLElement;
     private tableModel: TableModel;
+    private syncedModel: string;
     private tableSelection: TableSelection | null = null;
     private readonly pointer: TablePointerState = createPointerState();
     private borderResize: BorderResizeState | null = null;
@@ -105,6 +106,7 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         this.view = view;
         this.root = root;
         this.tableModel = model;
+        this.syncedModel = serializeTable(model);
         this.fieldHost = document.createElement('div');
         this.fieldHost.hidden = true;
         this.root.appendChild(this.fieldHost);
@@ -149,10 +151,14 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
     }
 
     syncModel(model: TableModel): void {
-        if (serializeTable(this.tableModel) === serializeTable(model)) {
+        const incoming = serializeTable(model);
+        if (serializeTable(this.tableModel) === incoming) {
+            this.syncedModel = incoming;
             this.tableModel = model;
             return;
         }
+        if (incoming === this.syncedModel) return;
+        this.syncedModel = incoming;
         this.absorbActiveCell();
         this.tableModel = model;
         clearTableSelection(this);
@@ -423,14 +429,12 @@ export class WidgetSession implements CellNavigationHost, StructureSession, Tabl
         this.openCellEditor(cell, click);
     }
 
-    flushForReadOnly(): void {
-        if (this.disposed) return;
+    snapshotForReadOnly(): { from: number; model: TableModel } | null {
+        if (this.disposed) return null;
         this.absorbActiveCell();
         this.docFlush.cancel();
         this.docFlush.clearDirty();
-        const live = findTablesInDoc(this.view.state.doc).find((table) => table.from === this.widget.from);
-        if (!live || serializeTable(live.model) === serializeTable(this.tableModel)) return;
-        applyTableModel(this.view, live.from, live.contentTo, this.tableModel);
+        return { from: this.widget.from, model: this.tableModel };
     }
 
     dispose(): void {
