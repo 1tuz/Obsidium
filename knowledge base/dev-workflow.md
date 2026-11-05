@@ -62,3 +62,20 @@ npm run tauri dev
 - **НЕ нужно** запускать `npm run build` каждый раз — это только для финальной сборки
 - **НЕ нужно** перезапускать dev-сервер при изменении файлов — HMR делает это автоматически
 - Единственный случай для перезапуска — изменение `vite.config.ts` или `package.json`
+
+## Taskfile
+
+В корне репозитория лежит `Taskfile.yml` для [go-task](https://taskfile.dev) — тонкая обёртка над npm-скриптами из `obsidium-app/package.json`. Taskfile не содержит собственной логики: каждая задача просто вызывает соответствующий скрипт с `dir: obsidium-app`.
+
+| Команда | Что запускает |
+|---------|--------------|
+| `task` | Список всех задач |
+| `task install` | `npm ci` |
+| `task dev` | `npm run tauri dev` (нативное окно) |
+| `task web` | `npm run dev` (только браузер) |
+| `task test` / `task test:watch` | Полный vitest / watch-режим |
+| `task typecheck` | `tsc --noEmit` |
+| `task check` | Составная проверка перед коммитом: typecheck + colors + check:tokens + check:figma-names |
+| `task rust:test` | `cargo test` в `obsidium-app/src-tauri` |
+
+Отличие от npm-скриптов: команды запускаются из корня репозитория (не нужно `cd obsidium-app`), а `task check` декларативно собирает несколько проверок через `deps:`. Для `task colors` требуется PowerShell — на macOS его нет из коробки.
