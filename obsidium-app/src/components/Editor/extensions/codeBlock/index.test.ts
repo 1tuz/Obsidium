@@ -12,7 +12,7 @@ vi.mock('../../../../modules/clipboard', () => ({ copyText }));
 const FENCED = '```js\nconst count = 1;\n```';
 const EMPTY_FENCED = '```js\n```';
 
-function mount(doc: string, caret?: number, editable?: Compartment) {
+function mount(doc: string, caret?: number, editable?: Compartment, readOnly = false) {
   const parent = document.createElement('div');
   document.body.append(parent);
   const view = new EditorView({
@@ -24,6 +24,7 @@ function mount(doc: string, caret?: number, editable?: Compartment) {
         codeBlockExtension,
         EditorView.lineWrapping,
         ...(editable ? [editable.of(EditorView.editable.of(true))] : []),
+        ...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
       ],
     }),
     parent,
@@ -91,6 +92,25 @@ describe('code block extension', () => {
     const line = parent.querySelector('.cm-line.q-md-code-line');
     expect(line?.classList.contains('q-md-code-line--first')).toBe(true);
     expect(line?.classList.contains('q-md-code-line--last')).toBe(true);
+  });
+
+  it('decorates a fenced block that scrolls into view in reading mode', async () => {
+    const filler = Array.from({ length: 200 }, (_, index) => `paragraph ${index}`).join('\n\n');
+    const doc = `${filler}\n\n${FENCED}\n`;
+    const blockPos = doc.indexOf('```js');
+    const mounted = mount(doc, doc.length, undefined, true);
+    view = mounted.view;
+    parent = mounted.parent;
+    await settle();
+    expect(codeLines(mounted.parent)).toEqual([]);
+
+    view.dispatch({
+      selection: { anchor: blockPos + 10 },
+      effects: EditorView.scrollIntoView(blockPos, { y: 'start' }),
+    });
+    await settle();
+
+    expect(codeLines(mounted.parent)).toEqual(['const count = 1;']);
   });
 
   it('hides fences in reading mode even when the saved caret is on the opening fence', async () => {

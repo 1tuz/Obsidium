@@ -1,12 +1,21 @@
 import { syntaxTree } from '@codemirror/language';
 import { StateEffect, StateField, type Text } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import type { Tree } from '@lezer/common';
 import { ensureEditorTree, visibleTreeRanges } from '../ensureEditorTree';
 import { codeBlocks } from './blocks';
 import { codeBlockControls, codeBlockDecorations } from './decorations';
 import { CodeGrammarLoader } from './grammars';
 import { codeHighlighting } from './highlight';
 import { codeBlockTheme, codeHighlightTheme } from './theme';
+
+type VisibleRange = { from: number; to: number };
+
+function sameRanges(a: readonly VisibleRange[] | null, b: readonly VisibleRange[]): boolean {
+  if (a === b) return true;
+  if (!a || a.length !== b.length) return false;
+  return a.every((range, index) => range.from === b[index].from && range.to === b[index].to);
+}
 
 const replaceCodeBlockControls = StateEffect.define<DecorationSet>();
 const replaceCodeBlockDecorations = StateEffect.define<DecorationSet>();
@@ -37,6 +46,8 @@ const codeBlockPlugin = ViewPlugin.fromClass(class {
   private controls: DecorationSet | null = null;
   private decorationsDoc: Text | null = null;
   private decorationsHead: number | null = null;
+  private decorationsTree: Tree | null = null;
+  private decorationsRanges: readonly VisibleRange[] | null = null;
   private controlsDoc: Text | null = null;
   private updateQueued = false;
   private destroyed = false;
@@ -51,7 +62,7 @@ const codeBlockPlugin = ViewPlugin.fromClass(class {
     const editabilityChanged = update.state.facet(EditorView.editable)
       !== update.startState.facet(EditorView.editable);
     if (!update.docChanged && !update.viewportChanged && !treeChanged && !update.selectionSet && !editabilityChanged) return;
-    this.sync(update.view, update.docChanged || treeChanged);
+    this.sync(update.view, update.docChanged || update.viewportChanged || treeChanged);
     this.scheduleUpdate(update.view);
   }
 
@@ -63,14 +74,20 @@ const codeBlockPlugin = ViewPlugin.fromClass(class {
   private sync(view: EditorView, allowParse = true): void {
     const state = view.state;
     const head = state.facet(EditorView.editable) ? state.selection.main.head : null;
-    if (this.decorationsDoc === state.doc && this.decorationsHead === head) return;
     const tree = ensureEditorTree(view, allowParse);
-    const blocks = codeBlocks(tree, state.doc, visibleTreeRanges(view, tree.length));
+    const ranges = visibleTreeRanges(view, tree.length);
+    if (this.decorationsDoc === state.doc
+      && this.decorationsHead === head
+      && this.decorationsTree === tree
+      && sameRanges(this.decorationsRanges, ranges)) return;
+    const blocks = codeBlocks(tree, state.doc, ranges);
     this.grammars.sync(view, tree, blocks);
     this.decorations = codeBlockDecorations(state.doc, blocks, head);
     this.controls = codeBlockControls(blocks);
     this.decorationsDoc = state.doc;
     this.decorationsHead = head;
+    this.decorationsTree = tree;
+    this.decorationsRanges = ranges.map((range) => ({ from: range.from, to: range.to }));
   }
 
   private scheduleUpdate(view: EditorView): void {
