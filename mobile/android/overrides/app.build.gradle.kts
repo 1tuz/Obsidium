@@ -17,6 +17,10 @@ android {
     buildToolsVersion = "@BUILD_TOOLS@"
     ndkVersion = "@NDK@"
 
+    buildFeatures {
+        resValues = true
+    }
+
     defaultConfig {
         applicationId = "@APPLICATION_ID@"
         minSdk = @MIN_SDK@
