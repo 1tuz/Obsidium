@@ -8,7 +8,7 @@ const scroll = readFileSync(resolve(process.cwd(), 'src/components/Editor/viewSt
 
 describe('Markdown reading scroll', () => {
   it('keeps the reading container as a fallback scrollport', () => {
-    expect(content).toContain('className="q-editor-content__body"');
+    expect(content).toMatch(/className=\{\[\s*'q-editor-content__body',/u);
     expect(scroll).toContain("'.q-editor-content--reading .q-editor-content__body .cm-scroller'");
     expect(layout).toMatch(/\.q-editor-container\s*\{[^}]*overflow-y:\s*auto;/u);
     expect(layout).not.toMatch(/\.q-editor-container:has\(\.q-editor-content--reading\)\s*\{[^}]*overflow:\s*hidden;/u);
