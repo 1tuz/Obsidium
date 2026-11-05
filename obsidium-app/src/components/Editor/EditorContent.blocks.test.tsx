@@ -78,7 +78,7 @@ describe('EditorContent block features', () => {
     bodyRef.current = null;
   });
 
-  it('renders all block marks with heading weights and click-to-jump', () => {
+  it('renders heading-only marks with heading weights and click-to-jump', () => {
     act(() => {
       renderer = mountDom(
         <Harness
@@ -92,17 +92,13 @@ describe('EditorContent block features', () => {
     });
     const strokes = renderer!.container.querySelectorAll<HTMLElement>('.q-block-minimap__stroke');
     expect(renderer!.container.querySelector('.q-editor-content__body--minimap-editing')).not.toBeNull();
-    expect(strokes).toHaveLength(3);
-    expect([...strokes].map((stroke) => stroke.dataset.kind)).toEqual([
-      'heading', 'heading', 'paragraph',
-    ]);
-    expect(strokes[0].dataset.level).toBe('1');
-    expect(strokes[1].dataset.level).toBe('2');
+    expect(strokes).toHaveLength(2);
+    expect(strokes[0]!.dataset.level).toBe('1');
+    expect(strokes[1]!.dataset.level).toBe('2');
     const widths = [...strokes].map((stroke) => parseFloat(stroke.style.width));
-    expect(widths[0]).toBeGreaterThan(widths[1]);
-    expect(widths[1]).toBeGreaterThan(widths[2]);
-    act(() => { strokes[2].click(); });
-    expect(bodyRef.current!.state.selection.main.head).toBe(BODY.indexOf('body text'));
+    expect(widths[0]!).toBeGreaterThan(widths[1]!);
+    act(() => { strokes[1].click(); });
+    expect(bodyRef.current!.state.selection.main.head).toBe(BODY.indexOf('## Two'));
   });
 
   it('keeps the minimap hidden when the setting is off', () => {
