@@ -34,6 +34,7 @@ function buildTableDecorations(state: EditorState): DecorationSet {
                     blockTo: table.to,
                     model: table.model,
                     text: state.doc.sliceString(table.from, table.contentTo),
+                    readOnly: state.readOnly,
                 }),
                 block: true,
             }).range(table.from, table.to),
@@ -45,7 +46,7 @@ function buildTableDecorations(state: EditorState): DecorationSet {
 
 const tableDecorationField = StateField.define<DecorationSet>({
     create: (state) => buildTableDecorations(state),
-    update: (value, tr) => (tr.docChanged ? buildTableDecorations(tr.state) : value),
+    update: (value, tr) => (tr.docChanged || tr.state.readOnly !== tr.startState.readOnly ? buildTableDecorations(tr.state) : value),
     provide: (field) => EditorView.decorations.from(field),
 });
 

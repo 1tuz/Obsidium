@@ -16,6 +16,9 @@ export const codeHighlightTheme = EditorView.theme({
 export const codeBlockTheme = EditorView.theme({
   '.q-md-code-controls': {
     display: 'flex',
+    boxSizing: 'border-box',
+    maxWidth: '100%',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 'var(--q-gap-sm)',
@@ -37,12 +40,15 @@ export const codeBlockTheme = EditorView.theme({
     fontSize: 'var(--q-font-size-ui-sm)',
   },
   '.q-md-code-controls__language': {
-    maxWidth: '11em',
+    minWidth: '0',
+    maxWidth: 'min(11em, 100%)',
+    flexShrink: '1',
     padding: '0 var(--q-padding-xs)',
     textOverflow: 'ellipsis',
     cursor: 'pointer',
   },
   '.q-md-code-controls__copy': {
+    flexShrink: '0',
     padding: '0 var(--q-padding-xs)',
     whiteSpace: 'nowrap',
     cursor: 'pointer',
@@ -60,7 +66,8 @@ export const codeBlockTheme = EditorView.theme({
     position: 'relative',
     boxSizing: 'border-box',
     fontFamily: 'var(--q-editor-code-font)',
-    whiteSpace: 'pre',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
     paddingLeft: 'var(--q-block-padding)',
     paddingRight: 'var(--q-block-padding)',
   },

@@ -151,9 +151,9 @@ export function paintTableModel(root: HTMLElement, model: TableModel): void {
     syncStripSizes(root, model);
 }
 
-export function renderTableWidgetDom(model: TableModel): HTMLElement {
+export function renderTableWidgetDom(model: TableModel, readOnly = false): HTMLElement {
     const root = document.createElement('div');
-    root.className = 'q-md-table-widget';
+    root.className = readOnly ? 'q-md-table-widget q-md-table-widget--readonly' : 'q-md-table-widget';
     root.contentEditable = 'false';
 
     const shell = document.createElement('div');
@@ -206,6 +206,14 @@ export function renderTableWidgetDom(model: TableModel): HTMLElement {
     root.appendChild(shell);
 
     paintTableModel(root, model);
+    if (readOnly) {
+        corner.remove();
+        colStrip.remove();
+        rowStrip.remove();
+        addCol.remove();
+        addRow.remove();
+        selection.remove();
+    }
     return root;
 }
 

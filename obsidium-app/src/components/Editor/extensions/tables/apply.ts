@@ -1,5 +1,6 @@
 import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
+import { localChange, textChange } from '../../../../modules/docs/noteEmbedEditing';
 import { serializeTable } from './constructs';
 import { createEmptyTableModel, type CellRef, type TableModel } from './model';
 
@@ -30,10 +31,11 @@ export function applyTableModel(
     model: TableModel,
     resume?: CellRef,
 ): void {
-    const insert = serializeTable(model);
+    const change = textChange(view.state.doc.sliceString(from, contentTo), serializeTable(model));
+    if (!change) return;
     if (resume) queueTableCellFocus(view, from, resume);
     view.dispatch({
-        changes: { from, to: contentTo, insert },
+        changes: localChange(change, { from, to: contentTo }, view.state.doc),
         userEvent: 'input',
     });
 }

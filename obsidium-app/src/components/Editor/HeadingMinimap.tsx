@@ -4,7 +4,7 @@ import { t } from '../../i18n';
 import { subscribeMinimap, type MinimapState } from './extensions/blocks/minimapBridge';
 import './HeadingMinimap.css';
 
-const EMPTY_MINIMAP: MinimapState = { headings: [], activeIndex: -1 };
+const EMPTY_MINIMAP: MinimapState = { marks: [], activeIndex: -1 };
 
 const LEVEL_WIDTHS: Record<number, number> = { 1: 18, 2: 16, 3: 14, 4: 12, 5: 10, 6: 8 };
 
@@ -19,7 +19,7 @@ export function HeadingMinimap({ view }: { view: EditorView | null }) {
     return subscribeMinimap(view, setState);
   }, [view]);
 
-  if (!view || state.headings.length === 0) return null;
+  if (!view || state.marks.length === 0) return null;
 
   const jump = (pos: number) => {
     view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
@@ -27,17 +27,23 @@ export function HeadingMinimap({ view }: { view: EditorView | null }) {
   };
 
   return (
-    <nav className="q-block-minimap" aria-label={t('blocks.minimapLabel')}>
-      {state.headings.map((heading, index) => (
+    <nav className="q-block-minimap" aria-label={t('blocks.minimapLabel')} style={{ top: state.top, height: state.height }}>
+      {state.marks.map((mark, index) => (
         <button
-          key={`${heading.pos}-${index}`}
+          key={`${mark.pos}-${index}`}
           type="button"
           className="q-block-minimap__stroke"
-          data-level={heading.level}
-          style={{ width: LEVEL_WIDTHS[heading.level] ?? 8, top: `${heading.ratio * 100}%` }}
-          title={heading.text}
+          data-kind={mark.kind}
+          data-level={mark.level}
+          style={{
+            width: mark.kind === 'heading'
+              ? LEVEL_WIDTHS[mark.level] ?? 8
+              : mark.kind === 'listItem' ? Math.max(4, 9 - mark.level) : 8,
+            top: `${mark.ratio * 100}%`,
+          }}
+          title={mark.text}
           aria-current={index === state.activeIndex ? 'true' : undefined}
-          onClick={() => jump(heading.pos)}
+          onClick={() => jump(mark.pos)}
         />
       ))}
     </nav>

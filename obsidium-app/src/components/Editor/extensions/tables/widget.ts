@@ -1,7 +1,7 @@
 import { WidgetType, type EditorView } from '@codemirror/view';
 import { takeTableCellFocus } from './apply';
 import type { TableModel } from './model';
-import { renderTableWidgetDom } from './widgetDom';
+import { refitTableColumns, renderTableWidgetDom } from './widgetDom';
 import { bindWikiHover, refreshWikiHover, unbindWikiHover } from '../../../../modules/wikixiv';
 import { livePreviewConfigFacet } from '../livePreviewConfig';
 import { markdownNoteTarget } from '../links/interaction';
@@ -12,6 +12,7 @@ const TABLE_HIT_TARGET =
     '.q-md-table-scroll, .q-md-table-layout, .q-md-table-add-row, .q-md-table-add-col, .q-md-table-cell-field, .cm-editor';
 
 const WIDGET_CHROME_PX = 80;
+const staticObservers = new WeakMap<HTMLElement, ResizeObserver>();
 
 interface TableWidgetOptions {
     from: number;
@@ -19,6 +20,7 @@ interface TableWidgetOptions {
     blockTo: number;
     model: TableModel;
     text: string;
+    readOnly?: boolean;
 }
 
 export class TableWidget extends WidgetType {
@@ -27,6 +29,7 @@ export class TableWidget extends WidgetType {
     readonly blockTo: number;
     readonly model: TableModel;
     readonly text: string;
+    readonly readOnly: boolean;
 
     constructor(options: TableWidgetOptions) {
         super();
@@ -35,16 +38,19 @@ export class TableWidget extends WidgetType {
         this.blockTo = options.blockTo;
         this.model = options.model;
         this.text = options.text;
+        this.readOnly = options.readOnly ?? false;
     }
 
     eq(other: WidgetType): boolean {
         return other instanceof TableWidget
+            && this.readOnly === other.readOnly
             && this.text === other.text
             && this.from === other.from
             && this.contentTo === other.contentTo;
     }
 
     updateDOM(dom: HTMLElement): boolean {
+        if (this.readOnly || dom.classList.contains('q-md-table-widget--readonly')) return false;
         const updated = syncWidgetSession(dom, {
             from: this.from,
             contentTo: this.contentTo,
@@ -55,16 +61,9 @@ export class TableWidget extends WidgetType {
     }
 
     toDOM(view: EditorView): HTMLElement {
-        const root = renderTableWidgetDom(this.model);
+        const root = renderTableWidgetDom(this.model, this.readOnly);
         bindWikiHover(root, '.q-md-table-cell-wrapper');
 
-        const session = new WidgetSession(
-            view,
-            { from: this.from, contentTo: this.contentTo, blockTo: this.blockTo },
-            this.model,
-            root,
-        );
-        bindWidgetSession(root, session);
         root.addEventListener('mousedown', (event) => {
             if (event.button !== 0) return;
             const target = event.target as HTMLElement | null;
@@ -97,6 +96,25 @@ export class TableWidget extends WidgetType {
                 event.ctrlKey || event.metaKey ? 'new-tab' : 'current',
             );
         });
+        if (this.readOnly) {
+            const observer = new ResizeObserver(() => {
+                refitTableColumns(root, this.model);
+                view.requestMeasure();
+            });
+            observer.observe(root);
+            const tableHost = root.querySelector('.q-md-table-table-host');
+            if (tableHost) observer.observe(tableHost);
+            staticObservers.set(root, observer);
+            return root;
+        }
+
+        const session = new WidgetSession(
+            view,
+            { from: this.from, contentTo: this.contentTo, blockTo: this.blockTo },
+            this.model,
+            root,
+        );
+        bindWidgetSession(root, session);
         root.addEventListener('mousedown', (event) => session.onMouseDown(event));
         root.addEventListener('keydown', (event) => session.onKeyDown(event));
         root.addEventListener('contextmenu', (event) => session.onContextMenu(event));
@@ -115,6 +133,8 @@ export class TableWidget extends WidgetType {
     }
 
     destroy(dom: HTMLElement): void {
+        staticObservers.get(dom)?.disconnect();
+        staticObservers.delete(dom);
         unbindWidgetSession(dom);
         unbindWikiHover(dom);
     }

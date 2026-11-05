@@ -1,96 +1,93 @@
 import { describe, expect, it } from 'vitest';
 import { EditorState, Text } from '@codemirror/state';
-import { activeHeadingIndex, minimapHeadings } from './minimapBridge';
+import { activeMarkIndex, compactMinimapMarks, minimapMarks, type MinimapMark } from './minimapBridge';
 
 function doc(source: string): Text {
   return EditorState.create({ doc: source }).doc;
 }
 
-describe('minimapHeadings', () => {
-  it('collects headings with level, text, pos and ratio', () => {
-    const source = '# Alpha\n\ntext\n\n## Beta\n\ntail';
-    const headings = minimapHeadings(doc(source));
-    expect(headings).toEqual([
-      { level: 1, text: 'Alpha', pos: 0, ratio: 0 },
-      { level: 2, text: 'Beta', pos: 15, ratio: 15 / source.length },
+describe('minimapMarks', () => {
+  it('collects all body block kinds with source positions and levels', () => {
+    const source = '# Heading\n\nParagraph\n\n- item\n  - nested\n\n> quote\n\n> [!note] callout\n\n```\n# code\n```\n\n| A | B |\n| --- | --- |\n| a | b |\n\n---\n\n<!-- obsidium-sync:id -->';
+    const marks = minimapMarks(doc(source));
+    expect(marks.map((mark) => mark.kind)).toEqual([
+      'heading', 'paragraph', 'listItem', 'listItem', 'quote', 'callout', 'code', 'table', 'hr', 'sync',
     ]);
+    expect(marks[0]).toEqual({ kind: 'heading', level: 1, text: 'Heading', pos: 0, ratio: 0 });
+    expect(marks[1]).toEqual({ kind: 'paragraph', level: 0, text: 'Paragraph', pos: 11, ratio: 11 / source.length });
+    expect(marks[3].level).toBe(2);
+    expect(marks.every((mark, index) => index === 0 || mark.pos > marks[index - 1].pos)).toBe(true);
   });
 
-  it('ignores non-heading blocks and invalid levels', () => {
-    const source = 'paragraph\n\n> # not a heading\n\n####### seven\n\n### Real\n';
-    const headings = minimapHeadings(doc(source));
-    expect(headings.map((heading) => heading.text)).toEqual(['Real']);
-    expect(headings[0].level).toBe(3);
+  it('skips frontmatter and keeps raw heading labels', () => {
+    const marks = minimapMarks(doc('---\ntitle: x\n---\n\n## Title ^ref'));
+    expect(marks).toEqual([{ kind: 'heading', level: 2, text: 'Title ^ref', pos: 18, ratio: 18 / 31 }]);
   });
 
-  it('ignores headings inside fenced code blocks', () => {
-    const headings = minimapHeadings(doc('```\n# inside\n```\n\n# outside'));
-    expect(headings.map((heading) => heading.text)).toEqual(['outside']);
-  });
-
-  it('skips frontmatter headings', () => {
-    const headings = minimapHeadings(doc('---\ntitle: x\n---\n\n# Title'));
-    expect(headings.map((heading) => heading.text)).toEqual(['Title']);
-    expect(headings[0].pos).toBe(18);
-  });
-
-  it('returns empty list for documents without headings', () => {
-    expect(minimapHeadings(doc('plain text\n\nmore'))).toEqual([]);
-    expect(minimapHeadings(Text.empty)).toEqual([]);
-  });
-
-  it('orders headings by document position with clamped increasing ratios', () => {
-    const source = '# A\n## B\n### C\n#### D\n##### E\n###### F';
-    const headings = minimapHeadings(doc(source));
-    expect(headings.map((heading) => heading.level)).toEqual([1, 2, 3, 4, 5, 6]);
-    const ratios = headings.map((heading) => heading.ratio);
-    for (const ratio of ratios) {
-      expect(ratio).toBeGreaterThanOrEqual(0);
-      expect(ratio).toBeLessThanOrEqual(1);
-    }
-    for (let i = 1; i < ratios.length; i += 1) {
-      expect(ratios[i]).toBeGreaterThan(ratios[i - 1]);
-    }
-  });
-
-  it('uses the raw heading text for the label', () => {
-    const headings = minimapHeadings(doc('## Beta ^ref'));
-    expect(headings[0].text).toBe('Beta ^ref');
+  it('returns no marks for empty documents', () => {
+    expect(minimapMarks(Text.empty)).toEqual([]);
+    expect(minimapMarks(doc(' \n\n'))).toEqual([]);
   });
 });
 
-describe('activeHeadingIndex', () => {
-  const headings = minimapHeadings(doc('# One\n\n# Two\n\n# Three'));
-  const tops = [0, 100, 200];
+describe('compactMinimapMarks', () => {
+  const marks: MinimapMark[] = [
+    { kind: 'paragraph', level: 0, text: 'active', pos: 0, ratio: 0.1 },
+    { kind: 'heading', level: 2, text: 'heading', pos: 10, ratio: 0.11 },
+    { kind: 'code', level: 0, text: 'code', pos: 20, ratio: 0.12 },
+    { kind: 'paragraph', level: 0, text: 'last', pos: 30, ratio: 1 },
+  ];
 
-  it('returns -1 when no heading reached yet', () => {
-    expect(activeHeadingIndex(headings, 0, [100, 200, 300])).toBe(-1);
-    expect(activeHeadingIndex([], 100)).toBe(-1);
+  it('prioritizes headings per pixel and retains the active mark in document order', () => {
+    expect(compactMinimapMarks(marks, 10, 0)).toEqual({ marks: [marks[0], marks[1], marks[3]], activeIndex: 0 });
+    expect(compactMinimapMarks(marks, 10, 2)).toEqual({ marks: [marks[1], marks[2], marks[3]], activeIndex: 1 });
   });
 
-  it('returns the last heading at or above the scroll line', () => {
-    expect(activeHeadingIndex(headings, 0, tops)).toBe(0);
-    expect(activeHeadingIndex(headings, 50, tops)).toBe(0);
+  it('remaps the active index without duplicating an already retained mark', () => {
+    expect(compactMinimapMarks(marks, 10, 1)).toEqual({ marks: [marks[1], marks[3]], activeIndex: 0 });
+    expect(compactMinimapMarks(marks, 10, -1)).toEqual({ marks: [marks[1], marks[3]], activeIndex: -1 });
+  });
+
+  it('bounds dense output by pixel height plus the active mark', () => {
+    const dense = Array.from({ length: 1000 }, (_, pos) => ({ ...marks[0], pos, ratio: pos / 999 }));
+    expect(compactMinimapMarks(dense, 10, 500).marks.length).toBeLessThanOrEqual(11);
+    expect(compactMinimapMarks([], 0, -1)).toEqual({ marks: [], activeIndex: -1 });
+    expect(compactMinimapMarks(marks, 0, -1).marks).toEqual([marks[1]]);
+  });
+});
+
+describe('activeMarkIndex', () => {
+  const headings: MinimapMark[] = [0, 7, 14].map((pos) => ({ kind: 'heading', level: 1, text: '', pos, ratio: pos / 21 }));
+  const tops = [0, 100, 200];
+
+  it('returns -1 when no block reached yet', () => {
+    expect(activeMarkIndex(headings, 0, [100, 200, 300])).toBe(-1);
+    expect(activeMarkIndex([], 100)).toBe(-1);
+  });
+
+  it('returns the last block at or above the scroll line', () => {
+    expect(activeMarkIndex(headings, 0, tops)).toBe(0);
+    expect(activeMarkIndex(headings, 50, tops)).toBe(0);
   });
 
   it('applies the 24px active offset', () => {
-    expect(activeHeadingIndex(headings, 80, tops)).toBe(1);
-    expect(activeHeadingIndex(headings, 200, tops)).toBe(2);
-    expect(activeHeadingIndex(headings, 176, tops)).toBe(2);
-    expect(activeHeadingIndex(headings, 175, tops)).toBe(1);
+    expect(activeMarkIndex(headings, 80, tops)).toBe(1);
+    expect(activeMarkIndex(headings, 200, tops)).toBe(2);
+    expect(activeMarkIndex(headings, 176, tops)).toBe(2);
+    expect(activeMarkIndex(headings, 175, tops)).toBe(1);
   });
 
-  it('stops at the first heading below the line even if later ones qualify', () => {
+  it('stops at the first block below the line even if later ones qualify', () => {
     const unordered = [
-      { level: 1, text: 'a', pos: 0, ratio: 0.9 },
-      { level: 1, text: 'b', pos: 1, ratio: 0.1 },
+      { kind: 'heading' as const, level: 1, text: 'a', pos: 0, ratio: 0.9 },
+      { kind: 'heading' as const, level: 1, text: 'b', pos: 1, ratio: 0.1 },
     ];
-    expect(activeHeadingIndex(unordered, 0.5)).toBe(-1);
+    expect(activeMarkIndex(unordered, 0.5)).toBe(-1);
   });
 
   it('falls back to ratio comparison without tops', () => {
-    expect(activeHeadingIndex(headings, 0.2)).toBe(0);
-    expect(activeHeadingIndex(headings, 0.4)).toBe(1);
-    expect(activeHeadingIndex(headings, 1)).toBe(2);
+    expect(activeMarkIndex(headings, 0.2)).toBe(0);
+    expect(activeMarkIndex(headings, 0.4)).toBe(1);
+    expect(activeMarkIndex(headings, 1)).toBe(2);
   });
 });

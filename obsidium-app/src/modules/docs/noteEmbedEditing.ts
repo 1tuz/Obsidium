@@ -36,16 +36,25 @@ export function localChange(changes: ChangeSet, range: NoteEmbedRange, source: T
   return ChangeSet.of(ranges, source.length);
 }
 
+function splitsSurrogatePair(text: string, offset: number): boolean {
+  return offset > 0 && (text.codePointAt(offset - 1) ?? 0) > 0xffff;
+}
+
 export function textChange(before: string, after: string): ChangeSet | null {
   if (before === after) return null;
   const limit = Math.min(before.length, after.length);
   let prefix = 0;
   while (prefix < limit && before.charCodeAt(prefix) === after.charCodeAt(prefix)) prefix += 1;
+  if (splitsSurrogatePair(before, prefix) || splitsSurrogatePair(after, prefix)) prefix -= 1;
   let suffix = 0;
   while (
     suffix < limit - prefix
     && before.charCodeAt(before.length - 1 - suffix) === after.charCodeAt(after.length - 1 - suffix)
   ) suffix += 1;
+  if (
+    splitsSurrogatePair(before, before.length - suffix)
+    || splitsSurrogatePair(after, after.length - suffix)
+  ) suffix -= 1;
   return ChangeSet.of({
     from: prefix,
     to: before.length - suffix,
