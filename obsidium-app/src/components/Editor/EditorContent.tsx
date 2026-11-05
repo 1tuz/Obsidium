@@ -155,6 +155,7 @@ export function EditorContent({
             ].filter(Boolean).join(' ')}>
                 <CodeMirrorView
                     viewRef={bodyRef}
+                    className="q-editor-content__cm"
                     doc={initialBody}
                     selection={selection}
                     extensions={bodyExtensions}
