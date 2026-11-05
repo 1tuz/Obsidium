@@ -1,21 +1,19 @@
 import type { Extension, Text } from '@codemirror/state';
 import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import { scanDocument, headingText, type BlockKind } from '../../../../modules/blocks/model';
+import { scanDocument, headingText } from '../../../../modules/blocks/model';
 import { resolveEditorScrollElement } from '../../viewState/scroll';
 
 export interface MinimapMark {
-  kind: BlockKind;
   level: number;
   text: string;
   pos: number;
-  ratio: number;
 }
 
 export interface MinimapState {
   marks: MinimapMark[];
   activeIndex: number;
-  top?: number;
-  height?: number;
+  top: number;
+  viewportHeight: number;
 }
 
 type MinimapListener = (state: MinimapState) => void;
@@ -31,59 +29,32 @@ interface MinimapSession {
   observer: ResizeObserver | null;
   owner: HTMLElement | null;
   top: number;
-  height: number;
+  viewportHeight: number;
 }
 
 const sessions = new WeakMap<EditorView, MinimapSession>();
 
 export function minimapMarks(doc: Text): MinimapMark[] {
-  const length = doc.length;
   return scanDocument(doc)
-    .filter((block) => block.kind !== 'frontmatter')
+    .filter((block) => block.kind === 'heading')
     .map((block) => ({
-      kind: block.kind,
       level: block.level,
-      text: block.kind === 'heading' ? headingText(block) : block.text,
+      text: headingText(block),
       pos: block.from,
-      ratio: length > 0 ? block.from / length : 0,
     }));
 }
 
 export function activeMarkIndex(
   marks: readonly MinimapMark[],
   scrollTop: number,
-  tops?: readonly number[],
+  tops: readonly number[],
 ): number {
   let index = -1;
   for (let i = 0; i < marks.length; i += 1) {
-    const top = tops?.[i];
-    if (top !== undefined ? top <= scrollTop + ACTIVE_OFFSET : marks[i].ratio <= scrollTop) {
-      index = i;
-    } else {
-      break;
-    }
+    if (tops[i] <= scrollTop + ACTIVE_OFFSET) index = i;
+    else break;
   }
   return index;
-}
-
-export function compactMinimapMarks(
-  marks: readonly MinimapMark[],
-  pixelHeight: number,
-  activeIndex: number,
-): MinimapState {
-  const height = Math.max(1, Math.floor(pixelHeight));
-  const buckets = new Map<number, number>();
-  marks.forEach((mark, index) => {
-    const pixel = Math.max(0, Math.min(height - 1, Math.floor(mark.ratio * height)));
-    const previous = buckets.get(pixel);
-    if (previous === undefined || (mark.kind === 'heading' && marks[previous].kind !== 'heading')) {
-      buckets.set(pixel, index);
-    }
-  });
-  const retained = new Set(buckets.values());
-  if (activeIndex >= 0 && activeIndex < marks.length) retained.add(activeIndex);
-  const indices = [...retained].sort((a, b) => a - b);
-  return { marks: indices.map((index) => marks[index]), activeIndex: indices.indexOf(activeIndex) };
 }
 
 function lineTops(view: EditorView, marks: readonly MinimapMark[]): number[] {
@@ -96,8 +67,21 @@ function lineTops(view: EditorView, marks: readonly MinimapMark[]): number[] {
   });
 }
 
+function sameMarks(left: readonly MinimapMark[], right: readonly MinimapMark[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i].pos !== right[i].pos || left[i].level !== right[i].level) return false;
+  }
+  return true;
+}
+
 function publish(session: MinimapSession): void {
-  const state: MinimapState = { marks: session.marks, activeIndex: session.activeIndex, top: session.top, height: session.height };
+  const state: MinimapState = {
+    marks: session.marks,
+    activeIndex: session.activeIndex,
+    top: session.top,
+    viewportHeight: session.viewportHeight,
+  };
   for (const listener of session.listeners) listener(state);
 }
 
@@ -115,20 +99,23 @@ function compute(view: EditorView, session: MinimapSession): void {
   const ownerRect = owner.getBoundingClientRect();
   const scrollRect = view.scrollDOM.getBoundingClientRect();
   const bodyRect = view.dom.closest('.q-editor-content__body')?.getBoundingClientRect();
-  session.top = ownerRect.top - (bodyRect?.top ?? ownerRect.top);
-  session.height = owner.clientHeight;
+  const bodyTop = bodyRect?.top ?? ownerRect.top;
+  const visibleTop = Math.max(ownerRect.top, bodyTop);
+  const visibleBottom = Math.min(ownerRect.bottom, bodyRect?.bottom ?? ownerRect.bottom);
+  const top = Math.max(0, Math.round(visibleTop - bodyTop));
+  const viewportHeight = Math.max(0, Math.round(visibleBottom - visibleTop));
   const scrollTop = owner === view.scrollDOM ? owner.scrollTop : ownerRect.top - scrollRect.top;
-  const scrollHeight = view.scrollDOM.scrollHeight;
-  const tops = lineTops(view, marks);
-  const activeIndex = activeMarkIndex(marks, scrollTop, tops);
-  const normalized = marks.map((mark, i) => ({
-    ...mark,
-    ratio: scrollHeight > 0 ? Math.max(0, Math.min(1, tops[i] / scrollHeight)) : mark.ratio,
-  }));
-  const compacted = compactMinimapMarks(normalized, session.height, activeIndex);
-  session.marks = compacted.marks;
-  session.activeIndex = compacted.activeIndex;
-  publish(session);
+  const activeIndex = activeMarkIndex(marks, scrollTop, lineTops(view, marks));
+  const unchanged =
+    session.top === top &&
+    session.viewportHeight === viewportHeight &&
+    session.activeIndex === activeIndex &&
+    sameMarks(session.marks, marks);
+  session.marks = marks;
+  session.activeIndex = activeIndex;
+  session.top = top;
+  session.viewportHeight = viewportHeight;
+  if (!unchanged) publish(session);
 }
 
 function scheduleCompute(view: EditorView, session: MinimapSession): void {
@@ -160,7 +147,7 @@ function ensureSession(view: EditorView): MinimapSession {
     observer: null,
     owner: null,
     top: 0,
-    height: 0,
+    viewportHeight: 0,
   };
   const scrollDOM = view.scrollDOM;
   if (typeof ResizeObserver !== 'undefined') {

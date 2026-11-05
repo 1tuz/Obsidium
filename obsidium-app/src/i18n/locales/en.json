@@ -107,7 +107,9 @@
       "addRow": "Add row"
     },
     "readingMode": "Reading mode",
-    "editingMode": "Editing mode"
+    "editingMode": "Editing mode",
+    "diagramPending": "Rendering the diagram…",
+    "diagramFailed": "Diagram did not render: {{reason}}"
   },
   "tabs": {
     "graph": "Graph",
@@ -1440,6 +1442,7 @@
     "insertCode": "Code block",
     "insertToggle": "Toggle",
     "insertTable": "Table",
-    "insertDivider": "Divider"
+    "insertDivider": "Divider",
+    "insertDiagram": "Diagram"
   }
 }
