@@ -35,6 +35,7 @@ import { syncedExtension } from './blocks/synced';
 import { minimapExtension } from './blocks/minimapBridge';
 import { noteSuggestExtension } from './suggest';
 import { bodySetup } from './bodySetup';
+import { blockFoldExtension } from './blocks/fold';
 import type { LinkDisposition, WikiLinkResolver } from '../../../modules/links';
 
 export interface EditorExtensionConfig {
@@ -124,6 +125,7 @@ export function useEditorExtensions({
             ...(blockHandles && !readOnly ? [blockHandlesExtension({ enabled: true, readOnly, path: notePath })] : []),
             ...(slashCommands && !readOnly ? [slashMenuExtension({ enabled: true, readOnly })] : []),
             ...(blockHover && readOnly ? [blockHoverExtension({ enabled: true, readOnly })] : []),
+            blockFoldExtension(),
             syncedExtension({ path: notePath, enabled: true }),
             minimapExtension(),
             EditorView.lineWrapping,
