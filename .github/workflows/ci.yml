@@ -47,6 +47,28 @@ jobs:
           list-files: json
           filters: .github/filters.yml
 
+      - name: Detect Rust version-only changes
+        id: rust_build
+        if: github.event_name != 'workflow_dispatch' && (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true')
+        run: |
+          git fetch --no-tags origin main
+          paths="$(git diff --name-only origin/main -- obsidium-app/src-tauri obsidium-app/core obsidium-app/cli)"
+          version_files=true
+          while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            case "$path" in
+              obsidium-app/core/Cargo.toml|obsidium-app/cli/Cargo.toml|obsidium-app/src-tauri/Cargo.toml|obsidium-app/src-tauri/Cargo.lock) ;;
+              *) version_files=false ;;
+            esac
+          done <<< "$paths"
+          changes="$(git diff -U0 origin/main -- obsidium-app/src-tauri/Cargo.toml obsidium-app/core/Cargo.toml obsidium-app/cli/Cargo.toml obsidium-app/src-tauri/Cargo.lock | grep -E '^[+-][^-+]' || true)"
+          if [[ "$version_files" == "true" && -n "$changes" ]] && ! grep -qvE '^[+-]version = "[0-9]+\.[0-9]+\.[0-9]+"$' <<< "$changes"; then
+            echo "build_required=false" >> "$GITHUB_OUTPUT"
+            echo "Only Cargo package versions changed; skipping Linux Tauri dependencies and sidecar build."
+          else
+            echo "build_required=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Route manual checks through every lightweight test
         if: github.event_name == 'workflow_dispatch'
         id: manual
@@ -159,7 +181,7 @@ jobs:
           workspaces: obsidium-app/src-tauri -> target
 
       - name: Install Tauri Linux test dependencies
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
+        if: (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true') && steps.rust_build.outputs.build_required == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
@@ -167,7 +189,7 @@ jobs:
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
 
       - name: Build the CLI sidecar for the app bundle
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
+        if: (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true') && steps.rust_build.outputs.build_required == 'true' || steps.changes.outputs.agent_surface == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true' || steps.manual.outputs.agent_surface == 'true'
         run: node scripts/prepare-cli-sidecar.mjs
 
       - name: Test changed Rust packages
