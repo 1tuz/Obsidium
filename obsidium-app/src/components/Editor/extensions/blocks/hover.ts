@@ -8,7 +8,7 @@ const hoverDecoration = Decoration.mark({ class: 'q-block-hover' });
 
 export function hoveredBlock(doc: Text, pos: number): BlockInfo | null {
     const block = findBlockAt(scanDocument(doc), pos);
-    return block && block.kind !== 'frontmatter' ? block : null;
+    return block && block.kind !== 'frontmatter' && block.kind !== 'code' ? block : null;
 }
 
 const hoverField = StateField.define<BlockRange | null>({

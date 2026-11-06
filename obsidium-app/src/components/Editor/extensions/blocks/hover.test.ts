@@ -104,6 +104,36 @@ describe('hoveredBlock', () => {
         expect(block?.kind).toBe('hr');
         expect(block?.from).toBe(SOURCE.indexOf('***'));
     });
+
+    it('never paints the hover stripe over a fenced code block', () => {
+        const source = [
+            'Paragraph one.',
+            '',
+            '```ts',
+            'const value = 1;',
+            '```',
+            '',
+            'Paragraph two.',
+        ].join('\n');
+        const doc = Text.of(source.split('\n'));
+        expect(hoveredBlock(doc, source.indexOf('const value') + 2)).toBeNull();
+        expect(hoveredBlock(doc, source.indexOf('```ts') + 2)).toBeNull();
+    });
+
+    it('still resolves a paragraph around a code block', () => {
+        const source = [
+            'Paragraph one.',
+            '',
+            '```ts',
+            'const value = 1;',
+            '```',
+            '',
+            'Paragraph two.',
+        ].join('\n');
+        const doc = Text.of(source.split('\n'));
+        expect(hoveredBlock(doc, source.indexOf('two') + 1)?.kind).toBe('paragraph');
+        expect(hoveredBlock(DOC, SOURCE.indexOf('one'))?.kind).toBe('paragraph');
+    });
 });
 
 describe('setBlockHover', () => {
