@@ -177,6 +177,29 @@ describe('drag move via moveBlocks', () => {
     expect(view!.state.doc.toString()).toBe('beta\n\nalpha\n\n- one\n- two\n\ngamma');
   });
 
+  it('moves a block inside a list item when its handle is dragged into the container', async () => {
+    await mount(DOC);
+    const blocks = scanDocument(view!.state.doc);
+    const start = blocks[0]!;
+    const target = blocks[2]!;
+    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    handle.dataset.blockFrom = String(start.from);
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
+    vi.spyOn(view!, 'posAtCoords').mockImplementation(({ y }) => y < 50 ? start.from : target.from);
+    vi.spyOn(view!, 'coordsAtPos').mockImplementation((pos) => {
+      const top = pos <= start.to ? 0 : 100;
+      return { top, bottom: top + (pos <= start.to ? 20 : 60) } as DOMRect;
+    });
+    vi.spyOn(view!.scrollDOM, 'getBoundingClientRect').mockImplementation(() => ({ top: 0, bottom: 500 } as DOMRect));
+    handle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1, clientX: 0, clientY: 10 }));
+    handle.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 0, clientY: 130 }));
+    const indicator = view!.scrollDOM.querySelector<HTMLElement>('.q-block-drop-indicator--visible');
+    expect(indicator?.dataset.mode).toBe('inside');
+    handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: 0, clientY: 130 }));
+    expect(view!.state.doc.toString()).toBe('beta\n\n- one\n  alpha\n- two\n\ngamma');
+  });
+
   it('applies a single undoable change for a block move', async () => {
     await mount(DOC);
     const doc = scanDocument(view!.state.doc);
