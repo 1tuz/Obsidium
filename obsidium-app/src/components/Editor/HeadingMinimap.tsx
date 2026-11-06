@@ -56,7 +56,21 @@ export function minimapRows(
     rows.push({ mark: marks[index]!, source: index });
   }
   if (activeIndex >= 0 && activeIndex < marks.length && rows.every((row) => row.source !== activeIndex)) {
-    rows.push({ mark: marks[activeIndex]!, source: activeIndex });
+    const activeRow = { mark: marks[activeIndex]!, source: activeIndex };
+    if (rows.length < capacity) {
+      rows.push(activeRow);
+    } else {
+      let replacementIndex = 0;
+      for (let index = 1; index < rows.length; index += 1) {
+        if (Math.abs(rows[index]!.source - activeIndex) < Math.abs(rows[replacementIndex]!.source - activeIndex)) {
+          replacementIndex = index;
+        }
+      }
+      if (rows.length > 2 && (replacementIndex === 0 || replacementIndex === rows.length - 1)) {
+        replacementIndex = replacementIndex === 0 ? 1 : rows.length - 2;
+      }
+      rows[replacementIndex] = activeRow;
+    }
     rows.sort((left, right) => left.source - right.source);
   }
   return rows;
@@ -99,12 +113,14 @@ export function HeadingMinimap({ view, scale = DEFAULT_HEADING_MINIMAP_SCALE }: 
   const hoveredRow = hovered !== null ? rows[hovered] : undefined;
   const strokeSize = strokeHeight(scale);
   const railWidth = Math.max(MIN_RAIL_WIDTH, markWidth(1, 1, scale) * 2);
+  const railHeight = rows.length * step;
+  const railTop = state.top + Math.max(0, Math.round((state.viewportHeight - railHeight) / 2));
 
   const rail = (
     <nav
       className="q-block-minimap"
       aria-label={t('blocks.minimapLabel')}
-      style={{ top: state.top, height: rows.length * step, '--q-minimap-rail': `${railWidth}px` }}
+      style={{ top: railTop, height: railHeight, '--q-minimap-rail': `${railWidth}px` }}
       onPointerMove={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
         const row = Math.floor((event.clientY - rect.top) / step);

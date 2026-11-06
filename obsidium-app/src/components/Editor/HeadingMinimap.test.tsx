@@ -44,6 +44,14 @@ describe('minimapRows', () => {
     expect(rows.some((row) => row.source === 101)).toBe(true);
     expect(rows.map((row) => row.source)).toEqual([...rows.map((row) => row.source)].sort((a, b) => a - b));
   });
+
+  it('keeps the active heading without exceeding dense-rail capacity', () => {
+    const rows = minimapRows(marks(200), 300, 101);
+    expect(rows).toHaveLength(100);
+    expect(rows[0]!.source).toBe(0);
+    expect(rows[rows.length - 1]!.source).toBe(198);
+    expect(rows.some((row) => row.source === 101)).toBe(true);
+  });
 });
 
 describe('rowStep', () => {
@@ -148,6 +156,11 @@ describe('HeadingMinimap', () => {
     expect(nav.querySelector('.q-block-minimap__label')).toBeNull();
   });
 
+  it('centers a compact rail in the visible viewport', () => {
+    const { nav } = setup();
+    expect(nav.style.top).toBe('132px');
+  });
+
   it('grows the stroke under the pointer most and neighbours less', () => {
     const { widths, hover } = setup();
     hover(18);
@@ -176,6 +189,29 @@ describe('HeadingMinimap', () => {
     const { strokes, view } = setup();
     act(() => { strokes[2]!.click(); });
     expect(view.state.selection.main.anchor).toBe(HEADINGS.indexOf('# Omega'));
+    view.destroy();
+  });
+
+  it('scrolls the reading scrollport when a stroke is clicked', () => {
+    const container = document.createElement('div');
+    container.className = 'q-editor-container';
+    const content = document.createElement('div');
+    content.className = 'q-editor-content q-editor-content--reading';
+    const body = document.createElement('div');
+    body.className = 'q-editor-content__body';
+    content.append(body);
+    container.append(content);
+    document.body.append(container);
+    const view = new EditorView({
+      parent: body,
+      state: EditorState.create({ doc: HEADINGS, extensions: [minimapExtension()] }),
+    });
+    const scrollIntoView = vi.spyOn(EditorView, 'scrollIntoView');
+    act(() => { renderer = mountDom(<HeadingMinimap view={view} />); });
+    const strokes = renderer!.container.querySelectorAll<HTMLButtonElement>('.q-block-minimap__stroke');
+    act(() => { strokes[2]!.click(); });
+    expect(view.state.selection.main.anchor).toBe(HEADINGS.indexOf('# Omega'));
+    expect(scrollIntoView).toHaveBeenCalledWith(HEADINGS.indexOf('# Omega'), { y: 'start' });
     view.destroy();
   });
 
@@ -234,13 +270,14 @@ describe('HeadingMinimap', () => {
     Object.defineProperty(view.scrollDOM, 'clientHeight', { configurable: true, value: 300 });
     vi.spyOn(view, 'lineBlockAt').mockImplementation((pos: number) => ({ top: pos * 10 }) as BlockInfo);
     vi.spyOn(pane, 'getBoundingClientRect').mockImplementation(() => ({ top: 20, bottom: 320, height: 300 } as DOMRect));
+    vi.spyOn(container, 'getBoundingClientRect').mockImplementation(() => ({ top: 30, bottom: 310, height: 280 } as DOMRect));
     vi.spyOn(view.scrollDOM, 'getBoundingClientRect').mockImplementation(() => ({ top: 50, bottom: 300, height: 250 } as DOMRect));
     vi.spyOn(body, 'getBoundingClientRect').mockImplementation(() => ({ top: 50, bottom: 300, height: 250 } as DOMRect));
     act(() => { renderer = mountDom(<HeadingMinimap view={view} />); });
     const nav = pane.querySelector<HTMLElement>(':scope > .q-block-minimap');
     expect(nav).not.toBeNull();
     expect(body.querySelector('.q-block-minimap')).toBeNull();
-    expect(nav!.style.top).toBe('30px');
+    expect(nav!.style.top).toBe('137px');
     expect(nav!.style.height).toBe('36px');
     view.destroy();
   });

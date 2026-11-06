@@ -59,6 +59,18 @@ describe('SLASH_ITEMS', () => {
     it('exposes every block kind with unique ids', () => {
         const ids = SLASH_ITEMS.map((item) => item.id);
         expect(new Set(ids).size).toBe(ids.length);
+        expect(ids).toEqual(expect.arrayContaining([
+            'heading1',
+            'bullet',
+            'ordered',
+            'task',
+            'quote',
+            'code',
+            'diagram',
+            'toggle',
+            'table',
+            'divider',
+        ]));
         expect(ids).toContain('table');
         expect(ids).toContain('divider');
         expect(ids).toContain('toggle');
@@ -86,6 +98,77 @@ describe('slashMenuExtension', () => {
         view.dispatch({ changes: { from: 4, insert: '\n/' }, selection: { anchor: 6 } });
         expect(document.querySelectorAll('.q-block-slash').length).toBe(1);
         expect(document.querySelectorAll('.q-block-slash__row').length).toBeGreaterThan(0);
+        view.destroy();
+        parent.remove();
+    });
+
+    it('inserts a heading when a command is selected from an empty block', () => {
+        const parent = document.createElement('div');
+        document.body.append(parent);
+        const view = new EditorView({
+            state: EditorState.create({
+                doc: '',
+                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+            }),
+            parent,
+        });
+        view.focus();
+        view.dispatch({ changes: { from: 0, insert: '/' }, selection: { anchor: 1 } });
+        const heading = [...document.querySelectorAll<HTMLElement>('.q-block-slash__row')]
+            .find((row) => row.textContent === 'Heading 1');
+        expect(heading).toBeDefined();
+        heading!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        expect(view.state.doc.toString()).toBe('# ');
+        view.destroy();
+        parent.remove();
+    });
+
+    it('converts only the active block and preserves following content', () => {
+        const parent = document.createElement('div');
+        document.body.append(parent);
+        const changedRanges: Array<{ from: number; to: number }> = [];
+        const view = new EditorView({
+            state: EditorState.create({
+                doc: '/Title\n\nKeep this block',
+                extensions: [
+                    slashMenuExtension({ enabled: true, readOnly: false }),
+                    EditorView.updateListener.of((update) => {
+                        update.changes.iterChangedRanges((from, to) => changedRanges.push({ from, to }));
+                    }),
+                ],
+            }),
+            parent,
+        });
+        view.focus();
+        view.dispatch({ selection: { anchor: 1 } });
+        const heading = [...document.querySelectorAll<HTMLElement>('.q-block-slash__row')]
+            .find((row) => row.textContent === 'Heading 1');
+        expect(heading).toBeDefined();
+        heading!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        expect(view.state.doc.toString()).toBe('# Title\n\nKeep this block');
+        expect(changedRanges[changedRanges.length - 1]).toEqual({ from: 0, to: 6 });
+        view.destroy();
+        parent.remove();
+    });
+
+    it('replaces the slash query with a table', () => {
+        const parent = document.createElement('div');
+        document.body.append(parent);
+        const view = new EditorView({
+            state: EditorState.create({
+                doc: '',
+                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+            }),
+            parent,
+        });
+        view.focus();
+        view.dispatch({ changes: { from: 0, insert: '/' }, selection: { anchor: 1 } });
+        view.dispatch({ changes: { from: 1, insert: 'table' }, selection: { anchor: 6 } });
+        const table = document.querySelector<HTMLElement>('.q-block-slash__row');
+        expect(table?.textContent).toBe('Table');
+        table!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        expect(view.state.doc.toString()).not.toContain('/table');
+        expect(view.state.doc.toString()).toContain('|');
         view.destroy();
         parent.remove();
     });

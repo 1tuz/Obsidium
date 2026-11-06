@@ -18,9 +18,11 @@ const COLOR_TOKENS = {
   edgeLabelBackground: '--q-bg-surface',
 } as const;
 
-const FALLBACK_COLOR = 'currentColor';
-
 const COLOR_SENTINEL = 'rgb(18, 52, 86)';
+
+const COLOR_LITERAL = /^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6})|rgba?\(|hsla?\()/iu;
+
+const FALLBACK_COLOR = COLOR_SENTINEL;
 
 let probe: HTMLElement | null = null;
 let colorSink: CanvasRenderingContext2D | null | undefined;
@@ -42,11 +44,13 @@ function rasterSink(): CanvasRenderingContext2D | null {
 
 function mermaidColor(value: string): string {
   const context = rasterSink();
-  if (!context) return value;
+  if (!context) return COLOR_LITERAL.test(value) ? value : FALLBACK_COLOR;
   context.clearRect(0, 0, 1, 1);
   context.fillStyle = COLOR_SENTINEL;
   context.fillStyle = value;
-  if (context.fillStyle === COLOR_SENTINEL && value !== COLOR_SENTINEL) return value;
+  if (context.fillStyle === COLOR_SENTINEL && value !== COLOR_SENTINEL) {
+    return COLOR_LITERAL.test(value) ? value : FALLBACK_COLOR;
+  }
   context.fillRect(0, 0, 1, 1);
   const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
   if (alpha === 255) return `rgb(${red}, ${green}, ${blue})`;
