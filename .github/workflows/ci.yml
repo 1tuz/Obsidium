@@ -49,7 +49,7 @@ jobs:
 
       - name: Detect Rust version-only changes
         id: rust_build
-        if: github.event_name != 'workflow_dispatch' && (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true')
+        if: github.event_name != 'workflow_dispatch' && (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true')
         run: |
           git fetch --no-tags origin main
           paths="$(git diff --name-only origin/main -- obsidium-app/src-tauri obsidium-app/core obsidium-app/cli)"
@@ -193,23 +193,16 @@ jobs:
         run: node scripts/prepare-cli-sidecar.mjs
 
       - name: Test changed Rust packages
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
+        if: (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true') && steps.rust_build.outputs.build_required == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_cli == 'true' || steps.manual.outputs.rust_workspace == 'true'
         env:
-          CORE_CHANGED: ${{ steps.changes.outputs.rust_core || steps.manual.outputs.rust_core }}
-          APP_CHANGED: ${{ steps.changes.outputs.rust_app || steps.manual.outputs.rust_app }}
-          CLI_CHANGED: ${{ steps.changes.outputs.rust_cli || steps.manual.outputs.rust_cli }}
-          WORKSPACE_CHANGED: ${{ steps.changes.outputs.rust_core || steps.changes.outputs.rust_workspace || steps.manual.outputs.rust_core || steps.manual.outputs.rust_workspace }}
+          CORE_CHANGED: ${{ steps.changes.outputs.rust_core == 'true' || steps.manual.outputs.rust_core == 'true' }}
+          APP_CHANGED: ${{ steps.changes.outputs.rust_app == 'true' || steps.manual.outputs.rust_app == 'true' }}
+          CLI_CHANGED: ${{ steps.changes.outputs.rust_cli == 'true' || steps.manual.outputs.rust_cli == 'true' }}
+          WORKSPACE_CHANGED: ${{ steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_workspace == 'true' }}
         run: |
           manifest=obsidium-app/src-tauri/Cargo.toml
           if [[ "$WORKSPACE_CHANGED" == "true" ]]; then
-            git fetch --no-tags origin main
-            changed="$(git diff -U0 origin/main -- "$manifest" obsidium-app/core/Cargo.toml obsidium-app/cli/Cargo.toml obsidium-app/src-tauri/Cargo.lock | grep -E '^[-+][^-+]' || true)"
-            if [[ -n "$changed" ]] && ! grep -qvE '^[-+]version = "[0-9]+\.[0-9]+\.[0-9]+"$' <<<"$changed"; then
-              echo "Only package versions changed; resolving the lock instead of rebuilding the workspace."
-              cargo metadata --locked --format-version 1 --manifest-path "$manifest" > /dev/null
-            else
-              cargo test --locked --manifest-path "$manifest" --workspace
-            fi
+            cargo test --locked --manifest-path "$manifest" --workspace
           else
             [[ "$CORE_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-core
             [[ "$APP_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-app
