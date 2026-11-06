@@ -57,12 +57,12 @@ jobs:
           while IFS= read -r path; do
             [[ -z "$path" ]] && continue
             case "$path" in
-              obsidium-app/core/Cargo.toml|obsidium-app/cli/Cargo.toml|obsidium-app/src-tauri/Cargo.toml|obsidium-app/src-tauri/Cargo.lock) ;;
+              obsidium-app/core/Cargo.toml|obsidium-app/cli/Cargo.toml|obsidium-app/src-tauri/Cargo.toml|obsidium-app/src-tauri/Cargo.lock|obsidium-app/src-tauri/tauri.conf.json) ;;
               *) version_files=false ;;
             esac
           done <<< "$paths"
-          changes="$(git diff -U0 origin/main -- obsidium-app/src-tauri/Cargo.toml obsidium-app/core/Cargo.toml obsidium-app/cli/Cargo.toml obsidium-app/src-tauri/Cargo.lock | grep -E '^[+-][^-+]' || true)"
-          if [[ "$version_files" == "true" && -n "$changes" ]] && ! grep -qvE '^[+-]version = "[0-9]+\.[0-9]+\.[0-9]+"$' <<< "$changes"; then
+          changes="$(git diff -U0 origin/main -- obsidium-app/src-tauri/Cargo.toml obsidium-app/core/Cargo.toml obsidium-app/cli/Cargo.toml obsidium-app/src-tauri/Cargo.lock obsidium-app/src-tauri/tauri.conf.json | grep -E '^[+-][^-+]' || true)"
+          if [[ "$version_files" == "true" && -n "$changes" ]] && ! grep -qvE '^[+-](version = "[0-9]+\.[0-9]+\.[0-9]+"|"version": "[0-9]+\.[0-9]+\.[0-9]+",)$' <<< "$changes"; then
             echo "build_required=false" >> "$GITHUB_OUTPUT"
             echo "Only Cargo package versions changed; skipping Linux Tauri dependencies and sidecar build."
           else
