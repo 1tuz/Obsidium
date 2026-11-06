@@ -1,7 +1,10 @@
 import {
   DEFAULT_EDITOR_MAX_WIDTH_CH,
+  DEFAULT_HEADING_MINIMAP_SCALE,
   DEFAULT_LINK_SUGGEST_MIN_CHARS,
   DEFAULT_LIVE_TABS,
+  MAX_HEADING_MINIMAP_SCALE,
+  MIN_HEADING_MINIMAP_SCALE,
   type AppConfig,
 } from '../../../modules/settings';
 import { Switch } from '../../Common/Switch';
@@ -158,8 +161,17 @@ export function EditorSection({ config, onChange }: SettingsSectionProps) {
         <Row label={t('settings.editor.headingMinimap')} description={t('settings.editor.headingMinimapHint')}>
           <Switch
             checked={config.editor.headingMinimap !== false}
-            label={t('settings.editor.headingMinimap')}
             onChange={(headingMinimap) => patchEditor({ headingMinimap })}
+          />
+        </Row>
+        <Row label={t('settings.editor.headingMinimapScale')} description={t('settings.editor.headingMinimapScaleHint')}>
+          <NumberControl
+            ariaLabel={t('settings.editor.headingMinimapScale')}
+            value={config.editor.headingMinimapScale ?? DEFAULT_HEADING_MINIMAP_SCALE}
+            min={MIN_HEADING_MINIMAP_SCALE}
+            max={MAX_HEADING_MINIMAP_SCALE}
+            step={10}
+            onChange={(headingMinimapScale) => patchEditor({ headingMinimapScale })}
           />
         </Row>
       </Section>

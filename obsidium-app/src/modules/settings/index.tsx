@@ -54,6 +54,7 @@ interface EditorSettings extends FontSettings {
   blockHandles: boolean;
   slashCommands: boolean;
   headingMinimap: boolean;
+  headingMinimapScale: number;
 }
 
 export type MarkdownReadingStyle = 'theme' | 'paper-white' | 'ivory' | 'parchment' | 'sepia' | 'dark-paper';
@@ -84,6 +85,10 @@ export const DEFAULT_EDITOR_MAX_WIDTH_CH = 100;
 export const DEFAULT_LIVE_TABS = 3;
 
 export const DEFAULT_LINK_SUGGEST_MIN_CHARS = 2;
+
+export const DEFAULT_HEADING_MINIMAP_SCALE = 100;
+export const MIN_HEADING_MINIMAP_SCALE = 50;
+export const MAX_HEADING_MINIMAP_SCALE = 300;
 
 export type ReaderFlow = 'paginated' | 'scrolled';
 
@@ -224,6 +229,11 @@ function widenLegacyWidth(value: number | undefined, fallback: number): number {
   return value === undefined || value === LEGACY_EDITOR_MAX_WIDTH_CH ? fallback : value;
 }
 
+function clampNumber(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
 export function normalizeConfig(config: AppConfig): AppConfig {
   const iconSet = config.ui.iconSet as IconSet | undefined;
   return {
@@ -240,6 +250,7 @@ export function normalizeConfig(config: AppConfig): AppConfig {
       blockHandles: config.editor.blockHandles !== false,
       slashCommands: config.editor.slashCommands !== false,
       headingMinimap: config.editor.headingMinimap !== false,
+      headingMinimapScale: clampNumber(config.editor.headingMinimapScale, DEFAULT_HEADING_MINIMAP_SCALE, MIN_HEADING_MINIMAP_SCALE, MAX_HEADING_MINIMAP_SCALE),
       markdownReading: {
         ...DEFAULT_MARKDOWN_READING_SETTINGS,
         ...config.editor.markdownReading,

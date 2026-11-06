@@ -1,22 +1,7 @@
-.q-editor-content__body {
-  position: relative;
-}
-
-.q-editor-content__body--minimap {
-  --q-minimap-rail: var(--q-space-32);
-  --q-minimap-gap: var(--q-space-12);
-  box-sizing: border-box;
-  padding-inline-start: calc(var(--q-minimap-rail) + var(--q-minimap-gap));
-}
-
-.q-editor-content__body--minimap-editing {
-  padding-inline-start: calc(var(--q-minimap-rail) + var(--q-minimap-gap) + var(--q-space-24));
-}
-
 .q-block-minimap {
+  --q-minimap-rail: var(--q-space-32);
   position: absolute;
-  box-sizing: border-box;
-  left: 0;
+  inset-inline-start: var(--q-space-12);
   width: var(--q-minimap-rail);
   pointer-events: auto;
   z-index: 1;
