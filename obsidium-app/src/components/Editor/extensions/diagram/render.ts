@@ -31,7 +31,7 @@ function configure(mermaid: Mermaid, themeKey: string): void {
     theme: 'base',
     themeVariables: { ...variables, darkMode: document.documentElement.dataset.theme === 'dark' },
     fontFamily: variables.fontFamily,
-    htmlLabels: true,
+    htmlLabels: false,
     flowchart: { useMaxWidth: true, curve: 'basis' },
     sequence: { useMaxWidth: true },
     class: { useMaxWidth: true },

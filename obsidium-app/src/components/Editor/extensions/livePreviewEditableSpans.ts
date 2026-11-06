@@ -90,7 +90,7 @@ export function collectPreviewReplaceDecorations<T extends { from: number; to: n
   for (let i = 0; i < spans.length; i += 1) {
     const span = spans[i]!;
     if (span.from < 0 || span.to > docLen || span.from >= span.to) continue;
-    if (editorHasFocus(state) && isEditing(state, span)) continue;
+    if (!state.readOnly && editorHasFocus(state) && isEditing(state, span)) continue;
 
     ranges.push(
       Decoration.replace({
