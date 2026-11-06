@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/Freaction/Aquilum.git",
+  "commit": "2f4c6b516b54ca13109794af454fe4f03e3ca73e",
+  "upstream_version": "0.3.26",
+  "version": "0.1.0",
+  "version_code": 1,
+  "application_id": "com.obsidium.mobile",
+  "palette": "obsidium",
+  "ndk": "29.0.14206865",
+  "compile_sdk": 36,
+  "min_sdk": 26,
+  "build_tools": "36.0.0",
+  "gradle": "9.6.0",
+  "cargo_ndk": "4.1.2"
+}

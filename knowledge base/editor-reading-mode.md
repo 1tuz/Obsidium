@@ -4,6 +4,16 @@ Markdown reading mode keeps the note title and metadata above the body and gives
 
 Keep the body wrapper flexible with `min-height: 0`, and let its CodeMirror scroller fill that space on regular notes. Editing mode keeps the editor container's existing continuous scroll behavior. When changing this layout, verify short notes, long notes, and notes with tables and expanded metadata so neither the body viewport nor content above it gets clipped.
 
+The chain is `.q-editor-content__body` → the CodeMirror host `<div class="q-editor-content__cm">` →
+`.cm-editor` → `.cm-scroller`, and every link needs a definite height: `height: 100%` resolves
+against a parent only when that parent has one. The host has no size of its own, so without its rule
+`height: 100%` on `.cm-editor` computes to `auto`, the scroller grows to the full content height and
+never scrolls — the editor container silently becomes the scrollport instead. CodeMirror then sees a
+viewport as tall as the document, renders every line, and every consumer of the resolved scrollport
+(minimap, scroll restore) reads an element whose `scrollTop` stays 0. Measured check: in reading mode
+`.cm-scroller` must have `scrollHeight > clientHeight` while `.q-editor-container` has
+`scrollHeight === clientHeight`.
+
 ## Ширина текста
 
 Ширина колонки задаётся `--q-editor-max-width`: это `max-width` колонки текста, значение в `ch`, по

@@ -4,6 +4,7 @@ import { t } from '../../../../i18n';
 import { blockAt } from '../../../../modules/blocks/model';
 import { applyTurnInto, turnSelectionRange, type TurnTarget } from '../../../../modules/blocks/turnInto';
 import { insertTable } from '../tables';
+import { DIAGRAM_SKELETON } from '../diagram/constants';
 import './slash.css';
 
 export interface SlashItem {
@@ -24,6 +25,7 @@ export const SLASH_ITEMS: SlashItem[] = [
     { id: 'task', label: t('blocks.insertTask'), category: 'lists', target: 'task', insert: '- [ ] ' },
     { id: 'quote', label: t('blocks.insertQuote'), category: 'advanced', target: 'quote', insert: '> ' },
     { id: 'code', label: t('blocks.insertCode'), category: 'advanced', target: 'code', insert: '```\n\n```' },
+    { id: 'diagram', label: t('blocks.insertDiagram'), category: 'advanced', insert: `${DIAGRAM_SKELETON}\n` },
     { id: 'toggle', label: t('blocks.insertToggle'), category: 'advanced', insert: `> [!note]- ${t('blocks.targetToggle')}` },
     { id: 'table', label: t('blocks.insertTable'), category: 'advanced' },
     { id: 'divider', label: t('blocks.insertDivider'), category: 'advanced', insert: '---' },
@@ -159,9 +161,9 @@ class SlashMenu {
             this.applyDivider(session);
             return;
         }
-        const block = blockAt(this.view.state.doc.toString(), session.from);
-        const blockHasText = block !== null && block.text.trim() !== '';
-        if (item.target && blockHasText) {
+        const source = this.view.state.doc.toString();
+        const withoutToken = source.slice(0, session.from) + source.slice(session.to);
+        if (item.target && blockAt(withoutToken, session.from) !== null) {
             this.applyTurnInto(session, item.target);
             return;
         }
@@ -179,20 +181,24 @@ class SlashMenu {
 
     private applyTurnInto(session: SlashSession, target: TurnTarget): void {
         const source = this.view.state.doc.toString();
+        const block = blockAt(source, session.from);
+        if (!block) return;
         const withoutToken = source.slice(0, session.from) + source.slice(session.to);
-        const range = turnSelectionRange(withoutToken, session.from, session.from);
-        const next = applyTurnInto(withoutToken, [range], target);
-        const caret = Math.min(session.from + 1, next.length);
+        const tokenLength = session.to - session.from;
+        const localBlock = withoutToken.slice(block.from, block.to - tokenLength);
+        const localPos = session.from - block.from;
+        const range = turnSelectionRange(localBlock, localPos, localPos);
+        const next = applyTurnInto(localBlock, [range], target);
         this.view.dispatch({
-            changes: { from: 0, to: source.length, insert: next },
-            selection: EditorSelection.cursor(caret),
+            changes: { from: block.from, to: block.to, insert: next },
+            selection: EditorSelection.cursor(Math.min(session.from + 1, block.from + next.length)),
             scrollIntoView: true,
             userEvent: 'input',
         });
     }
 
     private applyTable(session: SlashSession): void {
-        if (insertTable(this.view)) return;
+        if (insertTable(this.view, { from: session.from, to: session.to })) return;
         const skeleton = '|     |\n| --- |\n|     |\n';
         this.view.dispatch({
             changes: { from: session.from, to: session.to, insert: skeleton },
@@ -307,8 +313,6 @@ class SlashMenu {
         if (!this.panel.parentElement) {
             (this.view.dom.parentElement ?? document.body).append(this.panel);
         }
-        // The menu opens from a view update, where CodeMirror forbids layout reads.
-        // requestMeasure defers the coordinate read until after the update finishes.
         this.view.requestMeasure({
             key: this,
             read: (view) => view.coordsAtPos(view.state.selection.main.head, -1),

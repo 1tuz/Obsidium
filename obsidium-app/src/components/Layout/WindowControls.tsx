@@ -4,7 +4,6 @@ import { isMacOs } from '../../modules/platform';
 import './WindowControls.css';
 import { t } from '../../i18n';
 
-const appWindow = getCurrentWindow();
 const isMac = isMacOs();
 
 export function WindowControls() {
@@ -13,6 +12,7 @@ export function WindowControls() {
 }
 
 function TrailingWindowControls() {
+  const appWindow = getCurrentWindow();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {

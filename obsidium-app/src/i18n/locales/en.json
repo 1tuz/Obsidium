@@ -107,7 +107,9 @@
       "addRow": "Add row"
     },
     "readingMode": "Reading mode",
-    "editingMode": "Editing mode"
+    "editingMode": "Editing mode",
+    "diagramPending": "Rendering the diagram…",
+    "diagramFailed": "Diagram did not render: {{reason}}"
   },
   "tabs": {
     "graph": "Graph",
@@ -414,7 +416,9 @@
       "slashCommands": "Slash commands",
       "slashCommandsHint": "Type / at the start of a line to insert or convert blocks.",
       "headingMinimap": "Heading minimap",
-      "headingMinimapHint": "Show horizontal marks for H1–H6 to the right of the editor."
+      "headingMinimapHint": "Show horizontal marks for H1–H6 along the left edge of the editor pane.",
+      "headingMinimapScale": "Minimap mark size",
+      "headingMinimapScaleHint": "Stroke thickness and width of the minimap marks, in percent."
     },
     "reader": {
       "lineHeight": "Line height",
@@ -1440,6 +1444,7 @@
     "insertCode": "Code block",
     "insertToggle": "Toggle",
     "insertTable": "Table",
-    "insertDivider": "Divider"
+    "insertDivider": "Divider",
+    "insertDiagram": "Diagram"
   }
 }

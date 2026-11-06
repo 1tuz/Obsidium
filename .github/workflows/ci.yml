@@ -47,11 +47,33 @@ jobs:
           list-files: json
           filters: .github/filters.yml
 
+      - name: Detect Rust version-only changes
+        id: rust_build
+        if: github.event_name != 'workflow_dispatch' && (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true')
+        run: |
+          git fetch --no-tags origin main
+          paths="$(git diff --name-only origin/main -- obsidium-app/src-tauri obsidium-app/core obsidium-app/cli)"
+          version_files=true
+          while IFS= read -r path; do
+            [[ -z "$path" ]] && continue
+            case "$path" in
+              obsidium-app/core/Cargo.toml|obsidium-app/cli/Cargo.toml|obsidium-app/src-tauri/Cargo.toml|obsidium-app/src-tauri/Cargo.lock|obsidium-app/src-tauri/tauri.conf.json) ;;
+              *) version_files=false ;;
+            esac
+          done <<< "$paths"
+          changes="$(git diff -U0 origin/main -- obsidium-app/src-tauri/Cargo.toml obsidium-app/core/Cargo.toml obsidium-app/cli/Cargo.toml obsidium-app/src-tauri/Cargo.lock obsidium-app/src-tauri/tauri.conf.json | grep -E '^[+-][^-+]' || true)"
+          if [[ "$version_files" == "true" && -n "$changes" ]] && ! grep -qvE '^[+-][[:space:]]*(version = "[0-9]+\.[0-9]+\.[0-9]+"|"version": "[0-9]+\.[0-9]+\.[0-9]+",)$' <<< "$changes"; then
+            echo "build_required=false" >> "$GITHUB_OUTPUT"
+            echo "Only package versions changed; skipping Linux Tauri dependencies and sidecar build."
+          else
+            echo "build_required=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Route manual checks through every lightweight test
         if: github.event_name == 'workflow_dispatch'
         id: manual
         run: |
-          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace rust_lock agent_surface docs workflow release_contract installer_scripts; do
+          for name in frontend_types frontend_related frontend_full rust_core rust_app rust_cli rust_workspace rust_lock agent_surface docs workflow release_contract installer_scripts android; do
             echo "$name=true" >> "$GITHUB_OUTPUT"
           done
 
@@ -61,6 +83,10 @@ jobs:
           ruby scripts/check-workflow-yaml.rb
           ruby scripts/test-ci-routing.rb
           node --test scripts/ci-routing.test.mjs
+
+      - name: Check Android companion integration
+        if: steps.changes.outputs.android == 'true' || steps.manual.outputs.android == 'true'
+        run: python3 -m unittest discover -s mobile/android/tests -v
 
       - name: Validate release contract
         if: steps.changes.outputs.release_contract == 'true' || steps.manual.outputs.release_contract == 'true'
@@ -155,7 +181,7 @@ jobs:
           workspaces: obsidium-app/src-tauri -> target
 
       - name: Install Tauri Linux test dependencies
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
+        if: (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true') && steps.rust_build.outputs.build_required == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev libssl-dev \
@@ -163,27 +189,20 @@ jobs:
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
 
       - name: Build the CLI sidecar for the app bundle
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true'
+        if: (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_workspace == 'true') && steps.rust_build.outputs.build_required == 'true' || steps.changes.outputs.agent_surface == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_workspace == 'true' || steps.manual.outputs.agent_surface == 'true'
         run: node scripts/prepare-cli-sidecar.mjs
 
       - name: Test changed Rust packages
-        if: steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true'
+        if: (steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_app == 'true' || steps.changes.outputs.rust_cli == 'true' || steps.changes.outputs.rust_workspace == 'true') && steps.rust_build.outputs.build_required == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_app == 'true' || steps.manual.outputs.rust_cli == 'true' || steps.manual.outputs.rust_workspace == 'true'
         env:
-          CORE_CHANGED: ${{ steps.changes.outputs.rust_core || steps.manual.outputs.rust_core }}
-          APP_CHANGED: ${{ steps.changes.outputs.rust_app || steps.manual.outputs.rust_app }}
-          CLI_CHANGED: ${{ steps.changes.outputs.rust_cli || steps.manual.outputs.rust_cli }}
-          WORKSPACE_CHANGED: ${{ steps.changes.outputs.rust_core || steps.changes.outputs.rust_workspace || steps.manual.outputs.rust_core || steps.manual.outputs.rust_workspace }}
+          CORE_CHANGED: ${{ steps.changes.outputs.rust_core == 'true' || steps.manual.outputs.rust_core == 'true' }}
+          APP_CHANGED: ${{ steps.changes.outputs.rust_app == 'true' || steps.manual.outputs.rust_app == 'true' }}
+          CLI_CHANGED: ${{ steps.changes.outputs.rust_cli == 'true' || steps.manual.outputs.rust_cli == 'true' }}
+          WORKSPACE_CHANGED: ${{ steps.changes.outputs.rust_core == 'true' || steps.changes.outputs.rust_workspace == 'true' || steps.manual.outputs.rust_core == 'true' || steps.manual.outputs.rust_workspace == 'true' }}
         run: |
           manifest=obsidium-app/src-tauri/Cargo.toml
           if [[ "$WORKSPACE_CHANGED" == "true" ]]; then
-            git fetch --no-tags origin main
-            changed="$(git diff -U0 origin/main -- "$manifest" obsidium-app/core/Cargo.toml obsidium-app/cli/Cargo.toml obsidium-app/src-tauri/Cargo.lock | grep -E '^[-+][^-+]' || true)"
-            if [[ -n "$changed" ]] && ! grep -qvE '^[-+]version = "[0-9]+\.[0-9]+\.[0-9]+"$' <<<"$changed"; then
-              echo "Only package versions changed; resolving the lock instead of rebuilding the workspace."
-              cargo metadata --locked --format-version 1 --manifest-path "$manifest" > /dev/null
-            else
-              cargo test --locked --manifest-path "$manifest" --workspace
-            fi
+            cargo test --locked --manifest-path "$manifest" --workspace
           else
             [[ "$CORE_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-core
             [[ "$APP_CHANGED" != "true" ]] || cargo test --locked --manifest-path "$manifest" -p obsidium-app

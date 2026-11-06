@@ -1,7 +1,7 @@
 {
   "name": "obsidium-app",
   "private": true,
-  "version": "0.5.30",
+  "version": "0.5.35",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -47,6 +47,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
     "lucide": "^1.24.0",
+    "mermaid": "^12.3.0",
     "motion": "12.42.2",
     "pdfjs-dist": "^6.4.299",
     "preact": "^11.0.0"

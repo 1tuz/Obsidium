@@ -8,10 +8,16 @@ const scroll = readFileSync(resolve(process.cwd(), 'src/components/Editor/viewSt
 
 describe('Markdown reading scroll', () => {
   it('keeps the reading container as a fallback scrollport', () => {
-    expect(content).toMatch(/className=\{\[\s*'q-editor-content__body',/u);
+    expect(content).toMatch(/className="q-editor-content__body"/u);
     expect(scroll).toContain("'.q-editor-content--reading .q-editor-content__body .cm-scroller'");
     expect(layout).toMatch(/\.q-editor-container\s*\{[^}]*overflow-y:\s*auto;/u);
     expect(layout).not.toMatch(/\.q-editor-container:has\(\.q-editor-content--reading\)\s*\{[^}]*overflow:\s*hidden;/u);
     expect(layout).toMatch(/\.q-editor-container:not\(\.q-editor-container--book\) \.q-editor-content--reading \.q-editor-content__body \.cm-scroller\s*\{[^}]*overflow-y:\s*auto;/u);
+  });
+
+  it('gives the reading body CodeMirror host a definite height', () => {
+    expect(content).toMatch(/<CodeMirrorView[\s\S]*?className="q-editor-content__cm"[\s\S]*?onCreate=\{handleCreate\}/u);
+    expect(layout).toMatch(/\.q-editor-container:not\(\.q-editor-container--book\) \.q-editor-content--reading \.q-editor-content__cm\s*\{[^}]*height:\s*100%;/u);
+    expect(layout).toMatch(/\.q-editor-container:not\(\.q-editor-container--book\) \.q-editor-content--reading \.q-editor-content__body \.cm-editor\s*\{[^}]*height:\s*100%;/u);
   });
 });

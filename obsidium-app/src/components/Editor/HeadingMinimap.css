@@ -1,44 +1,30 @@
-.q-editor-content__body {
-  position: relative;
-}
-
-.q-editor-content__body--minimap {
-  box-sizing: border-box;
-  padding-inline-start: var(--q-space-28);
-}
-
-.q-editor-content__body--minimap-editing {
-  padding-inline-start: calc(var(--q-space-28) + var(--q-space-24));
-}
-
 .q-block-minimap {
+  --q-minimap-rail: var(--q-space-32);
   position: absolute;
-  box-sizing: border-box;
-  top: 0;
-  left: 0;
-  width: var(--q-space-28);
-  padding: var(--q-space-8) 0;
-  pointer-events: none;
+  inset-inline-start: var(--q-space-12);
+  width: var(--q-minimap-rail);
+  pointer-events: auto;
   z-index: 1;
-  height: 100%;
-  overflow: hidden;
 }
 
 .q-block-minimap__stroke {
   position: absolute;
-  left: var(--q-space-4);
+  inset-inline-end: var(--q-space-8);
   display: block;
   height: var(--q-border-2);
   border: none;
+  border-radius: var(--q-rounded-full);
   background: var(--q-border-default);
   padding: 0;
-  pointer-events: auto;
   cursor: pointer;
   transform: translateY(-50%);
-  transition: background-color 120ms ease;
+  transition:
+    width 90ms var(--q-ease-out),
+    background-color 120ms var(--q-ease-default);
 }
 
-.q-block-minimap__stroke:hover {
+.q-block-minimap__stroke:hover,
+.q-block-minimap__stroke:focus-visible {
   background: var(--q-text-muted);
 }
 
@@ -53,17 +39,19 @@
 }
 
 .q-block-minimap__label {
-  position: fixed;
-  z-index: var(--q-z-popover);
-  max-width: 40ch;
+  position: absolute;
+  inset-inline-start: 100%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  max-width: 24ch;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-inline-start: var(--q-space-8);
-  color: var(--q-text-secondary);
-  font-family: var(--q-font-family-ui);
-  font-size: var(--q-font-size-ui-sm);
-  line-height: var(--q-size-20);
+  background: var(--q-bg-surface-raised);
+  border: var(--q-border-1) solid var(--q-border-default);
+  border-radius: var(--q-rounded-md);
+  padding: var(--q-space-4) var(--q-space-8);
+  color: var(--q-text-primary);
+  font-size: var(--q-font-size-12);
   pointer-events: none;
-  transform: translateY(-50%);
+  z-index: 2;
 }

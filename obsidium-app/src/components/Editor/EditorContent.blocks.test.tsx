@@ -78,7 +78,7 @@ describe('EditorContent block features', () => {
     bodyRef.current = null;
   });
 
-  it('renders all block marks with heading weights and click-to-jump', () => {
+  it('renders heading-only marks with heading weights and click-to-jump', () => {
     act(() => {
       renderer = mountDom(
         <Harness
@@ -91,18 +91,14 @@ describe('EditorContent block features', () => {
       );
     });
     const strokes = renderer!.container.querySelectorAll<HTMLElement>('.q-block-minimap__stroke');
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap-editing')).not.toBeNull();
-    expect(strokes).toHaveLength(3);
-    expect([...strokes].map((stroke) => stroke.dataset.kind)).toEqual([
-      'heading', 'heading', 'paragraph',
-    ]);
-    expect(strokes[0].dataset.level).toBe('1');
-    expect(strokes[1].dataset.level).toBe('2');
+    expect(renderer!.container.querySelector('.q-editor-content__body .q-block-minimap')).not.toBeNull();
+    expect(strokes).toHaveLength(2);
+    expect(strokes[0]!.dataset.level).toBe('1');
+    expect(strokes[1]!.dataset.level).toBe('2');
     const widths = [...strokes].map((stroke) => parseFloat(stroke.style.width));
-    expect(widths[0]).toBeGreaterThan(widths[1]);
-    expect(widths[1]).toBeGreaterThan(widths[2]);
-    act(() => { strokes[2].click(); });
-    expect(bodyRef.current!.state.selection.main.head).toBe(BODY.indexOf('body text'));
+    expect(widths[0]!).toBeGreaterThan(widths[1]!);
+    act(() => { strokes[1].click(); });
+    expect(bodyRef.current!.state.selection.main.head).toBe(BODY.indexOf('## Two'));
   });
 
   it('keeps the minimap hidden when the setting is off', () => {
@@ -112,17 +108,23 @@ describe('EditorContent block features', () => {
       );
     });
     expect(renderer!.container.querySelector('.q-block-minimap')).toBeNull();
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap')).toBeNull();
   });
 
-  it('reserves the map gutter without an editing-handle gutter in reading mode', () => {
-    act(() => {
-      renderer = mountDom(
-        <Harness bodyRef={bodyRef} body={BODY} extensions={[minimapExtension()]} readOnly showMinimap />,
-      );
-    });
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap')).not.toBeNull();
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap-editing')).toBeNull();
+  it('keeps the text body free of gutter classes in both modes', () => {
+    const bodyClass = (readOnly: boolean): string => {
+      if (renderer) act(() => renderer?.unmount());
+      bodyRef.current = null;
+      act(() => {
+        renderer = mountDom(
+          <Harness bodyRef={bodyRef} body={BODY} extensions={[minimapExtension()]} readOnly={readOnly} showMinimap />,
+        );
+      });
+      const body = renderer!.container.querySelector<HTMLElement>('.q-editor-content__body')!;
+      expect(body.querySelector('.q-block-minimap')).not.toBeNull();
+      return body.className;
+    };
+    expect(bodyClass(true)).toBe('q-editor-content__body');
+    expect(bodyClass(false)).toBe('q-editor-content__body');
   });
 
   it('opens the slash menu on an empty line and filters by query', () => {

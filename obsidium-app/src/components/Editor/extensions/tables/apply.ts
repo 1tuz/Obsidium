@@ -57,10 +57,10 @@ export function focusAfterTable(view: EditorView, blockTo: number): void {
     view.focus();
 }
 
-export function insertTable(view: EditorView): boolean {
+export function insertTable(view: EditorView, replaceRange?: { from: number; to: number }): boolean {
     if (view.state.readOnly) return false;
 
-    const { from, to } = view.state.selection.main;
+    const { from, to } = replaceRange ?? view.state.selection.main;
     const doc = view.state.doc;
     const line = doc.lineAt(from);
     const tableMd = serializeTable(createEmptyTableModel(2, 1));

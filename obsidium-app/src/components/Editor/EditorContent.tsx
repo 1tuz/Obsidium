@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-import type { MarkdownReadingSettings } from '../../modules/settings';
+import { DEFAULT_HEADING_MINIMAP_SCALE, type MarkdownReadingSettings } from '../../modules/settings';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, type ViewUpdate } from '@codemirror/view';
@@ -46,6 +46,7 @@ interface EditorContentProps {
     markdownReading: MarkdownReadingSettings;
     fullWidth?: boolean;
     showMinimap?: boolean;
+    minimapScale?: number;
 }
 
 export function EditorContent({
@@ -66,6 +67,7 @@ export function EditorContent({
     markdownReading,
     fullWidth = false,
     showMinimap = false,
+    minimapScale = DEFAULT_HEADING_MINIMAP_SCALE,
 }: EditorContentProps) {
     const [bodyView, setBodyView] = useState<EditorView | null>(null);
     const [blockMenu, setBlockMenu] = useState<BlockMenuRequest | null>(null);
@@ -148,13 +150,10 @@ export function EditorContent({
                     onToggle={onToggleMetadata}
                 />
             ) : null}
-            <div className={[
-                'q-editor-content__body',
-                showMinimap ? 'q-editor-content__body--minimap' : '',
-                showMinimap && !readOnly ? 'q-editor-content__body--minimap-editing' : '',
-            ].filter(Boolean).join(' ')}>
+            <div className="q-editor-content__body">
                 <CodeMirrorView
                     viewRef={bodyRef}
+                    className="q-editor-content__cm"
                     doc={initialBody}
                     selection={selection}
                     extensions={bodyExtensions}
@@ -162,7 +161,7 @@ export function EditorContent({
                     onUpdate={onUpdate}
                     onFocus={() => collapseViewSelection(titleRef.current?.view)}
                 />
-                {showMinimap ? <HeadingMinimap view={bodyView} /> : null}
+                {showMinimap ? <HeadingMinimap view={bodyView} scale={minimapScale} /> : null}
             </div>
             <Menu
                 open={!readOnly && bodyMenu.open}
