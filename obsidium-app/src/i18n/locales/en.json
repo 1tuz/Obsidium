@@ -1410,7 +1410,7 @@
     "syncedDetach": "Detach from source",
     "syncedEmpty": "The synced block is empty",
     "syncedMissing": "The synced block source is unavailable",
-    "minimapLabel": "Headings",
+    "minimapLabel": "Block map",
     "slashEmpty": "No matching blocks",
     "categoryBasic": "Basic blocks",
     "categoryHeadings": "Headings",

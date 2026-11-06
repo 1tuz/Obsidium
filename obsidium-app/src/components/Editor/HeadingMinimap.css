@@ -51,3 +51,19 @@
   outline: var(--q-border-2) solid var(--q-border-focus);
   outline-offset: var(--q-space-2);
 }
+
+.q-block-minimap__label {
+  position: fixed;
+  z-index: var(--q-z-popover);
+  max-width: 40ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline-start: var(--q-space-8);
+  color: var(--q-text-secondary);
+  font-family: var(--q-font-family-ui);
+  font-size: var(--q-font-size-ui-sm);
+  line-height: var(--q-size-20);
+  pointer-events: none;
+  transform: translateY(-50%);
+}

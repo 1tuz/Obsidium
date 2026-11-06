@@ -11,11 +11,18 @@ export interface MinimapMark {
   ratio: number;
 }
 
+export interface MinimapRect {
+  top: number;
+  left: number;
+  height: number;
+}
+
 export interface MinimapState {
   marks: MinimapMark[];
   activeIndex: number;
   top?: number;
   height?: number;
+  rect?: MinimapRect | null;
 }
 
 type MinimapListener = (state: MinimapState) => void;
@@ -32,6 +39,7 @@ interface MinimapSession {
   owner: HTMLElement | null;
   top: number;
   height: number;
+  rect: MinimapRect | null;
 }
 
 const sessions = new WeakMap<EditorView, MinimapSession>();
@@ -97,7 +105,13 @@ function lineTops(view: EditorView, marks: readonly MinimapMark[]): number[] {
 }
 
 function publish(session: MinimapSession): void {
-  const state: MinimapState = { marks: session.marks, activeIndex: session.activeIndex, top: session.top, height: session.height };
+  const state: MinimapState = {
+    marks: session.marks,
+    activeIndex: session.activeIndex,
+    top: session.top,
+    height: session.height,
+    rect: session.rect,
+  };
   for (const listener of session.listeners) listener(state);
 }
 
@@ -117,6 +131,9 @@ function compute(view: EditorView, session: MinimapSession): void {
   const bodyRect = view.dom.closest('.q-editor-content__body')?.getBoundingClientRect();
   session.top = ownerRect.top - (bodyRect?.top ?? ownerRect.top);
   session.height = owner.clientHeight;
+  session.rect = owner === view.scrollDOM
+    ? { top: ownerRect.top, left: bodyRect?.left ?? ownerRect.left, height: owner.clientHeight }
+    : null;
   const scrollTop = owner === view.scrollDOM ? owner.scrollTop : ownerRect.top - scrollRect.top;
   const scrollHeight = view.scrollDOM.scrollHeight;
   const tops = lineTops(view, marks);
@@ -161,6 +178,7 @@ function ensureSession(view: EditorView): MinimapSession {
     owner: null,
     top: 0,
     height: 0,
+    rect: null,
   };
   const scrollDOM = view.scrollDOM;
   if (typeof ResizeObserver !== 'undefined') {
