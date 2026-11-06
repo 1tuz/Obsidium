@@ -98,11 +98,16 @@ function compute(view: EditorView, session: MinimapSession): void {
   }
   const ownerRect = owner.getBoundingClientRect();
   const scrollRect = view.scrollDOM.getBoundingClientRect();
+  const paneRect = view.dom.closest<HTMLElement>('.q-editor-pane')?.getBoundingClientRect();
   const bodyRect = view.dom.closest('.q-editor-content__body')?.getBoundingClientRect();
-  const bodyTop = bodyRect?.top ?? ownerRect.top;
-  const visibleTop = Math.max(ownerRect.top, bodyTop);
-  const visibleBottom = Math.min(ownerRect.bottom, bodyRect?.bottom ?? ownerRect.bottom);
-  const top = Math.max(0, Math.round(visibleTop - bodyTop));
+  const anchorTop = paneRect?.top ?? bodyRect?.top ?? ownerRect.top;
+  const visibleTop = Math.max(ownerRect.top, bodyRect?.top ?? ownerRect.top);
+  const visibleBottom = Math.min(
+    ownerRect.bottom,
+    bodyRect?.bottom ?? ownerRect.bottom,
+    paneRect?.bottom ?? ownerRect.bottom,
+  );
+  const top = Math.max(0, Math.round(visibleTop - anchorTop));
   const viewportHeight = Math.max(0, Math.round(visibleBottom - visibleTop));
   const scrollTop = owner === view.scrollDOM ? owner.scrollTop : ownerRect.top - scrollRect.top;
   const activeIndex = activeMarkIndex(marks, scrollTop, lineTops(view, marks));

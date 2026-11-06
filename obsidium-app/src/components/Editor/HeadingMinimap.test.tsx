@@ -4,7 +4,7 @@ import { EditorView, type BlockInfo } from '@codemirror/view';
 import { act } from 'preact/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mountDom, type MountedDom } from '../../testing/mountDom';
-import { HeadingMinimap, dockFactor, markWidth, minimapRows, rowStep } from './HeadingMinimap';
+import { HeadingMinimap, dockFactor, markWidth, minimapRows, rowStep, strokeHeight } from './HeadingMinimap';
 import { minimapExtension, subscribeMinimap, type MinimapMark, type MinimapState } from './extensions/blocks/minimapBridge';
 
 const HEADINGS = ['# Alpha', '## Middle', '# Omega'].join('\n\n');
@@ -72,6 +72,22 @@ describe('dockFactor', () => {
     expect(dockFactor(120, 12)).toBeCloseTo(1);
   });
 });
+describe('stroke scale', () => {
+  it('scales stroke height and level widths by the setting', () => {
+    expect(strokeHeight(100)).toBe(2);
+    expect(strokeHeight(200)).toBe(4);
+    expect(strokeHeight(50)).toBe(1);
+    expect(markWidth(1, 1)).toBe(15);
+    expect(markWidth(1, 1, 200)).toBe(30);
+    expect(markWidth(6, 1, 300)).toBe(30);
+  });
+
+  it('caps the dock zoom so oversized strokes stay inside the rail', () => {
+    expect(markWidth(1, 1.5, 100)).toBe(23);
+    expect(markWidth(1, 3, 200)).toBe(45);
+    expect(markWidth(1, 3, 300)).toBe(68);
+  });
+});
 
 describe('markWidth', () => {
   it('scales the level base width by the dock factor and caps it inside the rail', () => {
@@ -135,9 +151,9 @@ describe('HeadingMinimap', () => {
   it('grows the stroke under the pointer most and neighbours less', () => {
     const { widths, hover } = setup();
     hover(18);
-    expect(widths()).toEqual([markWidth(1, 1.4), markWidth(2, 1.5), markWidth(1, 1.4)]);
+    expect(widths()).toEqual([markWidth(1, 1.4, 100), markWidth(2, 1.5, 100), markWidth(1, 1.4, 100)]);
     hover(6);
-    expect(widths()).toEqual([markWidth(1, 1.5), markWidth(2, 1.4), markWidth(1, 1.2)]);
+    expect(widths()).toEqual([markWidth(1, 1.5, 100), markWidth(2, 1.4, 100), markWidth(1, 1.2, 100)]);
   });
 
   it('shows the hovered heading text on the rail and clears it on leave', () => {
@@ -197,6 +213,35 @@ describe('HeadingMinimap', () => {
     expect(state!.top).toBe(0);
     expect(state!.viewportHeight).toBe(100);
     unsubscribe();
+    view.destroy();
+  });
+
+  it('docks the rail inside the editor pane and measures that pane, not the text body', () => {
+    const pane = document.createElement('div');
+    pane.className = 'q-editor-pane';
+    const container = document.createElement('div');
+    container.className = 'q-editor-container';
+    const content = document.createElement('div');
+    content.className = 'q-editor-content';
+    const body = document.createElement('div');
+    body.className = 'q-editor-content__body';
+    pane.append(container); container.append(content); content.append(body); document.body.append(pane);
+    const view = new EditorView({
+      parent: body,
+      state: EditorState.create({ doc: HEADINGS, extensions: [minimapExtension()] }),
+    });
+    Object.defineProperty(view.scrollDOM, 'scrollHeight', { configurable: true, value: 300 });
+    Object.defineProperty(view.scrollDOM, 'clientHeight', { configurable: true, value: 300 });
+    vi.spyOn(view, 'lineBlockAt').mockImplementation((pos: number) => ({ top: pos * 10 }) as BlockInfo);
+    vi.spyOn(pane, 'getBoundingClientRect').mockImplementation(() => ({ top: 20, bottom: 320, height: 300 } as DOMRect));
+    vi.spyOn(view.scrollDOM, 'getBoundingClientRect').mockImplementation(() => ({ top: 50, bottom: 300, height: 250 } as DOMRect));
+    vi.spyOn(body, 'getBoundingClientRect').mockImplementation(() => ({ top: 50, bottom: 300, height: 250 } as DOMRect));
+    act(() => { renderer = mountDom(<HeadingMinimap view={view} />); });
+    const nav = pane.querySelector<HTMLElement>(':scope > .q-block-minimap');
+    expect(nav).not.toBeNull();
+    expect(body.querySelector('.q-block-minimap')).toBeNull();
+    expect(nav!.style.top).toBe('30px');
+    expect(nav!.style.height).toBe('36px');
     view.destroy();
   });
 });

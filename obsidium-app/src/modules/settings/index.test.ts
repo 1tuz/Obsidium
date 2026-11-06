@@ -66,4 +66,18 @@ describe('normalizeConfig', () => {
     expect(normalized.editor.markdownReading.pageWidthCh).toBe(120);
     expect(normalized.editor.fullWidth).toBe(true);
   });
+
+  it('defaults the minimap scale and clamps out-of-range values', () => {
+    const config = {
+      builtins: {},
+      ui: { fontFamily: 'Inter', fontWeight: 400 },
+      editor: { fontFamily: 'iA Writer Mono', fontWeight: 400 },
+      reader: { fontFamily: 'iA Writer Quattro', fontWeight: 400 },
+    } as unknown as AppConfig;
+
+    expect(normalizeConfig(config).editor.headingMinimapScale).toBe(100);
+    expect(normalizeConfig({ ...config, editor: { ...config.editor, headingMinimapScale: 999 } }).editor.headingMinimapScale).toBe(300);
+    expect(normalizeConfig({ ...config, editor: { ...config.editor, headingMinimapScale: 1 } }).editor.headingMinimapScale).toBe(50);
+    expect(normalizeConfig({ ...config, editor: { ...config.editor, headingMinimapScale: 137.7 } }).editor.headingMinimapScale).toBe(138);
+  });
 });

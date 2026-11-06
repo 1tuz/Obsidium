@@ -91,7 +91,7 @@ describe('EditorContent block features', () => {
       );
     });
     const strokes = renderer!.container.querySelectorAll<HTMLElement>('.q-block-minimap__stroke');
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap-editing')).not.toBeNull();
+    expect(renderer!.container.querySelector('.q-editor-content__body .q-block-minimap')).not.toBeNull();
     expect(strokes).toHaveLength(2);
     expect(strokes[0]!.dataset.level).toBe('1');
     expect(strokes[1]!.dataset.level).toBe('2');
@@ -108,17 +108,23 @@ describe('EditorContent block features', () => {
       );
     });
     expect(renderer!.container.querySelector('.q-block-minimap')).toBeNull();
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap')).toBeNull();
   });
 
-  it('reserves the map gutter without an editing-handle gutter in reading mode', () => {
-    act(() => {
-      renderer = mountDom(
-        <Harness bodyRef={bodyRef} body={BODY} extensions={[minimapExtension()]} readOnly showMinimap />,
-      );
-    });
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap')).not.toBeNull();
-    expect(renderer!.container.querySelector('.q-editor-content__body--minimap-editing')).toBeNull();
+  it('keeps the text body free of gutter classes in both modes', () => {
+    const bodyClass = (readOnly: boolean): string => {
+      if (renderer) act(() => renderer?.unmount());
+      bodyRef.current = null;
+      act(() => {
+        renderer = mountDom(
+          <Harness bodyRef={bodyRef} body={BODY} extensions={[minimapExtension()]} readOnly={readOnly} showMinimap />,
+        );
+      });
+      const body = renderer!.container.querySelector<HTMLElement>('.q-editor-content__body')!;
+      expect(body.querySelector('.q-block-minimap')).not.toBeNull();
+      return body.className;
+    };
+    expect(bodyClass(true)).toBe('q-editor-content__body');
+    expect(bodyClass(false)).toBe('q-editor-content__body');
   });
 
   it('opens the slash menu on an empty line and filters by query', () => {
