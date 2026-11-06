@@ -12,7 +12,6 @@
   min-height: var(--q-size-40);
   padding: var(--q-space-4) var(--q-space-8);
   overflow-x: auto;
-  scrollbar-width: thin;
   background: var(--q-bg-surface-raised);
   border: var(--q-border-1) solid var(--q-border-default);
   border-radius: var(--q-rounded-lg);

@@ -36,7 +36,6 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding-block: var(--q-space-2);
-  scrollbar-width: thin;
 }
 
 .q-activity-heatmap__month,
@@ -148,7 +147,6 @@
   padding: 0;
   max-height: 36vh;
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 .q-activity-heatmap__readout,
