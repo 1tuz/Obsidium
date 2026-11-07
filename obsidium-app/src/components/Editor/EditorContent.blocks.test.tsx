@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { useRef } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorSelection, type Extension } from '@codemirror/state';
@@ -27,6 +27,7 @@ function Harness({
   showMinimap?: boolean;
 }) {
   const titleRef = useRef<CodeMirrorFieldRef>(null);
+  const [mode, setMode] = useState(readOnly);
   return (
     <EditorContent
       titleRef={titleRef}
@@ -39,7 +40,8 @@ function Harness({
       autoLinkTitle={false}
       onCreateEditor={() => {}}
       onUpdate={() => {}}
-      readOnly={readOnly}
+      readOnly={mode}
+      onEnterEdit={() => setMode(false)}
       markdownReading={DEFAULT_MARKDOWN_READING_SETTINGS}
       showMinimap={showMinimap}
     />
@@ -133,7 +135,7 @@ describe('EditorContent block features', () => {
         <Harness
           bodyRef={bodyRef}
           body={BODY}
-          extensions={[slashMenuExtension({ enabled: true, readOnly: false })]}
+          extensions={[slashMenuExtension({ enabled: true })]}
           readOnly={false}
         />,
       );
@@ -158,5 +160,30 @@ describe('EditorContent block features', () => {
       );
     });
     expect(renderer!.container.querySelector('.q-block-slash')).toBeNull();
+  });
+
+  it('enters editing mode on click then type in reading mode', () => {
+    act(() => {
+      renderer = mountDom(
+        <Harness bodyRef={bodyRef} body={BODY} extensions={[]} readOnly />,
+      );
+    });
+    const view = bodyRef.current!;
+    expect(view.state.readOnly).toBe(true);
+
+    const line = [...renderer!.container.querySelectorAll<HTMLElement>('.cm-line')]
+      .find((element) => element.textContent?.startsWith('body text'));
+    expect(line).toBeDefined();
+    const rect = line!.getBoundingClientRect();
+    act(() => {
+      view.dom.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: rect.left + 30, clientY: rect.top + rect.height / 2 }));
+    });
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }));
+    });
+
+    expect(view.state.readOnly).toBe(false);
+    expect(view.dom.querySelector('.cm-content')?.getAttribute('contenteditable')).toBe('true');
+    expect(view.state.doc.toString()).toContain('x');
   });
 });

@@ -1,12 +1,20 @@
+.q-block-fold-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: var(--q-z-drag);
+}
+
 .q-block-fold {
   position: absolute;
-  top: 0;
-  inset-inline-start: calc(-1 * var(--q-space-24));
   display: flex;
   align-items: center;
   justify-content: center;
   width: var(--q-size-20);
   height: var(--q-size-20);
+  margin-top: calc(-1 * var(--q-space-2));
+  margin-inline-start: calc(-1 * var(--q-space-24));
   border: none;
   border-radius: var(--q-radius-sm);
   background: transparent;
@@ -15,7 +23,7 @@
   cursor: pointer;
   user-select: none;
   padding: 0;
-  z-index: var(--q-z-drag);
+  pointer-events: auto;
   transition:
     opacity var(--q-duration-fast) var(--q-ease-default),
     color var(--q-duration-fast) var(--q-ease-default),
@@ -27,7 +35,7 @@
   height: var(--q-font-size-ui-sm);
 }
 
-.cm-line:hover .q-block-fold,
+.q-block-fold[data-hovered='true'],
 .q-block-fold:focus-visible,
 .q-block-fold[data-folded='true'] {
   opacity: var(--q-opacity-90);

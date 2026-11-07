@@ -28,6 +28,7 @@ export interface EditorProps {
   readOnly: boolean;
   inactive?: boolean;
   onBodyViewChange?: (view: EditorView | null) => void;
+  onEnterEdit?: () => void;
 }
 
 export type ReaderSession = {

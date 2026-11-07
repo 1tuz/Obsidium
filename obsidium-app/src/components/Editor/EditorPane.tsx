@@ -87,6 +87,8 @@ export function EditorPane({
     setReadOnly(nextReadOnly);
   }, [bodyView]);
 
+  const enterEdit = useCallback(() => changeMode(false), [changeMode]);
+
   useEffect(() => {
     if (opened && !viewing) closeVersion(tab.tabId);
   }, [opened, viewing, tab.tabId]);
@@ -210,6 +212,7 @@ export function EditorPane({
               readOnly={readOnly || viewingVersion}
               inactive={inactive}
               onBodyViewChange={setBodyView}
+              onEnterEdit={viewingVersion ? undefined : enterEdit}
             />
           </div>
           {viewing ? <HistoryView tabId={tab.tabId} opened={viewing} /> : null}

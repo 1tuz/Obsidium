@@ -102,24 +102,26 @@ describe('blockFoldExtension inline markers', () => {
     });
   }
 
-  it('renders fold markers inline for foldable blocks', () => {
+  it('renders fold markers in the pane overlay layer', () => {
     const source = '# One\n\nbody\n\n## Two';
     const view = mount(source);
-    const markers = view.dom.querySelectorAll('.q-block-fold');
+    const markers = document.querySelectorAll('.q-block-fold');
     expect(markers.length).toBeGreaterThan(0);
     expect(view.dom.querySelector('.cm-foldGutter')).toBeNull();
+    expect(view.scrollDOM.querySelector('.q-block-fold')).toBeNull();
     view.destroy();
+    expect(document.querySelectorAll('.q-block-fold').length).toBe(0);
   });
 
   it('toggles a fold when the inline marker is clicked', () => {
     const source = '# One\n\nbody\n\n## Two';
     const view = mount(source);
-    const marker = view.dom.querySelector<HTMLElement>('.q-block-fold')!;
+    const marker = document.querySelector<HTMLElement>('.q-block-fold')!;
     marker.click();
     let seen: { from: number; to: number } | null = null;
     foldedRanges(view.state).between(0, source.length, (from, to) => { seen = { from, to }; });
     expect(seen).toEqual({ from: 5, to: source.length });
-    view.dom.querySelector<HTMLElement>('.q-block-fold')!.click();
+    document.querySelector<HTMLElement>('.q-block-fold')!.click();
     expect(foldedRanges(view.state).size).toBe(0);
     view.destroy();
   });
@@ -127,7 +129,7 @@ describe('blockFoldExtension inline markers', () => {
   it('renders the folded placeholder without a background or border', () => {
     const source = '# One\n\nbody\n\n## Two';
     const view = mount(source);
-    view.dom.querySelector<HTMLElement>('.q-block-fold')!.click();
+    document.querySelector<HTMLElement>('.q-block-fold')!.click();
     const placeholder = view.dom.querySelector<HTMLElement>('.q-block-fold-placeholder');
     expect(placeholder).not.toBeNull();
     const style = getComputedStyle(placeholder!);

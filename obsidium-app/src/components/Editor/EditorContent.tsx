@@ -1,12 +1,13 @@
 import { t } from '../../i18n';
 import { DEFAULT_HEADING_MINIMAP_SCALE, type MarkdownReadingSettings } from '../../modules/settings';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, type ViewUpdate } from '@codemirror/view';
 import { CodeMirrorField, type CodeMirrorFieldRef } from '../Common/CodeMirrorField';
 import { CodeMirrorView } from '../Common/CodeMirrorView';
 import { Menu } from '../Common/Menu';
 import { collapseSelection } from './extensions/editorFocus';
+import { readingEditEntryExtension } from './extensions/readingEditEntry';
 import { wikiHoverHighlightTitle } from './extensions/wikiHoverHighlight';
 import { useEditorBodyMenu } from './hooks/useEditorBodyMenu';
 import { HeadingMinimap } from './HeadingMinimap';
@@ -38,6 +39,7 @@ interface EditorContentProps {
     extensions: Extension[];
     autoLinkTitle: boolean;
     readOnly?: boolean;
+    onEnterEdit?: () => void;
     onCreateEditor: (view: EditorView) => void;
     onUpdate: (update: ViewUpdate) => void;
     hasFrontmatter?: boolean;
@@ -59,6 +61,7 @@ export function EditorContent({
     extensions,
     autoLinkTitle,
     readOnly = false,
+    onEnterEdit,
     onCreateEditor,
     onUpdate,
     hasFrontmatter = false,
@@ -88,13 +91,31 @@ export function EditorContent({
         onCreateEditor(view);
     }, [onCreateEditor]);
     const titleExtensions = useMemo(() => [wikiHoverHighlightTitle], []);
+    const modeCompartment = useMemo(() => new Compartment(), []);
+    const enterEdit = useCallback(() => {
+        const view = bodyRef.current;
+        if (view) {
+            view.dispatch({
+                effects: modeCompartment.reconfigure([EditorState.readOnly.of(false), EditorView.editable.of(true)]),
+            });
+        }
+        onEnterEdit?.();
+    }, [bodyRef, modeCompartment, onEnterEdit]);
     const bodyExtensions = useMemo<Extension[]>(() => [
         extensions,
-        EditorState.readOnly.of(readOnly),
-        EditorView.editable.of(!readOnly),
-    ], [extensions, readOnly]);
+        modeCompartment.of([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]),
+        ...(readOnly && onEnterEdit ? [readingEditEntryExtension({ onEnterEdit: enterEdit })] : []),
+    ], [extensions, readOnly, modeCompartment, onEnterEdit, enterEdit]);
     const bodyMenu = useEditorBodyMenu(bodyRef, autoLinkTitle);
     const bodyContextMenu = bodyMenu.onContextMenu;
+
+    useEffect(() => {
+        const view = bodyRef.current;
+        if (!view) return;
+        view.dispatch({
+            effects: modeCompartment.reconfigure([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]),
+        });
+    }, [readOnly, modeCompartment, bodyRef]);
 
     const paperStyle = markdownReading.style === 'theme' ? undefined : markdownReading.style;
     const readingStyle = paperStyle ? {
