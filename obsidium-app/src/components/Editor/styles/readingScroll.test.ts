@@ -20,4 +20,19 @@ describe('Markdown reading scroll', () => {
     expect(layout).toMatch(/\.q-editor-container:not\(\.q-editor-container--book\) \.q-editor-content--reading \.q-editor-content__cm\s*\{[^}]*height:\s*100%;/u);
     expect(layout).toMatch(/\.q-editor-container:not\(\.q-editor-container--book\) \.q-editor-content--reading \.q-editor-content__body \.cm-editor\s*\{[^}]*height:\s*100%;/u);
   });
+
+  it('grows the book editor container so the reading body fills the pane', () => {
+    expect(layout).toMatch(
+      /\.q-editor-container:not\(\.q-editor-container--book\):has\(\.q-editor-content--reading\) \.q-book-editor-container\s*\{[^}]*flex:\s*1 1 auto;[^}]*min-height:\s*0;/u,
+    );
+  });
+
+  it('keeps the scroll-past-end padding off the reading scroller so it can shrink', () => {
+    expect(layout).toMatch(
+      /\.q-editor-container:not\(\.q-editor-container--book\) \.q-editor-content--reading \.q-editor-content__body \.cm-scroller\s*\{[^}]*padding-bottom:\s*0;/u,
+    );
+    expect(layout).toMatch(
+      /\.q-editor-container:not\(\.q-editor-container--book\) \.q-editor-content--reading \.q-editor-content__body \.cm-content\s*\{[^}]*padding-bottom:\s*var\(--q-editor-scroll-past-end\);/u,
+    );
+  });
 });

@@ -14,6 +14,17 @@ viewport as tall as the document, renders every line, and every consumer of the 
 `.cm-scroller` must have `scrollHeight > clientHeight` while `.q-editor-container` has
 `scrollHeight === clientHeight`.
 
+Two more links can silently break that chain. The book wrapper `.q-book-content-wrapper` and
+`.q-book-page` are `display: contents` in the regular layout, so the flex parent of
+`.q-editor-content` is `.q-book-editor-container`: without `flex: 1 1 auto; min-height: 0` on it
+(the rule scoped by `:has(.q-editor-content--reading)`) the container never grows, the body collapses
+to zero and the minimap visible region becomes empty — the rail sticks to the top of the document.
+The second trap is `padding-bottom: var(--q-editor-scroll-past-end)` on `.cm-scroller`: with
+`box-sizing: border-box` the padding counts into the flex item height and becomes an unshrinkable
+floor (675px plus the top padding), so the scroller cannot get shorter than its padding even at
+`height: 0`. In reading mode that padding moves to `.cm-content`: scroll-past-end stays, the scroller
+shrinks to the body height.
+
 ## Ширина текста
 
 Ширина колонки задаётся `--q-editor-max-width`: это `max-width` колонки текста, значение в `ch`, по

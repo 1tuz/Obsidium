@@ -12,8 +12,13 @@ const componentSheets = [
 
 describe('scrollbar theme', () => {
     it('paints global scrollbars with theme tokens', () => {
-        expect(base).toMatch(/scrollbar-color:\s*var\(--q-scrollbar-thumb\)\s*var\(--q-scrollbar-track\)/u);
-        expect(base).toMatch(/scrollbar-width:\s*thin/u);
+        expect(base).toMatch(/::-webkit-scrollbar-track\s*\{[^}]*background:\s*var\(--q-scrollbar-track\)/u);
+        expect(base).toMatch(/::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*var\(--q-scrollbar-thumb\)/u);
+    });
+
+    it('keeps the standard scrollbar properties off so WebKit honours the themed rules', () => {
+        expect(base).not.toContain('scrollbar-color:');
+        expect(base).not.toContain('scrollbar-width:');
     });
 
     it('keeps the global rule the single source of truth', () => {
