@@ -319,7 +319,11 @@ class SlashMenu {
             write: (coords) => {
                 if (!coords || !this.panel.isConnected) return;
                 this.panel.style.left = `${coords.left}px`;
-                this.panel.style.top = `${coords.bottom + 4}px`;
+                const panelHeight = this.panel.offsetHeight || Math.min(352, window.innerHeight - 16);
+                const below = coords.bottom + 4 + panelHeight;
+                this.panel.style.top = below > window.innerHeight
+                    ? `${Math.max(0, coords.top - 4 - panelHeight)}px`
+                    : `${coords.bottom + 4}px`;
             },
         });
     }
