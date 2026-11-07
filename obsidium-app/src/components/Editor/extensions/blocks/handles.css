@@ -1,7 +1,16 @@
+.q-block-overlay {
+  position: absolute;
+  inset: 0;
+  inset-inline-start: calc(-1 * var(--q-space-24));
+  overflow: hidden;
+  pointer-events: none;
+  z-index: var(--q-z-drag);
+}
+
 .q-block-handle {
   position: absolute;
   top: 0;
-  inset-inline-start: calc(-1 * var(--q-space-24));
+  inset-inline-start: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -39,7 +48,8 @@
 
 .q-block-drop-indicator {
   position: absolute;
-  inset-inline: var(--q-editor-padding-x);
+  inset-inline-start: calc(var(--q-editor-padding-x) + var(--q-space-24));
+  inset-inline-end: var(--q-editor-padding-x);
   height: 0;
   border: 0;
   border-top: var(--q-border-2) solid var(--q-text-accent);

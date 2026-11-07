@@ -79,10 +79,9 @@ describe('SLASH_ITEMS', () => {
 });
 
 describe('slashMenuExtension', () => {
-    it('contributes no extensions when disabled or read-only', () => {
-        expect(slashMenuExtension({ enabled: false, readOnly: false })).toEqual([]);
-        expect(slashMenuExtension({ enabled: true, readOnly: true })).toEqual([]);
-        expect(Array.isArray(slashMenuExtension({ enabled: true, readOnly: false }))).toBe(true);
+    it('contributes no extensions when disabled', () => {
+        expect(slashMenuExtension({ enabled: false })).toEqual([]);
+        expect(Array.isArray(slashMenuExtension({ enabled: true }))).toBe(true);
     });
 
     it('opens the panel when a slash starts an empty line', () => {
@@ -91,7 +90,7 @@ describe('slashMenuExtension', () => {
         const view = new EditorView({
             state: EditorState.create({
                 doc: 'body',
-                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+                extensions: [slashMenuExtension({ enabled: true })],
             }),
             parent,
         });
@@ -109,7 +108,7 @@ describe('slashMenuExtension', () => {
         const view = new EditorView({
             state: EditorState.create({
                 doc: '',
-                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+                extensions: [slashMenuExtension({ enabled: true })],
             }),
             parent,
         });
@@ -132,7 +131,7 @@ describe('slashMenuExtension', () => {
             state: EditorState.create({
                 doc: '/Title\n\nKeep this block',
                 extensions: [
-                    slashMenuExtension({ enabled: true, readOnly: false }),
+                    slashMenuExtension({ enabled: true }),
                     EditorView.updateListener.of((update) => {
                         update.changes.iterChangedRanges((from, to) => changedRanges.push({ from, to }));
                     }),
@@ -158,7 +157,7 @@ describe('slashMenuExtension', () => {
         const view = new EditorView({
             state: EditorState.create({
                 doc: '',
-                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+                extensions: [slashMenuExtension({ enabled: true })],
             }),
             parent,
         });
@@ -180,7 +179,7 @@ describe('slashMenuExtension', () => {
         const view = new EditorView({
             state: EditorState.create({
                 doc: '',
-                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+                extensions: [slashMenuExtension({ enabled: true })],
             }),
             parent,
         });
@@ -210,7 +209,7 @@ describe('slashMenuExtension', () => {
         const view = new EditorView({
             state: EditorState.create({
                 doc: '/',
-                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+                extensions: [slashMenuExtension({ enabled: true })],
             }),
             parent,
         });

@@ -42,6 +42,7 @@ export function Editor({
   readOnly,
   inactive = false,
   onBodyViewChange,
+  onEnterEdit,
 }: EditorProps) {
   const titleRef = useRef<CodeMirrorFieldRef>(null);
   const bodyRef = useRef<EditorView>(null);
@@ -227,6 +228,7 @@ export function Editor({
         selection={selection}
         extensions={extensions}
         readOnly={readOnly}
+        onEnterEdit={onEnterEdit}
         autoLinkTitle={autoLinkTitle}
         onCreateEditor={handleCreateEditor}
         onUpdate={handleEditorUpdate}

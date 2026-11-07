@@ -1,5 +1,5 @@
-import type { EditorState, Extension, Range } from '@codemirror/state';
-import { Decoration, type DecorationSet, EditorView, ViewPlugin, WidgetType, keymap, type ViewUpdate } from '@codemirror/view';
+import type { EditorState, Extension } from '@codemirror/state';
+import { EditorView, ViewPlugin, keymap, type ViewUpdate } from '@codemirror/view';
 import { codeFolding, foldEffect, foldKeymap, foldService, foldedRanges, unfoldEffect } from '@codemirror/language';
 import { ChevronDown, ChevronRight } from 'lucide';
 import { createIconElement } from '../../../Common/iconElement';
@@ -56,45 +56,15 @@ export function blockFoldRange(state: EditorState, lineStart: number): FoldRange
   return null;
 }
 
-class FoldMarkerWidget extends WidgetType {
-  constructor(private readonly folded: boolean) {
-    super();
-  }
-
-  toDOM(view: EditorView): HTMLElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'q-block-fold';
-    button.dataset.folded = this.folded ? 'true' : 'false';
-    button.setAttribute('aria-label', this.folded ? t('blocks.unfold') : t('blocks.fold'));
-    button.append(createIconElement(this.folded ? ChevronRight : ChevronDown));
-    button.addEventListener('mousedown', (event) => event.preventDefault());
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const line = view.state.doc.lineAt(view.posAtDOM(button));
-      const folded = foldedRanges(view.state).iter();
-      let target: { from: number; to: number } | null = null;
-      while (folded.value) {
-        if (folded.from <= line.to && folded.to >= line.from) target = { from: folded.from, to: folded.to };
-        folded.next();
-      }
-      if (target) view.dispatch({ effects: unfoldEffect.of(target) });
-      else {
-        const range = blockFoldRange(view.state, line.from);
-        if (range) view.dispatch({ effects: foldEffect.of(range) });
-      }
-    });
-    return button;
-  }
-
-  ignoreEvent(): boolean {
-    return false;
-  }
+interface FoldMarkerState {
+  pos: number;
+  folded: boolean;
 }
 
-function foldMarkerDecorations(view: EditorView): DecorationSet {
-  const builder: Range<Decoration>[] = [];
+const MARKER_HIT_SLOP = 4;
+
+function foldMarkerStates(view: EditorView): FoldMarkerState[] {
+  const states: FoldMarkerState[] = [];
   for (const block of scanDocument(view.state.doc)) {
     if (block.kind !== 'heading' && block.kind !== 'callout' && block.kind !== 'code') continue;
     const range = blockFoldRange(view.state, block.from);
@@ -103,31 +73,144 @@ function foldMarkerDecorations(view: EditorView): DecorationSet {
     foldedRanges(view.state).between(range.from, range.to, (foldFrom, foldTo) => {
       if (foldFrom <= range.from && foldTo >= range.to) folded = true;
     });
-    builder.push(
-      Decoration.widget({
-        widget: new FoldMarkerWidget(folded),
-        side: 1,
-      }).range(block.from),
-    );
+    states.push({ pos: block.from, folded });
   }
-  return Decoration.set(builder, true);
+  return states;
+}
+
+class FoldMarkerLayer {
+  private readonly view: EditorView;
+  private readonly layer: HTMLElement;
+  private readonly buttons = new Map<number, HTMLButtonElement>();
+  private rafId: number | null = null;
+
+  constructor(view: EditorView) {
+    this.view = view;
+    this.layer = document.createElement('div');
+    this.layer.className = 'q-block-fold-layer';
+    const host = view.dom.closest<HTMLElement>('.q-editor-pane') ?? view.dom.parentElement ?? document.body;
+    host.append(this.layer);
+    this.layer.addEventListener('click', this.onClick);
+    view.scrollDOM.addEventListener('scroll', this.scheduleSync, { passive: true });
+    view.scrollDOM.addEventListener('pointermove', this.onHoverMove, { passive: true });
+    view.scrollDOM.addEventListener('pointerleave', this.onHoverLeave, { passive: true });
+  }
+
+  sync(): void {
+    const scroller = this.view.scrollDOM;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const paddingTop = parseFloat(getComputedStyle(scroller).paddingTop) || 0;
+    const layerRect = this.layer.getBoundingClientRect();
+    const contentLeft = this.view.contentDOM.getBoundingClientRect().left;
+    const states = foldMarkerStates(this.view);
+    const seen = new Set<number>();
+    for (const state of states) {
+      const screenTop = scrollerRect.top - scroller.scrollTop + paddingTop + this.view.lineBlockAt(state.pos).top;
+      const visible = screenTop >= scrollerRect.top - MARKER_HIT_SLOP && screenTop <= scrollerRect.bottom;
+      let button = this.buttons.get(state.pos);
+      if (!visible) {
+        if (button) {
+          button.remove();
+          this.buttons.delete(state.pos);
+        }
+        continue;
+      }
+      if (!button) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'q-block-fold';
+        button.addEventListener('mousedown', (event) => event.preventDefault());
+        this.layer.append(button);
+        this.buttons.set(state.pos, button);
+      }
+      seen.add(state.pos);
+      const foldedFlag = state.folded ? 'true' : 'false';
+      if (button.dataset.folded !== foldedFlag) {
+        button.replaceChildren(createIconElement(state.folded ? ChevronRight : ChevronDown));
+      }
+      button.dataset.blockFrom = String(state.pos);
+      button.dataset.folded = foldedFlag;
+      button.setAttribute('aria-label', state.folded ? t('blocks.unfold') : t('blocks.fold'));
+      button.style.top = `${screenTop - layerRect.top}px`;
+      button.style.left = `${contentLeft - layerRect.left}px`;
+    }
+    for (const [pos, button] of this.buttons) {
+      if (!seen.has(pos)) {
+        button.remove();
+        this.buttons.delete(pos);
+      }
+    }
+  }
+
+  scheduleSync = (): void => {
+    if (this.rafId !== null) return;
+    this.rafId = requestAnimationFrame(() => {
+      this.rafId = null;
+      this.sync();
+    });
+  };
+
+  destroy(): void {
+    if (this.rafId !== null) cancelAnimationFrame(this.rafId);
+    this.view.scrollDOM.removeEventListener('scroll', this.scheduleSync);
+    this.view.scrollDOM.removeEventListener('pointermove', this.onHoverMove);
+    this.view.scrollDOM.removeEventListener('pointerleave', this.onHoverLeave);
+    this.layer.remove();
+  }
+
+  private readonly onHoverMove = (event: PointerEvent): void => {
+    const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
+    const lineFrom = pos === null ? null : this.view.state.doc.lineAt(pos).from;
+    for (const [blockFrom, button] of this.buttons) {
+      button.dataset.hovered = blockFrom === lineFrom ? 'true' : 'false';
+    }
+  };
+
+  private readonly onHoverLeave = (): void => {
+    for (const button of this.buttons.values()) button.dataset.hovered = 'false';
+  };
+
+  private readonly onClick = (event: MouseEvent): void => {
+    const button = (event.target as HTMLElement).closest('.q-block-fold') as HTMLElement | null;
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const pos = Number(button.dataset.blockFrom);
+    if (!Number.isFinite(pos)) return;
+    const line = this.view.state.doc.lineAt(pos);
+    const folded = foldedRanges(this.view.state).iter();
+    let target: { from: number; to: number } | null = null;
+    while (folded.value) {
+      if (folded.from <= line.to && folded.to >= line.from) target = { from: folded.from, to: folded.to };
+      folded.next();
+    }
+    if (target) this.view.dispatch({ effects: unfoldEffect.of(target) });
+    else {
+      const range = blockFoldRange(this.view.state, line.from);
+      if (range) this.view.dispatch({ effects: foldEffect.of(range) });
+    }
+  };
 }
 
 const foldMarkerPlugin = ViewPlugin.fromClass(
   class {
-    decorations: DecorationSet;
+    private readonly layer: FoldMarkerLayer;
 
     constructor(view: EditorView) {
-      this.decorations = foldMarkerDecorations(view);
+      this.layer = new FoldMarkerLayer(view);
+      this.layer.sync();
     }
 
-    update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
-        this.decorations = foldMarkerDecorations(update.view);
+    update(update: ViewUpdate): void {
+      if (update.docChanged || update.viewportChanged || update.geometryChanged || update.selectionSet) {
+        this.layer.scheduleSync();
       }
     }
+
+    destroy(): void {
+      this.layer.destroy();
+    }
   },
-  { decorations: (instance) => instance.decorations },
 );
 
 export function blockFoldExtension(): Extension {

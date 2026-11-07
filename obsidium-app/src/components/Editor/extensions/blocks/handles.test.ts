@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { scanDocument } from '../../../../modules/blocks/model';
@@ -19,9 +20,9 @@ async function mount(doc: string, options: { enabled?: boolean; readOnly?: boole
   view = new EditorView({
     doc,
     extensions: [
+      ...(options.readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
       blockHandlesExtension({
         enabled: options.enabled ?? true,
-        readOnly: options.readOnly ?? false,
         path: options.path ?? (() => 'notes/test.md'),
       }),
     ],
@@ -57,8 +58,8 @@ describe('block handles extension', () => {
   it('mounts handle and indicator overlays without changing block layout', async () => {
     await mount(DOC);
     const scroller = view!.scrollDOM;
-    expect(scroller.querySelector('.q-block-handle')).not.toBeNull();
-    expect(scroller.querySelector('.q-block-drop-indicator')).not.toBeNull();
+    expect(view!.dom.querySelector('.q-block-handle')).not.toBeNull();
+    expect(view!.dom.querySelector('.q-block-drop-indicator')).not.toBeNull();
     const lines = scroller.querySelectorAll('.cm-line');
     expect(lines.length).toBeGreaterThan(0);
     for (const element of scroller.querySelectorAll('.cm-line')) {
@@ -66,9 +67,9 @@ describe('block handles extension', () => {
     }
   });
 
-  it('installs nothing when disabled or read-only', async () => {
+  it('installs nothing when disabled and keeps overlays in reading mode', async () => {
     await mount(DOC, { enabled: false, readOnly: false });
-    expect(view!.scrollDOM.querySelector('.q-block-handle')).toBeNull();
+    expect(view!.dom.querySelector('.q-block-handle')).toBeNull();
     setBlockMenuHost(view!, null);
     view!.destroy();
     parent!.remove();
@@ -77,14 +78,21 @@ describe('block handles extension', () => {
     menuRequest = null;
 
     await mount(DOC, { enabled: true, readOnly: true });
+    expect(view!.dom.querySelector('.q-block-handle')).not.toBeNull();
+  });
+
+  it('mounts the overlays outside the clipped scroller so they stay clickable', async () => {
+    await mount(DOC);
     expect(view!.scrollDOM.querySelector('.q-block-handle')).toBeNull();
+    expect(view!.dom.querySelector('.q-block-handle')).not.toBeNull();
+    expect(view!.dom.querySelector('.q-block-drop-indicator')).not.toBeNull();
   });
 
   it('exposes menu items for duplicate, copy link, synced, delete and turn targets', async () => {
     await mount(DOC);
     const block = scanDocument(view!.state.doc)[0]!;
     view!.dispatch({ selection: { anchor: block.from } });
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(block.from);
     handle.click();
     expect(menuRequest).not.toBeNull();
@@ -100,7 +108,7 @@ describe('block handles extension', () => {
   it('dispatches a delete change from the menu', async () => {
     await mount(DOC);
     const block = scanDocument(view!.state.doc)[1]!;
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(block.from);
     handle.click();
     findItem('delete').onSelect();
@@ -110,7 +118,7 @@ describe('block handles extension', () => {
   it('dispatches a duplicate change from the menu', async () => {
     await mount(DOC);
     const block = scanDocument(view!.state.doc)[0]!;
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(block.from);
     handle.click();
     findItem('duplicate').onSelect();
@@ -120,7 +128,7 @@ describe('block handles extension', () => {
   it('dispatches turn into changes from the menu', async () => {
     await mount(DOC);
     const block = scanDocument(view!.state.doc)[0]!;
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(block.from);
     handle.click();
     findItem('turnInto-heading2').onSelect();
@@ -132,7 +140,7 @@ describe('block handles extension', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     await mount(DOC, { path: () => 'notes/linked.md' });
     const block = scanDocument(view!.state.doc)[0]!;
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(block.from);
     handle.click();
     findItem('copyLink').onSelect();
@@ -145,7 +153,7 @@ describe('block handles extension', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     await mount('text ^existing\n\nother');
     const block = scanDocument(view!.state.doc)[0]!;
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(block.from);
     handle.click();
     findItem('copyLink').onSelect();
@@ -160,7 +168,7 @@ describe('drag move via moveBlocks', () => {
     const blocks = scanDocument(view!.state.doc);
     const start = blocks[0]!;
     const target = blocks[1]!;
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(start.from);
     handle.setPointerCapture = vi.fn();
     handle.releasePointerCapture = vi.fn();
@@ -172,7 +180,7 @@ describe('drag move via moveBlocks', () => {
     vi.spyOn(view!.scrollDOM, 'getBoundingClientRect').mockImplementation(() => ({ top: 0, bottom: 500 } as DOMRect));
     handle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1, clientX: 0, clientY: 10 }));
     handle.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 0, clientY: 119 }));
-    expect(view!.scrollDOM.querySelector('.q-block-drop-indicator--visible')).not.toBeNull();
+    expect(view!.dom.querySelector('.q-block-drop-indicator--visible')).not.toBeNull();
     handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: 0, clientY: 119 }));
     expect(view!.state.doc.toString()).toBe('beta\n\nalpha\n\n- one\n- two\n\ngamma');
   });
@@ -182,7 +190,7 @@ describe('drag move via moveBlocks', () => {
     const blocks = scanDocument(view!.state.doc);
     const start = blocks[0]!;
     const target = blocks[2]!;
-    const handle = view!.scrollDOM.querySelector<HTMLElement>('.q-block-handle')!;
+    const handle = view!.dom.querySelector<HTMLElement>('.q-block-handle')!;
     handle.dataset.blockFrom = String(start.from);
     handle.setPointerCapture = vi.fn();
     handle.releasePointerCapture = vi.fn();
@@ -194,7 +202,7 @@ describe('drag move via moveBlocks', () => {
     vi.spyOn(view!.scrollDOM, 'getBoundingClientRect').mockImplementation(() => ({ top: 0, bottom: 500 } as DOMRect));
     handle.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1, clientX: 0, clientY: 10 }));
     handle.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 0, clientY: 130 }));
-    const indicator = view!.scrollDOM.querySelector<HTMLElement>('.q-block-drop-indicator--visible');
+    const indicator = view!.dom.querySelector<HTMLElement>('.q-block-drop-indicator--visible');
     expect(indicator?.dataset.mode).toBe('inside');
     handle.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: 0, clientY: 130 }));
     expect(view!.state.doc.toString()).toBe('beta\n\n- one\n  alpha\n- two\n\ngamma');

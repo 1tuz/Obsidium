@@ -22,12 +22,13 @@ import './handles.css';
 
 export interface BlockHandlesOptions {
   enabled: boolean;
-  readOnly: boolean;
   path: () => string;
 }
 
 const EDGE_SCROLL_MARGIN = 48;
 const EDGE_SCROLL_STEP = 8;
+const EDGE_HIT_SLOP = 4;
+const HANDLE_SIZE = 20;
 const CONTAINER_ZONE_RATIO = 0.25;
 
 interface DragState {
@@ -148,11 +149,13 @@ function dropTargetAt(view: EditorView, clientX: number, clientY: number): DropT
 }
 
 export function blockHandlesExtension(options: BlockHandlesOptions): Extension {
-  if (!options.enabled || options.readOnly) return [];
+  if (!options.enabled) return [];
   return ViewPlugin.fromClass(
     class {
       private readonly handle: HTMLElement;
       private readonly indicator: HTMLElement;
+      private readonly overlay: HTMLElement;
+      private readonly hoverHost: HTMLElement;
       private drag: DragState | null = null;
       private edgeScrollTimer: number | null = null;
 
@@ -160,6 +163,8 @@ export function blockHandlesExtension(options: BlockHandlesOptions): Extension {
 
       constructor(view: EditorView) {
         this.view = view;
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'q-block-overlay';
         this.handle = document.createElement('div');
         this.handle.className = 'q-block-handle';
         this.handle.setAttribute('role', 'button');
@@ -167,11 +172,11 @@ export function blockHandlesExtension(options: BlockHandlesOptions): Extension {
         this.handle.textContent = '⋮⋮';
         this.indicator = document.createElement('div');
         this.indicator.className = 'q-block-drop-indicator';
-        const scroller = view.scrollDOM;
-        scroller.appendChild(this.handle);
-        scroller.appendChild(this.indicator);
-        scroller.addEventListener('pointermove', this.onHoverMove);
-        scroller.addEventListener('pointerleave', this.onLeave);
+        this.overlay.append(this.handle, this.indicator);
+        view.dom.appendChild(this.overlay);
+        this.hoverHost = view.dom.closest<HTMLElement>('.q-editor-pane') ?? view.dom;
+        this.hoverHost.addEventListener('pointermove', this.onHoverMove);
+        this.hoverHost.addEventListener('pointerleave', this.onLeave);
         this.handle.addEventListener('pointerdown', this.onHandlePointerDown);
         this.handle.addEventListener('click', this.onHandleClick);
       }
@@ -186,21 +191,19 @@ export function blockHandlesExtension(options: BlockHandlesOptions): Extension {
 
       destroy() {
         this.clearDrag();
-        const scroller = this.view.scrollDOM;
-        scroller.removeEventListener('pointermove', this.onHoverMove);
-        scroller.removeEventListener('pointerleave', this.onLeave);
-        this.handle.remove();
-        this.indicator.remove();
+        this.hoverHost.removeEventListener('pointermove', this.onHoverMove);
+        this.hoverHost.removeEventListener('pointerleave', this.onLeave);
+        this.overlay.remove();
       }
 
-      private readonly onHoverMove = (event: PointerEvent) => {
+      private readonly onHoverMove = (event: PointerEvent): void => {
         if (this.drag) return;
         if (event.target instanceof HTMLElement && this.handle.contains(event.target)) return;
         const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
         if (pos === null) return this.hideHandle();
         const block = findBlockAt(scanDocument(this.view.state.doc), pos);
         if (!block || block.kind === 'frontmatter') return this.hideHandle();
-        this.showHandle(block);
+        this.showHandle(block, event.clientY);
       };
 
       private readonly onLeave = () => {
@@ -282,12 +285,17 @@ export function blockHandlesExtension(options: BlockHandlesOptions): Extension {
         return findBlockAt(scanDocument(this.view.state.doc), top);
       }
 
-      private showHandle(block: BlockInfo): void {
+      private showHandle(block: BlockInfo, cursorY: number): void {
         this.handle.dataset.blockFrom = String(block.from);
         const top = this.view.coordsAtPos(block.from);
         if (!top) return;
         const scrollerRect = this.view.scrollDOM.getBoundingClientRect();
-        this.handle.style.top = `${top.top - scrollerRect.top + this.view.scrollDOM.scrollTop}px`;
+        if (top.top < scrollerRect.top - EDGE_HIT_SLOP || top.top > scrollerRect.bottom) {
+          this.hideHandle();
+          return;
+        }
+        const editorRect = this.view.dom.getBoundingClientRect();
+        this.handle.style.top = `${cursorY - editorRect.top - HANDLE_SIZE / 2}px`;
       }
 
       private hideHandle(): void {
@@ -317,10 +325,9 @@ export function blockHandlesExtension(options: BlockHandlesOptions): Extension {
             ? this.view.coordsAtPos(Math.min(endPos, doc.length))
             : this.view.coordsAtPos(Math.min(target.block.to, doc.length));
         if (!coords) return;
-        const scroller = this.view.scrollDOM;
-        const scrollerRect = scroller.getBoundingClientRect();
+        const editorRect = this.view.dom.getBoundingClientRect();
         const y = target.mode === 'after' ? coords.bottom : coords.top;
-        this.indicator.style.top = `${y - scrollerRect.top + scroller.scrollTop}px`;
+        this.indicator.style.top = `${y - editorRect.top}px`;
         this.indicator.dataset.mode = target.mode;
         this.indicator.classList.add('q-block-drop-indicator--visible');
       }

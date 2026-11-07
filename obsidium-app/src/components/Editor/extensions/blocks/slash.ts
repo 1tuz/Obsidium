@@ -337,8 +337,8 @@ function withSlashMenu(view: EditorView, action: (menu: SlashMenu) => boolean): 
     return action(menu);
 }
 
-export function slashMenuExtension(options: { enabled: boolean; readOnly: boolean }): Extension {
-    if (!options.enabled || options.readOnly) return [];
+export function slashMenuExtension(options: { enabled: boolean }): Extension {
+    if (!options.enabled) return [];
     return [
         Prec.highest(
             keymap.of([
