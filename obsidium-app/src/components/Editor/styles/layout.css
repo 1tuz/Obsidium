@@ -70,6 +70,11 @@
     min-height: 0;
 }
 
+.q-editor-container:not(.q-editor-container--book):has(.q-editor-content--reading) .q-book-editor-container {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .q-editor-container:not(.q-editor-container--book) .q-editor-content--reading .q-editor-content__body {
     flex: 1 1 0;
     min-height: 0;
@@ -87,6 +92,11 @@
 
 .q-editor-container:not(.q-editor-container--book) .q-editor-content--reading .q-editor-content__body .cm-scroller {
     overflow-y: auto;
+    padding-bottom: 0;
+}
+
+.q-editor-container:not(.q-editor-container--book) .q-editor-content--reading .q-editor-content__body .cm-content {
+    padding-bottom: var(--q-editor-scroll-past-end);
 }
 
 @starting-style {
