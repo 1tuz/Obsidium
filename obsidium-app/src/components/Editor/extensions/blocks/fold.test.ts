@@ -123,4 +123,17 @@ describe('blockFoldExtension inline markers', () => {
     expect(foldedRanges(view.state).size).toBe(0);
     view.destroy();
   });
+
+  it('renders the folded placeholder without a background or border', () => {
+    const source = '# One\n\nbody\n\n## Two';
+    const view = mount(source);
+    view.dom.querySelector<HTMLElement>('.q-block-fold')!.click();
+    const placeholder = view.dom.querySelector<HTMLElement>('.q-block-fold-placeholder');
+    expect(placeholder).not.toBeNull();
+    const style = getComputedStyle(placeholder!);
+    expect(style.backgroundColor).toBe('');
+    expect(style.borderStyle).toBe('');
+    expect(style.fontWeight).not.toBe('400');
+    view.destroy();
+  });
 });
