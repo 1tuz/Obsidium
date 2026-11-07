@@ -43,3 +43,10 @@
   outline-offset: var(--q-space-2);
   opacity: var(--q-opacity-90);
 }
+
+.q-block-fold-placeholder {
+  font-weight: var(--q-font-weight-ui-strong);
+  color: var(--q-text-primary);
+  cursor: pointer;
+  user-select: none;
+}

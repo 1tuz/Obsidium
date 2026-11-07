@@ -132,7 +132,16 @@ const foldMarkerPlugin = ViewPlugin.fromClass(
 
 export function blockFoldExtension(): Extension {
   return [
-    codeFolding(),
+    codeFolding({
+      placeholderDOM: (_view, onclick) => {
+        const span = document.createElement('span');
+        span.className = 'q-block-fold-placeholder';
+        span.textContent = '…';
+        span.setAttribute('aria-label', t('blocks.unfold'));
+        span.onclick = onclick;
+        return span;
+      },
+    }),
     keymap.of(foldKeymap),
     foldService.of((state, lineStart) => blockFoldRange(state, lineStart)),
     foldMarkerPlugin,
