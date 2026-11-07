@@ -1403,6 +1403,8 @@
   "blocks": {
     "menu": "Block actions",
     "dragHandle": "Drag block",
+    "fold": "Fold block",
+    "unfold": "Unfold block",
     "turnInto": "Turn into",
     "duplicate": "Duplicate",
     "copyLink": "Copy link",

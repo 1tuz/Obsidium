@@ -93,3 +93,34 @@ describe('blockFoldExtension foldService', () => {
     view.destroy();
   });
 });
+
+describe('blockFoldExtension inline markers', () => {
+  function mount(source: string): EditorView {
+    return new EditorView({
+      state: state(source),
+      parent: document.body,
+    });
+  }
+
+  it('renders fold markers inline for foldable blocks', () => {
+    const source = '# One\n\nbody\n\n## Two';
+    const view = mount(source);
+    const markers = view.dom.querySelectorAll('.q-block-fold');
+    expect(markers.length).toBeGreaterThan(0);
+    expect(view.dom.querySelector('.cm-foldGutter')).toBeNull();
+    view.destroy();
+  });
+
+  it('toggles a fold when the inline marker is clicked', () => {
+    const source = '# One\n\nbody\n\n## Two';
+    const view = mount(source);
+    const marker = view.dom.querySelector<HTMLElement>('.q-block-fold')!;
+    marker.click();
+    let seen: { from: number; to: number } | null = null;
+    foldedRanges(view.state).between(0, source.length, (from, to) => { seen = { from, to }; });
+    expect(seen).toEqual({ from: 5, to: source.length });
+    view.dom.querySelector<HTMLElement>('.q-block-fold')!.click();
+    expect(foldedRanges(view.state).size).toBe(0);
+    view.destroy();
+  });
+});
