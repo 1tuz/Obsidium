@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import { filterSlashItems, slashMenuExtension, SLASH_ITEMS, type SlashItem } from './slash';
 
 const ITEMS: SlashItem[] = [
@@ -172,6 +173,36 @@ describe('slashMenuExtension', () => {
         view.destroy();
         parent.remove();
     });
+
+    it('flips the panel above the cursor when it would not fit below', async () => {
+        const parent = document.createElement('div');
+        document.body.append(parent);
+        const view = new EditorView({
+            state: EditorState.create({
+                doc: '',
+                extensions: [slashMenuExtension({ enabled: true, readOnly: false })],
+            }),
+            parent,
+        });
+        const innerHeight = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(600);
+        const coordsAtPos = vi
+            .spyOn(view, 'coordsAtPos')
+            .mockReturnValue({ left: 50, top: 580, bottom: 596, right: 60 } as DOMRect);
+        view.focus();
+        view.dispatch({ changes: { from: 0, insert: '/' }, selection: { anchor: 1 } });
+        await new Promise(requestAnimationFrame);
+        const panel = document.querySelector<HTMLElement>('.q-block-slash');
+        expect(panel).not.toBeNull();
+        const top = Number.parseFloat(panel!.style.top);
+        expect(Number.isNaN(top)).toBe(false);
+        expect(top).toBeLessThan(580);
+        expect(top + panel!.offsetHeight).toBeLessThanOrEqual(600);
+        coordsAtPos.mockRestore();
+        innerHeight.mockRestore();
+        view.destroy();
+        parent.remove();
+    });
+
 
     it('removes the panel when the view is destroyed', () => {
         const parent = document.createElement('div');
