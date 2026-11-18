@@ -75,56 +75,78 @@
 
 ## Быстрый старт
 
+Единственный источник правды по первому запуску — этот раздел. `obsidium-app/README.md` ссылается
+сюда, а не повторяет команды.
+
 ### Требования
-- **Node.js**: v18+ (рекомендуется v20+)
-- **Rust**: актуальная стабильная версия (`rustup update stable`)
-- **Visual Studio Build Tools** (для Windows): компонент C++ x64/x86 build tools
+- **Node.js**: 22.13 или новее; используйте поддерживаемый LTS (CI берёт Node 22). Ниже нельзя:
+  `vite@7` требует `^20.19.0 || >=22.12.0`, `vitest@4` — `^20.0.0 || ^22.0.0 || >=24.0.0`.
+- **Rust**: актуальная стабильная версия (`rustup update stable`).
+- **Git**: с поддержкой submodule — читалка книг лежит в `obsidium-app/vendor/foliate-js`.
+- **Visual Studio Build Tools** (для Windows): компонент C++ x64/x86 build tools.
+- **PowerShell** (для Windows и для `npm run check:colors`): скрипты проверки токенов написаны на нём.
 
-### Установка зависимостей и запуск в dev-режиме
+### Чистый клон
 
-```powershell
-# Переход в каталог приложения
-cd quantum-app
-
-# Установка npm-зависимостей
-npm install
-
-# Запуск приложения в режиме разработки
+```bash
+git clone --recurse-submodules https://github.com/1tuz/Obsidium.git
+cd Obsidium/obsidium-app
+git submodule update --init --recursive   # если клонировали без --recurse-submodules
+npm ci
 npm run tauri dev
 ```
+
+`npm ci` ставит зависимости строго по `package-lock.json` — так же, как CI. `npm install` меняет
+lockfile и для чистого клона не нужен.
+
+Submodule обязателен: без `obsidium-app/vendor/foliate-js` падает сборка фронтенда и не работает
+книжная читалка. CI выкачивает его через `submodules: recursive`, локально это делают
+`--recurse-submodules` или `git submodule update --init --recursive`.
+
+Dev- и release-сборки используют разные каталоги Cargo (`.artifacts/cargo-dev` и
+`.artifacts/cargo-release`), отдельный `CARGO_TARGET_DIR` не ставится — ломается Tauri ACL.
+Подробности: [[build-artifacts-separation]].
 
 ---
 
 ## Проверки качества кода
 
-Перед коммитом или сборкой релиза запускается полный набор проверок:
-
-```powershell
-cd quantum-app
+```bash
+cd obsidium-app
 
 # 1. Проверка типов TypeScript
 npx tsc --noEmit
 
-# 2. Модульные и интеграционные тесты фронтенда
+# 2. Тесты фронтенда
 npm test
 
-# 3. Проверка дизайн-токенов (запрет хардкода цветов)
+# 3. Проверка дизайн-токенов (запрет хардкода цветов, нужен PowerShell)
 npm run check:colors
 
-# 4. Тесты Rust-бэкенда
-cd src-tauri
-cargo test
+# 4. Тесты Rust-бэкенда изменённого крейта
+cargo test --manifest-path src-tauri/Cargo.toml -p obsidium-core
 ```
+
+Полные `npm test`, `cargo test --workspace` и тесты установщиков рассчитаны на ночной прогон;
+локально запускайте целевые проверки затронутого модуля. Какие проверки включает каждый флаг
+роутинга — в [[ci-pipelines]].
 
 ---
 
 ## Сборки GitHub Actions
 
-Каждый push запускает лёгкие проверки и сборки Windows x64 NSIS, macOS arm64 DMG для Apple Silicon и
-Ubuntu 24 x64 `.deb`. Установщики доступны в Actions artifacts 7 дней, npm- и Cargo-зависимости
-кэшируются. Тег `v*` запускает сборку всех платформ в черновик релиза. `Sync upstream fork` ежедневно
-подтягивает [исходный проект](https://github.com/Freaction/Aquilum) в `main` и запускает CI при обновлении исходников. Actions используют
-Node.js 24 и runner `ubuntu-24.04`.
+`ci.yml` срабатывает на push в любую ветку кроме `main` и на ручной `workflow_dispatch`. Он делает
+проверки, а не платформенные сборки: роутинг по изменённым файлам, `actionlint`, `tsc`, связанные
+или полные тесты фронтенда, `cargo test` изменённых крейтов, порог производительности ядра и
+автомерж ветки владельца. Сборки платформ живут отдельно: `release.yml` по тегу `v*` (или
+`workflow_dispatch` с существующим тегом) собирает Windows x64 NSIS, macOS arm64 DMG и Ubuntu 24
+x64 `.deb` в черновик релиза, `build-macos-app.yml` даёт быстрый `.app` без релиза, а
+`nightly-tests.yml` по расписанию в 23:00 UTC гоняет полные наборы и компиляцию под macOS и
+Windows. Раннеры — `ubuntu-24.04`, Node в Actions — 22. `Sync upstream fork` ежедневно подтягивает
+[исходный проект](https://github.com/Freaction/Aquilum) в `main` и запускает CI при обновлении
+исходников. Детали и причины такого разделения: [[ci-pipelines]].
+
+`npm run release` — локальная Windows-сборка, не мультиплатформенный релиз; для релиза нужен тег.
 
 ---
 

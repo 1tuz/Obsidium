@@ -136,10 +136,23 @@ export interface Fence {
   length: number;
 }
 
+const FENCE_LINE_PATTERN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+
+export function openFence(line: string): Fence | null {
+  const marker = line.match(FENCE_LINE_PATTERN)?.[1];
+  return marker ? { marker: marker[0]!, length: marker.length } : null;
+}
+
+export function closesFence(line: string, fence: Fence): boolean {
+  const match = FENCE_LINE_PATTERN.exec(line);
+  if (!match || match[2]!.trim() !== '') return false;
+  const marker = match[1]!;
+  return marker[0] === fence.marker && marker.length >= fence.length;
+}
+
 export function fenceStep(fence: Fence | null, line: string): Fence | null | undefined {
-  const marker = line.match(/^ {0,3}(`{3,}|~{3,})/)?.[1];
-  if (!fence) return marker ? { marker: marker[0]!, length: marker.length } : undefined;
-  if (marker && marker[0] === fence.marker && marker.length >= fence.length) return null;
+  if (!fence) return openFence(line) ?? undefined;
+  if (closesFence(line, fence)) return null;
   return fence;
 }
 

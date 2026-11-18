@@ -685,7 +685,7 @@ mod tests {
             .iter()
             .any(|item| item["path"] == "Источник.md"));
         assert_eq!(answer["sections"].as_array().unwrap().len(), 7);
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -714,7 +714,7 @@ mod tests {
                 "раздел {section} не запрашивали: {answer}"
             );
         }
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -742,7 +742,7 @@ mod tests {
         assert!(answer.get("outline").is_none(), "{answer}");
         let size = serde_json::to_string(&answer).unwrap().chars().count();
         assert!(size <= 1000, "ответ больше limit: {size}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -770,7 +770,7 @@ mod tests {
         assert_eq!(answer["truncated"], false);
         assert_eq!(answer["chars"], note.chars().count());
         assert!(!answer["content"].as_str().unwrap().contains("слово"));
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -807,7 +807,7 @@ mod tests {
             json!({ "lineStart": 1, "lineEnd": 1 })
         );
         assert_eq!(answer["truncated"], true);
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -826,7 +826,7 @@ mod tests {
         assert!(size <= 800, "ответ больше бюджета maxTokens * 4: {size}");
         assert_eq!(answer["contentTruncated"], true);
         assert!(answer.get("content").is_some(), "{answer}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -843,7 +843,7 @@ mod tests {
         assert!(error.contains("нет"), "{error}");
         assert!(error.contains("frontmatter"), "{error}");
         assert!(error.contains("related"), "{error}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -855,7 +855,7 @@ mod tests {
         assert_eq!(answer["shape"], "list");
         assert_eq!(answer["total"], 2);
         assert!(answer["rows"].as_array().unwrap().len() >= 2);
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -865,7 +865,7 @@ mod tests {
         let error = call(&core, "query_notes", &json!({ "query": "LIST FROM" })).unwrap_err();
 
         assert!(error.contains("позиция"), "{error}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]

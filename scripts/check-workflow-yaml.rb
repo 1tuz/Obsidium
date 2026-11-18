@@ -1,6 +1,6 @@
 require 'psych'
 
-paths = ARGV.empty? ? Dir.glob('.github/workflows/*.{yml,yaml}') : ARGV
+paths = ARGV.empty? ? Dir.glob('.github/workflows/*.{yml,yaml}') + ['.github/filters.yml'] : ARGV
 
 begin
   paths.each do |path|

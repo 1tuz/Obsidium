@@ -58,3 +58,16 @@ describe('activeMarkIndex', () => {
     expect(activeMarkIndex(headings, 250, [0, 300, 100])).toBe(0);
   });
 });
+
+describe('activeMarkIndex search shape', () => {
+  const marks: MinimapMark[] = [0, 7, 14, 21].map((pos) => ({ level: 1, text: '', pos }));
+
+  it('matches the linear contract on duplicate and unsorted tops', () => {
+    expect(activeMarkIndex(marks, 150, [0, 200, 100, 150])).toBe(0);
+    expect(activeMarkIndex(marks, 250, [0, 200, 100, 150])).toBe(3);
+    expect(activeMarkIndex(marks, 400, [0, 0, 0, 0])).toBe(3);
+    expect(activeMarkIndex(marks, -50, [100, 100, 100, 100])).toBe(-1);
+    expect(activeMarkIndex(marks, 176, [0, 100, 200, 300])).toBe(2);
+    expect(activeMarkIndex(marks, 175, [0, 100, 200, 300])).toBe(1);
+  });
+});

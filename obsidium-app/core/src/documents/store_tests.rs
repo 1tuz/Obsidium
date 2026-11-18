@@ -125,3 +125,33 @@ fn reopening_keeps_what_was_written() {
     drop(store);
     let _ = std::fs::remove_dir_all(&directory);
 }
+
+#[test]
+fn importing_a_replica_writes_updates_and_point_together() {
+    let mut store = DocumentStore::memory().expect("store");
+    store
+        .import_replica(
+            "a",
+            &[b"one".to_vec(), b"two".to_vec()],
+            Some(&point("f", "t")),
+        )
+        .expect("import");
+    assert_eq!(
+        store.load("a").expect("load"),
+        vec![b"one".to_vec(), b"two".to_vec()]
+    );
+    assert_eq!(
+        store.sync_point("a"),
+        SyncPointLookup::Found(point("f", "t"))
+    );
+}
+
+#[test]
+fn a_failed_point_write_leaves_no_partial_import() {
+    let mut store = DocumentStore::memory().expect("store");
+    store.reject_points().expect("trigger");
+    assert!(store
+        .import_replica("a", &[b"one".to_vec()], Some(&point("f", "t")))
+        .is_err());
+    assert!(!store.has_replica("a").expect("query"));
+}

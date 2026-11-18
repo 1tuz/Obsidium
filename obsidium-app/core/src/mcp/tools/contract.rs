@@ -166,7 +166,7 @@ fn every_note_tool_accepts_note_or_path_and_rejects_neither() {
         checked >= 25,
         "проверено слишком мало инструментов: {checked}"
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn every_tool_names_its_missing_required_field() {
             "{name}: ошибка не называет обязательное поле ({required:?}): {error}"
         );
     }
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -215,7 +215,7 @@ fn read_note_accepts_a_batch_and_its_schema_allows_it() {
     assert!(notes[0]["hash"]
         .as_str()
         .is_some_and(|hash| !hash.is_empty()));
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -249,7 +249,7 @@ fn read_note_returns_the_raw_byte_hash_and_guards_updates() {
     )
     .unwrap();
     assert_eq!(fs::read_to_string(&note).unwrap(), "новое");
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -306,7 +306,7 @@ fn search_notes_pages_through_folder_hits_beyond_the_first_window() {
         first_paths,
         "повторный запрос отдаёт тот же порядок"
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -339,7 +339,7 @@ fn search_notes_pages_past_the_hundredth_hit_without_duplicates() {
     let unique = seen.iter().collect::<std::collections::HashSet<_>>().len();
     assert_eq!(seen.len(), 140, "страницы не повторяют и не теряют заметки");
     assert_eq!(unique, 140, "дубликатов между страницами нет");
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -393,7 +393,7 @@ fn set_frontmatter_writes_and_removes_list_values() {
     assert!(!text.contains("tags"));
     assert!(text.contains("related:\n  - \"[[C]]\""));
     assert!(text.ends_with("---\nтело\n"), "тело не тронуто: {text}");
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -443,7 +443,7 @@ fn batch_read_notes_keeps_partial_success_and_honours_each_limit() {
         "maxChars цели важнее perNoteChars"
     );
     assert_eq!(notes[3]["truncated"], true);
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -479,7 +479,7 @@ fn batch_read_notes_truncates_by_default_and_fails_on_overflow_when_asked() {
     );
     assert_eq!(notes[1]["content"].as_str().unwrap().chars().count(), 40);
     assert_eq!(notes[1]["truncated"], false);
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -526,7 +526,7 @@ fn batch_update_properties_previews_by_default_and_writes_only_on_request() {
     assert!(text.contains("status: \"read\""), "{text}");
     assert!(text.contains("tags:\n  - \"роман\""), "{text}");
     assert!(text.ends_with("---\nтело\n"), "тело не тронуто: {text}");
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -588,7 +588,7 @@ fn batch_update_properties_skips_unmatched_notes_and_unneeded_writes() {
     assert!(!fs::read_to_string(fixture.root.join("Article.md"))
         .unwrap()
         .contains("status"));
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -617,7 +617,7 @@ fn batch_update_properties_needs_write_permission_only_for_real_writes() {
     )
     .unwrap_err();
     assert!(error.contains("запрещено"), "{error}");
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -686,7 +686,7 @@ fn writes_do_not_navigate_without_an_explicit_open() {
         fixture.navigations.lock().unwrap().is_empty(),
         "по умолчанию запись не открывает вкладку"
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 fn validate(schema: &Value, instance: &Value) -> Result<(), String> {
@@ -798,7 +798,7 @@ fn describe_schema_reports_empty_schema_and_note_type() {
         answer,
         json!({ "types": [], "noteType": "Note", "relations": [] })
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -845,7 +845,7 @@ fn describe_schema_lists_full_type_definitions() {
             "relations": []
         })
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -889,7 +889,7 @@ fn describe_schema_filters_types_and_rejects_unknown() {
             "в ошибке нет «{expected}»: {error}"
         );
     }
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -908,7 +908,7 @@ fn describe_schema_reports_broken_schema_as_error() {
         error.contains("Схема базы знаний не читается"),
         "ошибка не описывает схему: {error}"
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -935,7 +935,7 @@ fn create_typed_note_writes_frontmatter_and_heading() {
         content,
         "---\ntype: \"Book\"\nauthor: \"Лем\"\npages: 320\nstatus: \"read\"\n---\n\n# Книга\n"
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -961,7 +961,7 @@ fn create_typed_note_rejects_invalid_properties_before_writing() {
         );
     }
     assert!(!fixture.root.join("Плохая.md").exists());
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -985,7 +985,7 @@ fn create_typed_note_rejects_unknown_type() {
         );
     }
     assert!(!fixture.root.join("Неизвестная.md").exists());
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -1009,7 +1009,7 @@ fn create_typed_note_refuses_existing_file() {
         fs::read_to_string(fixture.root.join("Книга.md")).unwrap(),
         "старое\n"
     );
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }
 
 #[test]
@@ -1029,5 +1029,5 @@ fn create_typed_note_does_not_let_properties_override_type() {
     .expect_err("type из properties не должен подменять аргумент");
     assert!(error.contains("type"), "ошибка не про type: {error}");
     assert!(!fixture.root.join("Подмена.md").exists());
-    fixture.core.shutdown();
+    let _ = fixture.core.shutdown();
 }

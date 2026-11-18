@@ -151,18 +151,21 @@ pub async fn document_revert(
 pub async fn document_import_legacy(
     core: State<'_, Arc<Core>>,
     replicas: Vec<LegacyReplica>,
-) -> Result<usize, DocumentCommandError> {
+) -> Result<Vec<usize>, DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        let allowed: Vec<LegacyReplica> = replicas
-            .into_iter()
-            .filter_map(|mut replica| {
-                let path = core.access.check(&replica.path).ok()?;
-                replica.path = path.to_string_lossy().into_owned();
-                Some(replica)
-            })
-            .collect();
-        Ok(core.documents.import_legacy(&allowed))
+        let mut origin = Vec::with_capacity(replicas.len());
+        let mut allowed = Vec::with_capacity(replicas.len());
+        for (index, mut replica) in replicas.into_iter().enumerate() {
+            let Ok(path) = core.access.check(&replica.path) else {
+                continue;
+            };
+            replica.path = path.to_string_lossy().into_owned();
+            origin.push(index);
+            allowed.push(replica);
+        }
+        let imported = core.documents.import_legacy(&allowed);
+        Ok(imported.into_iter().map(|index| origin[index]).collect())
     })
     .await
 }
@@ -212,7 +215,7 @@ pub async fn document_release(
 pub async fn document_flush_all(core: State<'_, Arc<Core>>) -> Result<(), DocumentCommandError> {
     let core = Arc::clone(&core);
     run_blocking(move || {
-        core.documents.flush_all(&core);
+        core.documents.flush_all(&core).map_err(HubError::from)?;
         Ok(())
     })
     .await

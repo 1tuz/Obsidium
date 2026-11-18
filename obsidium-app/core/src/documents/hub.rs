@@ -289,7 +289,7 @@ impl DocumentHub {
             if entry.session.version() != before {
                 announce_change(core, &entry_path, entry.session.version());
             }
-            self.write_entry_as(core, key, entry, source);
+            self.write_entry_as(core, key, entry, source)?;
             Ok(entry.session.version())
         })
     }
@@ -312,7 +312,7 @@ impl DocumentHub {
             );
             if changed {
                 announce_change(core, &entry_path, entry.session.version());
-                self.write_entry_as(core, key, entry, source);
+                self.write_entry_as(core, key, entry, source)?;
             }
             Ok(changed)
         })
@@ -342,15 +342,17 @@ impl DocumentHub {
         result
     }
 
-    pub fn import_legacy(&self, replicas: &[LegacyReplica]) -> usize {
-        let store = self.store.lock().expect("document store");
-        let Some(store) = store.as_ref() else {
-            return 0;
+    pub fn import_legacy(&self, replicas: &[LegacyReplica]) -> Vec<usize> {
+        let mut store = self.store.lock().expect("document store");
+        let Some(store) = store.as_mut() else {
+            return Vec::new();
         };
         replicas
             .iter()
-            .filter(|replica| import_one(store, replica))
-            .count()
+            .enumerate()
+            .filter(|(_, replica)| import_one(store, replica))
+            .map(|(index, _)| index)
+            .collect()
     }
 
     pub fn release(&self, core: &Core, path: &Path) {
@@ -385,13 +387,17 @@ impl DocumentHub {
         paths
     }
 
-    pub fn flush_all(&self, core: &Core) {
+    pub fn flush_all(&self, core: &Core) -> Result<(), SessionError> {
+        let mut failure = None;
         for shard in &self.shards {
             let mut sessions = shard.lock().expect("document sessions");
             for (key, entry) in sessions.iter_mut() {
-                self.write_entry(core, key, entry);
+                if let Err(error) = self.write_entry_as(core, key, entry, Source::Me) {
+                    failure.get_or_insert(error);
+                }
             }
         }
+        failure.map_or(Ok(()), Err)
     }
 
     pub fn reconcile_paths(&self, core: &Core, paths: &[PathBuf]) {
@@ -515,12 +521,18 @@ impl DocumentHub {
     }
 
     fn write_entry(&self, core: &Core, key: &str, entry: &mut Entry) {
-        self.write_entry_as(core, key, entry, Source::Me);
+        let _ = self.write_entry_as(core, key, entry, Source::Me);
     }
 
-    fn write_entry_as(&self, core: &Core, key: &str, entry: &mut Entry, source: Source) {
+    fn write_entry_as(
+        &self,
+        core: &Core,
+        key: &str,
+        entry: &mut Entry,
+        source: Source,
+    ) -> Result<(), SessionError> {
         if !entry.session.dirty() || entry.moving {
-            return;
+            return Ok(());
         }
         let path = entry.path.clone();
         let before = entry.session.version();
@@ -529,7 +541,7 @@ impl DocumentHub {
             announce_change(core, &path, entry.session.version());
         }
         let path_text = path.to_string_lossy().into_owned();
-        core.emit(match result {
+        core.emit(match &result {
             Ok(()) => CoreEvent::DocumentSaved(DocumentEvent {
                 path: path_text,
                 version: entry.session.version(),
@@ -543,6 +555,7 @@ impl DocumentHub {
                 reason: error.to_string(),
             }),
         });
+        result
     }
 
     fn load(&self, key: &str) -> Vec<Vec<u8>> {
@@ -594,26 +607,17 @@ pub struct LegacyPoint {
     pub text_hash: String,
 }
 
-fn import_one(store: &DocumentStore, replica: &LegacyReplica) -> bool {
+fn import_one(store: &mut DocumentStore, replica: &LegacyReplica) -> bool {
     let path = Path::new(&replica.path);
     let key = identity(path);
     if replica.updates.is_empty() || !path.is_file() || store.has_replica(&key).unwrap_or(true) {
         return false;
     }
-    let appended = replica
-        .updates
-        .iter()
-        .try_for_each(|update| store.append(&key, update));
-    let remembered = replica.point.as_ref().map_or(Ok(()), |point| {
-        store.remember_sync_point(
-            &key,
-            &SyncPoint {
-                file_hash: point.file_hash.clone(),
-                text_hash: point.text_hash.clone(),
-            },
-        )
+    let point = replica.point.as_ref().map(|point| SyncPoint {
+        file_hash: point.file_hash.clone(),
+        text_hash: point.text_hash.clone(),
     });
-    match appended.and(remembered) {
+    match store.import_replica(&key, &replica.updates, point.as_ref()) {
         Ok(()) => true,
         Err(error) => {
             eprintln!(

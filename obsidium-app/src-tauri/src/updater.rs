@@ -68,7 +68,7 @@ mod release {
                     let _ = on_progress.send(UpdateProgress::Downloading { chunk, total });
                 },
                 move || {
-                    core.shutdown();
+                    let _ = core.shutdown();
                     let _ = installing.send(UpdateProgress::Installing);
                 },
             )

@@ -27,6 +27,7 @@ pub enum CoreEvent {
     NotesRelocated(Relocation),
     NoteHistoryChanged(NoteHistoryChanged),
     WorkspaceChanged(Vec<String>),
+    WorkspaceRescan,
     LinksChanged(IndexRevision),
     Navigate(Navigation),
 }
@@ -41,6 +42,7 @@ impl CoreEvent {
             Self::NotesRelocated(_) => "notes-relocated",
             Self::NoteHistoryChanged(_) => "note-history-changed",
             Self::WorkspaceChanged(_) => "workspace-changed",
+            Self::WorkspaceRescan => "workspace-rescan",
             Self::LinksChanged(_) => "links-changed",
             Self::Navigate(_) => "mcp-navigate",
         }
@@ -142,10 +144,11 @@ impl Core {
 
     /// Stops background work before the host exits: unsaved edits are written, MCP and the
     /// watcher stop.
-    pub fn shutdown(&self) {
-        self.documents.flush_all(self);
+    pub fn shutdown(&self) -> Result<(), crate::documents::SessionError> {
+        let flushed = self.documents.flush_all(self);
         self.mcp.shutdown();
         self.watcher.stop();
+        flushed
     }
 
     pub fn known_roots(&self) -> Vec<PathBuf> {
@@ -153,10 +156,15 @@ impl Core {
     }
 
     fn ingest_watch(&self, batch: WatchBatch) {
-        if batch.scope >= WatchScope::Structure {
-            self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths)));
+        if batch.scope == WatchScope::Rescan {
+            self.emit(CoreEvent::WorkspaceRescan);
+            self.documents.reconcile_all(self);
+        } else {
+            if batch.scope == WatchScope::Structure {
+                self.emit(CoreEvent::WorkspaceChanged(path_names(&batch.paths)));
+            }
+            self.documents.reconcile_paths(self, &batch.paths);
         }
-        self.documents.reconcile_paths(self, &batch.paths);
         self.search
             .ingest_watch(batch.paths, batch.scope == WatchScope::Rescan);
     }

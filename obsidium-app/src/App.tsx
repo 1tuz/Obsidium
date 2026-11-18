@@ -62,6 +62,7 @@ import { flushDocuments } from "./modules/documents/documentGateway";
 import { readNoteType, setNoteType } from "./modules/schema/setNoteType";
 import { useWindowDocumentSync } from "./modules/documents/useWindowDocumentSync";
 import { applyTemplateToDocument } from "./components/Editor/docMutations";
+import { flushSyncedEditors } from "./components/Editor/extensions/documentSync";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { isMacOs } from "./modules/platform";
@@ -410,10 +411,28 @@ export default function App() {
 
   useWindowDocumentSync();
 
+  const closingRef = useRef(false);
   useTauriSubscription(
     () => getCurrentWindow().onCloseRequested(async (event) => {
-      const results = await Promise.all([flushDocuments(), flushCanvasDocuments()]);
-      if (!results[1]) event.preventDefault();
+      if (closingRef.current) {
+        event.preventDefault();
+        return;
+      }
+      closingRef.current = true;
+      try {
+        const synced = await flushSyncedEditors();
+        if (!synced) {
+          event.preventDefault();
+          return;
+        }
+        const [, canvasFlushed] = await Promise.all([flushDocuments(), flushCanvasDocuments()]);
+        if (!canvasFlushed) event.preventDefault();
+      } catch (error) {
+        console.error('Failed to save documents before closing', error);
+        event.preventDefault();
+      } finally {
+        closingRef.current = false;
+      }
     }),
     "window close",
   );

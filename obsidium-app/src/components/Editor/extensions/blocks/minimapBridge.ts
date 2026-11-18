@@ -16,13 +16,21 @@ export interface MinimapState {
   viewportHeight: number;
 }
 
+interface MinimapLayout {
+  doc: Text;
+  marks: MinimapMark[];
+  ceilings: number[];
+}
+
 type MinimapListener = (state: MinimapState) => void;
 
 const ACTIVE_OFFSET = 24;
 
 interface MinimapSession {
   listeners: Set<MinimapListener>;
-  marks: MinimapMark[];
+  layout: MinimapLayout | null;
+  stale: boolean;
+  publishedMarks: MinimapMark[];
   activeIndex: number;
   rafId: number | null;
   onScroll: () => void;
@@ -57,27 +65,53 @@ export function activeMarkIndex(
   return index;
 }
 
-function lineTops(view: EditorView, marks: readonly MinimapMark[]): number[] {
-  return marks.map((mark) => {
+function measureLayout(view: EditorView): MinimapLayout {
+  const marks = minimapMarks(view.state.doc);
+  const ceilings: number[] = [];
+  for (const mark of marks) {
+    let top = 0;
     try {
-      return view.lineBlockAt(mark.pos).top;
+      top = view.lineBlockAt(mark.pos).top;
     } catch {
-      return 0;
+      top = 0;
     }
-  });
+    const previous = ceilings.length > 0 ? ceilings[ceilings.length - 1]! : top;
+    ceilings.push(Math.max(top, previous));
+  }
+  return { doc: view.state.doc, marks, ceilings };
+}
+
+function activeMarkIndexFromCeilings(ceilings: readonly number[], scrollTop: number): number {
+  const limit = scrollTop + ACTIVE_OFFSET;
+  let low = 0;
+  let high = ceilings.length - 1;
+  let index = -1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    if (ceilings[middle]! <= limit) {
+      index = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return index;
 }
 
 function sameMarks(left: readonly MinimapMark[], right: readonly MinimapMark[]): boolean {
+  if (left === right) return true;
   if (left.length !== right.length) return false;
   for (let i = 0; i < left.length; i += 1) {
-    if (left[i].pos !== right[i].pos || left[i].level !== right[i].level) return false;
+    const a = left[i]!;
+    const b = right[i]!;
+    if (a.pos !== b.pos || a.level !== b.level || a.text !== b.text) return false;
   }
   return true;
 }
 
 function publish(session: MinimapSession): void {
   const state: MinimapState = {
-    marks: session.marks,
+    marks: session.publishedMarks,
     activeIndex: session.activeIndex,
     top: session.top,
     viewportHeight: session.viewportHeight,
@@ -86,7 +120,12 @@ function publish(session: MinimapSession): void {
 }
 
 function compute(view: EditorView, session: MinimapSession): void {
-  const marks = minimapMarks(view.state.doc);
+  if (session.stale || session.layout === null || session.layout.doc !== view.state.doc) {
+    session.layout = measureLayout(view);
+    session.stale = false;
+  }
+  const layout = session.layout!;
+  const marks = layout.marks;
   const container = view.dom.closest<HTMLElement>('.q-editor-container');
   const owner = container ? resolveEditorScrollElement(container, view.state.readOnly) : view.scrollDOM;
   if (session.owner !== owner) {
@@ -110,17 +149,18 @@ function compute(view: EditorView, session: MinimapSession): void {
   const top = Math.max(0, Math.round(visibleTop - anchorTop));
   const viewportHeight = Math.max(0, Math.round(visibleBottom - visibleTop));
   const scrollTop = owner === view.scrollDOM ? owner.scrollTop : ownerRect.top - scrollRect.top;
-  const activeIndex = activeMarkIndex(marks, scrollTop, lineTops(view, marks));
+  const activeIndex = activeMarkIndexFromCeilings(layout.ceilings, scrollTop);
   const unchanged =
     session.top === top &&
     session.viewportHeight === viewportHeight &&
     session.activeIndex === activeIndex &&
-    sameMarks(session.marks, marks);
-  session.marks = marks;
+    sameMarks(session.publishedMarks, marks);
   session.activeIndex = activeIndex;
   session.top = top;
   session.viewportHeight = viewportHeight;
-  if (!unchanged) publish(session);
+  if (unchanged) return;
+  session.publishedMarks = marks;
+  publish(session);
 }
 
 function scheduleCompute(view: EditorView, session: MinimapSession): void {
@@ -145,7 +185,9 @@ function ensureSession(view: EditorView): MinimapSession {
   if (existing) return existing;
   const session: MinimapSession = {
     listeners: new Set(),
-    marks: [],
+    layout: null,
+    stale: true,
+    publishedMarks: [],
     activeIndex: -1,
     rafId: null,
     onScroll: () => scheduleCompute(view, session),
@@ -156,7 +198,10 @@ function ensureSession(view: EditorView): MinimapSession {
   };
   const scrollDOM = view.scrollDOM;
   if (typeof ResizeObserver !== 'undefined') {
-    session.observer = new ResizeObserver(() => scheduleCompute(view, session));
+    session.observer = new ResizeObserver(() => {
+      session.stale = true;
+      scheduleCompute(view, session);
+    });
     session.observer.observe(scrollDOM);
   }
   sessions.set(view, session);
@@ -179,10 +224,11 @@ export function subscribeMinimap(
 const minimapPlugin = ViewPlugin.fromClass(
   class {
     update(update: ViewUpdate): void {
-      if (update.docChanged || update.geometryChanged || update.viewportChanged || update.startState.readOnly !== update.state.readOnly) {
-        const session = sessions.get(update.view);
-        if (session) scheduleCompute(update.view, session);
-      }
+      if (!update.docChanged && !update.geometryChanged && !update.viewportChanged && update.startState.readOnly === update.state.readOnly) return;
+      const session = sessions.get(update.view);
+      if (!session) return;
+      if (update.geometryChanged) session.stale = true;
+      scheduleCompute(update.view, session);
     }
   },
 );

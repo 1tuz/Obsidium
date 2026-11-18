@@ -139,3 +139,17 @@ describe('blockFoldExtension inline markers', () => {
     view.destroy();
   });
 });
+
+describe('code fence folding boundaries', () => {
+  it('refuses to fold a block whose last line does not close the opener', () => {
+    for (const source of ['```\ncode\n```js', '```\ncode\n```` trailing', '~~~\ncode\n```']) {
+      expect(blockFoldRange(state(source), 0)).toBeNull();
+    }
+  });
+
+  it('folds a closed fence at exact offsets', () => {
+    const source = '~~~~js\nconst a = 1;\n~~~~';
+    expect(blockFoldRange(state(source), 0))
+      .toEqual({ from: '~~~~js'.length, to: source.length - '~~~~'.length - 1 });
+  });
+});

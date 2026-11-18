@@ -25,12 +25,12 @@ pub fn run_stdio_core(core: Arc<Core>) -> i32 {
         let call = |name: &str, arguments: &Value| tools::call(&core, name, arguments);
         if let Some(response) = protocol::handle_message(message, &call) {
             if writeln!(stdout, "{response}").is_err() || stdout.flush().is_err() {
-                core.shutdown();
+                let _ = core.shutdown();
                 return 1;
             }
         }
     }
-    core.shutdown();
+    let _ = core.shutdown();
     0
 }
 

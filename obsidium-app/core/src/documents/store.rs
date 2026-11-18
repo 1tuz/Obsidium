@@ -77,6 +77,15 @@ impl DocumentStore {
         Ok(Self { connection })
     }
 
+    #[cfg(test)]
+    pub fn reject_points(&self) -> StoreResult<()> {
+        self.connection.execute_batch(
+            "CREATE TRIGGER reject_point BEFORE INSERT ON sync_points
+             BEGIN SELECT RAISE(ABORT, 'no points'); END;",
+        )?;
+        Ok(())
+    }
+
     pub fn load(&self, key: &str) -> StoreResult<Vec<Vec<u8>>> {
         let mut blobs: Vec<Vec<u8>> = self
             .connection
@@ -109,6 +118,30 @@ impl DocumentStore {
         self.connection
             .prepare_cached("INSERT INTO replica_updates (key, data) VALUES (?1, ?2)")?
             .execute(params![key, update])?;
+        Ok(())
+    }
+
+    pub fn import_replica(
+        &mut self,
+        key: &str,
+        updates: &[Vec<u8>],
+        point: Option<&SyncPoint>,
+    ) -> StoreResult<()> {
+        let transaction = self.connection.transaction()?;
+        for update in updates {
+            transaction.execute(
+                "INSERT INTO replica_updates (key, data) VALUES (?1, ?2)",
+                params![key, update],
+            )?;
+        }
+        if let Some(point) = point {
+            transaction.execute(
+                "INSERT INTO sync_points (key, file_hash, text_hash) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (key) DO UPDATE SET file_hash = excluded.file_hash, text_hash = excluded.text_hash",
+                params![key, point.file_hash, point.text_hash],
+            )?;
+        }
+        transaction.commit()?;
         Ok(())
     }
 

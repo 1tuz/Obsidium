@@ -5,10 +5,10 @@ import { ChevronDown, ChevronRight } from 'lucide';
 import { createIconElement } from '../../../Common/iconElement';
 import { t } from '../../../../i18n';
 import { findBlockAt, scanDocument, type BlockInfo } from '../../../../modules/blocks/model';
+import { closesFence, openFence } from '../../../../modules/docs/noteEmbeds';
 import './fold.css';
 
 const CLOSED_CALLOUT_PATTERN = /^ {0,3}>[ \t]*\[![^\]]+\][ \t]?[-+]/;
-const FENCE_PATTERN = /^ {0,3}(`{3,}|~{3,})/;
 
 export interface FoldRange {
   from: number;
@@ -39,7 +39,8 @@ export function codeFoldRange(block: BlockInfo): FoldRange | null {
   const lines = block.text.split('\n');
   const firstLine = lines[0]!;
   const lastLine = lines[lines.length - 1]!;
-  if (lines.length < 3 || !FENCE_PATTERN.test(lastLine)) return null;
+  const fence = openFence(firstLine);
+  if (lines.length < 3 || !fence || !closesFence(lastLine, fence)) return null;
   const from = block.from + firstLine.length;
   const to = block.to - lastLine.length - 1;
   if (to <= from) return null;

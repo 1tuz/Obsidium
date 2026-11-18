@@ -275,10 +275,7 @@ pub fn run() {
             let state = window.state::<window_state::WindowStateManager>();
             match event {
                 WindowEvent::Resized(_) => state.observe(window),
-                WindowEvent::CloseRequested { .. } => {
-                    state.capture_and_persist(window);
-                    window.state::<Arc<app_core::Core>>().shutdown();
-                }
+                WindowEvent::CloseRequested { .. } => state.capture_and_persist(window),
                 _ => {}
             }
         })
@@ -290,7 +287,9 @@ pub fn run() {
                 app.state::<window_state::WindowStateManager>()
                     .capture_and_persist(&window.as_ref().window());
             }
-            app.state::<Arc<app_core::Core>>().shutdown();
+            if let Err(error) = app.state::<Arc<app_core::Core>>().shutdown() {
+                eprintln!("[obsidium] изменения не сохранены при выходе: {error}");
+            }
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen {

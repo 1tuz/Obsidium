@@ -5,6 +5,7 @@ import { forgetAttachmentUrls } from '../modules/docs/vaultAttachments';
 import { useTauriEvent } from './useTauriEvent';
 
 export const WORKSPACE_CHANGED_EVENT = 'workspace-changed';
+export const WORKSPACE_RESCAN_EVENT = 'workspace-rescan';
 const EVENT_DELAY_MS = 60;
 const REFRESH_CONCURRENCY = 4;
 
@@ -18,6 +19,7 @@ interface WorkspaceEventsOptions {
 export function useWorkspaceEvents(options: WorkspaceEventsOptions): void {
   const optionsRef = useRef(options);
   const changedPathsRef = useRef(new Set<string>());
+  const rescanRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const mountedRef = useRef(false);
   optionsRef.current = options;
@@ -25,21 +27,36 @@ export function useWorkspaceEvents(options: WorkspaceEventsOptions): void {
   useEffect(() => {
     mountedRef.current = true;
     const changedPaths = changedPathsRef.current;
+    const rescan = rescanRef;
     return () => {
       mountedRef.current = false;
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      timerRef.current = null;
       changedPaths.clear();
+      rescan.current = false;
     };
   }, []);
+
+  const schedule = () => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      const rescan = rescanRef.current;
+      rescanRef.current = false;
+      void refreshChanged(changedPathsRef.current, optionsRef.current, mountedRef, rescan);
+    }, EVENT_DELAY_MS);
+  };
 
   useTauriEvent<string[]>(WORKSPACE_CHANGED_EVENT, (paths) => {
     forgetAttachmentUrls();
     paths.forEach((path) => changedPathsRef.current.add(path));
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => {
-      timerRef.current = null;
-      void refreshChanged(changedPathsRef.current, optionsRef.current, mountedRef);
-    }, EVENT_DELAY_MS);
+    schedule();
+  });
+
+  useTauriEvent<null>(WORKSPACE_RESCAN_EVENT, () => {
+    forgetAttachmentUrls();
+    rescanRef.current = true;
+    schedule();
   });
 }
 
@@ -47,12 +64,23 @@ async function refreshChanged(
   changedPaths: Set<string>,
   options: WorkspaceEventsOptions,
   mounted: { current: boolean },
+  rescan: boolean,
 ): Promise<void> {
   const changed = [...changedPaths];
   changedPaths.clear();
-  const targets = affectedDirectories(options.workspacePath, options.directories, changed);
+  const targets = directoriesToRefresh(options.workspacePath, options.directories, changed, rescan);
   await runBounded(targets, options.refreshDirectory);
   if (mounted.current) options.pruneDirectories();
+}
+
+export function directoriesToRefresh(
+  workspacePath: string | null,
+  directories: ReadonlyMap<string, WorkspaceItem[]>,
+  changedPaths: string[],
+  rescan: boolean,
+): string[] {
+  if (rescan) return [...directories.keys()];
+  return affectedDirectories(workspacePath, directories, changedPaths);
 }
 
 export function affectedDirectories(

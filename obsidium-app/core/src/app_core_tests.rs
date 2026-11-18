@@ -1,7 +1,9 @@
 use super::{Core, CoreEvent, EventSink};
+use crate::documents::hub::HubError;
 use crate::documents::session::SYSTEM_CLIENT;
-use crate::documents::DocumentEvent;
+use crate::documents::{DocumentEvent, SessionError};
 use crate::files::gate;
+use crate::files::watcher::{WatchBatch, WatchScope};
 use crate::history::Source;
 use crate::mcp::bridge::{Disposition, Navigation};
 use serde_json::json;
@@ -107,17 +109,19 @@ fn a_document_whose_file_vanished_reports_it_missing_instead_of_saved() {
     fs::remove_file(&note).unwrap();
     events.clear();
 
-    core.documents
-        .replace_text(
-            &core,
-            &note,
-            "новый текст\n",
-            SYSTEM_CLIENT,
-            Source::Me,
-            None,
-        )
-        .unwrap();
+    let failure = core.documents.replace_text(
+        &core,
+        &note,
+        "новый текст\n",
+        SYSTEM_CLIENT,
+        Source::Me,
+        None,
+    );
 
+    assert!(matches!(
+        failure,
+        Err(HubError::Session(SessionError::Missing))
+    ));
     let names = events.names();
     assert!(names.contains(&"document-missing"), "{names:?}");
     assert!(!names.contains(&"document-saved"), "{names:?}");
@@ -139,4 +143,28 @@ fn trashing_a_note_announces_the_removal() {
         events.names()
     );
     assert!(!Path::new(&note).exists());
+}
+
+#[test]
+fn a_rescan_without_paths_asks_the_whole_tree_to_refresh() {
+    let (_directory, core, events) = open_core();
+
+    core.ingest_watch(WatchBatch::rescan());
+
+    assert_eq!(events.names(), ["workspace-rescan"]);
+}
+
+#[test]
+fn an_ordinary_structure_batch_keeps_the_path_payload() {
+    let (directory, core, events) = open_core();
+    let note = directory.path().join("Заметка.md");
+    std::fs::write(&note, "текст\n").unwrap();
+
+    core.ingest_watch(WatchBatch::new(vec![note.clone()], WatchScope::Structure));
+
+    assert_eq!(events.names(), ["workspace-changed"]);
+    assert_eq!(
+        serde_json::to_value(&events.0.lock().unwrap()[0]).unwrap(),
+        json!([note.to_string_lossy()])
+    );
 }

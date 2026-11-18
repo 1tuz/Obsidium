@@ -54,6 +54,7 @@ workflow:
   - '.github/filters.yml'
   - 'scripts/ci-routing.mjs'
   - 'scripts/ci-routing.test.mjs'
+  - 'scripts/rust-build-detect.mjs'
   - 'scripts/check-rust-format.mjs'
   - 'scripts/test-ci-routing.rb'
   - 'scripts/check-workflow-yaml.rb'
