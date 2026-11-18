@@ -403,7 +403,7 @@ mod tests {
         config.mcp.allow_write = false;
         core.settings.update_config(config).unwrap();
         let error = require_write(&core).unwrap_err();
-        core.shutdown();
+        let _ = core.shutdown();
         assert!(error.contains("Obsidium"), "{error}");
         assert!(
             !error

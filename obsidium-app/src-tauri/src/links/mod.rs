@@ -77,7 +77,7 @@ mod tests {
         assert!(workspace_vault(&core, &known.to_string_lossy()).is_ok());
         assert!(workspace_vault(&core, &unknown.to_string_lossy()).is_err());
 
-        core.shutdown();
+        let _ = core.shutdown();
         let _ = fs::remove_dir_all(app_data);
         let _ = fs::remove_dir_all(known);
         let _ = fs::remove_dir_all(unknown);

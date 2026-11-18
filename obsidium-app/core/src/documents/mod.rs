@@ -9,3 +9,4 @@ pub mod session;
 pub mod store;
 
 pub use hub::{DocumentEvent, DocumentHub, SaveFailed};
+pub use session::SessionError;

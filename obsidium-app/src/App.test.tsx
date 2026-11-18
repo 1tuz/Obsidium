@@ -44,7 +44,7 @@ const tauriMocks = vi.hoisted(() => {
     currentWindow: {
       label: 'main',
       setTheme: vi.fn(async () => undefined),
-      onCloseRequested: vi.fn(async () => () => undefined),
+      onCloseRequested: vi.fn(async (_handler: (event: { preventDefault: () => void }) => Promise<void>) => () => undefined),
     },
   };
 });
@@ -550,5 +550,70 @@ describe('App editor lifecycle', () => {
       'kept-tab',
       expect.objectContaining({ kind: 'pane', paneId: 'main' }),
     );
+  });
+});
+
+describe('window close', () => {
+  let renderer: MountedDom | null = null;
+
+  type CloseHandler = (event: { preventDefault: () => void }) => Promise<void>;
+  let handler: CloseHandler | null = null;
+
+  async function renderApp(): Promise<CloseHandler> {
+    workspaceState.workspaceReady = true;
+    uiStateMocks.open.mockResolvedValue(sessionStub());
+    tauriMocks.currentWindow.onCloseRequested.mockImplementation(async (received) => {
+      handler = received;
+      return () => undefined;
+    });
+    await actAndSettle(() => {
+      renderer = mountDom(<App />);
+    });
+    if (!handler) throw new Error('close handler was not registered');
+    return handler;
+  }
+
+  afterEach(() => {
+    if (renderer) {
+      act(() => renderer?.unmount());
+      renderer = null;
+    }
+    workspaceState.workspaceReady = false;
+    handler = null;
+    vi.clearAllMocks();
+  });
+
+  it('lets the window close when the documents flush succeeds', async () => {
+    tauriMocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'get_spaces') return [];
+      return undefined;
+    });
+    const close = await renderApp();
+    const event = { preventDefault: vi.fn() };
+
+    await close(event);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('vetoes the close when saving a document fails', async () => {
+    tauriMocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'get_spaces') return [];
+      if (command === 'document_flush_all') {
+        throw { code: 'io', details: { message: 'диск недоступен' } };
+      }
+      return undefined;
+    });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const close = await renderApp();
+      const event = { preventDefault: vi.fn() };
+
+      await close(event);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
   });
 });

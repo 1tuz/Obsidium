@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { noteEmbedCreatesCycle, noteEmbedSection, parseNoteEmbed } from './noteEmbeds';
+import { fenceStep, noteEmbedCreatesCycle, noteEmbedOffset, noteEmbedSection, parseNoteEmbed } from './noteEmbeds';
 
 describe('note embeds', () => {
   it('parses note targets and heading references', () => {
@@ -58,5 +58,27 @@ describe('note embeds', () => {
   it('stops a cycle when an embedded path already appears in the ancestry', () => {
     expect(noteEmbedCreatesCycle('/vault/A.md', ['/vault/A.md', '/vault/B.md'])).toBe(true);
     expect(noteEmbedCreatesCycle('/vault/C.md', ['/vault/A.md', '/vault/B.md'])).toBe(false);
+  });
+});
+
+describe('fenced code boundaries shared with the block model', () => {
+  it('treats only a real closer as closing a fence', () => {
+    const fence = { marker: '`', length: 3 };
+    expect(fenceStep(fence, '```js')).toEqual(fence);
+    expect(fenceStep(fence, '``')).toEqual(fence);
+    expect(fenceStep({ marker: '~', length: 3 }, '```')).toEqual({ marker: '~', length: 3 });
+    expect(fenceStep(fence, '```   ')).toBeNull();
+    expect(fenceStep(null, '```js')).toEqual({ marker: '`', length: 3 });
+    expect(fenceStep(null, 'text')).toBeUndefined();
+  });
+
+  it('ignores a heading that follows a fake closer', () => {
+    const fake = '# Intro\n```md\n## Plan\n```js\n## Plan\nbody';
+    expect(noteEmbedOffset(fake, 'Plan')).toBeNull();
+    expect(noteEmbedSection(fake, 'Plan')).toBe('');
+
+    const content = '# Intro\n~~~md\n## Plan\n```\n~~~\n## Plan\nbody\n## Next\nend';
+    expect(noteEmbedOffset(content, 'Plan')).toBe(content.indexOf('## Plan\nbody'));
+    expect(noteEmbedSection(content, 'Plan')).toBe('## Plan\nbody');
   });
 });

@@ -88,3 +88,35 @@ describe('block scanning', () => {
     expect(first).toHaveLength(2);
   });
 });
+
+describe('fenced code boundaries', () => {
+  it('keeps the fence open when the closer has trailing non-whitespace', () => {
+    const source = '```\ncode\n```js\n# fake\n# real';
+    const blocks = scanBlocks(source);
+    expect(kinds(blocks)).toEqual(['code']);
+    expect(blocks[0]!.text).toBe('```\ncode\n```js\n# fake\n# real');
+    expect(findBlockAt(blocks, source.indexOf('# fake'))?.kind).toBe('code');
+    expect(blocksInRanges(source, [{ from: source.indexOf('# fake'), to: source.indexOf('# fake') }])).toHaveLength(1);
+  });
+
+  it('keeps the fence open on a mismatched marker or a shorter closer', () => {
+    for (const closer of ['```', '``']) {
+      const source = `~~~\ncode\n${closer}\n# fake`;
+      expect(kinds(scanBlocks(source))).toEqual(['code']);
+    }
+    const short = '````\ncode\n```\n# fake\n````';
+    const blocks = scanBlocks(short);
+    expect(kinds(blocks)).toEqual(['code']);
+    expect(blocks[0]!.to).toBe(short.length);
+  });
+
+  it('closes on the same marker with at least the opener length and only whitespace after', () => {
+    expect(kinds(scanBlocks('```\ncode\n```   \n# real'))).toEqual(['code', 'heading']);
+    expect(kinds(scanBlocks('~~~\ncode\n~~~~~\n# real'))).toEqual(['code', 'heading']);
+  });
+
+  it('reports an unterminated fence up to the end of the document', () => {
+    const source = '```\ncode\n# still code';
+    expect(scanBlocks(source)[0]!.text).toBe(source);
+  });
+});

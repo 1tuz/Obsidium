@@ -857,7 +857,7 @@ mod tests {
         assert_eq!(lines[start - 1..end].join("\n"), excerpt, "{answer}");
         assert!(excerpt.contains("установка"), "{answer}");
         assert_eq!(first["hash"].as_str().unwrap().len(), 64, "{answer}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -877,7 +877,7 @@ mod tests {
             );
             assert!(seen.insert(key), "фрагмент повторился: {answer}");
         }
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -906,7 +906,7 @@ mod tests {
             results.iter().any(|item| item["path"] == "В.md"),
             "{answer}"
         );
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -978,7 +978,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(paths(&answer), ["Цель/Ключи.md"], "{answer}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -1015,7 +1015,7 @@ mod tests {
         assert_eq!(answer["budget"]["usedChars"], used);
         assert_eq!(answer["truncated"], true, "{answer}");
         assert!(answer["omitted"].as_u64().unwrap() >= 1, "{answer}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -1060,7 +1060,7 @@ mod tests {
         let mut found = paths(&both);
         found.sort();
         assert_eq!(found, ["Заметки/Бета.md", "Проекты/Альфа.md"]);
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -1091,7 +1091,7 @@ mod tests {
         .unwrap();
         let found = paths(&without);
         assert_eq!(found, ["Центр.md"], "{without}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -1125,7 +1125,7 @@ mod tests {
             deep_without_links["searchMethod"],
             "tantivy+bm25f+adamic-adar+graph"
         );
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]
@@ -1135,7 +1135,7 @@ mod tests {
         let error = call(&core, "search_context", &json!({ "query": "   " })).unwrap_err();
 
         assert!(error.contains("query"), "{error}");
-        core.shutdown();
+        let _ = core.shutdown();
     }
 
     #[test]

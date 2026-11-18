@@ -19,7 +19,15 @@ interface DocumentSyncOptions {
   onFailure: (error: unknown) => void;
 }
 
+interface LiveSync {
+  settle(): Promise<void>;
+  pushLater(): void;
+  needsPush(): boolean;
+  broken(): boolean;
+}
+
 const EXTERNAL_CLIENTS = new Set(['disk']);
+const live = new Set<LiveSync>();
 
 function caretInsideReplacement(changes: ChangeSet, caret: number): boolean {
   let inside = false;
@@ -51,81 +59,96 @@ function applyIncoming(view: EditorView, incoming: LoggedChange[]): void {
   }
 }
 
+export async function flushSyncedEditors(): Promise<boolean> {
+  const editors = [...live];
+  editors.forEach((editor) => editor.pushLater());
+  await Promise.all(editors.map((editor) => editor.settle()));
+  return editors.every((editor) => !editor.broken() && !editor.needsPush());
+}
+
 export function documentSync(options: DocumentSyncOptions): Extension {
-  const plugin = ViewPlugin.fromClass(class {
-    private pushing = false;
-    private pulling = false;
+  class SyncPlugin implements LiveSync {
+    private inFlight: Promise<void> | null = null;
     private pullAgain = false;
+    private failure: unknown = null;
     private done = false;
     private readonly unlisten: () => void;
 
     constructor(private readonly view: EditorView) {
+      live.add(this);
       this.unlisten = onDocumentChanged(options.path, () => {
-        void this.pull();
+        if (this.inFlight) this.pullAgain = true;
+        this.pushLater();
       });
-      void this.pull();
+      this.pushLater();
     }
 
     update(update: ViewUpdate): void {
-      if (update.docChanged) void this.push();
+      if (update.docChanged) this.pushLater();
     }
 
-    private async push(): Promise<void> {
-      const updates = sendableUpdates(this.view.state);
-      if (this.pushing || this.done || updates.length === 0) return;
-      this.pushing = true;
-      try {
-        const version = getSyncedVersion(this.view.state);
-        const accepted = await pushChanges(
-          options.path(),
-          version,
-          getClientID(this.view.state),
-          updates.map((update) => update.changes.toJSON()),
-        );
-        if (!accepted) this.pullAgain = true;
-      } catch (error) {
-        this.pushing = false;
-        options.onFailure(error);
-        return;
-      }
-      this.pushing = false;
-      await this.pull();
+    settle(): Promise<void> {
+      return this.inFlight ?? Promise.resolve();
     }
 
-    private async pull(): Promise<void> {
-      if (this.done) return;
-      if (this.pulling) {
-        this.pullAgain = true;
-        return;
-      }
-      this.pulling = true;
-      const outcome = await this.drain().catch((error: unknown) => {
-        options.onFailure(error);
-        return 'failed' as const;
+    needsPush(): boolean {
+      return !this.done && sendableUpdates(this.view.state).length > 0;
+    }
+
+    broken(): boolean {
+      return this.failure !== null;
+    }
+
+    pushLater(): void {
+      if (this.inFlight || this.done) return;
+      this.inFlight = this.sync().finally(() => {
+        this.inFlight = null;
       });
-      this.pulling = false;
-      if (outcome === 'synced' && sendableUpdates(this.view.state).length > 0) void this.push();
     }
 
-    private async drain(): Promise<'synced' | 'stopped' | 'failed'> {
+    private async sync(): Promise<void> {
+      try {
+        while (!this.done) {
+          if (!(await this.pull())) return;
+          const updates = sendableUpdates(this.view.state);
+          if (updates.length === 0) return;
+          const accepted = await pushChanges(
+            options.path(),
+            getSyncedVersion(this.view.state),
+            getClientID(this.view.state),
+            updates.map((update) => update.changes.toJSON()),
+          );
+          this.failure = null;
+          if (!accepted) continue;
+        }
+      } catch (error) {
+        this.failure = error;
+        options.onFailure(error);
+      }
+    }
+
+    private async pull(): Promise<boolean> {
       do {
         this.pullAgain = false;
         const result = await pullChanges(options.path(), getSyncedVersion(this.view.state));
-        if (this.done) return 'stopped';
+        if (this.done) return false;
+        this.failure = null;
         if (result.kind === 'resync') {
           options.onResync({ text: result.text, version: result.version });
-          return 'stopped';
+          return false;
         }
         if (result.changes.length > 0) applyIncoming(this.view, result.changes);
       } while (this.pullAgain && !this.done);
-      return 'synced';
+      return true;
     }
 
     destroy(): void {
       this.done = true;
+      live.delete(this);
       this.unlisten();
     }
-  });
+  }
 
+  const plugin = ViewPlugin.fromClass(SyncPlugin);
   return [collab({ startVersion: options.startVersion, clientID: options.clientID }), plugin];
 }

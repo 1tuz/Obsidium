@@ -1,6 +1,7 @@
 use super::*;
 use crate::app_core::EventSink;
 use crate::documents::resolve::SyncPointLookup;
+use crate::documents::session::SessionError;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Barrier};
 
@@ -199,13 +200,13 @@ fn replica(path: &Path, point: Option<LegacyPoint>) -> LegacyReplica {
 
 #[test]
 fn moves_a_legacy_replica_with_its_sync_point_into_the_store() {
-    let store = DocumentStore::memory().expect("store");
+    let mut store = DocumentStore::memory().expect("store");
     let path = note("moved");
     let point = LegacyPoint {
         file_hash: "f".into(),
         text_hash: "t".into(),
     };
-    assert!(import_one(&store, &replica(&path, Some(point))));
+    assert!(import_one(&mut store, &replica(&path, Some(point))));
     let key = identity(&path);
     assert_eq!(store.load(&key).expect("load"), vec![b"update".to_vec()]);
     assert_eq!(
@@ -224,7 +225,7 @@ fn never_overrides_a_replica_the_core_already_keeps() {
     store
         .compact(&identity(&path), b"current")
         .expect("compact");
-    assert!(!import_one(&store, &replica(&path, None)));
+    assert!(!import_one(&mut store, &replica(&path, None)));
     assert_eq!(
         store.load(&identity(&path)).expect("load"),
         vec![b"current".to_vec()]
@@ -233,9 +234,96 @@ fn never_overrides_a_replica_the_core_already_keeps() {
 
 #[test]
 fn skips_a_note_that_no_longer_exists() {
-    let store = DocumentStore::memory().expect("store");
+    let mut store = DocumentStore::memory().expect("store");
     let path = note("gone");
     std::fs::remove_file(&path).expect("remove");
-    assert!(!import_one(&store, &replica(&path, None)));
+    assert!(!import_one(&mut store, &replica(&path, None)));
     assert!(!store.has_replica(&identity(&path)).expect("query"));
+}
+
+#[test]
+fn reports_the_request_indices_it_actually_imported() {
+    let directory = tempfile::tempdir().expect("directory");
+    let core = Core::open(
+        &directory.path().join("data"),
+        Arc::new(|_: CoreEvent| {}) as Arc<dyn EventSink>,
+    );
+    let first = note("reported-first");
+    let skipped = note("reported-skipped");
+    std::fs::remove_file(&skipped).expect("remove");
+    let third = note("reported-third");
+
+    let imported = core.documents.import_legacy(&[
+        replica(&first, None),
+        replica(&skipped, None),
+        replica(&third, None),
+    ]);
+
+    assert_eq!(imported, vec![0, 2]);
+}
+
+#[test]
+fn a_failed_import_keeps_the_replica_out_of_the_store() {
+    let directory = tempfile::tempdir().expect("directory");
+    let core = Core::open(
+        &directory.path().join("data"),
+        Arc::new(|_: CoreEvent| {}) as Arc<dyn EventSink>,
+    );
+    let path = note("rejecting");
+    core.documents
+        .store
+        .lock()
+        .expect("store")
+        .as_ref()
+        .expect("store")
+        .reject_points()
+        .expect("trigger");
+    let point = LegacyPoint {
+        file_hash: "f".into(),
+        text_hash: "t".into(),
+    };
+
+    assert!(core
+        .documents
+        .import_legacy(&[replica(&path, Some(point))])
+        .is_empty());
+    let store = core.documents.store.lock().expect("store");
+    assert!(!store
+        .as_ref()
+        .expect("store")
+        .has_replica(&identity(&path))
+        .expect("query"));
+}
+
+#[test]
+fn flushing_reports_a_disk_failure_and_keeps_the_edit_dirty() {
+    let directory = tempfile::tempdir().expect("directory");
+    let core = Core::open(
+        &directory.path().join("data"),
+        Arc::new(|_: CoreEvent| {}) as Arc<dyn EventSink>,
+    );
+    let path = note("flush-failure");
+    let opened = core.documents.open(&core, &path, 0).expect("open");
+    let length = opened.text.encode_utf16().count();
+    assert!(core
+        .documents
+        .push(
+            &core,
+            &path,
+            opened.version,
+            "editor",
+            &[serde_json::json!([[length, "правка"]])],
+        )
+        .expect("push"));
+    std::fs::remove_file(&path).expect("remove");
+    std::fs::create_dir(&path).expect("directory in place of the note");
+
+    let failure = core.documents.flush_all(&core);
+    assert!(
+        matches!(failure, Err(SessionError::Disk { .. })),
+        "{failure:?}"
+    );
+    let key = identity(&path);
+    let sessions = core.documents.shard(&key).lock().expect("sessions");
+    assert!(sessions.get(&key).expect("entry").session.dirty());
 }

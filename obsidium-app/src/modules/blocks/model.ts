@@ -1,6 +1,6 @@
 import type { Text } from '@codemirror/state';
 import { matchOutlineItem } from '../../components/Editor/extensions/outline/constructs';
-import { parseHeadingLine } from '../docs/noteEmbeds';
+import { closesFence, openFence, parseHeadingLine } from '../docs/noteEmbeds';
 
 export type BlockKind =
   | 'frontmatter'
@@ -43,7 +43,6 @@ export interface TextChange {
   insert: string;
 }
 
-const FENCE_PATTERN = /^ {0,3}(`{3,}|~{3,})/;
 const HORIZONTAL_RULE_PATTERN = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const QUOTE_PATTERN = /^ {0,3}>/;
 const CALLOUT_PATTERN = /^ {0,3}>[ \t]*\[!([^\]]+)\][+-]?/;
@@ -72,17 +71,6 @@ function splitLines(source: string): LineInfo[] {
     from = newline + 1;
   }
   return lines;
-}
-
-function fenceStarts(line: string): { marker: string; length: number } | null {
-  const match = FENCE_PATTERN.exec(line);
-  if (!match) return null;
-  return { marker: match[1]![0]!, length: match[1]!.length };
-}
-
-function isFenceClose(line: string, fence: { marker: string; length: number }): boolean {
-  const match = FENCE_PATTERN.exec(line);
-  return match !== null && match[1]![0] === fence.marker && match[1]!.length >= fence.length;
 }
 
 function isBlank(line: string): boolean {
@@ -153,7 +141,7 @@ function listDetails(line: string): { indent: string; marker: string; level: num
 
 function breaksListItem(line: string): boolean {
   return parseHeadingLine(line) !== null
-    || fenceStarts(line) !== null
+    || openFence(line) !== null
     || QUOTE_PATTERN.test(line)
     || HORIZONTAL_RULE_PATTERN.test(line)
     || SYNC_PATTERN.test(line);
@@ -161,7 +149,7 @@ function breaksListItem(line: string): boolean {
 
 function startsBlock(line: string, next: string | undefined, inList: boolean): boolean {
   if (isBlank(line)) return true;
-  if (fenceStarts(line) || QUOTE_PATTERN.test(line) || HORIZONTAL_RULE_PATTERN.test(line)) return true;
+  if (openFence(line) || QUOTE_PATTERN.test(line) || HORIZONTAL_RULE_PATTERN.test(line)) return true;
   if (parseHeadingLine(line)) return true;
   if (SYNC_PATTERN.test(line)) return true;
   if (listDetails(line)) return true;
@@ -188,10 +176,10 @@ export function scanBlocks(source: string): BlockInfo[] {
       continue;
     }
 
-    const fence = fenceStarts(line);
+    const fence = openFence(line);
     if (fence) {
       let end = index + 1;
-      while (end < lines.length && !isFenceClose(lines[end]!.text, fence)) end += 1;
+      while (end < lines.length && !closesFence(lines[end]!.text, fence)) end += 1;
       const last = Math.min(end, lines.length - 1);
       blocks.push(makeBlock(lines, index, last, 'code'));
       index = last + 1;
