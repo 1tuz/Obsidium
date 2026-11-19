@@ -21,7 +21,7 @@ Obsidium/
     ├── core/                ← Rust-ядро (obsidium-core): без UI
     │   ├── Cargo.toml
     │   └── src/{documents,files,history,link_title,mcp,search,settings,ui_state,wikixiv}/
-    ├── cli/                 ← headless CLI (obsidium-cli) поверх того же ядра
+    ├── cli/                 ← headless CLI (Cargo-пакет `obsidium-cli-package`, бинарь `obsidium`) поверх того же ядра
     ├── src/                 ← Preact + TypeScript, CodeMirror 6
     ├── src-tauri/           ← Tauri-хост (obsidium-app): команды, окно, MCP-мост
     ├── tests/
@@ -37,8 +37,9 @@ Obsidium/
 ## Пространство крейтов
 
 `obsidium-app/src-tauri/Cargo.toml` — корень workspace, участники: `.` (`obsidium-app`), `../core`
-(`obsidium-core`), `../cli` (`obsidium-cli`). Ядро не зависит от Tauri, поэтому его тесты идут на
-любой платформе без WebView-зависимостей, а CLI переиспользует тот же код, что и приложение
+(`obsidium-core`), `../cli` (внутренний Cargo-пакет `obsidium-cli-package`, бинарь `obsidium`). Ядро не
+зависит от Tauri, поэтому его тесты идут на любой платформе без WebView-зависимостей, а CLI
+переиспользует тот же код, что и приложение
 ([[headless-cli-and-mcp-transactions]]).
 
 ## Установленные зависимости

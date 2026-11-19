@@ -88,7 +88,7 @@ version-only changes` выставляет `build_required=false`, когда и
 | Файл | Что вырезается |
 | --- | --- |
 | `core/Cargo.toml`, `cli/Cargo.toml`, `src-tauri/Cargo.toml` | строка `version = "..."` **внутри таблицы `[package]`** |
-| `src-tauri/Cargo.lock` | строка `version =` только в блоках `[[package]]` крейтов `obsidium-app`, `obsidium-core`, `obsidium-cli` |
+| `src-tauri/Cargo.lock` | строка `version =` только в блоках `[[package]]` крейтов `obsidium-app`, `obsidium-core`, `obsidium-cli-package` |
 | `src-tauri/tauri.conf.json` | поле `version` верхнего уровня (сравниваются распарсенные объекты) |
 
 Если после вырезания тексты совпадают и других изменений под Rust-корнями нет — это релизный бамп.

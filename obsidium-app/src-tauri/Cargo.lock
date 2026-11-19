@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "obsidium-app"
-version = "0.5.41"
+version = "0.5.42"
 dependencies = [
  "objc2",
  "objc2-app-kit",
@@ -2884,7 +2884,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "obsidium-cli"
+name = "obsidium-cli-package"
 version = "0.2.8"
 dependencies = [
  "obsidium-core",
@@ -2893,7 +2893,7 @@ dependencies = [
 
 [[package]]
 name = "obsidium-core"
-version = "0.5.41"
+version = "0.5.42"
 dependencies = [
  "atomic-write-file",
  "blake3",

@@ -544,7 +544,7 @@ seed();
 await check('the obsidium binary is available', () => {
   assert.ok(
     existsSync(bin),
-    `${bin} is missing; run cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli`,
+    `${bin} is missing; run cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli-package`,
   );
 });
 await quickChecks();

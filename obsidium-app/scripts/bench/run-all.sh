@@ -33,7 +33,7 @@ echo "== 1. in-process core benches (sizes=$SIZES) =="
 
 echo "== 2. end-to-end CLI =="
 if [ ! -x "$CLI" ]; then
-  ( cd "$ROOT/src-tauri" && CARGO_TARGET_DIR="$TARGET" cargo build --release -p obsidium-cli )
+  ( cd "$ROOT/src-tauri" && CARGO_TARGET_DIR="$TARGET" cargo build --release -p obsidium-cli-package )
 fi
 
 IFS=',' read -ra LIST <<< "$SIZES"
