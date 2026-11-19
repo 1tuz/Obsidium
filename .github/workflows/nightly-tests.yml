@@ -84,7 +84,7 @@ jobs:
           workspaces: obsidium-app/src-tauri -> target
 
       - name: Build the CLI
-        run: cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli
+        run: cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli-package
 
       - name: Run the full agent surface smoke test
         run: node scripts/agent-smoke.mjs --full
@@ -156,7 +156,7 @@ jobs:
       - name: Build the CLI sidecar for the app bundle
         shell: bash
         run: |
-          cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli --target ${{ matrix.target }}
+          cargo build --locked --manifest-path obsidium-app/src-tauri/Cargo.toml -p obsidium-cli-package --target ${{ matrix.target }}
           mkdir -p obsidium-app/src-tauri/binaries
           cp "obsidium-app/src-tauri/target/${{ matrix.target }}/debug/obsidium${{ matrix.exe }}" \
             "obsidium-app/src-tauri/binaries/${{ matrix.sidecar }}-${{ matrix.target }}${{ matrix.exe }}"

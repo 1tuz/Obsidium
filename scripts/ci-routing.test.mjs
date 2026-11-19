@@ -13,7 +13,7 @@ const DETECT = join(REPO, 'scripts/rust-build-detect.mjs');
 const VERSION_ONLY_MANIFESTS = {
   'obsidium-app/src-tauri/Cargo.toml': '[package]\nname = "obsidium-app"\nversion = "0.5.40"\n\n[workspace]\nmembers = [".", "../core", "../cli"]\n',
   'obsidium-app/core/Cargo.toml': '[package]\nname = "obsidium-core"\nversion = "0.5.40"\n\n[dependencies.serde]\nversion = "1.0.200"\nfeatures = ["derive"]\n',
-  'obsidium-app/cli/Cargo.toml': '[package]\nname = "obsidium-cli"\nversion = "0.5.40"\n',
+  'obsidium-app/cli/Cargo.toml': '[package]\nname = "obsidium-cli-package"\nversion = "0.5.40"\n',
   'obsidium-app/src-tauri/Cargo.lock': 'version = 3\n\n[[package]]\nname = "obsidium-app"\nversion = "0.5.40"\n\n[[package]]\nname = "obsidium-core"\nversion = "0.5.40"\n\n[[package]]\nname = "serde"\nversion = "1.0.200"\n',
   'obsidium-app/src-tauri/tauri.conf.json': '{\n  "productName": "Obsidium",\n  "version": "0.5.40",\n  "identifier": "com.obsidium.app"\n}\n',
 };
@@ -206,7 +206,7 @@ test('the routed Rust test step runs the real Cargo commands for each changed cr
   const cases = [
     [{ WORKSPACE_CHANGED: 'true' }, ['--workspace']],
     [{ CORE_CHANGED: 'true' }, ['-p obsidium-core']],
-    [{ APP_CHANGED: 'true', CLI_CHANGED: 'true' }, ['-p obsidium-app', '-p obsidium-cli']],
+    [{ APP_CHANGED: 'true', CLI_CHANGED: 'true' }, ['-p obsidium-app', '-p obsidium-cli-package']],
   ];
   for (const [env, expected] of cases) {
     const root = mkdtempSync(join(tmpdir(), 'obsidium-cargo-stub-'));
@@ -279,7 +279,12 @@ test('the agent surface filter covers the CLI, MCP, links, wiki, and task source
   const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
   assert.match(ci, /steps\.changes\.outputs\.agent_surface == 'true'/u);
   assert.match(ci, /node scripts\/agent-smoke\.mjs/u);
-  assert.match(ci, /cargo build --locked --manifest-path obsidium-app\/src-tauri\/Cargo\.toml -p obsidium-cli/u);
+  assert.match(ci, /cargo build --locked --manifest-path obsidium-app\/src-tauri\/Cargo\.toml -p obsidium-cli-package/u);
+});
+test('the CLI package name stays distinct from its shipped sidecar binary names', () => {
+  const manifest = readFileSync('obsidium-app/cli/Cargo.toml', 'utf8');
+  assert.match(manifest, /^name = "obsidium-cli-package"$/mu);
+  assert.match(manifest, /^name = "obsidium"$/mu);
 });
 
 test('nightly runs the full agent surface smoke test', () => {

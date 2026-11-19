@@ -46,7 +46,7 @@ const args = [
   'build',
   '--locked',
   '-p',
-  'obsidium-cli',
+  'obsidium-cli-package',
   '--manifest-path',
   manifest,
   '--target',

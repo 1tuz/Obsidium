@@ -1,5 +1,5 @@
 [package]
-name = "obsidium-cli"
+name = "obsidium-cli-package"
 version = "0.2.8"
 description = "Headless CLI for Obsidium"
 authors = ["Obsidium contributors"]

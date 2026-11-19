@@ -17,7 +17,7 @@ const VERSION_ONLY_PATHS = new Set([
   'obsidium-app/src-tauri/tauri.conf.json',
 ]);
 
-const WORKSPACE_CRATES = new Set(['obsidium-app', 'obsidium-core', 'obsidium-cli']);
+const WORKSPACE_CRATES = new Set(['obsidium-app', 'obsidium-core', 'obsidium-cli-package']);
 
 const PACKAGE_VERSION_LINE = /^version\s*=\s*"[^"]*"\s*$/;
 const TABLE_HEADER_LINE = /^\s*\[/;
