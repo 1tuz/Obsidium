@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 import { t } from '../../i18n';
 import {
   DEFAULT_HEADING_MINIMAP_SCALE,
   MAX_HEADING_MINIMAP_SCALE,
   MIN_HEADING_MINIMAP_SCALE,
 } from '../../modules/settings';
-import { subscribeMinimap, type MinimapMark, type MinimapState } from './extensions/blocks/minimapBridge';
+import { jumpToMinimapMark, subscribeMinimap, type MinimapMark, type MinimapState } from './extensions/blocks/minimapBridge';
 import './HeadingMinimap.css';
 
 const EMPTY_MINIMAP: MinimapState = { marks: [], activeIndex: -1, top: 0, viewportHeight: 0 };
@@ -103,11 +103,6 @@ export function HeadingMinimap({ view, scale = DEFAULT_HEADING_MINIMAP_SCALE }: 
 
   if (!view || state.marks.length === 0) return null;
 
-  const jump = (pos: number) => {
-    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
-    view.focus();
-  };
-
   const rows = minimapRows(state.marks, state.viewportHeight, state.activeIndex);
   const step = rowStep(rows.length, state.viewportHeight);
   const hoveredRow = hovered !== null ? rows[hovered] : undefined;
@@ -139,15 +134,21 @@ export function HeadingMinimap({ view, scale = DEFAULT_HEADING_MINIMAP_SCALE }: 
           <button
             key={`${row.mark.pos}-${row.source}`}
             type="button"
-            className="q-block-minimap__stroke"
+            className="q-block-minimap__row"
             data-level={row.mark.level}
-            style={{ width: markWidth(row.mark.level, factor, scale), height: strokeSize, top: index * step + step / 2 }}
+            style={{ height: step, top: index * step + step / 2 }}
             aria-label={row.mark.text}
             aria-current={row.source === state.activeIndex ? 'true' : undefined}
             onFocus={() => setHovered(index)}
             onBlur={() => setHovered(null)}
-            onClick={() => jump(row.mark.pos)}
-          />
+            onClick={() => jumpToMinimapMark(view, row.mark.pos)}
+          >
+            <span
+              className="q-block-minimap__stroke"
+              aria-hidden="true"
+              style={{ width: markWidth(row.mark.level, factor, scale), height: strokeSize }}
+            />
+          </button>
         );
       })}
     </nav>

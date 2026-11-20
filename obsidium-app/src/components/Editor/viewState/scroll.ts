@@ -1,6 +1,10 @@
 import type { EditorView } from '@codemirror/view';
 
-export function resolveEditorScrollElement(container: HTMLElement, readOnly = false): HTMLElement {
+export function resolveEditorScrollElement(container: HTMLElement, readOnly = false, scroller?: HTMLElement): HTMLElement {
+  if (scroller) {
+    const book = scroller.closest<HTMLElement>('.q-book-page:not(.q-book-page--inactive)');
+    return book && container.contains(book) ? book : readOnly ? scroller : container;
+  }
   const book = container.querySelector('.q-book-page:not(.q-book-page--inactive)');
   if (book) return book as HTMLElement;
 

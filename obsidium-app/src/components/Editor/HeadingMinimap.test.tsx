@@ -136,8 +136,8 @@ describe('HeadingMinimap', () => {
     body.append(host);
     act(() => { renderer = mountDom(<HeadingMinimap view={view} />); });
     const nav = renderer!.container.querySelector<HTMLElement>('.q-block-minimap')!;
-    const strokes = [...nav.querySelectorAll<HTMLButtonElement>('.q-block-minimap__stroke')];
-    const widths = () => strokes.map((stroke) => Number(/width: (\d+)px/u.exec(stroke.getAttribute('style') ?? '')?.[1]));
+    const strokes = [...nav.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row')];
+    const widths = () => strokes.map((row) => Number.parseFloat(row.querySelector<HTMLElement>('.q-block-minimap__stroke')!.style.width));
     const tops = () => strokes.map((stroke) => Number(/top: ([\d.]+)px/u.exec(stroke.getAttribute('style') ?? '')?.[1]));
     const hover = (clientY: number) => {
       vi.spyOn(nav, 'getBoundingClientRect').mockImplementation(() => ({ top: 0, bottom: 300, height: 300 } as DOMRect));
@@ -185,6 +185,12 @@ describe('HeadingMinimap', () => {
     expect(strokes.map((stroke) => stroke.getAttribute('aria-label'))).toEqual(['Alpha', 'Middle', 'Omega']);
   });
 
+  it('gives each heading row a full-step keyboard and pointer hitbox', () => {
+    const { strokes, tops } = setup();
+    expect(strokes.map((stroke) => Number.parseFloat(stroke.style.height))).toEqual([12, 12, 12]);
+    expect(tops()).toEqual([6, 18, 30]);
+  });
+
   it('jumps to the heading position on click', () => {
     const { strokes, view } = setup();
     act(() => { strokes[2]!.click(); });
@@ -192,7 +198,8 @@ describe('HeadingMinimap', () => {
     view.destroy();
   });
 
-  it('scrolls the reading scrollport when a stroke is clicked', () => {
+  it.each([false, true])('scrolls to lower headings without changing reading selection or focus (book: %s)', (bookMode) => {
+    vi.useFakeTimers();
     const container = document.createElement('div');
     container.className = 'q-editor-container';
     const content = document.createElement('div');
@@ -200,18 +207,50 @@ describe('HeadingMinimap', () => {
     const body = document.createElement('div');
     body.className = 'q-editor-content__body';
     content.append(body);
-    container.append(content);
+    const book = document.createElement('div');
+    book.className = `q-book-page${bookMode ? '' : ' q-book-page--inactive'}`;
+    book.append(content);
+    container.append(book);
     document.body.append(container);
     const view = new EditorView({
       parent: body,
-      state: EditorState.create({ doc: HEADINGS, extensions: [minimapExtension()] }),
+      state: EditorState.create({
+        doc: HEADINGS,
+        extensions: [minimapExtension(), EditorState.readOnly.of(true), EditorView.editable.of(false)],
+      }),
     });
-    const scrollIntoView = vi.spyOn(EditorView, 'scrollIntoView');
+    const owner = bookMode ? book : view.scrollDOM;
+    const ownerTop = bookMode ? 30 : 90;
+    const documentOffset = bookMode ? 160 : 12;
+    container.scrollTop = 40;
+    owner.scrollTop = 70;
+    Object.defineProperty(owner, 'clientHeight', { value: 100 });
+    Object.defineProperty(owner, 'scrollHeight', { value: 1000 });
+    vi.spyOn(owner, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, ownerTop, 100, 100));
+    vi.spyOn(body, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, ownerTop, 100, 100));
+    if (bookMode) {
+      vi.spyOn(view.scrollDOM, 'getBoundingClientRect').mockImplementation(() =>
+        new DOMRect(0, ownerTop + documentOffset - owner.scrollTop, 100, 1000));
+    }
+    vi.spyOn(view, 'documentTop', 'get').mockImplementation(() => ownerTop + documentOffset - owner.scrollTop);
+    vi.spyOn(view, 'lineBlockAt').mockImplementation((pos) => ({ top: pos * 25 }) as BlockInfo);
     act(() => { renderer = mountDom(<HeadingMinimap view={view} />); });
-    const strokes = renderer!.container.querySelectorAll<HTMLButtonElement>('.q-block-minimap__stroke');
-    act(() => { strokes[2]!.click(); });
-    expect(view.state.selection.main.anchor).toBe(HEADINGS.indexOf('# Omega'));
-    expect(scrollIntoView).toHaveBeenCalledWith(HEADINGS.indexOf('# Omega'), { y: 'start' });
+    const strokes = renderer!.container.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row');
+    for (const [index, heading] of [[2, '# Omega'], [1, '## Middle']] as const) {
+      const row = strokes[index]!;
+      act(() => {
+        row.focus();
+        row.click();
+        vi.advanceTimersByTime(32);
+      });
+      expect(owner.scrollTop).toBe(documentOffset + HEADINGS.indexOf(heading) * 25);
+      expect(container.scrollTop).toBe(40);
+      if (bookMode) expect(view.scrollDOM.scrollTop).toBe(0);
+      expect(view.state.selection.main.anchor).toBe(0);
+      expect(document.activeElement).toBe(row);
+      expect(view.state.readOnly).toBe(true);
+      expect(view.state.doc.toString()).toBe(HEADINGS);
+    }
     view.destroy();
   });
 

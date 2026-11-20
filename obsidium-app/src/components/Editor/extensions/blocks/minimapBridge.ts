@@ -127,7 +127,7 @@ function compute(view: EditorView, session: MinimapSession): void {
   const layout = session.layout!;
   const marks = layout.marks;
   const container = view.dom.closest<HTMLElement>('.q-editor-container');
-  const owner = container ? resolveEditorScrollElement(container, view.state.readOnly) : view.scrollDOM;
+  const owner = container ? resolveEditorScrollElement(container, view.state.readOnly, view.scrollDOM) : view.scrollDOM;
   if (session.owner !== owner) {
     session.owner?.removeEventListener('scroll', session.onScroll);
     if (session.owner) session.observer?.unobserve(session.owner);
@@ -206,6 +206,29 @@ function ensureSession(view: EditorView): MinimapSession {
   }
   sessions.set(view, session);
   return session;
+}
+
+export function jumpToMinimapMark(view: EditorView, pos: number): void {
+  if (!view.state.readOnly) {
+    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
+    view.focus();
+    return;
+  }
+
+  const doc = view.state.doc;
+  view.requestMeasure({
+    key: jumpToMinimapMark,
+    read: () => {
+      if (!view.state.readOnly || view.state.doc !== doc) return null;
+      const container = view.dom.closest<HTMLElement>('.q-editor-container');
+      const owner = container ? resolveEditorScrollElement(container, true, view.scrollDOM) : view.scrollDOM;
+      const top = view.documentTop + view.lineBlockAt(pos).top - owner.getBoundingClientRect().top - owner.clientTop * view.scaleY;
+      return { owner, scrollTop: owner.scrollTop + top / view.scaleY };
+    },
+    write: (target) => {
+      if (target) target.owner.scrollTop = target.scrollTop;
+    },
+  });
 }
 
 export function subscribeMinimap(

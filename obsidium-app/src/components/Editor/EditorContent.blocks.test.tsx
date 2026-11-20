@@ -93,13 +93,13 @@ describe('EditorContent block features', () => {
       );
     });
     const strokes = renderer!.container.querySelectorAll<HTMLElement>('.q-block-minimap__stroke');
+    const rows = renderer!.container.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row');
     expect(renderer!.container.querySelector('.q-editor-content__body .q-block-minimap')).not.toBeNull();
     expect(strokes).toHaveLength(2);
-    expect(strokes[0]!.dataset.level).toBe('1');
-    expect(strokes[1]!.dataset.level).toBe('2');
+    expect([...rows].map((row) => row.dataset.level)).toEqual(['1', '2']);
     const widths = [...strokes].map((stroke) => parseFloat(stroke.style.width));
     expect(widths[0]!).toBeGreaterThan(widths[1]!);
-    act(() => { strokes[1].click(); });
+    act(() => { rows[1]!.click(); });
     expect(bodyRef.current!.state.selection.main.head).toBe(BODY.indexOf('## Two'));
   });
 

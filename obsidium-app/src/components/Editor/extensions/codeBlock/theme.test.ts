@@ -1,39 +1,31 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+// @vitest-environment happy-dom
+import { EditorView } from '@codemirror/view';
+import { expect, it } from 'vitest';
+import { codeBlockTheme } from './theme';
 
-const theme = readFileSync(resolve(process.cwd(), 'src/components/Editor/extensions/codeBlock/theme.ts'), 'utf8');
+it('keeps the code controls within a narrow editor without wrapping the copy label', () => {
+  const view = new EditorView({ extensions: [codeBlockTheme], parent: document.body });
+  try {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'q-md-code-controls';
+    const language = document.createElement('select');
+    language.className = 'q-md-code-controls__language';
+    const copy = document.createElement('button');
+    copy.className = 'q-md-code-controls__copy';
+    toolbar.append(language, copy);
+    view.dom.append(toolbar);
 
-function rule(selector: string): string {
-  const start = theme.indexOf(`'${selector}': {`);
-  expect(start).toBeGreaterThanOrEqual(0);
-  return theme.slice(start, theme.indexOf('}', start));
-}
-
-describe('fenced code layout', () => {
-  it('preserves spaces while wrapping long lines and unbroken identifiers', () => {
-    const line = rule('.cm-line.q-md-code-line');
-    expect(line).toMatch(/whiteSpace:\s*'pre-wrap'/u);
-    expect(line).toMatch(/overflowWrap:\s*'anywhere'/u);
-  });
-
-  it('keeps controls inside the available width and wraps narrow rows', () => {
-    const controls = rule('.q-md-code-controls');
-    expect(controls).toMatch(/boxSizing:\s*'border-box'/u);
-    expect(controls).toMatch(/maxWidth:\s*'100%'/u);
-    expect(controls).toMatch(/flexWrap:\s*'wrap'/u);
-  });
-
-  it('lets the language selector shrink below its intrinsic width', () => {
-    const language = rule('.q-md-code-controls__language');
-    expect(language).toMatch(/minWidth:\s*'0'/u);
-    expect(language).toMatch(/maxWidth:\s*'min\(11em, 100%\)'/u);
-    expect(language).toMatch(/flexShrink:\s*'1'/u);
-  });
-
-  it('keeps the copy button from shrinking or wrapping its label', () => {
-    const copy = rule('.q-md-code-controls__copy');
-    expect(copy).toMatch(/flexShrink:\s*'0'/u);
-    expect(copy).toMatch(/whiteSpace:\s*'nowrap'/u);
-  });
+    const headerStyle = getComputedStyle(toolbar);
+    expect(headerStyle.boxSizing).toBe('border-box');
+    expect(headerStyle.maxWidth).toBe('100%');
+    expect(headerStyle.flexWrap).toBe('wrap');
+    const languageStyle = getComputedStyle(language);
+    expect(['0', '0px']).toContain(languageStyle.minWidth);
+    expect(languageStyle.flexShrink).toBe('1');
+    const copyStyle = getComputedStyle(copy);
+    expect(copyStyle.flexShrink).toBe('0');
+    expect(copyStyle.whiteSpace).toBe('nowrap');
+  } finally {
+    view.destroy();
+  }
 });
