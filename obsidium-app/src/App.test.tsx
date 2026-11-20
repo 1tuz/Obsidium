@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { EditorView } from '@codemirror/view';
 import { act } from 'preact/test-utils';
 import { useEffect, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +7,8 @@ import App from './App';
 import { actAndSettle, mountDom, type MountedDom } from './testing/mountDom';
 import { setTheme } from './modules/theme';
 import { t } from './i18n';
+import type * as editorModule from './components/Editor';
+import type * as settingsModule from './modules/settings';
 
 const editorLifecycle: string[] = [];
 const graphLifecycle: string[] = [];
@@ -13,6 +16,7 @@ const workspaceState = vi.hoisted(() => ({
   files: [] as Array<{ id: string; name: string; type: 'file' }>,
   workspaceReady: false,
 }));
+const editorFixture = vi.hoisted(() => ({ text: null as string | null }));
 const uiStateMocks = vi.hoisted(() => ({
   markDocumentMissing: vi.fn(),
   open: vi.fn(),
@@ -22,6 +26,7 @@ const uiStateMocks = vi.hoisted(() => ({
 }));
 const openerMocks = vi.hoisted(() => ({
   openPath: vi.fn(async () => undefined),
+  openUrl: vi.fn(async (_url: string) => undefined),
   revealItemInDir: vi.fn(async () => undefined),
 }));
 const tauriMocks = vi.hoisted(() => {
@@ -37,6 +42,8 @@ const tauriMocks = vi.hoisted(() => {
   return {
     invoke: vi.fn(async (command: string) => {
       if (command === 'get_spaces') return [];
+      if (command === 'document_open') return { text: editorFixture.text ?? '', version: 0 };
+      if (command === 'document_pull') return { kind: 'changes', changes: [] };
       if (command === 'prepare_search_index' || command === 'get_search_index_status') return indexStatus;
       return undefined;
     }),
@@ -209,7 +216,8 @@ vi.mock('./components/Settings/SettingsDialog', () => ({
   SettingsDialog: ({ open }: { open: boolean }) => <div id="settings-dialog" data-open={open} />,
 }));
 
-vi.mock('./modules/settings', () => ({
+vi.mock('./modules/settings', async (importOriginal) => ({
+  ...(await importOriginal<typeof settingsModule>()),
   DEFAULT_LIVE_TABS: 3,
   DEFAULT_BUILTINS: { editingToolbar: false, kanban: true, panes: false, toolbarPosition: 'top' },
   useSettingsStore: () => ({
@@ -229,17 +237,21 @@ vi.mock('./components/Common/ErrorBoundary', () => ({
   ErrorBoundary: ({ children }: { children: ReactNode }) => children,
 }));
 
-vi.mock('./components/Editor', () => ({
-  Editor: ({ filePath }: { filePath: string }) => {
-    useEffect(() => {
-      editorLifecycle.push(`mount:${filePath}`);
-      return () => {
-        editorLifecycle.push(`unmount:${filePath}`);
-      };
-    }, []);
-    return <div>{filePath}</div>;
-  },
-}));
+vi.mock('./components/Editor', async (importOriginal) => {
+  const { Editor } = await importOriginal<typeof editorModule>();
+  return { Editor: (props: Parameters<typeof Editor>[0]) => editorFixture.text !== null
+    ? <Editor {...props} /> : <LifecycleEditor filePath={props.filePath} /> };
+});
+
+function LifecycleEditor({ filePath }: { filePath: string }) {
+  useEffect(() => {
+    editorLifecycle.push(`mount:${filePath}`);
+    return () => {
+      editorLifecycle.push(`unmount:${filePath}`);
+    };
+  }, []);
+  return <div>{filePath}</div>;
+}
 
 function sessionStub(overrides: Record<string, unknown> = {}) {
   return {
@@ -301,10 +313,46 @@ describe('App editor lifecycle', () => {
     workspaceState.files = [];
     workspaceState.workspaceReady = false;
     settingsState.config = null;
+    editorFixture.text = null;
     settingsState.loadConfig.mockReset();
     settingsState.loadConfig.mockResolvedValue(null);
     settingsState.updateConfig.mockReset();
     vi.clearAllMocks();
+  });
+
+  it.each([
+    ['editing', 'https://Example.TEST/a%2Fb?tag=One%2BTwo#Section', true],
+    ['reading', 'http://Example.TEST/a%2Fb?tag=One%2BTwo#Section', true],
+    ['reading', 'mailto:Reader@Example.TEST?subject=One%20Two', true],
+    ['editing', 'custom-app://Example.TEST/section', false],
+  ])('routes %s link %s according to the external opener policy without adding a Browser tab', async (mode, url, allowed) => {
+    editorFixture.text = `# Note\n\n[Visit](${url})\n`;
+    await renderWithSession();
+    await actAndSettle(() => find('open-a')[0].click());
+    if (mode === 'reading') {
+      const modeButton = renderer!.container.querySelector<HTMLButtonElement>(`[aria-label="${t('editor.editingMode')}"]`)!;
+      await actAndSettle(() => modeButton.click());
+    }
+
+    const link = renderer!.container.querySelector<HTMLElement>('.cm-content .q-md-link')!;
+    const view = EditorView.findFromDOM(link.closest<HTMLElement>('.cm-editor')!)!;
+    expect(view.state.readOnly).toBe(mode === 'reading');
+    const hitTest = vi.spyOn(view, 'posAtCoords').mockReturnValue(view.state.doc.toString().indexOf('Visit') + 2);
+    try {
+      await actAndSettle(() => {
+        link.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      });
+    } finally {
+      hitTest.mockRestore();
+    }
+
+    if (allowed) expect(openerMocks.openUrl).toHaveBeenCalledExactlyOnceWith(url);
+    else expect(openerMocks.openUrl).not.toHaveBeenCalled();
+    expect(attribute('active-file', 'data-path')).toBe('C:\\notes\\a.md');
+    expect(renderer!.container.querySelector('.q-web-page-pane')).toBeNull();
+    expect(uiStateMocks.queueTabsSnapshot.mock.calls.flatMap(([tabs]) => tabs)).not.toContainEqual(
+      expect.objectContaining({ kind: 'web' }),
+    );
   });
 
   it('keeps the editor area empty until the workspace session is restored', () => {

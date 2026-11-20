@@ -15,18 +15,25 @@ export const codeHighlightTheme = EditorView.theme({
 
 export const codeBlockTheme = EditorView.theme({
   '.q-md-code-controls': {
+    position: 'relative',
     display: 'flex',
     boxSizing: 'border-box',
     maxWidth: '100%',
     flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'flex-end',
     gap: 'var(--q-gap-sm)',
-    padding: 'var(--q-space-6) var(--q-space-8)',
-    backgroundColor: 'var(--q-block-bg)',
-    borderInline: 'var(--q-border-1) solid var(--q-block-border)',
-    borderTop: 'var(--q-border-1) solid var(--q-block-border)',
+    padding: 'var(--q-space-6) var(--q-block-padding)',
+  },
+  '.q-md-code-controls::after': {
+    content: '""',
+    position: 'absolute',
+    insetInline: 'var(--q-block-padding)',
+    bottom: '0',
     borderBottom: 'var(--q-border-1) solid var(--q-block-border)',
+    pointerEvents: 'none',
+  },
+  '.q-md-code-controls::before, .cm-line.q-md-code-line--top::before': {
+    borderTop: 'var(--q-border-1) solid var(--q-block-border)',
     borderTopLeftRadius: 'var(--q-block-radius)',
     borderTopRightRadius: 'var(--q-block-radius)',
   },
@@ -34,7 +41,7 @@ export const codeBlockTheme = EditorView.theme({
     minHeight: 'var(--q-size-24)',
     border: 'none',
     borderRadius: 'var(--q-radius-md)',
-    backgroundColor: 'var(--q-bg-surface-overlay)',
+    backgroundColor: 'transparent',
     color: 'var(--q-text-primary)',
     fontFamily: 'var(--q-font-family-ui)',
     fontSize: 'var(--q-font-size-ui-sm)',
@@ -49,12 +56,16 @@ export const codeBlockTheme = EditorView.theme({
   },
   '.q-md-code-controls__copy': {
     flexShrink: '0',
+    marginInlineStart: 'auto',
     padding: '0 var(--q-padding-xs)',
     whiteSpace: 'nowrap',
     cursor: 'pointer',
   },
-  '.q-md-code-controls__copy:hover': {
-    backgroundColor: 'var(--q-icon-button-bg-hover)',
+  '.q-md-code-controls__language:enabled:hover, .q-md-code-controls__copy:enabled:hover': {
+    backgroundColor: 'var(--q-bg-surface-hover)',
+  },
+  '.q-md-code-controls__language:disabled, .q-md-code-controls__copy:disabled': {
+    cursor: 'not-allowed',
   },
   '.q-md-code-controls__copy--copied': { color: 'var(--q-text-success)' },
   '.q-md-code-controls__copy--failed': { color: 'var(--q-text-danger)' },
@@ -68,10 +79,9 @@ export const codeBlockTheme = EditorView.theme({
     fontFamily: 'var(--q-editor-code-font)',
     whiteSpace: 'pre-wrap',
     overflowWrap: 'anywhere',
-    paddingLeft: 'var(--q-block-padding)',
-    paddingRight: 'var(--q-block-padding)',
+    paddingInline: 'var(--q-block-padding)',
   },
-  '.cm-line.q-md-code-line::before': {
+  '.q-md-code-controls::before, .cm-line.q-md-code-line::before': {
     content: '""',
     position: 'absolute',
     inset: '0',
@@ -82,11 +92,6 @@ export const codeBlockTheme = EditorView.theme({
   },
   '.cm-line.q-md-code-line--first': {
     paddingTop: 'var(--q-space-8)',
-  },
-  '.cm-line.q-md-code-line--first::before': {
-    borderTop: 'var(--q-border-1) solid var(--q-block-border)',
-    borderTopLeftRadius: 'var(--q-block-radius)',
-    borderTopRightRadius: 'var(--q-block-radius)',
   },
   '.cm-line.q-md-code-line--last': {
     paddingBottom: 'var(--q-space-8)',

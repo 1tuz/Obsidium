@@ -15,10 +15,12 @@ const BODY_LINE = lineDecoration();
 const FIRST_LINE = lineDecoration(`${LINE_CLASS}--first`);
 const LAST_LINE = lineDecoration(`${LINE_CLASS}--last`);
 const ONLY_LINE = lineDecoration(`${LINE_CLASS}--first`, `${LINE_CLASS}--last`);
+const FIRST_WITHOUT_TOOLBAR = lineDecoration(`${LINE_CLASS}--first`, `${LINE_CLASS}--top`);
+const ONLY_WITHOUT_TOOLBAR = lineDecoration(`${LINE_CLASS}--first`, `${LINE_CLASS}--last`, `${LINE_CLASS}--top`);
 
-function edgeDecoration(isFirst: boolean, isLast: boolean): Decoration {
-  if (isFirst && isLast) return ONLY_LINE;
-  if (isFirst) return FIRST_LINE;
+function edgeDecoration(isFirst: boolean, isLast: boolean, fenced: boolean): Decoration {
+  if (isFirst && isLast) return fenced ? ONLY_LINE : ONLY_WITHOUT_TOOLBAR;
+  if (isFirst) return fenced ? FIRST_LINE : FIRST_WITHOUT_TOOLBAR;
   if (isLast) return LAST_LINE;
   return BODY_LINE;
 }
@@ -60,7 +62,7 @@ export function codeBlockDecorations(
         builder.add(from, to, HIDDEN_LINE);
         continue;
       }
-      builder.add(from, from, edgeDecoration(number === visibleFirst, number === visibleLast));
+      builder.add(from, from, edgeDecoration(number === visibleFirst, number === visibleLast, block.fenced));
     }
   }
 

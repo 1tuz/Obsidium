@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
+import { foldCode } from '@codemirror/language';
 import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { blockFoldExtension } from '../blocks/fold';
 import { editorMarkdownSupport } from '../markdownConfig';
 import { codeBlockExtension } from './index';
 
@@ -22,6 +24,7 @@ function mount(doc: string, caret?: number, editable?: Compartment, readOnly = f
       extensions: [
         editorMarkdownSupport,
         codeBlockExtension,
+        blockFoldExtension(),
         EditorView.lineWrapping,
         ...(editable ? [editable.of(EditorView.editable.of(true))] : []),
         ...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
@@ -60,6 +63,31 @@ describe('code block extension', () => {
     await settle();
 
     expect(parent.querySelector('.q-md-code-controls')).not.toBeNull();
+  });
+
+  it('rounds the outer top edge only, not the toolbar-to-code seam', async () => {
+    const mounted = mount(FENCED, '```js\n'.length);
+    view = mounted.view;
+    parent = mounted.parent;
+    await settle();
+
+    const toolbar = parent.querySelector<HTMLElement>('.q-md-code-controls')!;
+    const fenced = [...parent.querySelectorAll<HTMLElement>('.cm-line')].find((line) => line.textContent === 'const count = 1;')!;
+    expect(fenced.classList.contains('q-md-code-line--first')).toBe(true);
+    expect(fenced.classList.contains('q-md-code-line--last')).toBe(true);
+
+    expect(toolbar.compareDocumentPosition(fenced) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(fenced.classList.contains('q-md-code-line--top')).toBe(false);
+  });
+
+  it('keeps a standalone indented code block’s top edge', async () => {
+    const mounted = mount('\tindented\n', 0);
+    view = mounted.view;
+    parent = mounted.parent;
+    await settle();
+
+    expect(parent.querySelector('.q-md-code-line--top')?.textContent?.trim()).toBe('indented');
+    expect(parent.querySelector('.q-md-code-controls')).toBeNull();
   });
 
   it('renders the opening fence while the caret is inside it', async () => {
@@ -134,6 +162,7 @@ describe('code block extension', () => {
     const line = parent.querySelector<HTMLElement>('.cm-line.q-md-code-line');
     expect(line).not.toBeNull();
     expect(getComputedStyle(line!).whiteSpace).toBe('pre-wrap');
+    expect(getComputedStyle(line!).overflowWrap).toBe('anywhere');
     expect(codeLines(parent)).toEqual(['┌──────────┐', '│  database  │', '└──────────┘', '```']);
     expect(view.state.doc.toString()).toBe(diagram);
   });
@@ -179,6 +208,24 @@ describe('code block extension', () => {
     await settle();
 
     expect(codeLines(parent).join('\n').match(/```/g)).toHaveLength(2);
+    expect(parent.querySelector('.q-md-code-controls')).not.toBeNull();
+    expect(parent.querySelector('.q-md-code-line--top')).toBeNull();
+    expect(parent.querySelector('.q-md-code-line--last')?.textContent).toBe('```');
+  });
+
+  it('keeps the toolbar and outer edge when the body is folded', async () => {
+    const mounted = mount(FENCED, 0);
+    view = mounted.view;
+    parent = mounted.parent;
+    await settle();
+
+    expect(foldCode(view)).toBe(true);
+    await settle();
+
+    expect(parent.querySelector('.q-md-code-controls')).not.toBeNull();
+    expect(parent.querySelector('.q-md-code-line .q-block-fold-placeholder')).not.toBeNull();
+    expect(parent.querySelector('.q-md-code-line--top')).toBeNull();
+    expect(parent.querySelector('.cm-content')?.textContent).not.toContain('const count = 1;');
   });
 
   it('hides the fences again after the caret leaves the opening line', async () => {

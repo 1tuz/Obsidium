@@ -29,7 +29,7 @@ import { onOpenNoteRequest } from "./modules/blocks/navigation";
 import { useLocalState } from "./modules/workspace/uiPersist";
 import { PANEL_LIMITS, clampPanelWidth } from "./modules/layout/panelWidth";
 import { matchesShortcut, SHORTCUTS } from "./config/shortcuts";
-import { normalizeWebUrl, openExternalUrl } from "./modules/openExternalUrl";
+import { openExternalUrl } from "./modules/openExternalUrl";
 import { beginOpenTrace } from "./modules/perf/openTrace";
 import { markBootStage } from "./modules/perf/bootTrace";
 import type { SearchResult } from "./modules/search";
@@ -206,7 +206,6 @@ export default function App() {
     createFromTemplate,
     createCanvas,
     createLinkedFile,
-    openWebUrl,
     handleExternalRename
   } = useTabs(workspacePath, workspaceReady);
   const activeTab = tabs.find((tab) => tab.tabId === activeTabId) ?? null;
@@ -377,15 +376,10 @@ export default function App() {
   }, [openNote, workspacePath]);
 
   const handleOpenExternalUrl = useCallback((raw: string) => {
-    const url = normalizeWebUrl(raw);
-    if (url) {
-      openWebUrl(url);
-      return;
-    }
     void openExternalUrl(raw).catch((error) => {
       console.error('Failed to open external URL', error);
     });
-  }, [openWebUrl]);
+  }, []);
 
   const restoreNavigation = useCallback((delta: -1 | 1) => {
     const path = go(delta);

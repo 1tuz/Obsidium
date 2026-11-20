@@ -8,7 +8,6 @@ import {
 import { createUniqueCanvas, createUniqueFile } from '../modules/documents/documentFactory';
 import { useTabSession } from './useTabSession';
 import { isBasePath, isImagePath, isPdfPath, isTextFilePath } from '../modules/documents/fileGateway';
-import { normalizeWebUrl } from '../modules/openExternalUrl';
 import type { LinkDisposition } from '../modules/links';
 import { paneLeaves } from '../modules/panes/layout';
 
@@ -87,13 +86,6 @@ export function useTabs(
       ? { type: 'open-file-new-tab', path, tabId: crypto.randomUUID(), textMode }
       : { type: 'open-file', path, tabId: crypto.randomUUID(), textMode });
   }, [activePaneId, openGraph, state.tabs, touch]);
-
-  const openWebUrl = useCallback((raw: string) => {
-    const url = normalizeWebUrl(raw);
-    if (!url) return;
-    touch();
-    dispatch({ type: 'open-web-new-tab', url, tabId: crypto.randomUUID() });
-  }, [touch]);
 
   const closeTab = useCallback((path: string, tabId?: string) => {
     touch();
@@ -209,7 +201,6 @@ export function useTabs(
     readGraphCamera,
     onGraphCameraChange: queueGraphCamera,
     activateFile,
-    openWebUrl,
     closeTab,
     newTab,
     reorderTabs,

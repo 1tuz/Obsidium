@@ -10,6 +10,11 @@ it('docks the rail against the editor pane instead of the text body', () => {
   expect(css).toMatch(/\.q-block-minimap\s*\{[^}]*width:\s*var\(--q-minimap-rail\)/u);
 });
 
+it('stretches the hit area across the rail independently of the decorative stroke', () => {
+  expect(css).toMatch(/\.q-block-minimap__row\s*\{[^}]*inset-inline:\s*0/u);
+  expect(css).toMatch(/\.q-block-minimap__stroke\s*\{[^}]*pointer-events:\s*none/u);
+});
+
 it('keeps the text column untouchable so both modes share one column', () => {
   expect(css).not.toMatch(/\.q-editor-content__body\s*\{/u);
   expect(css).not.toMatch(/padding-inline-start/u);
