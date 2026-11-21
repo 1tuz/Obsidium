@@ -116,7 +116,7 @@ describe('HeadingMinimap', () => {
     renderer = null;
   });
 
-  function setup(source = HEADINGS) {
+  function setup(source = HEADINGS, readOnly = false) {
     const container = document.createElement('div');
     container.className = 'q-editor-container';
     const content = document.createElement('div');
@@ -125,7 +125,13 @@ describe('HeadingMinimap', () => {
     container.append(content); content.append(body); document.body.append(container);
     const view = new EditorView({
       parent: body,
-      state: EditorState.create({ doc: source, extensions: [minimapExtension()] }),
+      state: EditorState.create({
+        doc: source,
+        extensions: [
+          minimapExtension(),
+          ...(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
+        ],
+      }),
     });
     Object.defineProperty(view.scrollDOM, 'scrollHeight', { configurable: true, value: 300 });
     Object.defineProperty(view.scrollDOM, 'clientHeight', { configurable: true, value: 300 });
@@ -178,6 +184,28 @@ describe('HeadingMinimap', () => {
     expect(label.style.top).toBe('18px');
     act(() => { nav.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true })); });
     expect(nav.querySelector('.q-block-minimap__label')).toBeNull();
+  });
+
+  it('navigates when the visible heading text is clicked in reading mode', () => {
+    const { nav, hover, view } = setup(HEADINGS, true);
+    const dispatch = vi.spyOn(view, 'dispatch');
+    const focus = vi.spyOn(view, 'focus');
+    hover(18);
+    const label = nav.querySelector<HTMLElement>('.q-block-minimap__label')!;
+
+    act(() => { label.click(); });
+
+    expect(dispatch).toHaveBeenCalledOnce();
+    const request = dispatch.mock.calls[0]![0] as unknown as {
+      selection?: unknown;
+      effects: { value: { range: { from: number }; y: string } };
+    };
+    expect(request.selection).toBeUndefined();
+    expect(request.effects.value.range.from).toBe(HEADINGS.indexOf('## Middle') + 3);
+    expect(request.effects.value.y).toBe('start');
+    expect(view.state.selection.main.anchor).toBe(0);
+    expect(focus).not.toHaveBeenCalled();
+    view.destroy();
   });
 
   it('marks the heading owning the current scroll position and labels strokes for assistive tech', () => {
