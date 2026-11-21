@@ -198,8 +198,7 @@ describe('HeadingMinimap', () => {
     view.destroy();
   });
 
-  it.each([false, true])('scrolls to lower headings without changing reading selection or focus (book: %s)', (bookMode) => {
-    vi.useFakeTimers();
+  it.each([false, true])('dispatches read-only scroll effects without changing selection or focus (book: %s)', (bookMode) => {
     const container = document.createElement('div');
     container.className = 'q-editor-container';
     const content = document.createElement('div');
@@ -216,24 +215,15 @@ describe('HeadingMinimap', () => {
       parent: body,
       state: EditorState.create({
         doc: HEADINGS,
-        extensions: [minimapExtension(), EditorState.readOnly.of(true), EditorView.editable.of(false)],
+        extensions: [
+          minimapExtension(),
+          EditorState.readOnly.of(true),
+          EditorView.editable.of(false),
+        ],
       }),
     });
-    const owner = bookMode ? book : view.scrollDOM;
-    const ownerTop = bookMode ? 30 : 90;
-    const documentOffset = bookMode ? 160 : 12;
-    container.scrollTop = 40;
-    owner.scrollTop = 70;
-    Object.defineProperty(owner, 'clientHeight', { value: 100 });
-    Object.defineProperty(owner, 'scrollHeight', { value: 1000 });
-    vi.spyOn(owner, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, ownerTop, 100, 100));
-    vi.spyOn(body, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, ownerTop, 100, 100));
-    if (bookMode) {
-      vi.spyOn(view.scrollDOM, 'getBoundingClientRect').mockImplementation(() =>
-        new DOMRect(0, ownerTop + documentOffset - owner.scrollTop, 100, 1000));
-    }
-    vi.spyOn(view, 'documentTop', 'get').mockImplementation(() => ownerTop + documentOffset - owner.scrollTop);
-    vi.spyOn(view, 'lineBlockAt').mockImplementation((pos) => ({ top: pos * 25 }) as BlockInfo);
+    const focus = vi.spyOn(view, 'focus');
+    const dispatch = vi.spyOn(view, 'dispatch');
     act(() => { renderer = mountDom(<HeadingMinimap view={view} />); });
     const strokes = renderer!.container.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row');
     for (const [index, heading] of [[2, '# Omega'], [1, '## Middle']] as const) {
@@ -241,15 +231,20 @@ describe('HeadingMinimap', () => {
       act(() => {
         row.focus();
         row.click();
-        vi.advanceTimersByTime(32);
       });
-      expect(owner.scrollTop).toBe(documentOffset + HEADINGS.indexOf(heading) * 25);
-      expect(container.scrollTop).toBe(40);
-      if (bookMode) expect(view.scrollDOM.scrollTop).toBe(0);
       expect(view.state.selection.main.anchor).toBe(0);
       expect(document.activeElement).toBe(row);
       expect(view.state.readOnly).toBe(true);
       expect(view.state.doc.toString()).toBe(HEADINGS);
+      expect(focus).not.toHaveBeenCalled();
+      const target = HEADINGS.indexOf(heading);
+      const request = dispatch.mock.calls[dispatch.mock.calls.length - 1]![0] as unknown as {
+        selection?: unknown;
+        effects: { value: { range: { from: number }; y: string } };
+      };
+      expect(request.selection).toBeUndefined();
+      expect(request.effects.value.range.from).toBe(target);
+      expect(request.effects.value.y).toBe('start');
     }
     view.destroy();
   });
