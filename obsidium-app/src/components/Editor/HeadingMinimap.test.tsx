@@ -20,6 +20,7 @@ describe('minimapRows', () => {
     level: (index % 6) + 1,
     text: `heading ${index}`,
     pos: index * 10,
+    textPos: index * 10,
   }));
 
   it('keeps every heading as its own row while the viewport has room', () => {
@@ -237,7 +238,7 @@ describe('HeadingMinimap', () => {
       expect(view.state.readOnly).toBe(true);
       expect(view.state.doc.toString()).toBe(HEADINGS);
       expect(focus).not.toHaveBeenCalled();
-      const target = HEADINGS.indexOf(heading);
+      const target = HEADINGS.indexOf(heading) + heading.indexOf(' ') + 1;
       const request = dispatch.mock.calls[dispatch.mock.calls.length - 1]![0] as unknown as {
         selection?: unknown;
         effects: { value: { range: { from: number }; y: string } };

@@ -9,7 +9,7 @@ function doc(source: string): Text {
 describe('minimapMarks', () => {
   it('collects only headings with source positions, levels and heading text', () => {
     const source = '# Heading\n\nParagraph\n\n- item\n  - nested\n\n> quote\n\n> [!note] callout\n\n```\n# code\n```\n\n| A | B |\n| --- | --- |\n| a | b |\n\n---\n\n<!-- obsidium-sync:id -->';
-    expect(minimapMarks(doc(source))).toEqual([{ level: 1, text: 'Heading', pos: 0 }]);
+    expect(minimapMarks(doc(source))).toEqual([{ level: 1, text: 'Heading', pos: 0, textPos: 2 }]);
   });
 
   it('keeps every heading level and skips other block kinds', () => {
@@ -21,9 +21,15 @@ describe('minimapMarks', () => {
     expect(marks.map((mark) => mark.pos)).toEqual([...marks].sort((a, b) => a.pos - b.pos).map((mark) => mark.pos));
   });
 
+  it('points past indentation and heading markers to the visible title', () => {
+    expect(minimapMarks(doc('  ## Spaced title ##'))).toEqual([
+      { level: 2, text: 'Spaced title', pos: 0, textPos: 5 },
+    ]);
+  });
+
   it('skips frontmatter and keeps raw heading labels', () => {
     expect(minimapMarks(doc('---\ntitle: x\n---\n\n## Title ^ref'))).toEqual([
-      { level: 2, text: 'Title ^ref', pos: 18 },
+      { level: 2, text: 'Title ^ref', pos: 18, textPos: 21 },
     ]);
   });
 
@@ -34,7 +40,7 @@ describe('minimapMarks', () => {
 });
 
 describe('activeMarkIndex', () => {
-  const headings: MinimapMark[] = [0, 7, 14].map((pos) => ({ level: 1, text: '', pos }));
+  const headings: MinimapMark[] = [0, 7, 14].map((pos) => ({ level: 1, text: '', pos, textPos: pos }));
   const tops = [0, 100, 200];
 
   it('returns -1 when no heading top reached the active offset yet', () => {
@@ -60,7 +66,7 @@ describe('activeMarkIndex', () => {
 });
 
 describe('activeMarkIndex search shape', () => {
-  const marks: MinimapMark[] = [0, 7, 14, 21].map((pos) => ({ level: 1, text: '', pos }));
+  const marks: MinimapMark[] = [0, 7, 14, 21].map((pos) => ({ level: 1, text: '', pos, textPos: pos }));
 
   it('matches the linear contract on duplicate and unsorted tops', () => {
     expect(activeMarkIndex(marks, 150, [0, 200, 100, 150])).toBe(0);

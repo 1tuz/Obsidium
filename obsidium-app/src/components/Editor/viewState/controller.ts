@@ -28,7 +28,11 @@ export class ViewStateController {
   private lastState: ViewState | null = null;
   private dirty = false;
   private restoring = false;
-  private readonly onScroll = () => this.markDirty();
+  private navigationPending = false;
+  private readonly onScroll = () => {
+    this.navigationPending = false;
+    this.markDirty();
+  };
   private readonly onFocusOut = () => this.flush();
   private readonly onPageHide = () => this.flush();
   private readonly onVisibilityChange = () => {
@@ -64,6 +68,10 @@ export class ViewStateController {
   }
 
   update(update: ViewUpdate): void {
+    if (update.transactions?.some((transaction) => transaction.scrollIntoView && transaction.isUserEvent('select'))) {
+      this.preserveNavigation();
+      return;
+    }
     if (update.selectionSet || update.docChanged) this.markDirty();
   }
 
@@ -124,6 +132,19 @@ export class ViewStateController {
   restoreNow(): void {
     const view = this.view;
     if (!view) return;
+    if (this.navigationPending) {
+      this.navigationPending = false;
+      const target = this.liveTarget();
+      if (target) {
+        const state = this.capture(target.view, target.scrollElement);
+        this.clearTimers();
+        this.lastState = state;
+        this.dirty = false;
+        this.config.onChange(state);
+      }
+      return;
+    }
+    if (this.dirty) this.flush();
     const snapshot: Pick<ViewState, 'fallbackScrollAnchor' | 'scrollOffsetPx'> | null
       = this.lastState ?? this.config.initial;
     if (!snapshot) return;
@@ -145,6 +166,11 @@ export class ViewStateController {
         markOpenStage('scroll');
       },
     });
+  }
+
+  private preserveNavigation(): void {
+    this.restoring = false;
+    this.navigationPending = true;
   }
 
   private focusIfCurrent(view: EditorView): void {

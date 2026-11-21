@@ -19,6 +19,25 @@ describe('continuous document scrolling', () => {
     expect(captureScroll(view, scroll)).toEqual({ anchor: 100, offset: 18 });
   });
 
+  it('uses the inner CodeMirror scroll offset to capture its visible document position', () => {
+    const scroll = {
+      scrollTop: 320,
+      getBoundingClientRect: () => ({ top: 100 }),
+    } as unknown as HTMLElement;
+    let measuredHeight = -1;
+    const view = {
+      scrollDOM: scroll,
+      lineBlockAtHeight: (height: number) => {
+        measuredHeight = height;
+        return { from: height, top: height - 20 };
+      },
+      coordsAtPos: () => ({ top: 92 }),
+    } as unknown as EditorView;
+
+    expect(captureScroll(view, scroll)).toEqual({ anchor: 320, offset: 8 });
+    expect(measuredHeight).toBe(320);
+  });
+
   it('keeps the offset negative while the cover still pushes the first line down', () => {
     const scroll = element(0);
     const view = {

@@ -19,7 +19,9 @@ export function resolveEditorScrollElement(container: HTMLElement, readOnly = fa
 
 export function captureScroll(view: EditorView, scrollElement: HTMLElement) {
   const scrollportTop = scrollElement.getBoundingClientRect().top;
-  const localTop = scrollportTop - view.scrollDOM.getBoundingClientRect().top;
+  const localTop = scrollElement === view.scrollDOM
+    ? scrollElement.scrollTop
+    : scrollportTop - view.scrollDOM.getBoundingClientRect().top;
   const block = view.lineBlockAtHeight(Math.max(0, localTop));
   const coords = view.coordsAtPos(block.from);
   return {
