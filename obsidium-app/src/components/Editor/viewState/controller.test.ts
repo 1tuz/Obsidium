@@ -344,7 +344,7 @@ interface ScrollTargetSpec {
   yMargin: number;
 }
 
-function restoringView(scrollElement: ReturnType<typeof element>) {
+function restoringView(scrollElement: ReturnType<typeof element>, currentAnchor: () => number = () => 2) {
   const measures: Array<{ read: (view: unknown) => unknown; write: (value: unknown, view: unknown) => void }> = [];
   const scrollDOM = {
     isConnected: true,
@@ -356,7 +356,7 @@ function restoringView(scrollElement: ReturnType<typeof element>) {
     scrollDOM,
     focus: vi.fn(),
     state: { selection: { main: { anchor: 4, head: 4 } }, doc: { length: 10 } },
-    lineBlockAtHeight: (height: number) => ({ from: 2, top: height }),
+    lineBlockAtHeight: (height: number) => ({ from: currentAnchor(), top: height }),
     coordsAtPos: () => ({ top: 0 }),
     dispatch: (spec: { effects?: { value: ScrollTargetSpec } }) => {
       if (spec.effects) targets.push(spec.effects.value);
@@ -442,6 +442,37 @@ describe('ViewStateController live tab', () => {
 
     controller.dispose();
     vi.useRealTimers();
+  });
+
+  it('keeps a recent minimap jump when the focused pane restores', () => {
+    const onChange = vi.fn();
+    const scrollElement = element(0);
+    scrollElement.setReach(1000);
+    const stage = restoringView(scrollElement, () => scrollElement.scrollTop >= 300 ? 8 : 2);
+    const controller = new ViewStateController({
+      documentId: 'doc',
+      path: () => 'note.md',
+      initial: storedTop(),
+      resolved: resolvedFor(storedTop()),
+      onChange,
+    });
+
+    controller.attach(stage.view, scrollElement);
+    stage.frame();
+    controller.update({
+      view: stage.view,
+      transactions: [{ scrollIntoView: true, isUserEvent: () => true }],
+      selectionSet: false,
+      docChanged: false,
+    } as unknown as ViewUpdate);
+    scrollElement.scrollTop = 600;
+    controller.restoreNow();
+
+    expect(stage.targets).toHaveLength(1);
+    expect(onChange.mock.calls[onChange.mock.calls.length - 1]?.[0]).toMatchObject({ fallbackScrollAnchor: 8 });
+    controller.restoreNow();
+    expect(stage.targets[stage.targets.length - 1]?.range.head).toBe(8);
+    controller.dispose();
   });
 });
 

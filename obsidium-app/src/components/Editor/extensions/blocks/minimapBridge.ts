@@ -7,6 +7,7 @@ export interface MinimapMark {
   level: number;
   text: string;
   pos: number;
+  textPos: number;
 }
 
 export interface MinimapState {
@@ -45,11 +46,16 @@ const sessions = new WeakMap<EditorView, MinimapSession>();
 export function minimapMarks(doc: Text): MinimapMark[] {
   return scanDocument(doc)
     .filter((block) => block.kind === 'heading')
-    .map((block) => ({
-      level: block.level,
-      text: headingText(block),
-      pos: block.from,
-    }));
+    .map((block) => {
+      const text = headingText(block);
+      const titleOffset = block.text.indexOf(text);
+      return {
+        level: block.level,
+        text,
+        pos: block.from,
+        textPos: block.from + Math.max(0, titleOffset),
+      };
+    });
 }
 
 export function activeMarkIndex(
@@ -104,7 +110,7 @@ function sameMarks(left: readonly MinimapMark[], right: readonly MinimapMark[]):
   for (let i = 0; i < left.length; i += 1) {
     const a = left[i]!;
     const b = right[i]!;
-    if (a.pos !== b.pos || a.level !== b.level || a.text !== b.text) return false;
+    if (a.pos !== b.pos || a.textPos !== b.textPos || a.level !== b.level || a.text !== b.text) return false;
   }
   return true;
 }
@@ -208,13 +214,13 @@ function ensureSession(view: EditorView): MinimapSession {
   return session;
 }
 
-export function jumpToMinimapMark(view: EditorView, pos: number): void {
+export function jumpToMinimapMark(view: EditorView, mark: MinimapMark): void {
   if (!view.state.readOnly) {
-    view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
+    view.dispatch({ selection: { anchor: mark.pos }, effects: EditorView.scrollIntoView(mark.pos, { y: 'start' }), userEvent: 'select.pointer' });
     view.focus();
     return;
   }
-  view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
+  view.dispatch({ effects: EditorView.scrollIntoView(mark.textPos, { y: 'start' }), userEvent: 'select.pointer' });
 }
 
 export function subscribeMinimap(

@@ -1,21 +1,23 @@
-import { Compartment, EditorState } from '@codemirror/state';
+import { useCallback, useRef, useState } from 'react';
 import { EditorView } from '@codemirror/view';
+import { syntaxHighlighting } from '@codemirror/language';
 import { h, render } from 'preact';
-import { initI18n } from '../i18n';
-import { HeadingMinimap } from '../components/Editor/HeadingMinimap';
-import { ViewStateController } from '../components/Editor/viewState/controller';
-import { resolveEditorScrollElement } from '../components/Editor/viewState/scroll';
-import { minimapExtension } from '../components/Editor/extensions/blocks/minimapBridge';
+import type { CodeMirrorFieldRef } from '../components/Common/CodeMirrorField';
+import { BookPage } from '../components/BookPage/BookPage';
+import { EditorContent } from '../components/Editor/EditorContent';
+import { useEditorViewSetup } from '../components/Editor/hooks/useEditorViewSetup';
+import { useEditorExtensions } from '../components/Editor/extensions';
+import { editorMarkdownSupport } from '../components/Editor/extensions/markdownConfig';
+import { obsidiumEditorTheme, markdownStyles } from '../components/Editor/extensions/theme';
+import type { ViewState } from '../modules/ui-state';
+import { DEFAULT_MARKDOWN_READING_SETTINGS } from '../modules/settings';
 import '../styles/index.css';
 import '../components/Editor/Editor.css';
 import '../components/Editor/HeadingMinimap.css';
-import '../components/BookPage/BookPage.css';
 
-initI18n();
-
-const source = Array.from({ length: 18 }, (_, section) => [
+const source = Array.from({ length: 24 }, (_, section) => [
   `# Chapter ${String(section + 1).padStart(2, '0')}`,
-  ...Array.from({ length: 5 }, (_, paragraph) => `Paragraph ${paragraph + 1} in chapter ${section + 1}.`),
+  ...Array.from({ length: 8 }, (_, paragraph) => `Paragraph ${paragraph + 1} in chapter ${section + 1}.`),
 ].join('\n\n')).join('\n\n');
 
 const root = document.querySelector<HTMLElement>('#root')!;
@@ -43,10 +45,35 @@ async function waitFor(predicate: () => boolean, message: string, timeoutMs = 40
   throw new Error(message);
 }
 
-function headingLine(view: EditorView, pos: number): HTMLElement | null {
+function headingLine(view: EditorView, pos: number, title: string): HTMLElement | null {
   const node = view.domAtPos(pos).node;
-  const line = node instanceof HTMLElement ? node.closest<HTMLElement>('.cm-line') : node.parentElement?.closest<HTMLElement>('.cm-line');
-  return line ?? null;
+  const line = node instanceof HTMLElement
+    ? node.closest<HTMLElement>('.cm-line')
+    : node.parentElement?.closest<HTMLElement>('.cm-line') ?? null;
+  return line?.textContent?.trim() === title ? line : null;
+}
+
+function actualScrollOwner(view: EditorView): HTMLElement | null {
+  let element: HTMLElement | null = view.scrollDOM;
+  while (element) {
+    const overflow = getComputedStyle(element).overflowY;
+    if ((overflow === 'auto' || overflow === 'scroll') && element.scrollHeight > element.clientHeight + 1) return element;
+    element = element.parentElement;
+  }
+  return null;
+}
+
+function scrollChain(view: EditorView): string {
+  const elements: string[] = [];
+  let element: HTMLElement | null = view.scrollDOM;
+  while (element) {
+    const overflow = getComputedStyle(element).overflowY;
+    if (overflow === 'auto' || overflow === 'scroll') {
+      elements.push(`${element.className || element.tagName}=${element.scrollTop}/${element.scrollHeight}/${element.clientHeight}`);
+    }
+    element = element.parentElement;
+  }
+  return elements.join(' > ');
 }
 
 function isVisibleIn(element: HTMLElement, owner: HTMLElement): boolean {
@@ -57,173 +84,210 @@ function isVisibleIn(element: HTMLElement, owner: HTMLElement): boolean {
   return line.top >= top - 1 && line.top < bottom && line.bottom > top;
 }
 
-function createCase(bookMode: boolean) {
-  const fixture = document.createElement('section');
-  fixture.className = 'browser-test-case';
-  const pane = document.createElement('div');
-  pane.className = 'q-editor-pane';
-  const container = document.createElement('div');
-  container.className = `q-editor-container${bookMode ? ' q-editor-container--book' : ''}`;
-  const book = document.createElement('div');
-  book.className = `q-book-page${bookMode ? ' q-book-page--has-cover' : ' q-book-page--inactive'}`;
-  const cover = document.createElement('div');
-  cover.className = 'q-book-hero browser-test-case__cover';
-  const wrapper = document.createElement('div');
-  wrapper.className = `q-book-content-wrapper${bookMode ? '' : ' q-book-content-wrapper--inactive'}`;
-  const bookEditor = document.createElement('div');
-  bookEditor.className = 'q-book-editor-container';
-  const content = document.createElement('div');
-  content.className = 'q-editor-content';
-  const title = document.createElement('div');
-  title.className = 'q-editor-inline-title-cm';
-  title.textContent = 'Minimap browser fixture';
-  const body = document.createElement('div');
-  body.className = 'q-editor-content__body';
-  const cm = document.createElement('div');
-  cm.className = 'q-editor-content__cm';
+interface BrowserCase {
+  bookMode: boolean;
+  container: HTMLElement;
+  mount: HTMLElement;
+  source: string;
+  view: EditorView;
+  setFocused: (focused: boolean) => void;
+  setReadOnly: (readOnly: boolean) => void;
+}
 
-  root.append(fixture);
-  fixture.append(pane);
-  pane.append(container);
-  container.append(book);
-  if (bookMode) book.append(cover);
-  book.append(wrapper);
-  wrapper.append(bookEditor);
-  bookEditor.append(content);
-  content.append(title, body);
-  body.append(cm);
-
-  const mode = new Compartment();
-  const view = new EditorView({
-    parent: cm,
-    state: EditorState.create({
-      doc: source,
-      extensions: [
-        minimapExtension(),
-        EditorView.theme({ '&': { height: '100%' }, '& .cm-scroller': { height: '100% !important' } }),
-        mode.of([EditorState.readOnly.of(false), EditorView.editable.of(true)]),
-      ],
-    }),
-  });
-  render(h(HeadingMinimap, { view }), body);
-
-  const initialState = {
-    documentId: bookMode ? 'book-browser-test' : 'note-browser-test',
+function BrowserEditor({ bookMode, onReady }: { bookMode: boolean; onReady: (testCase: BrowserCase) => void }) {
+  const [readOnly, setReadOnly] = useState(false);
+  const [focused, setFocused] = useState(true);
+  const mountRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<EditorView>(null);
+  const titleRef = useRef<CodeMirrorFieldRef>(null);
+  const path = useCallback(() => (bookMode ? 'book-browser-test.md' : 'note-browser-test.md'), [bookMode]);
+  const documentId = bookMode ? 'book-browser-test' : 'note-browser-test';
+  const initialViewState: ViewState = {
+    path: path(),
+    documentId,
     paneId: 'main',
     cursorAnchor: [],
     cursorHead: [],
     fallbackAnchor: 0,
     fallbackHead: 0,
     scrollAnchor: [],
-    fallbackScrollAnchor: source.indexOf('# Chapter 03'),
+    fallbackScrollAnchor: 0,
     scrollOffsetPx: 0,
     focusedSurface: 'editor',
   };
-  const controller = new ViewStateController({
-    documentId: initialState.documentId,
-    path: () => bookMode ? 'book.md' : 'note.md',
-    initial: initialState,
-    resolved: {
-      anchor: 0,
-      head: 0,
-      scroll: initialState.fallbackScrollAnchor,
-    },
-    isFocused: () => false,
-    onChange: () => undefined,
+  const setup = useEditorViewSetup({
+    documentId,
+    paneId: 'main',
+    focused,
+    readOnly,
+    viewStateReady: true,
+    initialViewState,
+    path,
+    isReady: true,
+    initialBody: source,
+    onViewStateChange: () => undefined,
+    setDocContent: () => undefined,
   });
-  controller.attach(view, resolveEditorScrollElement(container, false, view.scrollDOM));
+  const extensions = useEditorExtensions({
+    resolveWikiLinks: async (targets) => ({ paths: targets.map(() => null), complete: true }),
+    onOpenWikiLink: () => undefined,
+    onOpenExternalUrl: () => undefined,
+    workspacePath: null,
+    notePath: path,
+    linkSuggest: false,
+    blockHandles: false,
+    slashCommands: false,
+    blockHover: false,
+  });
 
-  const toggleMode = (readOnly: boolean) => {
-    content.classList.toggle('q-editor-content--reading', readOnly);
-    view.dispatch({ effects: mode.reconfigure([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]) });
-    controller.setScrollElement(resolveEditorScrollElement(container, readOnly, view.scrollDOM));
-  };
+  const onCreateEditor = useCallback((view: EditorView) => {
+    bodyRef.current = view;
+    setup.handleCreate(view);
+    const mount = mountRef.current;
+    if (mount) onReady({
+      bookMode,
+      container: setup.containerRef.current!,
+      mount,
+      source,
+      view,
+      setFocused,
+      setReadOnly,
+    });
+  }, [bookMode, onReady, setup.handleCreate, setup.containerRef]);
 
-  return { bookMode, container, controller, fixture, pane, source, toggleMode, view };
+  const content = setup.ready ? (
+    <EditorContent
+      titleRef={titleRef}
+      bodyRef={bodyRef}
+      title="Minimap browser fixture"
+      onCommitTitle={() => undefined}
+      initialBody={source}
+      selection={setup.selection}
+      extensions={[
+        extensions,
+        obsidiumEditorTheme,
+        editorMarkdownSupport,
+        syntaxHighlighting(markdownStyles),
+      ]}
+      autoLinkTitle={false}
+      readOnly={readOnly}
+      onEnterEdit={() => setReadOnly(false)}
+      onCreateEditor={onCreateEditor}
+      onUpdate={setup.handleUpdate}
+      markdownReading={DEFAULT_MARKDOWN_READING_SETTINGS}
+      fullWidth
+      showMinimap
+    />
+  ) : null;
+
+  return (
+    <section ref={mountRef} className="browser-test-case">
+      <div className="q-editor-pane">
+        <div
+          ref={setup.containerRef}
+          className={`q-editor-container${bookMode ? ' q-editor-container--book' : ''}`}
+        >
+          <BookPage isBook={bookMode}>{content}</BookPage>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-async function clickHeading(testCase: ReturnType<typeof createCase>, index: number, readOnly: boolean): Promise<void> {
-  const rows = [...testCase.pane.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row')];
-  const row = rows[index];
-  assert(row !== undefined, `Missing minimap row ${index}`);
-  const pos = testCase.source.indexOf(`# Chapter ${String(index + 1).padStart(2, '0')}`);
+async function mountCase(bookMode: boolean): Promise<BrowserCase> {
+  const mount = document.createElement('div');
+  root.append(mount);
+  return new Promise((resolve) => render(h(BrowserEditor, { bookMode, onReady: resolve }), mount));
+}
+
+async function waitForFixture(testCase: BrowserCase): Promise<void> {
+  await waitFor(() => testCase.mount.querySelectorAll('.q-block-minimap__row').length === 24, 'Minimap rows did not render');
+  await waitFor(() => actualScrollOwner(testCase.view) !== null, 'The rendered editor has no scrollable owner');
+  await waitFor(() => testCase.view.state.doc.toString() === testCase.source, 'The editor document changed during setup');
+  await frame();
+  await frame();
+}
+
+function targetButton(testCase: BrowserCase, index: number): HTMLButtonElement {
+  const button = [...testCase.mount.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row')][index];
+  if (!button) throw new Error(`Missing minimap row ${index}`);
+  return button;
+}
+
+async function clickHeading(testCase: BrowserCase, index: number, readOnly: boolean): Promise<void> {
+  const button = targetButton(testCase, index);
+  const title = `# Chapter ${String(index + 1).padStart(2, '0')}`;
+  const pos = testCase.source.indexOf(title);
+  const line = headingLine(testCase.view, pos, title);
+  const owner = actualScrollOwner(testCase.view);
+  assert(owner !== null, 'No actual scroll owner surrounds the editor');
+  assert(line === null || !isVisibleIn(line, owner), `Chapter ${index + 1} was already visible before the navigation click`);
+  assert(pos < testCase.view.viewport.from || pos > testCase.view.viewport.to, `Chapter ${index + 1} was inside the rendered editor viewport before the navigation click`);
   const selection = testCase.view.state.selection.main.anchor;
-  row.focus();
-  row.click();
-  const owner = resolveEditorScrollElement(testCase.container, readOnly, testCase.view.scrollDOM);
+  button.focus();
+  button.click();
   try {
     await waitFor(() => {
-      const line = headingLine(testCase.view, pos);
-      return line !== null && isVisibleIn(line, owner);
-    }, `Chapter ${index + 1} did not enter the scroll viewport`);
+      const nextLine = headingLine(testCase.view, pos, title);
+      return nextLine !== null && isVisibleIn(nextLine, owner);
+    }, `Chapter ${index + 1} did not visibly move into the actual scroll viewport`);
   } catch (error) {
     const ownerRect = owner.getBoundingClientRect();
-    const scrollerRect = testCase.view.scrollDOM.getBoundingClientRect();
-    const blockTop = testCase.view.lineBlockAt(pos).top;
-    const lineRect = headingLine(testCase.view, pos)?.getBoundingClientRect();
-    throw new Error(`${error instanceof Error ? error.message : String(error)}; owner=${owner.tagName}.${owner.className} overflow=${getComputedStyle(owner).overflowY} scroll=${owner.scrollTop}/${owner.scrollHeight}/${owner.clientHeight} rect=${ownerRect.top}:${ownerRect.bottom} cm=${testCase.view.scrollDOM.scrollTop} rect=${scrollerRect.top}:${scrollerRect.bottom} documentTop=${testCase.view.documentTop} blockTop=${blockTop} line=${lineRect?.top ?? 'unrendered'} book=${testCase.container.querySelector('.q-book-page')?.scrollTop}`);
+    const lineRect = headingLine(testCase.view, pos, title)?.getBoundingClientRect();
+    const resolvedOwner = testCase.container.contains(owner) ? owner.className || owner.tagName : 'outside-editor-container';
+    const block = testCase.view.lineBlockAt(pos);
+    const viewRect = testCase.view.dom.getBoundingClientRect();
+    const renderedLine = headingLine(testCase.view, pos, title);
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; owner=${resolvedOwner} overflow=${getComputedStyle(owner).overflowY} scroll=${owner.scrollTop}/${owner.scrollHeight}/${owner.clientHeight} ownerRect=${ownerRect.top}:${ownerRect.bottom} line=${lineRect?.top ?? 'unrendered'} lineText=${renderedLine?.textContent ?? 'not-rendered'} block=${block.top}:${block.height} view=${viewRect.top}:${viewRect.bottom} docTop=${testCase.view.documentTop} chain=${scrollChain(testCase.view)}`);
   }
   if (readOnly) {
     assert(testCase.view.state.selection.main.anchor === selection, 'Reading navigation changed the editor selection');
-    assert(document.activeElement === row, 'Reading navigation moved focus away from the minimap');
+    assert(document.activeElement === button, 'Reading navigation moved focus away from the minimap');
   }
 }
 
-async function clickHeadingsRapidly(testCase: ReturnType<typeof createCase>, indices: readonly number[], readOnly: boolean): Promise<void> {
-  const rows = [...testCase.pane.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row')];
-  const selection = testCase.view.state.selection.main.anchor;
-  let lastRow: HTMLButtonElement | null = null;
-  let lastPos = -1;
-  let lastIndex = -1;
-  for (const index of indices) {
-    const row = rows[index];
-    assert(row !== undefined, `Missing minimap row ${index}`);
-    lastRow = row;
-    lastIndex = index;
-    lastPos = testCase.source.indexOf(`# Chapter ${String(index + 1).padStart(2, '0')}`);
-    row.focus();
-    row.click();
-  }
-  assert(lastRow !== null, 'Rapid click sequence was empty');
-  const owner = resolveEditorScrollElement(testCase.container, readOnly, testCase.view.scrollDOM);
-  await waitFor(() => {
-    const line = headingLine(testCase.view, lastPos);
-    return line !== null && isVisibleIn(line, owner);
-  }, `Chapter ${lastIndex + 1} did not enter the scroll viewport after rapid clicks`);
-  if (readOnly) {
-    assert(testCase.view.state.selection.main.anchor === selection, 'Rapid reading navigation changed the editor selection');
-    assert(document.activeElement === lastRow, 'Rapid reading navigation moved focus away from the minimap');
-  }
-}
-
-async function runCase(bookMode: boolean, keepResult = false): Promise<void> {
-  const testCase = createCase(bookMode);
+async function runCase(bookMode: boolean): Promise<void> {
+  const testCase = await mountCase(bookMode);
+  await waitForFixture(testCase);
   const initialDoc = testCase.view.state.doc;
-  await waitFor(() => testCase.pane.querySelectorAll('.q-block-minimap__row').length === 18, 'Minimap rows did not render');
-  const firstReadToggle = testCase.pane.querySelector('.q-editor-content')!;
-  assert(!firstReadToggle.classList.contains('q-editor-content--reading'), 'Fixture did not start in edit mode');
-  testCase.toggleMode(true);
-  await clickHeading(testCase, 17, true);
-  await clickHeadingsRapidly(testCase, [1, 11, 0, 1], true);
-  testCase.toggleMode(false);
-  await clickHeading(testCase, 14, false);
-  testCase.toggleMode(true);
-  await clickHeading(testCase, 0, true);
-  await clickHeading(testCase, 17, true);
-  assert(testCase.view.state.doc === initialDoc, 'Mode switching recreated or changed the document');
-  assert(resolveEditorScrollElement(testCase.container, true, testCase.view.scrollDOM) === (bookMode ? testCase.pane.querySelector('.q-book-page') : testCase.view.scrollDOM), 'Scroll owner did not match the rendered layout');
-  testCase.controller.dispose();
-  if (!keepResult) {
-    testCase.view.destroy();
-    testCase.fixture.remove();
+  testCase.setReadOnly(true);
+  await waitFor(() => testCase.view.state.readOnly, 'Editor did not switch into reading mode');
+  await waitFor(() => actualScrollOwner(testCase.view) === (bookMode
+    ? testCase.container.querySelector('.q-book-page:not(.q-book-page--inactive)')
+    : testCase.view.scrollDOM), 'Reading mode did not use the actual scroll owner');
+  await clickHeading(testCase, 21, true);
+  await frame();
+  testCase.setFocused(false);
+  await frame();
+  testCase.setFocused(true);
+  const restoreOwner = actualScrollOwner(testCase.view)!;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await frame();
+    const headingPos = testCase.source.indexOf('# Chapter 22') + 2;
+    const line = headingLine(testCase.view, headingPos, '# Chapter 22');
+    if (!line || !isVisibleIn(line, restoreOwner)) {
+      throw new Error(`View-state restoration moved the selected heading out of view; owner=${restoreOwner.className || restoreOwner.tagName} scroll=${restoreOwner.scrollTop}/${restoreOwner.scrollHeight}/${restoreOwner.clientHeight} ownerRect=${restoreOwner.getBoundingClientRect().top}:${restoreOwner.getBoundingClientRect().bottom} line=${line?.getBoundingClientRect().top ?? 'unrendered'} viewport=${testCase.view.viewport.from}:${testCase.view.viewport.to} readOnly=${testCase.view.state.readOnly} chain=${scrollChain(testCase.view)}`);
+    }
   }
+  await clickHeading(testCase, 4, true);
+  await clickHeading(testCase, 22, true);
+  await clickHeading(testCase, 1, true);
+  await clickHeading(testCase, 20, true);
+  testCase.setReadOnly(false);
+  await waitFor(() => !testCase.view.state.readOnly, 'Editor did not switch into editing mode');
+  await clickHeading(testCase, 2, false);
+  testCase.setReadOnly(true);
+  await waitFor(() => testCase.view.state.readOnly, 'Editor did not return to reading mode');
+  await clickHeading(testCase, 23, true);
+  assert(testCase.view.state.doc === initialDoc, 'Mode switching recreated or changed the document');
+  testCase.view.destroy();
 }
 
 try {
   await runCase(false);
-  await runCase(true, true);
+  await runCase(true);
   results.dataset.status = 'pass';
-  results.textContent = 'PASS: ordinary and book reading scroll, repeated up/down jumps, live mode switches, selection, focus, and view-state restore';
+  results.textContent = 'PASS: real EditorContent, saved view-state restoration, ordinary and book scroll owners, repeated up/down jumps, live mode switches, visible headings, selection, and focus';
 } catch (error) {
   results.dataset.status = 'fail';
   results.textContent = `FAIL: ${error instanceof Error ? error.message : String(error)}`;

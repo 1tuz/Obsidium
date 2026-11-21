@@ -151,7 +151,7 @@ scroll / selection / docChanged
 
 Память сессии — одна карта `views: Map<key, LoadedViewState | null>`. Раньше их было две (карта значений и множество ключей), потому что «вид загружен, но пустой» и «вид ещё не загружен» — разные состояния. Одной карты достаточно: `has` отвечает на первый вопрос, значение `null` — на второй. Ключ строит единственная функция `viewKey(documentId, paneId)` в `modules/ui-state/types.ts`, её же использует очередь записи — раньше формат ключа был продублирован в двух модулях.
 
-Scrollport: `resolveEditorScrollElement(container)` — активный `.q-book-page` (не `--inactive`), иначе `.q-editor-container`. Иначе на книге камера пишется с `scrollTop≈0`, а каретка из того же snapshot восстанавливается. Нужен он только для снятия позиции: при восстановлении скроллпорт ищет сам CodeMirror (см. ниже).
+Scrollport: `resolveEditorScrollElement(container, readOnly)` — активный `.q-book-page` (не `--inactive`) для книги, `.cm-scroller` для читаемой обычной заметки, иначе `.q-editor-container`. Иначе камера снимается не с того контейнера; при чтении якорь дополнительно должен учитывать, что scrollport и `view.scrollDOM` — один узел.
 
 Порядок при монтировании редактора: раскрыть сохранённый frontmatter (`syncOnCreate`), затем `ViewStateController.attach` / restore scroll — иначе смена высоты YAML сбивает камеру.
 
@@ -194,7 +194,7 @@ view.dispatch({ effects: EditorView.scrollIntoView(anchor, { y: 'start', yMargin
 - Менять сторону снятия или восстановления можно только парой. `y: 'start'` даёт `coordsTop = scrollportTop + yMargin`, поэтому при хранимом `offset = scrollportTop - coordsTop` восстановление обязано передавать `yMargin: -offset`.
 - Фасет `scrollMargins` в проекте не используется. Если он появится, `getScrollMargins(view).top` войдёт в это уравнение и `yMargin` придётся уменьшать на него.
 - `coordsAtPos` возвращает `null` для неотрисованной позиции. Запасной путь — старый расчёт от `block.top`; он менее точен на leading, но не даёт снять мусор.
-- Локальная координата верха скроллпорта считается как разница `getBoundingClientRect().top` скроллпорта и `view.scrollDOM` — `scrollTop` в этой формуле сокращался, и его чтение убрано. Точность этой величины влияет только на выбор строки-якоря; сам отступ от неё не зависит, поэтому паддинги и `documentTop` больше не могут внести систематическую ошибку.
+- Если scrollport и `view.scrollDOM` — один `.cm-scroller`, локальная координата для `lineBlockAtHeight` равна его `scrollTop`; вычитать прямоугольник узла из самого себя нельзя, это всегда выбирает начало документа. Для внешнего scrollport локальная координата остаётся разницей `getBoundingClientRect().top` контейнера и `view.scrollDOM`. Отступ снимка в обоих случаях считается по `coordsAtPos(block.from)`, то есть по тому же прямоугольнику символа, в который целится восстановление.
 
 #### Камера графа едет по тем же рельсам
 

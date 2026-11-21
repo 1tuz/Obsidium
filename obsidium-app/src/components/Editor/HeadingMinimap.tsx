@@ -141,7 +141,7 @@ export function HeadingMinimap({ view, scale = DEFAULT_HEADING_MINIMAP_SCALE }: 
             aria-current={row.source === state.activeIndex ? 'true' : undefined}
             onFocus={() => setHovered(index)}
             onBlur={() => setHovered(null)}
-            onClick={() => jumpToMinimapMark(view, row.mark.pos)}
+            onClick={() => jumpToMinimapMark(view, row.mark)}
           >
             <span
               className="q-block-minimap__stroke"
