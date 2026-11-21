@@ -214,21 +214,7 @@ export function jumpToMinimapMark(view: EditorView, pos: number): void {
     view.focus();
     return;
   }
-
-  const doc = view.state.doc;
-  view.requestMeasure({
-    key: jumpToMinimapMark,
-    read: () => {
-      if (!view.state.readOnly || view.state.doc !== doc) return null;
-      const container = view.dom.closest<HTMLElement>('.q-editor-container');
-      const owner = container ? resolveEditorScrollElement(container, true, view.scrollDOM) : view.scrollDOM;
-      const top = view.documentTop + view.lineBlockAt(pos).top - owner.getBoundingClientRect().top - owner.clientTop * view.scaleY;
-      return { owner, scrollTop: owner.scrollTop + top / view.scaleY };
-    },
-    write: (target) => {
-      if (target) target.owner.scrollTop = target.scrollTop;
-    },
-  });
+  view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
 }
 
 export function subscribeMinimap(
