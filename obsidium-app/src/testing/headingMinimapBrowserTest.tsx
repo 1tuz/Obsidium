@@ -13,6 +13,9 @@ import type { ViewState } from '../modules/ui-state';
 import { DEFAULT_MARKDOWN_READING_SETTINGS } from '../modules/settings';
 import '../styles/index.css';
 import '../components/Editor/Editor.css';
+import '../components/Editor/EditorToolbar.css';
+import '../components/Editor/EditingToolbar.css';
+import '../components/History/HistoryView.css';
 import '../components/Editor/HeadingMinimap.css';
 
 const source = Array.from({ length: 24 }, (_, section) => [
@@ -183,11 +186,17 @@ function BrowserEditor({ bookMode, onReady }: { bookMode: boolean; onReady: (tes
   return (
     <section ref={mountRef} className="browser-test-case">
       <div className="q-editor-pane">
-        <div
-          ref={setup.containerRef}
-          className={`q-editor-container${bookMode ? ' q-editor-container--book' : ''}`}
-        >
-          <BookPage isBook={bookMode}>{content}</BookPage>
+        <div className="q-editor-toolbar" aria-hidden="true" />
+        {!readOnly && <div className="q-editing-toolbar q-editing-toolbar--top" aria-hidden="true" />}
+        <div className="q-editor-stage">
+          <div className="q-editor-stage__editor">
+            <div
+              ref={setup.containerRef}
+              className={`q-editor-container${bookMode ? ' q-editor-container--book' : ''}`}
+            >
+              <BookPage isBook={bookMode}>{content}</BookPage>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -216,6 +225,7 @@ function targetButton(testCase: BrowserCase, index: number): HTMLButtonElement {
 
 async function clickHeading(testCase: BrowserCase, index: number, readOnly: boolean): Promise<void> {
   const button = targetButton(testCase, index);
+  const activeElement = document.activeElement;
   const title = `# Chapter ${String(index + 1).padStart(2, '0')}`;
   const pos = testCase.source.indexOf(title);
   const line = headingLine(testCase.view, pos, title);
@@ -224,8 +234,27 @@ async function clickHeading(testCase: BrowserCase, index: number, readOnly: bool
   assert(line === null || !isVisibleIn(line, owner), `Chapter ${index + 1} was already visible before the navigation click`);
   assert(pos < testCase.view.viewport.from || pos > testCase.view.viewport.to, `Chapter ${index + 1} was inside the rendered editor viewport before the navigation click`);
   const selection = testCase.view.state.selection.main.anchor;
-  button.focus();
-  button.click();
+  if (readOnly) {
+    const nav = button.closest<HTMLElement>('.q-block-minimap')!;
+    const rowRect = button.getBoundingClientRect();
+    nav.dispatchEvent(new PointerEvent('pointermove', {
+      clientY: rowRect.top + rowRect.height / 2,
+      bubbles: true,
+    }));
+    await frame();
+    const label = nav.querySelector<HTMLElement>('.q-block-minimap__label');
+    assert(label !== null, `Chapter ${index + 1} did not show its text label`);
+    const labelRect = label.getBoundingClientRect();
+    const target = document.elementFromPoint(
+      labelRect.left + labelRect.width / 2,
+      labelRect.top + labelRect.height / 2,
+    );
+    assert(target === label || label.contains(target), 'The visible heading text does not receive pointer hit testing');
+    label.click();
+  } else {
+    button.focus();
+    button.click();
+  }
   try {
     await waitFor(() => {
       const nextLine = headingLine(testCase.view, pos, title);
@@ -242,7 +271,7 @@ async function clickHeading(testCase: BrowserCase, index: number, readOnly: bool
   }
   if (readOnly) {
     assert(testCase.view.state.selection.main.anchor === selection, 'Reading navigation changed the editor selection');
-    assert(document.activeElement === button, 'Reading navigation moved focus away from the minimap');
+    assert(document.activeElement === activeElement, 'Reading navigation changed focus');
   }
 }
 

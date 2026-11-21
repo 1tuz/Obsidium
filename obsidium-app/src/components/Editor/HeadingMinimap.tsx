@@ -124,7 +124,11 @@ export function HeadingMinimap({ view, scale = DEFAULT_HEADING_MINIMAP_SCALE }: 
       onPointerLeave={() => setHovered(null)}
     >
       {hoveredRow ? (
-        <span className="q-block-minimap__label" style={{ top: hovered! * step + step / 2 }}>
+        <span
+          className="q-block-minimap__label"
+          style={{ top: hovered! * step + step / 2 }}
+          onClick={() => jumpToMinimapMark(view, hoveredRow.mark)}
+        >
           {hoveredRow.mark.text}
         </span>
       ) : null}
