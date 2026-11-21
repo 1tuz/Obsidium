@@ -59,10 +59,9 @@
   max-width: 24ch;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: var(--q-bg-surface-raised);
-  border: var(--q-border-1) solid var(--q-border-default);
-  border-radius: var(--q-rounded-md);
-  padding: var(--q-space-4) var(--q-space-8);
+  background: none;
+  border: none;
+  padding: 0;
   color: var(--q-text-primary);
   font-size: var(--q-font-size-12);
   pointer-events: none;

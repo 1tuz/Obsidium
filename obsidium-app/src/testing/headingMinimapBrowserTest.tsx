@@ -169,6 +169,33 @@ async function clickHeading(testCase: ReturnType<typeof createCase>, index: numb
   }
 }
 
+async function clickHeadingsRapidly(testCase: ReturnType<typeof createCase>, indices: readonly number[], readOnly: boolean): Promise<void> {
+  const rows = [...testCase.pane.querySelectorAll<HTMLButtonElement>('.q-block-minimap__row')];
+  const selection = testCase.view.state.selection.main.anchor;
+  let lastRow: HTMLButtonElement | null = null;
+  let lastPos = -1;
+  let lastIndex = -1;
+  for (const index of indices) {
+    const row = rows[index];
+    assert(row !== undefined, `Missing minimap row ${index}`);
+    lastRow = row;
+    lastIndex = index;
+    lastPos = testCase.source.indexOf(`# Chapter ${String(index + 1).padStart(2, '0')}`);
+    row.focus();
+    row.click();
+  }
+  assert(lastRow !== null, 'Rapid click sequence was empty');
+  const owner = resolveEditorScrollElement(testCase.container, readOnly, testCase.view.scrollDOM);
+  await waitFor(() => {
+    const line = headingLine(testCase.view, lastPos);
+    return line !== null && isVisibleIn(line, owner);
+  }, `Chapter ${lastIndex + 1} did not enter the scroll viewport after rapid clicks`);
+  if (readOnly) {
+    assert(testCase.view.state.selection.main.anchor === selection, 'Rapid reading navigation changed the editor selection');
+    assert(document.activeElement === lastRow, 'Rapid reading navigation moved focus away from the minimap');
+  }
+}
+
 async function runCase(bookMode: boolean, keepResult = false): Promise<void> {
   const testCase = createCase(bookMode);
   const initialDoc = testCase.view.state.doc;
@@ -177,8 +204,7 @@ async function runCase(bookMode: boolean, keepResult = false): Promise<void> {
   assert(!firstReadToggle.classList.contains('q-editor-content--reading'), 'Fixture did not start in edit mode');
   testCase.toggleMode(true);
   await clickHeading(testCase, 17, true);
-  await clickHeading(testCase, 1, true);
-  await clickHeading(testCase, 11, true);
+  await clickHeadingsRapidly(testCase, [1, 11, 0, 1], true);
   testCase.toggleMode(false);
   await clickHeading(testCase, 14, false);
   testCase.toggleMode(true);
