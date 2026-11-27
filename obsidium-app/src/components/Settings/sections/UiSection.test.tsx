@@ -74,7 +74,7 @@ describe('UiSection', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ ui: expect.objectContaining({ iconSet: 'phosphor' }) }));
   });
 
-  it('opens the palette chooser in a separate dialog and selects a palette', () => {
+  it('shows and saves the Ardoise palette in the palette chooser', () => {
     const config = {
       ui: {
         appearance: 'dark', palette: 'dracula', accentMode: 'palette', motion: 'off',
@@ -96,11 +96,11 @@ describe('UiSection', () => {
     const cards = [...renderer!.container.querySelectorAll<HTMLButtonElement>('.q-theme-card')];
     expect(cards.length).toBeGreaterThan(31);
     expect(cards.find((card) => card.textContent?.includes('Dracula'))?.getAttribute('aria-pressed')).toBe('true');
-    const cendre = cards.find((card) => card.textContent?.includes('Cendre'))!;
-    expect(cendre.querySelector('.q-theme-card__preview')).not.toBeNull();
-    act(() => cendre.click());
+    const ardoise = cards.find((card) => card.textContent?.includes('Ardoise'))!;
+    expect(ardoise.querySelector('.q-theme-card__preview')).not.toBeNull();
+    act(() => ardoise.click());
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      ui: expect.objectContaining({ palette: 'cendre' }),
+      ui: expect.objectContaining({ palette: 'ardoise' }),
     }));
     expect(renderer!.container.querySelector('.q-theme-palette-dialog')).toBeNull();
   });

@@ -251,6 +251,15 @@
 }
 
 :root {
+  --q-palette-ardoise-light-background: #eef0f2;
+  --q-palette-ardoise-light-text: #2f3740;
+  --q-palette-ardoise-light-accent: #8c5f1f;
+  --q-palette-ardoise-dark-background: #2d343d;
+  --q-palette-ardoise-dark-text: #e2ded6;
+  --q-palette-ardoise-dark-accent: #dbb57c;
+}
+
+:root {
   --q-palette-notesnook-light-background: #f8fafc;
   --q-palette-notesnook-dark-background: #121a2b;
   --q-palette-notesnook-light-text: #1e293b;

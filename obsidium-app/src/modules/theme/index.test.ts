@@ -49,7 +49,7 @@ describe('theme engine', () => {
 
   it('registers every requested palette with both appearances', () => {
     expect(themePalettes.map(({ id }) => id).sort()).toEqual([
-      'obsidium', 'obsidian', 'dracula', 'vscode', 'cursor', 'catppuccin',
+      'obsidium', 'obsidian', 'ardoise', 'dracula', 'vscode', 'cursor', 'catppuccin',
       'nord', 'tokyo-night', 'gruvbox', 'rose-pine', 'one-dark',
       'dark-paper', 'everforest', 'kanagawa', 'flexoki', 'ayu', 'solarized', 'material',
       'github', 'nightfox', 'graphite', 'carbon', 'metal', 'iceberg',
@@ -84,7 +84,7 @@ describe('theme engine', () => {
   });
 
   it('keeps text and accent-button labels at WCAG AA across all palette modes', () => {
-    expect(themePalettes).toHaveLength(63);
+    expect(themePalettes).toHaveLength(64);
     let checked = 0;
     for (const { id } of themePalettes) {
       for (const mode of ['light', 'dark'] as const) {
@@ -105,7 +105,7 @@ describe('theme engine', () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(126);
+    expect(checked).toBe(128);
   });
 
   it('binds component states to the active palette semantic tokens', () => {

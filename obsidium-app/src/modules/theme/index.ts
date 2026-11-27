@@ -48,6 +48,7 @@ function palette(id: string, name: string): ThemePalette {
 export const themePalettes: ThemePalette[] = [
   palette('obsidium', 'Obsidium'),
   palette('obsidian', 'Obsidian'),
+  palette('ardoise', 'Ardoise'),
   palette('dracula', 'Dracula'),
   palette('vscode', 'VS Code'),
   palette('cursor', 'Cursor'),
