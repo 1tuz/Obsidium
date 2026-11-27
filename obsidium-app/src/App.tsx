@@ -68,7 +68,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { isMacOs } from "./modules/platform";
 import { useTauriSubscription } from "./hooks/useTauriEvent";
 import { useOverlay } from "./hooks/useOverlay";
-import { useThemeMode } from "./hooks/useThemeMode";
+import { themeMode as getThemeMode } from "./modules/theme";
 import { transitionThemeFrom } from "./modules/theme/transition";
 import { CommandRegistry } from "./modules/commands/registry";
 import type { BoardActionRequest } from "./components/Layout/BoardsPanel";
@@ -219,19 +219,18 @@ export default function App() {
   const { config, loadConfig, updateConfig } = useSettingsStore();
   const kanbanEnabled = config?.builtins?.kanban ?? DEFAULT_BUILTINS.kanban;
   const panesEnabled = config?.builtins?.panes ?? DEFAULT_BUILTINS.panes;
-  const themeMode = useThemeMode();
   const toggleTheme = useCallback((origin?: HTMLElement) => {
     const update = async () => {
       const currentConfig = config ?? await loadConfig();
       if (!currentConfig) return;
-      await updateConfig({
+      void updateConfig({
         ...currentConfig,
-        ui: { ...currentConfig.ui, appearance: themeMode === 'dark' ? 'light' : 'dark' },
+        ui: { ...currentConfig.ui, appearance: getThemeMode() === 'dark' ? 'light' : 'dark' },
       }).catch((error) => console.error('Failed to switch theme', error));
     };
     if (origin) transitionThemeFrom(origin, update);
     else void update();
-  }, [config, loadConfig, themeMode, updateConfig]);
+  }, [config, loadConfig, updateConfig]);
 
   useEffect(() => {
     if (!isMacOs() || !config) return;
