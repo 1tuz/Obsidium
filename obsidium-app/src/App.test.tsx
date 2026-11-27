@@ -12,6 +12,36 @@ import type * as settingsModule from './modules/settings';
 
 const editorLifecycle: string[] = [];
 const graphLifecycle: string[] = [];
+const themeTransitionCleanups: Array<() => void> = [];
+interface PendingThemeTransition {
+  update: () => void | Promise<void>;
+  skipTransition: ReturnType<typeof vi.fn>;
+  finish: () => void;
+}
+
+function installThemeTransitions(): PendingThemeTransition[] {
+  const pending: PendingThemeTransition[] = [];
+  const original = Object.getOwnPropertyDescriptor(document, 'startViewTransition');
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: vi.fn((update: () => void | Promise<void>) => {
+      let settle: () => void = () => undefined;
+      const finished = new Promise<void>((resolve) => {
+        settle = resolve;
+      });
+      const skipTransition = vi.fn();
+      pending.push({ update, skipTransition, finish: () => settle() });
+      return { finished, skipTransition };
+    }),
+  });
+  themeTransitionCleanups.push(() => {
+    pending.forEach(({ finish }) => finish());
+    if (original) Object.defineProperty(document, 'startViewTransition', original);
+    else Reflect.deleteProperty(document, 'startViewTransition');
+  });
+  return pending;
+}
+
 const workspaceState = vi.hoisted(() => ({
   files: [] as Array<{ id: string; name: string; type: 'file' }>,
   workspaceReady: false,
@@ -177,11 +207,11 @@ vi.mock('./components/Layout/Sidebar', () => ({
     isOpen,
   }: {
     onFileSelect: (path: string) => void;
-    onToggleTheme: () => void;
+    onToggleTheme: (origin: HTMLElement) => void;
     isOpen: boolean;
   }) => isOpen ? (
     <div id="left-sidebar">
-      <button id="toggle-theme" onClick={onToggleTheme} />
+      <button id="toggle-theme" onClick={(event) => onToggleTheme(event.currentTarget)} />
       <button id="open-a" onClick={() => onFileSelect('C:\\notes\\a.md')} />
       <button id="open-b" onClick={() => onFileSelect('C:\\notes\\b.md')} />
       <button id="open-canvas" onClick={() => onFileSelect('C:\\notes\\board.canvas')} />
@@ -293,6 +323,20 @@ describe('App editor lifecycle', () => {
     return renderer!;
   }
 
+  function prepareThemeTransition(): PendingThemeTransition[] {
+    setTheme('light', 'obsidium', 'on');
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList);
+    settingsState.config = {
+      editor: { liveTabs: 3 },
+      updates: { auto: false },
+      trash: { retentionDays: 30 },
+      history: { retentionDays: 30 },
+      templates: { folder: '' },
+      ui: { appearance: 'light', palette: 'dracula', motion: 'on' },
+    };
+    return installThemeTransitions();
+  }
+
   it('mounts without Tauri bridge errors', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
@@ -303,7 +347,14 @@ describe('App editor lifecycle', () => {
     }
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    themeTransitionCleanups.splice(0).reverse().forEach((cleanup) => cleanup());
+    setTheme('light', 'obsidium', 'off');
+    await Promise.resolve();
+    delete document.documentElement.dataset.viewTransition;
+    for (const name of [
+      '--q-theme-transition-x', '--q-theme-transition-y', '--q-theme-transition-radius',
+    ]) document.documentElement.style.removeProperty(name);
     if (renderer) {
       act(() => renderer?.unmount());
       renderer = null;
@@ -317,6 +368,7 @@ describe('App editor lifecycle', () => {
     settingsState.loadConfig.mockReset();
     settingsState.loadConfig.mockResolvedValue(null);
     settingsState.updateConfig.mockReset();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -557,6 +609,99 @@ describe('App editor lifecycle', () => {
     expect(settingsState.updateConfig).toHaveBeenCalledWith(expect.objectContaining({
       ui: { appearance: 'dark', palette: 'dracula', motion: 'system' },
     }));
+  });
+
+  it('does not wait for settings persistence before completing the theme transition update', async () => {
+    const transitions = prepareThemeTransition();
+    settingsState.updateConfig.mockReturnValue(new Promise<void>(() => undefined));
+    await renderWithSession();
+
+    click('toggle-theme');
+    const result = transitions[0]!.update();
+    let completed = false;
+    void Promise.resolve(result).then(() => { completed = true; });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(completed).toBe(true);
+    expect(settingsState.updateConfig).toHaveBeenCalledOnce();
+
+    transitions[0]!.finish();
+    await Promise.resolve();
+  });
+
+  it('logs a rejected theme save without rejecting the transition update', async () => {
+    const transitions = prepareThemeTransition();
+    const error = new Error('save failed');
+    const report = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    settingsState.updateConfig.mockRejectedValue(error);
+    await renderWithSession();
+
+    click('toggle-theme');
+    await expect(transitions[0]!.update()).resolves.toBeUndefined();
+    await Promise.resolve();
+
+    expect(report).toHaveBeenCalledWith('Failed to switch theme', error);
+    transitions[0]!.finish();
+    await Promise.resolve();
+  });
+
+  it('keeps rapid theme toggles ordered and cleans only the finished transition', async () => {
+    const transitions = prepareThemeTransition();
+    settingsState.updateConfig.mockImplementation((nextConfig: { ui: { appearance: 'light' | 'dark' } }) => {
+      setTheme(nextConfig.ui.appearance, 'obsidium', 'on');
+      return new Promise<void>(() => undefined);
+    });
+    await renderWithSession();
+
+    click('toggle-theme');
+    act(() => { transitions[0]!.update(); });
+    click('toggle-theme');
+    act(() => { transitions[1]!.update(); });
+
+    expect(settingsState.updateConfig.mock.calls.map(([config]) => (config as { ui: { appearance: string } }).ui.appearance))
+      .toEqual(['dark', 'light']);
+    expect(transitions[0]!.skipTransition).toHaveBeenCalledOnce();
+
+    transitions[0]!.finish();
+    await Promise.resolve();
+    expect(document.documentElement.dataset.viewTransition).toBe('theme');
+    transitions[1]!.finish();
+    await Promise.resolve();
+    expect(document.documentElement.dataset.viewTransition).toBeUndefined();
+    expect(document.documentElement.style.getPropertyValue('--q-theme-transition-x')).toBe('');
+  });
+
+  it('applies two theme toggles requested before either transition callback runs', async () => {
+    const transitions = prepareThemeTransition();
+    settingsState.updateConfig.mockImplementation((nextConfig: { ui: { appearance: 'light' | 'dark'; palette: string; motion: 'on' } }) => {
+      setTheme(nextConfig.ui.appearance, nextConfig.ui.palette, nextConfig.ui.motion);
+      return Promise.resolve();
+    });
+    await renderWithSession();
+
+    click('toggle-theme');
+    click('toggle-theme');
+    expect(transitions).toHaveLength(2);
+    let updateResult: void | Promise<void>;
+    act(() => { updateResult = transitions[1]!.update(); });
+    await updateResult!;
+
+    expect(settingsState.updateConfig.mock.calls.map(([config]) => config))
+      .toEqual([
+        expect.objectContaining({
+          editor: { liveTabs: 3 },
+          templates: { folder: '' },
+          ui: expect.objectContaining({ appearance: 'dark', palette: 'dracula', motion: 'on' }),
+        }),
+        expect.objectContaining({
+          editor: { liveTabs: 3 },
+          templates: { folder: '' },
+          ui: expect.objectContaining({ appearance: 'light', palette: 'dracula', motion: 'on' }),
+        }),
+      ]);
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(document.documentElement.dataset.palette).toBe('dracula');
   });
 
   it('restores an existing tab and rejects a missing active tab', async () => {
