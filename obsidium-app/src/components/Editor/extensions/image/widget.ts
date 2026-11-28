@@ -6,6 +6,8 @@ import {
   type MediaKind,
 } from '../../../../modules/docs/imageEmbeds';
 import { attachmentUrl } from '../../../../modules/docs/vaultAttachments';
+import { docsifyAssetUrl } from '../../../../modules/docs/vaultDocsifyAssets';
+import { resolveVaultAssetUrl } from '../../../../modules/docs/vaultAssets';
 import { markOpenStage } from '../../../../modules/perf/openTrace';
 import { bindImageEmbedEvents } from './interaction';
 import {
@@ -29,6 +31,8 @@ type ImageEmbedWidgetOptions = {
   kind: MediaKind;
   wikiTarget: string | null;
   workspacePath: string | null;
+  docsifyTarget: string | null;
+  notePath: string;
 };
 
 export class ImageEmbedWidget extends WidgetType {
@@ -39,6 +43,8 @@ export class ImageEmbedWidget extends WidgetType {
   readonly kind: MediaKind;
   readonly wikiTarget: string | null;
   readonly workspacePath: string | null;
+  readonly docsifyTarget: string | null;
+  readonly notePath: string;
 
   constructor(options: ImageEmbedWidgetOptions) {
     super();
@@ -49,6 +55,8 @@ export class ImageEmbedWidget extends WidgetType {
     this.kind = options.kind;
     this.wikiTarget = options.wikiTarget;
     this.workspacePath = options.workspacePath;
+    this.docsifyTarget = options.docsifyTarget;
+    this.notePath = options.notePath;
   }
 
   eq(other: WidgetType): boolean {
@@ -58,6 +66,9 @@ export class ImageEmbedWidget extends WidgetType {
       && this.align === other.align
       && this.kind === other.kind
       && this.wikiTarget === other.wikiTarget
+      && this.docsifyTarget === other.docsifyTarget
+      && this.notePath === other.notePath
+      && this.workspacePath === other.workspacePath
       && sameImageCrop(this.crop, other.crop);
   }
 
@@ -95,11 +106,18 @@ export class ImageEmbedWidget extends WidgetType {
       });
     }
 
+    if (!this.url && this.docsifyTarget && this.workspacePath && media) {
+      const fallback = resolveVaultAssetUrl(this.workspacePath, this.docsifyTarget, '');
+      void docsifyAssetUrl(this.workspacePath, this.notePath, this.docsifyTarget, fallback)
+        .then((url) => { if (url && media.isConnected) media.src = url; })
+        .catch((error) => { console.error('Failed to resolve Docsify asset', error); if (fallback && media.isConnected) media.src = fallback; });
+    }
+
     return root;
   }
 
   updateDOM(dom: HTMLElement, _view: EditorView, from: ImageEmbedWidget): boolean {
-    if (from.kind !== this.kind || from.wikiTarget !== this.wikiTarget) return false;
+    if (from.kind !== this.kind || from.wikiTarget !== this.wikiTarget || from.docsifyTarget !== this.docsifyTarget || from.notePath !== this.notePath || from.workspacePath !== this.workspacePath) return false;
     if (from.url !== this.url && !(this.wikiTarget && !from.url)) return false;
 
     const wrap = dom.querySelector<HTMLElement>('.q-md-image-wrap');

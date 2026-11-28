@@ -41,6 +41,7 @@ import type { LinkDisposition, WikiLinkResolver } from '../../../modules/links';
 export interface EditorExtensionConfig {
     resolveWikiLinks: WikiLinkResolver;
     onOpenWikiLink: (target: string, disposition: LinkDisposition) => void;
+    onOpenMarkdownNote?: (path: string, fragment: string, disposition: LinkDisposition) => void;
     onOpenExternalUrl: (url: string) => void;
     smartDashes?: boolean;
     listCallouts?: boolean;
@@ -61,6 +62,7 @@ export interface EditorExtensionConfig {
 export function useEditorExtensions({
     resolveWikiLinks,
     onOpenWikiLink,
+    onOpenMarkdownNote,
     onOpenExternalUrl,
     smartDashes = true,
     listCallouts = true,
@@ -113,7 +115,7 @@ export function useEditorExtensions({
                 onOpenExternalUrl,
                 onReadBook: onReadBookCallout ?? (() => {}),
             }),
-            editorLinkExtension(onOpenWikiLink, onOpenExternalUrl, autoLinkTitle, workspacePath, notePath),
+            editorLinkExtension(onOpenWikiLink, onOpenExternalUrl, autoLinkTitle, workspacePath, notePath, onOpenMarkdownNote),
             codeBlockExtension,
             hashtagExtension,
             externalRevealExtension,
@@ -131,5 +133,5 @@ export function useEditorExtensions({
             EditorView.lineWrapping,
             placeholder("Начните писать текст..."),
         ];
-    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, highlightrEnabled, advancedOutlinerEnabled, notePath, blockHandles, slashCommands, blockHover, readOnly]);
+    }, [autoLinkTitle, linkSuggest, linkSuggestMinChars, listCallouts, onOpenExternalUrl, onOpenWikiLink, onOpenMarkdownNote, onReadBookCallout, resolveWikiLinks, smartDashes, workspacePath, highlightrEnabled, advancedOutlinerEnabled, notePath, blockHandles, slashCommands, blockHover, readOnly]);
 }

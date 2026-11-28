@@ -6,8 +6,11 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { outlineMarkdownConfig } from '../outline';
 import { markdownStyles } from '../theme';
-import { linkInteraction, markdownNoteTarget, readerRefLinkClickAllowed } from './interaction';
+import { linkInteraction, markdownLinkFragment, markdownNoteTarget, readerRefLinkClickAllowed } from './interaction';
 import { wikiLinkMarkdownConfig } from './syntax';
+import { resolveMarkdownLink } from '../../../../modules/links/gateway';
+
+vi.mock('../../../../modules/links/gateway', () => ({ resolveMarkdownLink: vi.fn() }));
 
 const USER_QUOTE = '> [!quote] Вот примерно таким было бы наше восприятие мира всегда, если бы не ретикулярная формация. В данном примере она уже пробудила вас, но ещё не включилась на полную мощь и не успела выполнить свою интегрирующую функцию. [3](obsidium-reader:book=Files%2Ftest.fb2&cfi=epubcfi%28%2F6%2F10%29)';
 
@@ -60,6 +63,13 @@ describe('readerRefLinkClickAllowed', () => {
   });
 });
 
+describe('markdownLinkFragment', () => {
+  it('extracts Docsify ids and standard fragments', () => {
+    expect(markdownLinkFragment('/topic?id=hello-world')).toBe('hello-world');
+    expect(markdownLinkFragment('/topic.md#Heading%20One')).toBe('Heading One');
+  });
+});
+
 describe('markdownNoteTarget', () => {
   it('resolves a sibling Markdown link from the current note', () => {
     expect(markdownNoteTarget('AGENTS.md', '/vault', '/vault/HERMES.md')).toBe('AGENTS.md');
@@ -92,7 +102,84 @@ describe('markdownNoteTarget', () => {
 });
 
 describe('linkInteraction', () => {
-  it('opens a relative Markdown note through internal navigation', () => {
+  it('opens a Docsify route at its explicit heading', async () => {
+    vi.mocked(resolveMarkdownLink).mockResolvedValue('/vault/manual/Topic.md');
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const onOpenWiki = vi.fn();
+    const onOpenExternal = vi.fn();
+    const onOpenNote = vi.fn();
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '[Topic](/Topic?id=overview)',
+        extensions: [markdown({ base: markdownLanguage }), syntaxHighlighting(markdownStyles), linkInteraction(onOpenWiki, onOpenExternal, '/vault', () => '/vault/manual/source.md', onOpenNote)],
+      }),
+      parent,
+    });
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(2);
+    parent.querySelector<HTMLElement>('.q-md-link')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    await vi.waitFor(() => expect(onOpenNote).toHaveBeenCalledWith('/vault/manual/Topic.md', 'overview', 'current'));
+    expect(onOpenWiki).not.toHaveBeenCalled();
+    expect(onOpenExternal).not.toHaveBeenCalled();
+    view.destroy();
+    parent.remove();
+  });
+
+
+  it('opens an existing hidden Markdown file without invoking wiki creation', async () => {
+    vi.mocked(resolveMarkdownLink).mockResolvedValue('/vault/.private/Note.md');
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const onOpenWiki = vi.fn();
+    const onOpenNote = vi.fn();
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '[Note](.private/Note.md)',
+        extensions: [markdown({ base: markdownLanguage }), syntaxHighlighting(markdownStyles), linkInteraction(onOpenWiki, vi.fn(), '/vault', () => '/vault/source.md', onOpenNote)],
+      }),
+      parent,
+    });
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(2);
+    parent.querySelector<HTMLElement>('.q-md-link')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    await vi.waitFor(() => expect(onOpenNote).toHaveBeenCalledWith('/vault/.private/Note.md', '', 'current'));
+    expect(onOpenWiki).not.toHaveBeenCalled();
+    view.destroy();
+    parent.remove();
+  });
+
+  it('ignores a stale resolution after a second click or hidden pane', async () => {
+    const resolvers: Array<(value: string | null) => void> = [];
+    vi.mocked(resolveMarkdownLink).mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)));
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const onOpenNote = vi.fn();
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: '[Note](Note.md)',
+        extensions: [markdown({ base: markdownLanguage }), syntaxHighlighting(markdownStyles), linkInteraction(vi.fn(), vi.fn(), '/vault', () => '/vault/source.md', onOpenNote)],
+      }),
+      parent,
+    });
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(2);
+    const link = parent.querySelector<HTMLElement>('.q-md-link')!;
+    link.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    link.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    resolvers[1]!('/vault/new.md');
+    await vi.waitFor(() => expect(onOpenNote).toHaveBeenCalledTimes(1));
+    resolvers[0]!('/vault/old.md');
+    await Promise.resolve();
+    expect(onOpenNote).toHaveBeenCalledTimes(1);
+    link.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    parent.setAttribute('aria-hidden', 'true');
+    resolvers[2]!('/vault/hidden.md');
+    await Promise.resolve();
+    expect(onOpenNote).toHaveBeenCalledTimes(1);
+    view.destroy();
+    parent.remove();
+  });
+
+  it('opens a relative Markdown note through internal navigation', async () => {
+    vi.mocked(resolveMarkdownLink).mockResolvedValue('/vault/AGENTS.md');
     const parent = document.createElement('div');
     document.body.appendChild(parent);
     const onOpenWiki = vi.fn();
@@ -114,7 +201,7 @@ describe('linkInteraction', () => {
     expect(link).not.toBeNull();
     link?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
 
-    expect(onOpenWiki).toHaveBeenCalledWith('AGENTS.md', 'current');
+    await vi.waitFor(() => expect(onOpenWiki).toHaveBeenCalledWith('AGENTS.md', 'current'));
     expect(onOpenExternal).not.toHaveBeenCalled();
     view.destroy();
     parent.remove();

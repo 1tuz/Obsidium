@@ -113,6 +113,7 @@ impl IndexSynchronizer {
         let mut changed = false;
         let mut max_mtime_ns = 0;
         let mut prepare_batch = Vec::<PendingPrepare>::with_capacity(PREPARE_BATCH_SIZE);
+        let mut docsify_markers = std::collections::HashMap::new();
 
         for entry in WalkDir::new(&self.root)
             .follow_links(false)
@@ -126,6 +127,7 @@ impl IndexSynchronizer {
                     changed,
                 });
             }
+            collect_docsify_marker(&entry, &mut docsify_markers);
             if !entry.file_type().is_file() || !is_markdown(entry.path()) {
                 continue;
             }
@@ -213,6 +215,7 @@ impl IndexSynchronizer {
             commit(&mut self.writer, &self.index, &self.progress)?;
         }
         transaction.commit()?;
+        changed |= self.reconcile_docsify_markers(docsify_markers)?;
         metadata::maintain(&self.connection)?;
         if graph_changed {
             self.index.bump_graph_revision();
@@ -227,6 +230,7 @@ impl IndexSynchronizer {
     pub fn verify(&mut self, cancelled: &AtomicBool) -> Result<ScanSummary, SearchError> {
         let mut known = metadata::stored_fingerprints(&self.connection)?;
         let mut changed_paths = HashSet::new();
+        let mut docsify_markers = std::collections::HashMap::new();
         let mut max_mtime_ns = 0;
         for entry in WalkDir::new(&self.root)
             .follow_links(false)
@@ -240,6 +244,7 @@ impl IndexSynchronizer {
                     changed: false,
                 });
             }
+            collect_docsify_marker(&entry, &mut docsify_markers);
             if !entry.file_type().is_file() || !is_markdown(entry.path()) {
                 continue;
             }
@@ -259,17 +264,52 @@ impl IndexSynchronizer {
         for (_, (path, _)) in known {
             changed_paths.insert(PathBuf::from(path));
         }
-        if changed_paths.is_empty() || cancelled.load(Ordering::Relaxed) {
+        if cancelled.load(Ordering::Relaxed) {
             return Ok(ScanSummary {
                 max_mtime_ns,
                 changed: false,
             });
         }
-        let changed = self.apply_paths(changed_paths)?;
+        let mut changed = if changed_paths.is_empty() {
+            false
+        } else {
+            self.apply_paths(changed_paths)?
+        };
+        changed |= self.reconcile_docsify_markers(docsify_markers)?;
         Ok(ScanSummary {
             max_mtime_ns,
             changed,
         })
+    }
+
+    fn reconcile_docsify_markers(
+        &mut self,
+        current: std::collections::HashMap<PathBuf, Vec<u8>>,
+    ) -> Result<bool, SearchError> {
+        let mut known = std::collections::HashMap::new();
+        {
+            let mut statement = self
+                .connection
+                .prepare("SELECT path, content_hash FROM docsify_markers")?;
+            let rows = statement.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+            })?;
+            for row in rows {
+                let (path, hash) = row?;
+                known.insert(PathBuf::from(path), hash);
+            }
+        }
+        let mut changed = HashSet::new();
+        for (path, hash) in current {
+            if known.remove(&path).as_ref() != Some(&hash) {
+                changed.insert(path);
+            }
+        }
+        changed.extend(known.into_keys());
+        if changed.is_empty() {
+            return Ok(false);
+        }
+        self.apply_paths(changed)
     }
 
     pub fn holds_writer(&self) -> bool {
@@ -283,8 +323,37 @@ impl IndexSynchronizer {
         Ok(())
     }
 
-    pub fn apply_paths(&mut self, paths: HashSet<PathBuf>) -> Result<bool, SearchError> {
+    pub fn apply_paths(&mut self, mut paths: HashSet<PathBuf>) -> Result<bool, SearchError> {
+        let mut link_reindex = HashSet::new();
+        for marker in &paths {
+            if marker.starts_with(&self.root)
+                && !is_hidden(&self.root, marker)
+                && marker.file_name().is_some_and(|name| name == "index.html")
+            {
+                if let Some(parent) = marker.parent() {
+                    link_reindex.extend(super::paths::markdown_files(parent));
+                }
+            }
+        }
+        paths.extend(link_reindex.iter().cloned());
         let transaction = self.connection.transaction()?;
+        for marker in &paths {
+            if marker.starts_with(&self.root)
+                && !is_hidden(&self.root, marker)
+                && marker.file_name().is_some_and(|name| name == "index.html")
+            {
+                transaction.execute(
+                    "DELETE FROM docsify_markers WHERE path=?1",
+                    [marker.to_string_lossy().as_ref()],
+                )?;
+                if let Some(hash) = docsify_marker_hash(marker) {
+                    transaction.execute(
+                        "INSERT INTO docsify_markers(path, content_hash) VALUES(?1, ?2)",
+                        rusqlite::params![marker.to_string_lossy(), hash],
+                    )?;
+                }
+            }
+        }
         let mut changed = false;
         let mut graph_changed = false;
         let mut timeline_paths = Vec::new();
@@ -296,9 +365,15 @@ impl IndexSynchronizer {
             let writer = ensure_writer(&mut self.writer, &self.index)?;
             let before = graph_state(&transaction, &path.to_string_lossy())?;
             let path_changed = apply_path(&self.root, &self.index, writer, &transaction, &path)?;
-            changed |= path_changed;
-            if path_changed {
-                graph_changed |= before != graph_state(&transaction, &path.to_string_lossy())?;
+            if !path_changed && link_reindex.contains(&path) {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    crate::search::wiki::index_document(&transaction, &self.root, &path, &text)?;
+                }
+            }
+            let links_changed = before != graph_state(&transaction, &path.to_string_lossy())?;
+            changed |= path_changed || links_changed;
+            graph_changed |= links_changed;
+            if path_changed || links_changed {
                 timeline_paths.push(path.to_string_lossy().into_owned());
             }
         }
@@ -315,6 +390,21 @@ impl IndexSynchronizer {
         }
         Ok(changed)
     }
+}
+
+fn collect_docsify_marker(
+    entry: &walkdir::DirEntry,
+    markers: &mut std::collections::HashMap<PathBuf, Vec<u8>>,
+) {
+    if entry.file_type().is_file() && entry.file_name() == "index.html" {
+        if let Some(hash) = docsify_marker_hash(entry.path()) {
+            markers.insert(entry.path().to_path_buf(), hash);
+        }
+    }
+}
+
+fn docsify_marker_hash(path: &std::path::Path) -> Option<Vec<u8>> {
+    crate::search::wiki::target::is_docsify_marker(path).then(|| vec![1])
 }
 
 fn ensure_writer<'w>(
@@ -544,6 +634,146 @@ mod tests {
             graph_state(&connection, &renamed.to_string_lossy()).unwrap(),
             relinked
         );
+    }
+
+    #[test]
+    fn verify_detects_docsify_marker_changes_while_closed() {
+        let directory = tempfile::tempdir().unwrap();
+        let vault = crate::search::paths::canonical_path(directory.path()).join("vault");
+        let manual = vault.join("manual");
+        fs::create_dir_all(&manual).unwrap();
+        fs::write(manual.join("source.md"), "[Topic](/topic?id=part)").unwrap();
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let metadata = directory.path().join("metadata.sqlite3");
+        let mut sync = IndexSynchronizer::new(
+            vault.clone(),
+            Arc::clone(&index),
+            &metadata,
+            Arc::new(IndexProgress::new(0, 1)),
+        )
+        .unwrap();
+        sync.full_scan(&AtomicBool::new(false)).unwrap();
+        sync.release_writer().unwrap();
+        drop(sync);
+        let marker = manual.join("index.html");
+        fs::write(&marker, "window.$docsify = {}").unwrap();
+        let mut sync = IndexSynchronizer::new(
+            vault.clone(),
+            Arc::clone(&index),
+            &metadata,
+            Arc::new(IndexProgress::new(0, 1)),
+        )
+        .unwrap();
+        sync.verify(&AtomicBool::new(true)).unwrap();
+        let key: String = sync
+            .connection()
+            .query_row("SELECT target_key FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(key, "topic");
+        sync.verify(&AtomicBool::new(false)).unwrap();
+        let key: String = sync
+            .connection()
+            .query_row("SELECT target_key FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(key, "manual/topic");
+        sync.release_writer().unwrap();
+        drop(sync);
+        fs::remove_file(marker).unwrap();
+        let mut sync =
+            IndexSynchronizer::new(vault, index, &metadata, Arc::new(IndexProgress::new(0, 1)))
+                .unwrap();
+        sync.verify(&AtomicBool::new(false)).unwrap();
+        let key: String = sync
+            .connection()
+            .query_row("SELECT target_key FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(key, "topic");
+    }
+
+    #[test]
+    fn changing_docsify_index_reindexes_unchanged_notes() {
+        let directory = tempfile::tempdir().unwrap();
+        let vault = crate::search::paths::canonical_path(directory.path()).join("vault");
+        let manual = vault.join("manual");
+        fs::create_dir_all(&manual).unwrap();
+        fs::write(manual.join("source.md"), "[Topic](/topic?id=part)").unwrap();
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let mut sync = IndexSynchronizer::new(
+            vault,
+            index,
+            &directory.path().join("metadata.sqlite3"),
+            Arc::new(IndexProgress::new(0, 1)),
+        )
+        .unwrap();
+        sync.full_scan(&AtomicBool::new(false)).unwrap();
+        let marker = manual.join("index.html");
+        fs::write(&marker, "window.$docsify = {}").unwrap();
+        let event = notify::Event {
+            kind: notify::EventKind::Create(notify::event::CreateKind::File),
+            paths: vec![marker.clone()],
+            attrs: Default::default(),
+        };
+        let batch = crate::files::watcher::classify::classify(Ok(event))
+            .expect("index.html reaches the index worker");
+        sync.apply_paths(batch.paths.into_iter().collect()).unwrap();
+        let key: String = sync
+            .connection()
+            .query_row("SELECT target_key FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(key, "manual/topic");
+        fs::remove_file(&marker).unwrap();
+        sync.apply_paths(HashSet::from([marker])).unwrap();
+        let key: String = sync
+            .connection()
+            .query_row("SELECT target_key FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(key, "topic");
+    }
+
+    #[test]
+    fn migrated_index_reindexes_unchanged_docsify_sources() {
+        let directory = tempfile::tempdir().unwrap();
+        let vault = crate::search::paths::canonical_path(directory.path()).join("vault");
+        let manual = vault.join("manual");
+        fs::create_dir_all(&manual).unwrap();
+        fs::write(manual.join("source.md"), "[Topic](/topic?id=part)").unwrap();
+        let metadata = directory.path().join("documents.sqlite3");
+        let index = Arc::new(SearchIndex::open(&directory.path().join("index")).unwrap());
+        let mut sync = IndexSynchronizer::new(
+            vault.clone(),
+            Arc::clone(&index),
+            &metadata,
+            Arc::new(IndexProgress::new(0, 1)),
+        )
+        .unwrap();
+        let cancelled = AtomicBool::new(false);
+        sync.full_scan(&cancelled).unwrap();
+        sync.finish_scan(0).unwrap();
+        sync.release_writer().unwrap();
+        let before: String = sync
+            .connection()
+            .query_row("SELECT target_key FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(before, "topic");
+        sync.connection()
+            .execute_batch("PRAGMA user_version=15;")
+            .unwrap();
+        drop(sync);
+        fs::write(manual.join("index.html"), "window.$docsify = {}").unwrap();
+        let mut sync = IndexSynchronizer::new(
+            vault,
+            Arc::clone(&index),
+            &metadata,
+            Arc::new(IndexProgress::new(0, 1)),
+        )
+        .unwrap();
+        assert_eq!(sync.plan().unwrap(), ScanPlan::Full);
+        sync.full_scan(&cancelled).unwrap();
+        let after: String = sync
+            .connection()
+            .query_row("SELECT target_key FROM wiki_links", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(after, "manual/topic");
     }
 
     #[test]

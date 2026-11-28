@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { fenceStep, noteEmbedCreatesCycle, noteEmbedOffset, noteEmbedSection, parseNoteEmbed } from './noteEmbeds';
 
+it('locates an explicit Docsify heading id', () => {
+  const body = '# Page\n\n## Обзор :id=overview\nText';
+  expect(noteEmbedOffset(body, 'overview')).toBe(body.indexOf('## Обзор'));
+});
+
 describe('note embeds', () => {
   it('parses note targets and heading references', () => {
     expect(parseNoteEmbed('![[Folder/Note#Heading|label]]')).toEqual({

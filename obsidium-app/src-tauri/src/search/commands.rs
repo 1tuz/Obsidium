@@ -267,6 +267,32 @@ pub async fn query_base(
 }
 
 #[tauri::command]
+pub async fn resolve_markdown_link(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    source_path: String,
+    target: String,
+) -> Result<Option<String>, SearchError> {
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let workspace = core.access.check_root(&workspace_path)?;
+        let source = core.access.check(&source_path)?;
+        if !source.starts_with(&workspace) {
+            return Err(SearchError::invalid_workspace(
+                "Source is outside workspace",
+            ));
+        }
+        Ok(
+            obsidium_core::search::wiki::target::resolve_markdown_file(
+                &workspace, &source, &target,
+            )
+            .map(|path| path.to_string_lossy().into_owned()),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn resolve_wiki_links(
     core: State<'_, Arc<Core>>,
     workspace_path: String,

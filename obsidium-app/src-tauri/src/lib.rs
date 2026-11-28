@@ -11,8 +11,6 @@ mod window_state;
 
 use obsidium_core::{app_core, migration};
 
-// Each core module is re-exported under its old path, with the Tauri commands for it next to it, so
-// `crate::search::...` keeps working in the shell and commands still sit beside their module.
 mod documents {
     pub use obsidium_core::documents::*;
     pub mod commands;
@@ -174,6 +172,7 @@ pub fn run() {
             files::commands::list_vault_snippets,
             files::commands::existing_files,
             files::commands::resolve_attachments,
+            files::commands::resolve_docsify_asset,
             files::commands::read_file_snapshot,
             files::commands::read_file_stat,
             files::commands::write_file_atomic,
@@ -217,6 +216,7 @@ pub fn run() {
             search::commands::get_backlinks,
             search::commands::get_outgoing_links,
             search::commands::resolve_wiki_links,
+            search::commands::resolve_markdown_link,
             search::commands::suggest_notes,
             search::commands::get_note_fields,
             search::commands::get_base_rows,

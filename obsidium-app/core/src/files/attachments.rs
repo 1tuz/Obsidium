@@ -4,6 +4,7 @@ use notify::{Event, EventKind};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
+use unicode_normalization::UnicodeNormalization;
 use walkdir::WalkDir;
 
 pub const MEDIA_EXTENSIONS: &[&str] = &[
@@ -37,13 +38,17 @@ fn scan(root: &Path) -> HashMap<String, String> {
             continue;
         };
         let relative = slash_path(relative);
-        let name = entry.file_name().to_string_lossy().to_lowercase();
+        let name = normalize(&entry.file_name().to_string_lossy());
         index
-            .entry(relative.to_lowercase())
+            .entry(normalize(&relative))
             .or_insert_with(|| relative.clone());
         index.entry(name).or_insert(relative);
     }
     index
+}
+
+fn normalize(value: &str) -> String {
+    value.to_lowercase().nfc().collect()
 }
 
 fn index() -> MutexGuard<'static, Option<(PathBuf, HashMap<String, String>)>> {
@@ -94,7 +99,7 @@ pub fn resolve_attachments_impl(root: &Path, names: Vec<String>) -> Vec<Option<S
     };
     names
         .iter()
-        .map(|name| found.get(&name.trim().to_lowercase()).cloned())
+        .map(|name| found.get(&normalize(name.trim())).cloned())
         .collect()
 }
 
@@ -102,6 +107,15 @@ pub fn resolve_attachments_impl(root: &Path, names: Vec<String>) -> Vec<Option<S
 mod tests {
     use super::{forget_attachments_if_touched, resolve_attachments_impl};
     use std::fs;
+
+    #[test]
+    fn resolves_equivalent_unicode_attachment_names() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        fs::write(root.join("e\u{301}.png"), b"x").unwrap();
+        let found = resolve_attachments_impl(root, vec!["é.png".to_owned()]);
+        assert!(found[0].is_some());
+    }
 
     #[test]
     fn finds_an_attachment_by_bare_name_and_by_relative_path() {

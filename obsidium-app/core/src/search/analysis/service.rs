@@ -9,6 +9,7 @@ use crate::search::models::SearchIndexState;
 use crate::search::paths::canonical_path;
 use crate::search::service::{CachedGraph, SearchService};
 use rusqlite::Connection;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -146,6 +147,24 @@ impl SearchService {
         self.with_metadata(workspace, |open, connection| {
             let indexing = open.progress.snapshot().updating;
             report::build(connection, &open.root, days, now, indexing)
+        })
+    }
+
+    pub fn knowledge_report_scoped(
+        &self,
+        workspace: &str,
+        sources: &HashSet<String>,
+    ) -> Result<KnowledgeReport, SearchError> {
+        self.with_metadata(workspace, |open, connection| {
+            let indexing = open.progress.snapshot().updating;
+            report::build_scoped(
+                connection,
+                &open.root,
+                report::stale_after_days(None),
+                report::now_ns(),
+                indexing,
+                Some(sources),
+            )
         })
     }
 

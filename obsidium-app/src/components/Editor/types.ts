@@ -23,6 +23,7 @@ export interface EditorProps {
   resolveWikiLinks: WikiLinkResolver;
   linkRevision: number;
   onOpenWikiLink: (target: string, disposition: LinkDisposition) => void;
+  onOpenMarkdownNote?: (path: string, fragment: string, disposition: LinkDisposition) => void;
   onOpenExternalUrl: (url: string) => void;
   revealOffset?: number;
   readOnly: boolean;

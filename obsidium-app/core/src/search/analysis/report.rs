@@ -1,7 +1,10 @@
+use crate::files::attachments::{resolve_attachments_impl, MEDIA_EXTENSIONS};
 use crate::search::error::SearchError;
 use crate::search::wiki;
 use crate::search::wiki::parser;
 use crate::search::wiki::target::pick_candidate;
+use crate::search::wiki::target::{docsify_root, markdown_target_path_with_manual};
+use pulldown_cmark::{Event, Options, Parser, Tag};
 use rusqlite::Connection;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -87,7 +90,19 @@ pub fn build(
     now_ns: i64,
     indexing: bool,
 ) -> Result<KnowledgeReport, SearchError> {
+    build_scoped(connection, root, stale_after_days, now_ns, indexing, None)
+}
+
+pub fn build_scoped(
+    connection: &Connection,
+    root: &Path,
+    stale_after_days: u64,
+    now_ns: i64,
+    indexing: bool,
+    source_paths: Option<&HashSet<String>>,
+) -> Result<KnowledgeReport, SearchError> {
     let documents = wiki::read_documents(connection)?;
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let mut by_title = HashMap::<&str, Vec<&str>>::new();
     let mut by_relative = HashMap::<&str, Vec<&str>>::new();
     let mut known = HashSet::<&str>::new();
@@ -106,8 +121,11 @@ pub fn build(
     let mut connected = HashSet::<String>::new();
     let mut broken_links = Vec::new();
     let mut texts = HashMap::<String, Option<String>>::new();
+    let mut parsed_targets = HashMap::<String, HashMap<usize, String>>::new();
+    let mut line_offsets = HashMap::<String, Vec<usize>>::new();
+    let mut manual_roots = HashMap::<String, Option<std::path::PathBuf>>::new();
     let mut statement = connection.prepare(
-        "SELECT source_path, target_key, target_kind, byte_offset FROM wiki_links
+        "SELECT source_path, target_key, target_kind, byte_offset, link_type FROM wiki_links
          ORDER BY source_path, byte_offset",
     )?;
     let rows = statement.query_map([], |row| {
@@ -116,10 +134,42 @@ pub fn build(
             row.get::<_, String>(1)?,
             row.get::<_, String>(2)?,
             row.get::<_, i64>(3)?,
+            row.get::<_, String>(4)?,
         ))
     })?;
-    for row in rows {
-        let (source, key, kind, byte_offset) = row?;
+    let rows = rows
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|(source, _, _, _, _)| source_paths.is_none_or(|paths| paths.contains(source)))
+        .collect::<Vec<_>>();
+    let media_names = rows
+        .iter()
+        .filter(|(_, key, kind, _, link_type)| {
+            link_type == "wiki"
+                && is_media(key)
+                && if kind == "path" {
+                    !by_relative.contains_key(key.as_str())
+                } else {
+                    !by_title.contains_key(key.as_str())
+                }
+        })
+        .map(|(_, key, _, _, _)| key.clone())
+        .collect::<HashSet<_>>();
+    let media_names = media_names.into_iter().collect::<Vec<_>>();
+    let media_paths = if media_names.is_empty() {
+        Vec::new()
+    } else {
+        resolve_attachments_impl(root, media_names.clone())
+    };
+    let media = media_names
+        .into_iter()
+        .zip(media_paths)
+        .filter_map(|(name, path)| {
+            path.filter(|path| within_workspace(&canonical_root, &root.join(path)))
+                .map(|_| name)
+        })
+        .collect::<HashSet<_>>();
+    for (source, key, kind, byte_offset, link_type) in rows {
         let candidates = if kind == "path" {
             by_relative.get(key.as_str())
         } else {
@@ -140,19 +190,119 @@ pub fn build(
                     .entry(source.clone())
                     .or_insert_with(|| read_text(&source));
                 let offset = usize::try_from(byte_offset).unwrap_or(usize::MAX);
-                let target = text
-                    .as_deref()
-                    .and_then(|body| raw_target(body, offset))
-                    .unwrap_or(key);
+                let targets = parsed_targets.entry(source.clone()).or_insert_with(|| {
+                    text.as_deref()
+                        .map(|body| {
+                            parser::extract(body)
+                                .into_iter()
+                                .chain(parser::extract_markdown(body))
+                                .map(|link| (link.target_range.start, link.target))
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                });
+                let target = targets.get(&offset).cloned().unwrap_or(key);
+                let exists = if link_type == "wiki" {
+                    !target.contains('#')
+                        && media.contains(&crate::search::wiki::target::target_key(&target).0)
+                } else {
+                    crate::search::wiki::target::resolve_markdown_file(
+                        root,
+                        Path::new(&source),
+                        &target,
+                    )
+                    .is_some()
+                };
+                if exists {
+                    continue;
+                }
                 let line = text
                     .as_deref()
-                    .map(|body| line_at(body, offset))
+                    .map(|body| {
+                        line_at(
+                            line_offsets
+                                .entry(source.clone())
+                                .or_insert_with(|| line_starts(body)),
+                            offset,
+                        )
+                    })
                     .unwrap_or(1);
                 broken_links.push(BrokenLink {
                     source_title: title(&source),
                     source_path: source,
                     target,
                     line,
+                });
+            }
+        }
+    }
+
+    let mut image_paths = HashMap::new();
+    for document in &documents {
+        let source = &document.path;
+        if source_paths.is_some_and(|paths| !paths.contains(source)) {
+            continue;
+        }
+        let text = texts
+            .entry(source.clone())
+            .or_insert_with(|| read_text(source));
+        let Some(body) = text.as_deref() else {
+            continue;
+        };
+        let wiki_ranges = parser::extract(body)
+            .into_iter()
+            .map(|link| link.target_range)
+            .collect::<Vec<_>>();
+        for (event, range) in Parser::new_ext(body, Options::all()).into_offset_iter() {
+            let Event::Start(Tag::Image { dest_url, .. }) = event else {
+                continue;
+            };
+            let wiki = wiki_ranges.partition_point(|candidate| candidate.end <= range.start);
+            if wiki_ranges
+                .get(wiki)
+                .is_some_and(|candidate| candidate.start < range.end)
+            {
+                continue;
+            }
+            let target = dest_url.to_string();
+            if target.starts_with("/assets/")
+                && crate::files::docsify_assets::resolve_docsify_asset(
+                    root,
+                    Path::new(source),
+                    &target,
+                )
+                .is_some()
+            {
+                continue;
+            }
+            let manual = manual_roots.entry(source.clone()).or_insert_with(|| {
+                Path::new(source)
+                    .strip_prefix(root)
+                    .ok()
+                    .and_then(|relative| docsify_root(root, relative))
+            });
+            let Some(path) = markdown_target_path_with_manual(
+                root,
+                Path::new(source),
+                &target,
+                manual.as_deref(),
+            ) else {
+                continue;
+            };
+            let exists = *image_paths
+                .entry(path.clone())
+                .or_insert_with(|| within_workspace(&canonical_root, &path) && path.is_file());
+            if !exists {
+                broken_links.push(BrokenLink {
+                    source_title: title(source),
+                    source_path: source.clone(),
+                    target,
+                    line: line_at(
+                        line_offsets
+                            .entry(source.clone())
+                            .or_insert_with(|| line_starts(body)),
+                        range.start,
+                    ),
                 });
             }
         }
@@ -233,6 +383,21 @@ pub fn build(
     })
 }
 
+fn is_media(name: &str) -> bool {
+    Path::new(name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| {
+            MEDIA_EXTENSIONS
+                .iter()
+                .any(|known| known.eq_ignore_ascii_case(extension))
+        })
+}
+
+fn within_workspace(root: &Path, path: &Path) -> bool {
+    path.canonicalize().is_ok_and(|path| path.starts_with(root))
+}
+
 fn unused_tag_section(connection: &Connection) -> Result<UnusedTagSection, SearchError> {
     let mut statement = connection.prepare(
         "SELECT path, text, items FROM note_fields
@@ -294,20 +459,15 @@ fn read_text(path: &str) -> Option<String> {
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
 }
 
-fn raw_target(body: &str, offset: usize) -> Option<String> {
-    parser::extract(body)
-        .into_iter()
-        .chain(parser::extract_markdown(body))
-        .find(|link| link.target_range.start == offset)
-        .map(|link| link.target)
+fn line_starts(text: &str) -> Vec<usize> {
+    text.bytes()
+        .enumerate()
+        .filter_map(|(index, byte)| (byte == b'\n').then_some(index + 1))
+        .collect()
 }
 
-fn line_at(text: &str, byte: usize) -> usize {
-    text.as_bytes()[..byte.min(text.len())]
-        .iter()
-        .filter(|value| **value == b'\n')
-        .count()
-        + 1
+fn line_at(starts: &[usize], byte: usize) -> usize {
+    starts.partition_point(|start| *start <= byte) + 1
 }
 
 fn title(path: &str) -> String {
@@ -364,6 +524,117 @@ mod tests {
                 ],
             )
             .unwrap();
+    }
+
+    #[test]
+    fn docsify_asset_images_are_relative_to_the_source_note() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        fs::create_dir_all(root.join("manual/section/assets")).unwrap();
+        fs::write(
+            root.join("manual/index.html"),
+            "window.$docsify = { relativePath: true };",
+        )
+        .unwrap();
+        fs::write(root.join("manual/section/assets/present.png"), "image").unwrap();
+        seed(
+            &mut connection,
+            root,
+            &[(
+                "manual/section/source",
+                "![ok](/assets/present.png) ![missing](/assets/missing.png)",
+            )],
+        );
+        let report = build(&connection, root, 90, 0, false).unwrap();
+        assert_eq!(
+            report
+                .broken_links
+                .iter()
+                .map(|link| link.target.as_str())
+                .collect::<Vec<_>>(),
+            vec!["/assets/missing.png"]
+        );
+    }
+
+    #[test]
+    fn scoped_report_checks_only_selected_sources() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        seed(
+            &mut connection,
+            root,
+            &[
+                ("a", "![missing](a.png)"),
+                ("b", "[[unknown]] ![missing](b.png)"),
+            ],
+        );
+        let selected =
+            std::collections::HashSet::from([root.join("a.md").to_string_lossy().into_owned()]);
+        let report = super::build_scoped(&connection, root, 90, 0, false, Some(&selected)).unwrap();
+        assert_eq!(report.broken_links.len(), 1);
+        assert_eq!(report.broken_links[0].target, "a.png");
+    }
+
+    #[test]
+    fn reports_only_missing_local_markdown_images() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        fs::write(root.join("present.png"), "image").unwrap();
+        seed(&mut connection, root, &[("source", "![ok](present.png)\n![missing](missing.png)\n![remote](https://example.org/img.png)\n`![code](code.png)`")]);
+        let report = build(&connection, root, 90, 0, false).unwrap();
+        assert_eq!(report.broken_links.len(), 1);
+        assert_eq!(report.broken_links[0].target, "missing.png");
+        assert_eq!(report.broken_links[0].line, 2);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_symlink_to_a_note_outside_the_workspace_is_reported() {
+        let directory = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        fs::write(outside.path().join("external.md"), "external").unwrap();
+        std::os::unix::fs::symlink(outside.path().join("external.md"), root.join("escape.md"))
+            .unwrap();
+        seed(&mut connection, root, &[("source", "[escape](escape.md)")]);
+        let report = build(&connection, root, 90, 0, false).unwrap();
+        assert_eq!(report.broken_links.len(), 1);
+        assert_eq!(report.broken_links[0].target, "escape.md");
+    }
+
+    #[test]
+    fn reports_missing_targets_and_resolves_hidden_notes_and_directories_with_readme() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let mut connection = connection();
+        fs::create_dir(root.join("Attach")).unwrap();
+        fs::create_dir(root.join("Folder")).unwrap();
+        fs::create_dir(root.join(".hidden")).unwrap();
+        fs::write(root.join("Attach/image.png"), "image").unwrap();
+        fs::write(root.join(".hidden/note.md"), "hidden").unwrap();
+        fs::write(root.join("Folder/README.md"), "folder").unwrap();
+        seed(
+            &mut connection,
+            root,
+            &[(
+                "source",
+                "![[image.png]] [folder](Folder/) [hidden](.hidden/note.md) [[missing.png]]",
+            )],
+        );
+
+        let report = build(&connection, root, 90, 0, false).unwrap();
+        assert_eq!(
+            report
+                .broken_links
+                .iter()
+                .map(|link| link.target.as_str())
+                .collect::<Vec<_>>(),
+            vec!["missing.png"]
+        );
     }
 
     #[test]

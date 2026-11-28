@@ -52,9 +52,14 @@ export function noteEmbedOffset(content: string, heading: string | null): number
       continue;
     }
     const parsed = parseHeadingLine(line);
-    if (parsed && normalizeHeading(parsed.title) === expected) return lineOffsets[index]!;
+    if (parsed && (normalizeHeading(parsed.title) === expected || docsifyHeadingId(parsed.title) === expected)) return lineOffsets[index]!;
   }
   return null;
+}
+
+function docsifyHeadingId(title: string): string | null {
+  const id = title.match(/(?:^|\s):id=([^\s]+)/)?.[1];
+  return id ? normalizeHeading(id) : null;
 }
 
 export function noteEmbedSection(content: string, heading: string | null, blockId: string | null = null): string {
