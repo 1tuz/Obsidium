@@ -294,6 +294,38 @@ mod tests {
     }
 
     #[test]
+    fn imported_palettes_survive_restart_and_config_updates() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SettingsManager::new(dir.path());
+        let mut config = manager.get_config();
+        config
+            .ui
+            .custom_palettes
+            .push(crate::settings::models::CustomThemePalette {
+                id: "custom-blue-sky".to_string(),
+                name: "Blue Sky".to_string(),
+                light: crate::settings::models::ThemePaletteColors {
+                    background: "#ffffff".to_string(),
+                    text: "#101010".to_string(),
+                    accent: "#4080ff".to_string(),
+                },
+                dark: crate::settings::models::ThemePaletteColors {
+                    background: "#101010".to_string(),
+                    text: "#ffffff".to_string(),
+                    accent: "#80aaff".to_string(),
+                },
+            });
+        config.ui.palette = "custom-blue-sky".to_string();
+        manager.update_config(config).unwrap();
+
+        let restarted = SettingsManager::new(dir.path()).get_config();
+
+        assert_eq!(restarted.ui.palette, "custom-blue-sky");
+        assert_eq!(restarted.ui.custom_palettes[0].name, "Blue Sky");
+        assert_eq!(restarted.ui.custom_palettes[0].dark.accent, "#80aaff");
+    }
+
+    #[test]
     fn legacy_custom_accent_is_migrated_without_losing_its_color() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(

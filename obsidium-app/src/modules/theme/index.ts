@@ -1,3 +1,5 @@
+import { customPaletteTokens, type CustomThemePalette } from './import';
+
 export type Theme = 'light' | 'dark' | 'system';
 export type ThemeMode = 'light' | 'dark';
 export type Motion = 'system' | 'on' | 'off';
@@ -47,6 +49,7 @@ function palette(id: string, name: string): ThemePalette {
 
 export const themePalettes: ThemePalette[] = [
   palette('obsidium', 'Obsidium'),
+  palette('vice', 'Vice'),
   palette('obsidian', 'Obsidian'),
   palette('ardoise', 'Ardoise'),
   palette('dracula', 'Dracula'),
@@ -112,12 +115,25 @@ export const themePalettes: ThemePalette[] = [
   palette('dark-paper', 'Dark Paper'),
 ].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 
+export function getThemePalettes(customPalettes: CustomThemePalette[] = []): ThemePalette[] {
+  return [
+    ...themePalettes,
+    ...customPalettes.map((custom) => ({
+      id: custom.id,
+      name: custom.name,
+      light: customPaletteTokens(custom, 'light'),
+      dark: customPaletteTokens(custom, 'dark'),
+    })),
+  ].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+}
+
 let currentAppearance: Theme = 'system';
 let currentMode: ThemeMode = 'light';
 let currentPalette = 'obsidium';
 let currentMotion: Motion = 'off';
 let currentAccentMode: AccentMode = 'palette';
 let currentPrimaryColor = '#1471eb';
+let currentCustomPalettes: CustomThemePalette[] = [];
 const modeListeners = new Set<() => void>();
 
 function resolveAppearance(appearance: Theme): ThemeMode {
@@ -185,7 +201,14 @@ function applyTheme(
 ): void {
   const root = document.documentElement;
   const mode = resolveAppearance(appearance);
-  const selected = themePalettes.find(({ id }) => id === paletteId)
+  const customPalette = currentCustomPalettes.find(({ id }) => id === paletteId);
+  if (customPalette) {
+    const colors = customPalette[mode];
+    root.style.setProperty(`--q-palette-${paletteId}-${mode}-background`, colors.background);
+    root.style.setProperty(`--q-palette-${paletteId}-${mode}-text`, colors.text);
+    root.style.setProperty(`--q-palette-${paletteId}-${mode}-accent`, colors.accent);
+  }
+  const selected = getThemePalettes(currentCustomPalettes).find(({ id }) => id === paletteId)
     ?? themePalettes.find(({ id }) => id === 'obsidium')!;
   const background = paletteColor(root, selected.id, mode, 'background');
   const paletteText = paletteColor(root, selected.id, mode, 'text');
@@ -254,12 +277,14 @@ export function setTheme(
   motion: Motion = 'off',
   accentMode: AccentMode = 'palette',
   primaryColor = '#1471eb',
+  customPalettes: CustomThemePalette[] = [],
 ): void {
   currentAppearance = appearance;
   currentPalette = paletteId;
   currentMotion = motion;
   currentAccentMode = accentMode;
   currentPrimaryColor = primaryColor;
+  currentCustomPalettes = customPalettes;
   applyTheme(appearance, paletteId, motion, accentMode, primaryColor);
 }
 

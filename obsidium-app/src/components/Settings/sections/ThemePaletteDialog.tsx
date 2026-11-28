@@ -2,30 +2,38 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide';
 import { Icon } from '../../Common/Icon';
 import { Dialog } from '../../Common/Dialog';
-import { themePalettes, type ThemeMode } from '../../../modules/theme';
+import { getThemePalettes, type ThemeMode } from '../../../modules/theme';
+import type { CustomThemePalette } from '../../../modules/theme/import';
 import { t } from '../../../i18n';
 
 export function filterThemePalettes(query: string) {
   const normalized = query.trim().toLocaleLowerCase();
-  return normalized ? themePalettes.filter(({ name }) => name.toLocaleLowerCase().includes(normalized)) : themePalettes;
+  const palettes = getThemePalettes();
+  return normalized ? palettes.filter(({ name }) => name.toLocaleLowerCase().includes(normalized)) : palettes;
 }
 
 export function ThemePaletteDialog({
   open,
   activeMode,
   selectedPalette,
+  customPalettes = [],
   onSelect,
   onClose,
 }: {
   open: boolean;
   activeMode: ThemeMode;
   selectedPalette: string;
+  customPalettes?: CustomThemePalette[];
   onSelect: (palette: string) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-  const matching = useMemo(() => filterThemePalettes(query), [query]);
+  const palettes = useMemo(() => getThemePalettes(customPalettes), [customPalettes]);
+  const matching = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    return normalized ? palettes.filter(({ name }) => name.toLocaleLowerCase().includes(normalized)) : palettes;
+  }, [palettes, query]);
   useEffect(() => { if (open) setQuery(''); }, [open]);
   return (
     <Dialog

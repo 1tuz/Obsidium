@@ -1,4 +1,13 @@
 :root {
+  --q-palette-vice-dark-background: #1a1023;
+  --q-palette-vice-dark-text: #fff0f8;
+  --q-palette-vice-dark-accent: #ff4fa3;
+  --q-palette-vice-light-background: #fff6fb;
+  --q-palette-vice-light-text: #311426;
+  --q-palette-vice-light-accent: #b32370;
+}
+
+:root {
   --q-palette-obsidium-light-background: #ffffff;
   --q-palette-obsidium-dark-background: #090b11;
   --q-palette-obsidium-light-text: #181a20;
