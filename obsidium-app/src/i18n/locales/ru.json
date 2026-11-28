@@ -345,6 +345,8 @@
       "iconSetTabler": "Tabler",
       "iconSetPhosphor": "Phosphor",
       "palette": "Палитра",
+      "paletteImport": "Импортировать палитру",
+      "paletteImportError": "Этот файл не является поддерживаемой цветовой палитрой.",
       "paletteChoose": "Выбрать палитру",
       "paletteDialogTitle": "Цветовая палитра",
       "paletteClose": "Закрыть палитры",

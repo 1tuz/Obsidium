@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SegmentedControl } from '../../Common/SegmentedControl';
 import { resolveLocale, t } from '../../../i18n';
 import type { AppConfig } from '../../../modules/settings';
-import { themePalettes } from '../../../modules/theme';
+import { getThemePalettes, themePalettes } from '../../../modules/theme';
+import { parseThemePaletteImport } from '../../../modules/theme/import';
 import { FontSettingsRows } from '../FontSettingsRows';
 import { Row } from '../Row';
 import { NumberControl } from '../controls/NumberControl';
@@ -29,10 +30,20 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
   const scale = useInterfaceScale();
   const activeMode = useThemeMode();
   const [paletteDialogOpen, setPaletteDialogOpen] = useState(false);
-  const patchUi = (partial: Partial<AppConfig['ui']>) => onChange({
-    ...config,
-    ui: { ...config.ui, ...partial },
-  });
+  const [paletteImportError, setPaletteImportError] = useState('');
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const latestConfig = useRef(config);
+  const importQueue = useRef(Promise.resolve());
+  latestConfig.current = config;
+  const palettes = getThemePalettes(config.ui.customPalettes ?? []);
+  const patchUi = (partial: Partial<AppConfig['ui']>) => {
+    const nextConfig = {
+      ...latestConfig.current,
+      ui: { ...latestConfig.current.ui, ...partial },
+    };
+    latestConfig.current = nextConfig;
+    onChange(nextConfig);
+  };
 
   return (
     <>
@@ -83,9 +94,47 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
           />
         </Row>
         <Row label={t('settings.ui.palette')}>
-          <Button data-testid="open-palette-chooser" onClick={() => setPaletteDialogOpen(true)}>
-            {themePalettes.find(({ id }) => id === config.ui.palette)?.name ?? t('settings.ui.paletteChoose')}
-          </Button>
+          <div className="q-theme-palette-actions">
+            <Button data-testid="open-palette-chooser" onClick={() => setPaletteDialogOpen(true)}>
+              {palettes.find(({ id }) => id === config.ui.palette)?.name ?? t('settings.ui.paletteChoose')}
+            </Button>
+            <Button data-testid="import-palette" onClick={() => importInputRef.current?.click()}>
+              {t('settings.ui.paletteImport')}
+            </Button>
+            <input
+              ref={importInputRef}
+              data-testid="palette-import-file"
+              type="file"
+              accept=".tokens,.tokens.json,.json,application/json,application/design-tokens+json"
+              hidden
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = '';
+                if (!file) return;
+                importQueue.current = importQueue.current.then(async () => {
+                  if (file.size > 65_536) throw new Error('Palette file is too large');
+                  const imported = parseThemePaletteImport(await file.text(), file.name);
+                  const customPalettes = latestConfig.current.ui.customPalettes ?? [];
+                  const sameIdPalette = customPalettes.find(({ id }) => id === imported.id);
+                  const hasNameCollision = sameIdPalette
+                    && sameIdPalette.name.normalize('NFKC').toLowerCase() !== imported.name.normalize('NFKC').toLowerCase();
+                  if (themePalettes.some(({ id }) => id === imported.id) || hasNameCollision) {
+                    let suffix = 2;
+                    while (themePalettes.some(({ id }) => id === `${imported.id}-${suffix}`)
+                      || customPalettes.some(({ id }) => id === `${imported.id}-${suffix}`)) suffix += 1;
+                    imported.id = `${imported.id}-${suffix}`;
+                  }
+                  const existingIndex = customPalettes.findIndex(({ id }) => id === imported.id);
+                  const nextPalettes = existingIndex < 0
+                    ? [...customPalettes, imported]
+                    : customPalettes.map((palette, index) => index === existingIndex ? imported : palette);
+                  patchUi({ customPalettes: nextPalettes, palette: imported.id });
+                  setPaletteImportError('');
+                }).catch(() => setPaletteImportError(t('settings.ui.paletteImportError')));
+              }}
+            />
+          </div>
+          {paletteImportError && <p role="alert">{paletteImportError}</p>}
         </Row>
         <Row label={t('settings.ui.accentMode')}>
           <SegmentedControl
@@ -146,6 +195,7 @@ export function UiSection({ config, workspacePath, homePage, onHomePageChange, o
         open={paletteDialogOpen}
         activeMode={activeMode}
         selectedPalette={config.ui.palette}
+        customPalettes={config.ui.customPalettes ?? []}
         onSelect={(palette) => {
           patchUi({ palette });
           setPaletteDialogOpen(false);

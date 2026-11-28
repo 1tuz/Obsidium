@@ -187,6 +187,7 @@ pub struct UiSettings {
     pub appearance: String,
     pub icon_set: String,
     pub palette: String,
+    pub custom_palettes: Vec<CustomThemePalette>,
     #[serde(default = "legacy_accent_mode")]
     pub accent_mode: String,
     pub motion: String,
@@ -196,6 +197,23 @@ pub struct UiSettings {
     pub primary_color: String,
     #[serde(flatten)]
     pub font: FontSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomThemePalette {
+    pub id: String,
+    pub name: String,
+    pub light: ThemePaletteColors,
+    pub dark: ThemePaletteColors,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePaletteColors {
+    pub background: String,
+    pub text: String,
+    pub accent: String,
 }
 
 fn legacy_accent_mode() -> String {
@@ -227,6 +245,7 @@ impl Default for UiSettings {
             appearance: "system".to_string(),
             icon_set: "lucide".to_string(),
             palette: "obsidium".to_string(),
+            custom_palettes: Vec::new(),
             accent_mode: "palette".to_string(),
             motion: "off".to_string(),
             enabled_snippets: HashMap::new(),

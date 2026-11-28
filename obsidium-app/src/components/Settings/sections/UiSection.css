@@ -120,6 +120,12 @@
   gap: var(--q-space-4);
 }
 
+.q-theme-palette-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--q-space-4);
+}
+
 .q-icon-set-picker button {
   display: inline-flex;
   align-items: center;

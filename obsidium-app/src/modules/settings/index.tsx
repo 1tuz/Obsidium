@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { setTheme } from '../theme';
+import type { CustomThemePalette } from '../theme/import';
 import { setIconSet, type IconSet } from '../iconSet';
 import { normalizeReadingTheme, type ReadingThemeId } from '../theme/reading';
 import { setLanguage } from '../../i18n';
@@ -124,6 +125,7 @@ interface UiSettings extends FontSettings {
   enabledSnippets: Record<string, string[]>;
   language: string;
   primaryColor: string;
+  customPalettes: CustomThemePalette[];
 }
 
 export interface McpSettings {
@@ -331,6 +333,7 @@ function applySettingsToDom(config: AppConfig) {
     config.ui.motion,
     config.ui.accentMode,
     config.ui.primaryColor,
+    config.ui.customPalettes ?? [],
   );
   applyFont(root, config.ui, 'ui');
   applyFont(root, config.editor, 'editor');

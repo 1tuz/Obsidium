@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { motionEnabled, setTheme, themeMode, themePalettes } from './index';
+import { getThemePalettes, motionEnabled, setTheme, themeMode, themePalettes } from './index';
 
 const paletteStyles = readFileSync(resolve(process.cwd(), 'src/styles/themes/palettes.css'), 'utf8');
 const semanticPaletteStyles = readFileSync(resolve(process.cwd(), 'src/styles/themes/palette-semantic.css'), 'utf8');
@@ -49,7 +49,7 @@ describe('theme engine', () => {
 
   it('registers every requested palette with both appearances', () => {
     expect(themePalettes.map(({ id }) => id).sort()).toEqual([
-      'obsidium', 'obsidian', 'ardoise', 'dracula', 'vscode', 'cursor', 'catppuccin',
+      'obsidium', 'obsidian', 'ardoise', 'dracula', 'vscode', 'cursor', 'catppuccin', 'vice',
       'nord', 'tokyo-night', 'gruvbox', 'rose-pine', 'one-dark',
       'dark-paper', 'everforest', 'kanagawa', 'flexoki', 'ayu', 'solarized', 'material',
       'github', 'nightfox', 'graphite', 'carbon', 'metal', 'iceberg',
@@ -84,7 +84,7 @@ describe('theme engine', () => {
   });
 
   it('keeps text and accent-button labels at WCAG AA across all palette modes', () => {
-    expect(themePalettes).toHaveLength(64);
+    expect(themePalettes).toHaveLength(65);
     let checked = 0;
     for (const { id } of themePalettes) {
       for (const mode of ['light', 'dark'] as const) {
@@ -105,7 +105,7 @@ describe('theme engine', () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(128);
+    expect(checked).toBe(130);
   });
 
   it('binds component states to the active palette semantic tokens', () => {
@@ -208,5 +208,20 @@ describe('theme engine', () => {
 
     setTheme('light', 'graphite', 'system', 'custom', '#ff00aa');
     expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toBe('#ff00aa');
+  });
+
+  it('registers and applies persisted custom palette colors', () => {
+    const customPalettes = [{
+      id: 'custom-12345678',
+      name: 'Ночная тема',
+      light: { background: '#ffffff', text: '#111111', accent: '#3366cc' },
+      dark: { background: '#111111', text: '#eeeeee', accent: '#77aaff' },
+    }];
+    expect(getThemePalettes(customPalettes).find(({ id }) => id === customPalettes[0].id)?.name)
+      .toBe('Ночная тема');
+    setTheme('dark', customPalettes[0].id, 'off', 'palette', '#1471eb', customPalettes);
+    expect(document.documentElement.dataset.palette).toBe(customPalettes[0].id);
+    expect(document.documentElement.style.getPropertyValue('--q-bg-canvas')).toBe('#111111');
+    expect(document.documentElement.style.getPropertyValue('--q-blue-alpha-main')).toBe('#77aaff');
   });
 });

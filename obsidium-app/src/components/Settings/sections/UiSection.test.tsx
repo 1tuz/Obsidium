@@ -104,4 +104,70 @@ describe('UiSection', () => {
     }));
     expect(renderer!.container.querySelector('.q-theme-palette-dialog')).toBeNull();
   });
+
+  it('imports and replaces a same-name palette while selecting it for use', async () => {
+    const config = {
+      ui: {
+        appearance: 'dark', palette: 'obsidium', accentMode: 'palette', motion: 'off', iconSet: 'lucide',
+        enabledSnippets: {}, language: 'ru', primaryColor: '#1471eb', customPalettes: [],
+        fontFamily: 'Inter', fontWeight: 400, fontSizeBase: 14,
+      },
+    } as unknown as AppConfig;
+    const onChange = vi.fn();
+    act(() => {
+      renderer = mountDom(<UiSection config={config} onChange={onChange} workspacePath={null} homePage="" onHomePageChange={vi.fn()} />);
+    });
+    const contents = JSON.stringify({
+      light: {
+        background: { $type: 'color', $value: { colorSpace: 'srgb', components: [1, 1, 1] } },
+        text: { $type: 'color', $value: { colorSpace: 'srgb', components: [0, 0, 0] } },
+        accent: { $type: 'color', $value: { colorSpace: 'srgb', components: [0, 0.5, 1] } },
+      },
+      dark: {
+        background: { $type: 'color', $value: { colorSpace: 'srgb', components: [0, 0, 0] } },
+        text: { $type: 'color', $value: { colorSpace: 'srgb', components: [1, 1, 1] } },
+        accent: { $type: 'color', $value: { colorSpace: 'srgb', components: [1, 0.5, 0] } },
+      },
+    });
+    const input = renderer!.container.querySelector<HTMLInputElement>('[data-testid="palette-import-file"]')!;
+    for (let index = 0; index < 2; index += 1) {
+      const file = new File([contents], 'Ночная тема.tokens');
+      Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+      await act(async () => {
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
+    const imported = onChange.mock.lastCall?.[0] as AppConfig;
+    expect(imported.ui.palette).toMatch(/^custom-[\da-f]{8}$/u);
+    expect(imported.ui.customPalettes).toHaveLength(1);
+    expect(imported.ui.customPalettes[0].name).toBe('Ночная тема');
+    expect(imported.ui.customPalettes[0].dark.accent).toBe('#ff8000');
+    expect(renderer!.container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('shows an error and skips reading an oversized palette file', async () => {
+    const config = {
+      ui: {
+        appearance: 'dark', palette: 'obsidium', accentMode: 'palette', motion: 'off', iconSet: 'lucide',
+        enabledSnippets: {}, language: 'ru', primaryColor: '#1471eb', customPalettes: [],
+        fontFamily: 'Inter', fontWeight: 400, fontSizeBase: 14,
+      },
+    } as unknown as AppConfig;
+    const onChange = vi.fn();
+    act(() => {
+      renderer = mountDom(<UiSection config={config} onChange={onChange} workspacePath={null} homePage="" onHomePageChange={vi.fn()} />);
+    });
+    const input = renderer!.container.querySelector<HTMLInputElement>('[data-testid="palette-import-file"]')!;
+    const oversized = new File(['x'.repeat(65_537)], 'Large.json');
+    const read = vi.spyOn(oversized, 'text');
+    Object.defineProperty(input, 'files', { configurable: true, value: [oversized] });
+    await act(async () => {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(read).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(renderer!.container.querySelector('[role="alert"]')?.textContent).toBe(t('settings.ui.paletteImportError'));
+  });
 });
