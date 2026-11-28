@@ -1,6 +1,8 @@
 use super::super::error::SearchError;
 use super::parser::{extract, extract_markdown};
-use super::target::{markdown_target_key, relative_key, target_key, title_key};
+use super::target::{
+    docsify_root, markdown_target_key_with_manual, relative_key, target_key, title_key,
+};
 use rusqlite::{params, Connection, Transaction};
 use std::path::Path;
 
@@ -70,8 +72,14 @@ pub fn index_document(
             link.offset_utf16 as i64,
         ])?;
     }
+    let manual = path
+        .strip_prefix(root)
+        .ok()
+        .and_then(|source| docsify_root(root, source));
     for link in extract_markdown(body) {
-        let Some(target_key) = markdown_target_key(root, path, &link.target) else {
+        let Some(target_key) =
+            markdown_target_key_with_manual(root, path, &link.target, manual.as_deref())
+        else {
             continue;
         };
         statement.execute(params![

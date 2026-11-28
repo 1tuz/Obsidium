@@ -22,7 +22,9 @@ pub fn classify(result: notify::Result<Event>) -> Option<WatchBatch> {
     let paths = event
         .paths
         .into_iter()
-        .filter(|path| is_markdown(path))
+        .filter(|path| {
+            is_markdown(path) || path.file_name().is_some_and(|name| name == "index.html")
+        })
         .collect::<Vec<_>>();
     if paths.is_empty() {
         return None;

@@ -20,16 +20,19 @@ export function collectImageEmbedDecorations(
   for (const span of findImageEmbeds(state.doc)) {
     if (span.from < 0 || span.to > docLength || span.from >= span.to) continue;
 
+    const docsifyTarget = !span.wiki && span.src.startsWith('/assets/') ? span.src : null;
     const widget = new ImageEmbedWidget({
       url: span.wiki
         ? cachedAttachmentUrl(config.workspacePath, span.src) ?? ''
-        : resolveVaultAssetUrl(config.workspacePath, span.src, ''),
+        : docsifyTarget ? '' : resolveVaultAssetUrl(config.workspacePath, span.src, ''),
       width: span.width,
       align: span.align,
       crop: span.crop,
       kind: span.kind,
       wikiTarget: span.wiki ? span.src : null,
       workspacePath: config.workspacePath,
+      docsifyTarget,
+      notePath: config.notePath(),
     });
 
     ranges.push(Decoration.widget({ widget, block: true, side: -1 }).range(span.from));

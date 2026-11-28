@@ -4,6 +4,7 @@ import { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import type { LinkDisposition } from '../../../../modules/links';
 import { isReaderQuoteHref } from '../../../../modules/docs/bookQuotes';
+import { resolveMarkdownLink } from '../../../../modules/links/gateway';
 import { parentDirectory, relativePath } from '../../../../modules/paths';
 import { linkLabelRange } from './flow';
 import { findAncestor } from '../syntaxAncestor';
@@ -29,6 +30,16 @@ function externalUrlAt(state: EditorState, position: number): string | null {
   );
   const url = owner && urlNodeOf(owner);
   return url ? state.sliceDoc(url.from, url.to) : null;
+}
+
+export function markdownLinkFragment(url: string): string {
+  const hash = url.indexOf('#');
+  const query = url.indexOf('?');
+  if (hash >= 0) {
+    const value = url.slice(hash + 1);
+    try { return decodeURIComponent(value); } catch { return value; }
+  }
+  return query >= 0 ? new URLSearchParams(url.slice(query + 1)).get('id') ?? '' : '';
 }
 
 export function markdownNoteTarget(
@@ -102,12 +113,15 @@ export function linkInteraction(
   onOpenExternal: (url: string) => void,
   workspacePath: string | null,
   notePath: () => string,
+  onOpenNote?: (path: string, fragment: string, disposition: LinkDisposition) => void,
 ) {
+  let latestRequest = 0;
   const activateLink = (event: MouseEvent, view: EditorView): boolean => {
     if (event.button !== 0) return false;
     const target = event.target as HTMLElement;
     if (!target.closest?.('.q-md-link')) return false;
 
+    const request = ++latestRequest;
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
     if (pos == null) return false;
 
@@ -124,12 +138,28 @@ export function linkInteraction(
     if (!readerRefLinkClickAllowed(view.state, pos, url)) return false;
     event.preventDefault();
     event.stopPropagation();
-    const markdownTarget = markdownNoteTarget(url, workspacePath, notePath());
-    if (markdownTarget) {
-      onOpenWiki(markdownTarget, event.ctrlKey || event.metaKey ? 'new-tab' : 'current');
+    const disposition = event.ctrlKey || event.metaKey ? 'new-tab' : 'current';
+    if (!workspacePath || /^[a-z][a-z\d+.-]*:/i.test(url) || url.startsWith('//')) {
+      onOpenExternal(url);
       return true;
     }
-    onOpenExternal(url);
+    const source = notePath();
+    void resolveMarkdownLink(workspacePath, source, url).then((path) => {
+      if (request !== latestRequest || notePath() !== source || !view.dom.isConnected || view.dom.closest('[aria-hidden=\"true\"]')) return;
+      if (path) {
+        const fragment = markdownLinkFragment(url);
+        if (onOpenNote) {
+          onOpenNote(path, fragment, disposition);
+        } else {
+          const target = relativePath(workspacePath, path);
+          onOpenWiki(fragment ? `${target}#${encodeURIComponent(fragment)}` : target, disposition);
+        }
+        return;
+      }
+      const fallback = markdownNoteTarget(url, workspacePath, source);
+      if (fallback) onOpenWiki(fallback, disposition);
+      else onOpenExternal(url);
+    }).catch((error) => console.error('Failed to resolve Markdown link', error));
     return true;
   };
 

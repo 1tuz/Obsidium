@@ -992,6 +992,10 @@ export default function App() {
                       onViewStateChange={onViewStateChange}
                       onFileMissing={closeTab}
                       onOpenWikiLink={(target, disposition) => handleOpenWikiLink(target, disposition, paneId)}
+                      onOpenMarkdownNote={(path, fragment, disposition) => {
+                        void openNoteAtFragment(path, fragment, { disposition, paneId })
+                          .catch((error) => console.error('Failed to open Markdown link', error));
+                      }}
                       onOpenExternalUrl={handleOpenExternalUrl}
                       focusMode={focusMode}
                       onToggleFocusMode={toggleFocusMode}

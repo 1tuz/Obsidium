@@ -139,6 +139,10 @@ export function resolveAttachments(
   return invoke<(string | null)[]>('resolve_attachments', { workspacePath, names });
 }
 
+export function resolveDocsifyAsset(workspacePath: string, sourcePath: string, target: string): Promise<string | null> {
+  return invoke<string | null>('resolve_docsify_asset', { workspacePath, sourcePath, target });
+}
+
 export function trashFile(workspacePath: string, path: string): Promise<string> {
   return invoke<string>('trash_file', { workspacePath, path });
 }

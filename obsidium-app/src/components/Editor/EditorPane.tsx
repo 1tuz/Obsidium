@@ -43,6 +43,7 @@ interface EditorPaneProps {
   onViewStateChange: (state: ViewState) => void;
   onFileMissing?: (path: string) => void;
   onOpenWikiLink: (target: string, disposition: LinkDisposition) => void;
+  onOpenMarkdownNote?: (path: string, fragment: string, disposition: LinkDisposition) => void;
   onOpenExternalUrl: (url: string) => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
@@ -66,6 +67,7 @@ export function EditorPane({
   onViewStateChange,
   onFileMissing,
   onOpenWikiLink,
+  onOpenMarkdownNote,
   onOpenExternalUrl,
   focusMode,
   onToggleFocusMode,
@@ -207,6 +209,7 @@ export function EditorPane({
               resolveWikiLinks={resolveForTab}
               linkRevision={linkRevision}
               onOpenWikiLink={onOpenWikiLink}
+              onOpenMarkdownNote={onOpenMarkdownNote}
               onOpenExternalUrl={onOpenExternalUrl}
               revealOffset={revealOffset}
               readOnly={readOnly || viewingVersion}

@@ -83,6 +83,25 @@ pub async fn resolve_attachments(
 }
 
 #[tauri::command]
+pub async fn resolve_docsify_asset(
+    core: State<'_, Arc<Core>>,
+    workspace_path: String,
+    source_path: String,
+    target: String,
+) -> Result<Option<String>, FileCommandError> {
+    let core = Arc::clone(&core);
+    run_blocking(move || {
+        let root = core.access.check_root(&workspace_path)?;
+        let source = core.access.check(&source_path)?;
+        Ok(
+            obsidium_core::files::docsify_assets::resolve_docsify_asset(&root, &source, &target)
+                .map(|path| path.to_string_lossy().into_owned()),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
 pub async fn existing_files(
     core: State<'_, Arc<Core>>,
     paths: Vec<String>,

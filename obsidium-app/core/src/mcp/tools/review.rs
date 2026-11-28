@@ -7,7 +7,6 @@ use crate::search::analysis::models::AnalysisMethod;
 use crate::search::error::SearchError;
 use crate::search::fields::NoteFields;
 use crate::search::models::SearchIndexState;
-use crate::search::wiki::parser;
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -144,7 +143,7 @@ impl Notes {
 pub fn definitions() -> Vec<Value> {
     vec![tool(
         "review_knowledge",
-        "Кандидаты на перепроверку базы знаний, а не утверждения об ошибках: инструмент ничего не меняет, не ходит в сеть и не обращается к языковой модели. stale — заметки, которые не менялись дольше staleAfterDays по дате изменения из индекса; duplicates и unlinkedMentions — до 50 недавно изменённых заметок с почти одинаковым текстом или с упоминанием названия без ссылки; brokenLinks — ссылки [[...]] на несуществующие заметки; fieldInconsistency — заметки одного type, расходящиеся в поле status или version; volatile — строки с версиями, датами и командами оболочки. У каждой находки причина по-русски, severity (warning — вероятная проблема, info — повод перепроверить), evidence с настоящими номерами строк и hash заметки для expectedHash. Проверку фактов по внешним источникам инструмент не выполняет — это делаете вы.",
+        "Кандидаты на перепроверку базы знаний, а не утверждения об ошибках: инструмент ничего не меняет, не ходит в сеть и не обращается к языковой модели. stale — заметки, которые не менялись дольше staleAfterDays по дате изменения из индекса; duplicates и unlinkedMentions — до 50 недавно изменённых заметок с почти одинаковым текстом или с упоминанием названия без ссылки; brokenLinks — внутренние Markdown- и wiki-ссылки на несуществующие цели; fieldInconsistency — заметки одного type, расходящиеся в поле status или version; volatile — строки с версиями, датами и командами оболочки. У каждой находки причина по-русски, severity (warning — вероятная проблема, info — повод перепроверить), evidence с настоящими номерами строк и hash заметки для expectedHash. Проверку фактов по внешним источникам инструмент не выполняет — это делаете вы.",
         json!({
             "folder": { "type": "string", "description": "Проверять только эту папку, пусто — вся база" },
             "tags": { "type": "array", "items": { "type": "string" }, "description": "Проверять только заметки с этими тегами" },
@@ -190,14 +189,47 @@ fn review(core: &Core, arguments: &Value) -> Result<Value, String> {
     let mut findings = Vec::new();
 
     scan_notes(
-        core,
-        &workspace,
         &notes,
         &checks,
         stale_days(arguments),
         &mut reader,
         &mut findings,
     )?;
+    if checks.contains(&Check::BrokenLinks) {
+        let paths = notes
+            .iter()
+            .map(|note| note.path.to_string_lossy().into_owned())
+            .collect::<HashSet<_>>();
+        let report = core
+            .search
+            .knowledge_report_scoped(&workspace, &paths)
+            .map_err(|error| error.to_string())?;
+        let mut texts = HashMap::<PathBuf, Vec<String>>::new();
+        for link in report.broken_links {
+            let path = PathBuf::from(&link.source_path);
+            let text = texts.entry(path.clone()).or_insert_with(|| {
+                reader
+                    .read(&path)
+                    .unwrap_or_default()
+                    .lines()
+                    .map(str::to_owned)
+                    .collect()
+            });
+            findings.push(Finding {
+                kind: Check::BrokenLinks,
+                path: path.clone(),
+                reason: format!("Цель ссылки «{}» не найдена", link.target),
+                line: link.line,
+                excerpt: excerpt_of(
+                    text.get(link.line.saturating_sub(1))
+                        .map(String::as_str)
+                        .unwrap_or_default(),
+                ),
+                hash: reader.hash(&path),
+                related: Vec::new(),
+            });
+        }
+    }
     if checks.contains(&Check::Duplicates) {
         duplicates(core, &workspace, &notes, &mut reader, &mut findings)?;
     }
@@ -375,8 +407,6 @@ fn scalar(fields: &Map<String, Value>, key: &str) -> Option<String> {
 }
 
 fn scan_notes(
-    core: &Core,
-    workspace: &str,
     notes: &[ScopeNote],
     checks: &[Check],
     stale_after_days: u64,
@@ -385,8 +415,7 @@ fn scan_notes(
 ) -> Result<(), String> {
     let stale = checks.contains(&Check::Stale);
     let volatile = checks.contains(&Check::Volatile);
-    let broken = checks.contains(&Check::BrokenLinks);
-    if !(stale || volatile || broken) {
+    if !(stale || volatile) {
         return Ok(());
     }
     let threshold = i64::try_from(stale_after_days)
@@ -397,7 +426,7 @@ fn scan_notes(
     for note in notes {
         let age = now.saturating_sub(note.modified_ns);
         let days = (stale && age > threshold).then_some((age / NS_PER_DAY) as u64);
-        let text = if days.is_some() || volatile || broken {
+        let text = if days.is_some() || volatile {
             reader.read(&note.path)
         } else {
             None
@@ -436,42 +465,6 @@ fn scan_notes(
                         related: Vec::new(),
                     });
                 }
-            }
-        }
-
-        if broken {
-            let links = core
-                .search
-                .outgoing_links(workspace, &note.path.to_string_lossy())
-                .map_err(|error| error.to_string())?;
-            let extracted = parser::extract(&text);
-            let mut seen = HashSet::new();
-            for link in links.iter().filter(|link| link.path.is_none()) {
-                if !seen.insert(link.target.clone()) {
-                    continue;
-                }
-                let (line, excerpt) = extracted
-                    .iter()
-                    .find(|candidate| candidate.target == link.target)
-                    .map_or_else(
-                        || evidence(&text, Evidence::Title),
-                        |candidate| {
-                            let line = line_at(&text, candidate.target_range.start);
-                            (line, excerpt_of(line_text(&text, line)))
-                        },
-                    );
-                findings.push(Finding {
-                    kind: Check::BrokenLinks,
-                    path: note.path.clone(),
-                    reason: format!(
-                        "Ссылка [[{}]] никуда не ведёт: заметка «{}» не найдена",
-                        link.target, link.target
-                    ),
-                    line,
-                    excerpt,
-                    hash: reader.hash(&note.path),
-                    related: Vec::new(),
-                });
             }
         }
     }
@@ -904,14 +897,6 @@ fn title_line(text: &str) -> usize {
     1
 }
 
-fn line_at(text: &str, byte: usize) -> usize {
-    text.as_bytes()[..byte.min(text.len())]
-        .iter()
-        .filter(|value| **value == b'\n')
-        .count()
-        + 1
-}
-
 fn line_text(text: &str, line: usize) -> &str {
     text.lines().nth(line.saturating_sub(1)).unwrap_or("")
 }
@@ -1078,6 +1063,24 @@ mod tests {
             !reason.to_lowercase().contains("неверн"),
             "причина не утверждает, что содержимое неверно: {reason}"
         );
+    }
+
+    #[test]
+    fn broken_link_review_reports_the_same_markdown_occurrences_as_the_panel() {
+        let fixture = fixture(&[(
+            "Source.md",
+            "# Source\n[First](Missing.md)\n[Second](Missing.md)\n",
+        )]);
+        let answer = review(&fixture, json!({ "checks": ["brokenLinks"] }));
+        let panel = fixture
+            .core
+            .search
+            .knowledge_report(&fixture.root.to_string_lossy(), None)
+            .unwrap();
+        assert_eq!(findings(&answer).len(), panel.broken_links.len());
+        assert_eq!(findings(&answer).len(), 2);
+        assert_eq!(findings(&answer)[0]["evidence"]["lineStart"], 2);
+        assert_eq!(findings(&answer)[1]["evidence"]["lineStart"], 3);
     }
 
     #[test]

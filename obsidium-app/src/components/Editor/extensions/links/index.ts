@@ -13,11 +13,12 @@ export function editorLinkExtension(
   autoLinkTitle = true,
   workspacePath: string | null = null,
   notePath: () => string = () => '',
+  onOpenNote?: Parameters<typeof linkInteraction>[4],
 ) {
   return [
     markdownLinkFlow,
     Prec.high(markdownLinkMotion),
-    Prec.high(linkInteraction(onOpenWiki, onOpenExternal, workspacePath, notePath)),
+    Prec.high(linkInteraction(onOpenWiki, onOpenExternal, workspacePath, notePath, onOpenNote)),
     autoLinkTitleExtension(autoLinkTitle),
   ];
 }

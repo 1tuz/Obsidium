@@ -37,6 +37,7 @@ export function Editor({
   resolveWikiLinks,
   linkRevision,
   onOpenWikiLink,
+  onOpenMarkdownNote,
   onOpenExternalUrl,
   revealOffset,
   readOnly,
@@ -144,6 +145,7 @@ export function Editor({
   const baseExtensions = useEditorExtensions({
     resolveWikiLinks,
     onOpenWikiLink,
+    onOpenMarkdownNote,
     onOpenExternalUrl: reader.handleOpenExternalUrl,
     smartDashes,
     listCallouts,

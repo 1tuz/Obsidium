@@ -1,7 +1,9 @@
 use super::super::error::SearchError;
 use super::parser::{extract, extract_markdown};
 use super::resolver::{select_candidates, LinkResolver};
-use super::target::{relative_key, relative_target, select_candidate, target_key, title_key};
+use super::target::{
+    markdown_target_path, relative_key, relative_target, select_candidate, target_key, title_key,
+};
 use crate::files::document::{hash_bytes, normalize_line_endings};
 use crate::search::paths::same_path;
 use rusqlite::Connection;
@@ -58,7 +60,7 @@ pub fn plan_for_renames(
         links.sort_by_key(|(link, _)| link.target_range.start);
         for (link, markdown) in links {
             if markdown {
-                let Some(old_target) = markdown_target_path(root, &stored_path, &link.target)
+                let Some(old_target) = existing_markdown_target(root, &stored_path, &link.target)
                 else {
                     continue;
                 };
@@ -160,66 +162,19 @@ pub fn plan_for_renames(
     Ok(rewrites)
 }
 
-fn markdown_target_path(root: &Path, source: &Path, target: &str) -> Option<PathBuf> {
-    let end = target.find(['#', '?']).unwrap_or(target.len());
-    let path = decode_markdown_path(&target[..end])?.replace('\\', "/");
-    if path.is_empty() || path.starts_with("//") || has_scheme(&path) {
-        return None;
+fn existing_markdown_target(root: &Path, source: &Path, target: &str) -> Option<PathBuf> {
+    let path = markdown_target_path(root, source, target)?;
+    if path.is_file() {
+        return Some(path);
     }
-    let root_relative = path.starts_with('/');
-    let path = path.strip_prefix('/').unwrap_or(&path);
-    let source_relative = source.strip_prefix(root).ok()?;
-    let mut components = if root_relative {
-        Vec::new()
+    let note = if path.is_dir() {
+        path.join("README.md")
+    } else if path.extension().is_none() {
+        path.with_extension("md")
     } else {
-        source_relative
-            .parent()?
-            .components()
-            .filter_map(|component| match component {
-                std::path::Component::Normal(value) => Some(value.to_os_string()),
-                _ => None,
-            })
-            .collect()
+        return None;
     };
-    for component in Path::new(path).components() {
-        match component {
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
-                components.pop()?;
-            }
-            std::path::Component::Normal(value) => components.push(value.to_os_string()),
-            _ => return None,
-        }
-    }
-    let target = root.join(components.iter().collect::<PathBuf>());
-    target.is_file().then_some(target)
-}
-
-fn decode_markdown_path(path: &str) -> Option<String> {
-    let bytes = path.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut cursor = 0;
-    while cursor < bytes.len() {
-        if bytes[cursor] == b'%' {
-            let hex = std::str::from_utf8(bytes.get(cursor + 1..cursor + 3)?).ok()?;
-            decoded.push(u8::from_str_radix(hex, 16).ok()?);
-            cursor += 3;
-        } else {
-            decoded.push(bytes[cursor]);
-            cursor += 1;
-        }
-    }
-    String::from_utf8(decoded).ok()
-}
-
-fn has_scheme(path: &str) -> bool {
-    path.find(':').is_some_and(|colon| {
-        let mut scheme = path[..colon].chars();
-        scheme
-            .next()
-            .is_some_and(|value| value.is_ascii_alphabetic())
-            && scheme.all(|value| value.is_ascii_alphanumeric() || matches!(value, '+' | '-' | '.'))
-    })
+    note.is_file().then_some(note)
 }
 
 fn renamed_path<'a>(path: &Path, renames: &'a [(PathBuf, PathBuf)]) -> Option<&'a Path> {
@@ -301,6 +256,57 @@ mod tests {
     use crate::search::wiki::{index_document, open_schema};
     use rusqlite::Connection;
     use std::fs;
+
+    #[test]
+    fn renames_docsify_target_and_preserves_query() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let manual = root.join("manual");
+        let source = manual.join("Source.md");
+        let old = manual.join("Topic.md");
+        let new = manual.join("New.md");
+        fs::create_dir_all(&manual).unwrap();
+        fs::write(manual.join("index.html"), "window.$docsify = {}").unwrap();
+        fs::write(&source, "[topic](/Topic?id=heading)").unwrap();
+        fs::write(&old, "# heading").unwrap();
+        let connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let plan = plan_for_rename(&connection, root, &old, &new, vec![source], None).unwrap();
+        assert_eq!(plan.len(), 1);
+        assert_eq!(plan[0].content, "[topic](New.md?id=heading)");
+    }
+
+    #[test]
+    fn moving_source_between_manuals_preserves_both_targets_and_fragments() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let first = root.join("first");
+        let second = root.join("second");
+        fs::create_dir_all(&first).unwrap();
+        fs::create_dir_all(&second).unwrap();
+        fs::write(first.join("index.html"), "window.$docsify = {}").unwrap();
+        fs::write(second.join("index.html"), "window.$docsify = {}").unwrap();
+        fs::write(first.join("Topic.md"), "topic").unwrap();
+        fs::write(first.join("Other.md"), "other").unwrap();
+        let source = first.join("Source.md");
+        fs::write(&source, "[topic](/Topic?id=part) [other](Other.md#heading)").unwrap();
+        let connection = Connection::open_in_memory().unwrap();
+        open_schema(&connection).unwrap();
+        let plan = plan_for_rename(
+            &connection,
+            root,
+            &source,
+            &second.join("Source.md"),
+            vec![source.clone()],
+            None,
+        )
+        .unwrap();
+        assert_eq!(plan.len(), 1);
+        assert_eq!(
+            plan[0].content,
+            "[topic](../first/Topic.md?id=part) [other](../first/Other.md#heading)"
+        );
+    }
 
     #[test]
     fn preserves_aliases_when_a_target_is_renamed() {

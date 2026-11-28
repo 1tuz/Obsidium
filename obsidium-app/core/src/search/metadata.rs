@@ -17,7 +17,7 @@ pub struct FileState {
 pub type Fingerprint = (i64, i64);
 pub type PathKey = [u8; 16];
 
-const SCHEMA_VERSION: i64 = 15;
+const SCHEMA_VERSION: i64 = 16;
 
 const INDEX_STATE_DDL: &str = "CREATE TABLE IF NOT EXISTS index_state (
            id INTEGER PRIMARY KEY CHECK (id = 0),
@@ -47,7 +47,8 @@ const ADD_CREATED_COLUMNS: &str =
     "ALTER TABLE documents ADD COLUMN created_ns INTEGER NOT NULL DEFAULT 0;
      ALTER TABLE documents ADD COLUMN created_source INTEGER NOT NULL DEFAULT 0";
 
-const REINDEX_DOCUMENTS: &str = "UPDATE documents SET analyzer_version=0";
+const REINDEX_DOCUMENTS: &str =
+    "UPDATE documents SET analyzer_version=0; UPDATE index_state SET clean_shutdown=0";
 
 pub fn open(path: &Path) -> Result<Connection, SearchError> {
     let mut connection = Connection::open(path)?;
@@ -65,7 +66,8 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
          PRAGMA journal_size_limit=33554432;
          {DOCUMENTS_DDL};
          {INDEX_STATE_DDL};
-         {INDEX_STATE_ROW};"
+         {INDEX_STATE_ROW};
+         CREATE TABLE IF NOT EXISTS docsify_markers (path TEXT PRIMARY KEY, content_hash BLOB NOT NULL) WITHOUT ROWID;"
     ))?;
     if version < 9 {
         connection.execute_batch(&format!(
@@ -87,7 +89,7 @@ pub fn open(path: &Path) -> Result<Connection, SearchError> {
         if version < 11 {
             connection.execute_batch(ADD_CREATED_COLUMNS)?;
         }
-        if version < 15 {
+        if version < 16 {
             connection.execute_batch(REINDEX_DOCUMENTS)?;
         }
         connection.execute_batch(&format!("PRAGMA user_version={SCHEMA_VERSION};"))?;
@@ -375,6 +377,30 @@ mod tests {
             IndexState::default(),
             "неподтверждённое состояние заставляет первый старт идти полным сканом"
         );
+    }
+
+    #[test]
+    fn upgrading_fifteen_reindexes_link_targets() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("documents.sqlite3");
+        let legacy = Connection::open(&path).unwrap();
+        legacy.execute_batch(SCHEMA_V14).unwrap();
+        legacy.execute_batch(&format!("{}; INSERT INTO index_state(id, scan_completed_ns, clean_shutdown, analyzer_version) VALUES(0, 1, 1, {}); PRAGMA user_version=15;", super::INDEX_STATE_DDL, crate::search::ANALYZER_VERSION)).unwrap();
+        legacy
+            .execute(
+                "INSERT INTO documents VALUES('/vault/note.md', 42, 7, x'00', ?1, 0, 0)",
+                [crate::search::ANALYZER_VERSION],
+            )
+            .unwrap();
+        drop(legacy);
+        let connection = open(&path).unwrap();
+        let version: i64 = connection
+            .query_row("SELECT analyzer_version FROM documents", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(version, 0);
+        assert!(!read_state(&connection).unwrap().clean_shutdown);
     }
 
     #[test]

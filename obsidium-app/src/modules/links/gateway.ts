@@ -31,3 +31,7 @@ export function applySuggestedLink(
     target: targetPath,
   });
 }
+
+export function resolveMarkdownLink(workspacePath: string, sourcePath: string, target: string): Promise<string | null> {
+  return invoke<string | null>('resolve_markdown_link', { workspacePath, sourcePath, target });
+}
